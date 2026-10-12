@@ -1,0 +1,61 @@
+{
+  "name": "@qartisan/playwright-loupe",
+  "version": "0.0.0",
+  "description": "Loupe — a clear, insightful HTML reporter for Playwright: project overview, history, flakiness and error categories, using native Playwright APIs only.",
+  "keywords": [
+    "playwright",
+    "reporter",
+    "test-report",
+    "e2e-testing"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "homepage": "https://qartisan.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qartisan/playwright-loupe.git"
+  },
+  "bugs": {
+    "url": "https://github.com/qartisan/playwright-loupe/issues"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "build": "npm run clean && npm run build:core && npm run build:renderer",
+    "build:core": "tsc -p tsconfig.build.json",
+    "build:renderer": "vite build",
+    "dev:renderer": "vite",
+    "typecheck": "tsc -p tsconfig.json && tsc -p src/renderer/tsconfig.json",
+    "pretest": "npm run build",
+    "test": "vitest run",
+    "fixtures": "npm run build && node scripts/run-fixtures.mjs"
+  },
+  "peerDependencies": {
+    "@playwright/test": "^1.50.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.0",
+    "@types/node": "^22.20.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.4"
+  }
+}

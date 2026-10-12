@@ -149,3 +149,8 @@ vite.config.ts.timestamp-*
 .turbo
 
 CLAUDE.local.md
+
+# Loupe
+loupe-report
+test-results
+playwright-report

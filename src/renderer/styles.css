@@ -1,0 +1,62 @@
+:root {
+  --bg: #ffffff;
+  --fg: #1f2328;
+  --muted: #656d76;
+  --border: #d0d7de;
+  --surface: #f6f8fa;
+  --passed: #1a7f37;
+  --failed: #cf222e;
+  --flaky: #9a6700;
+  --skipped: #6e7781;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117;
+    --fg: #e6edf3;
+    --muted: #8d96a0;
+    --border: #30363d;
+    --surface: #161b22;
+    --passed: #3fb950;
+    --failed: #f85149;
+    --flaky: #d29922;
+    --skipped: #8d96a0;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 14px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+main { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+
+h1 { margin: 0 0 4px; font-size: 22px; }
+h2 { margin: 0 0 8px; font-size: 16px; }
+
+.meta { margin: 0 0 16px; color: var(--muted); }
+
+.counts { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; margin: 0 0 24px; list-style: none; }
+.count { display: flex; flex-direction: column; min-width: 96px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
+.count-value { font-size: 20px; font-weight: 600; }
+.count-label { color: var(--muted); text-transform: capitalize; }
+
+.project { margin-bottom: 24px; }
+.tests { padding: 0; margin: 0; list-style: none; border: 1px solid var(--border); border-radius: 6px; }
+.test { display: grid; grid-template-columns: 72px 1fr auto; gap: 4px 12px; align-items: baseline; padding: 6px 12px; border-top: 1px solid var(--border); }
+.test:first-child { border-top: 0; }
+.test .file { grid-column: 2; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.test .attempts { grid-column: 3; grid-row: 1; color: var(--muted); font-size: 12px; }
+
+.badge { font-size: 12px; font-weight: 600; text-transform: uppercase; }
+.status-passed { color: var(--passed); }
+.status-failed, .status-timedout, .status-interrupted { color: var(--failed); }
+.status-flaky { color: var(--flaky); }
+.status-skipped { color: var(--skipped); }
+
+.error { color: var(--failed); }

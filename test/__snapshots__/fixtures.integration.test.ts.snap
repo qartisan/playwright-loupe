@@ -1,0 +1,196 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`fixture suite with the built reporter > matches the normalized snapshot 1`] = `
+{
+  "run": {
+    "duration": "<duration>",
+    "playwrightVersion": "<playwrightVersion>",
+    "startTime": "<startTime>",
+    "status": "failed",
+    "title": "Loupe fixture suite",
+  },
+  "schemaVersion": 0,
+  "tests": [
+    {
+      "attempts": 1,
+      "file": "basics.spec.ts",
+      "project": "chromium-a",
+      "status": "passed",
+      "titlePath": [
+        "basics",
+        "shows the heading",
+      ],
+    },
+    {
+      "attempts": 1,
+      "file": "basics.spec.ts",
+      "project": "chromium-a",
+      "status": "passed",
+      "titlePath": [
+        "basics",
+        "updates the button on click",
+      ],
+    },
+    {
+      "attempts": 1,
+      "file": "basics.spec.ts",
+      "project": "chromium-a",
+      "status": "passed",
+      "titlePath": [
+        "basics",
+        "computes a value",
+      ],
+    },
+    {
+      "attempts": 1,
+      "file": "basics.spec.ts",
+      "project": "chromium-a",
+      "status": "passed",
+      "titlePath": [
+        "basics",
+        "attaches a screenshot",
+      ],
+    },
+    {
+      "attempts": 2,
+      "file": "basics.spec.ts",
+      "project": "chromium-a",
+      "status": "failed",
+      "titlePath": [
+        "basics",
+        "fails on a wrong heading (intentional)",
+      ],
+    },
+    {
+      "attempts": 2,
+      "file": "outcomes.spec.ts",
+      "project": "chromium-a",
+      "status": "flaky",
+      "titlePath": [
+        "outcomes",
+        "is flaky: fails on the first attempt, passes on retry (intentional)",
+      ],
+    },
+    {
+      "attempts": 1,
+      "file": "outcomes.spec.ts",
+      "project": "chromium-a",
+      "status": "skipped",
+      "titlePath": [
+        "outcomes",
+        "is skipped (intentional)",
+      ],
+    },
+    {
+      "attempts": 1,
+      "file": "outcomes.spec.ts",
+      "project": "chromium-a",
+      "status": "skipped",
+      "titlePath": [
+        "outcomes",
+        "is marked fixme (intentional)",
+      ],
+    },
+    {
+      "attempts": 1,
+      "file": "outcomes.spec.ts",
+      "project": "chromium-a",
+      "status": "passed",
+      "titlePath": [
+        "outcomes",
+        "is slow (about 3 s)",
+      ],
+    },
+    {
+      "attempts": 1,
+      "file": "basics.spec.ts",
+      "project": "chromium-b",
+      "status": "passed",
+      "titlePath": [
+        "basics",
+        "shows the heading",
+      ],
+    },
+    {
+      "attempts": 1,
+      "file": "basics.spec.ts",
+      "project": "chromium-b",
+      "status": "passed",
+      "titlePath": [
+        "basics",
+        "updates the button on click",
+      ],
+    },
+    {
+      "attempts": 1,
+      "file": "basics.spec.ts",
+      "project": "chromium-b",
+      "status": "passed",
+      "titlePath": [
+        "basics",
+        "computes a value",
+      ],
+    },
+    {
+      "attempts": 1,
+      "file": "basics.spec.ts",
+      "project": "chromium-b",
+      "status": "passed",
+      "titlePath": [
+        "basics",
+        "attaches a screenshot",
+      ],
+    },
+    {
+      "attempts": 2,
+      "file": "basics.spec.ts",
+      "project": "chromium-b",
+      "status": "failed",
+      "titlePath": [
+        "basics",
+        "fails on a wrong heading (intentional)",
+      ],
+    },
+    {
+      "attempts": 2,
+      "file": "outcomes.spec.ts",
+      "project": "chromium-b",
+      "status": "flaky",
+      "titlePath": [
+        "outcomes",
+        "is flaky: fails on the first attempt, passes on retry (intentional)",
+      ],
+    },
+    {
+      "attempts": 1,
+      "file": "outcomes.spec.ts",
+      "project": "chromium-b",
+      "status": "skipped",
+      "titlePath": [
+        "outcomes",
+        "is skipped (intentional)",
+      ],
+    },
+    {
+      "attempts": 1,
+      "file": "outcomes.spec.ts",
+      "project": "chromium-b",
+      "status": "skipped",
+      "titlePath": [
+        "outcomes",
+        "is marked fixme (intentional)",
+      ],
+    },
+    {
+      "attempts": 1,
+      "file": "outcomes.spec.ts",
+      "project": "chromium-b",
+      "status": "passed",
+      "titlePath": [
+        "outcomes",
+        "is slow (about 3 s)",
+      ],
+    },
+  ],
+}
+`;

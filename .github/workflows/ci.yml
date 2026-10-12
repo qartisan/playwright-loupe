@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  ci:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - run: npm ci
+
+      # Needed by the fixture integration test in `npm test`, so installed before it.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test
+
+      # Exits 0 only when the suite fails in the intended way (see scripts/run-fixtures.mjs).
+      - name: Run fixture suite
+        run: npm run fixtures
+
+      - name: Upload Loupe report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: loupe-report-node-${{ matrix.node }}
+          path: loupe-report
+          if-no-files-found: error
