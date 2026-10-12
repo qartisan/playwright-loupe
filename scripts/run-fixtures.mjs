@@ -3,7 +3,7 @@
 // Playwright exits with code 1 for test failures but also for config or
 // reporter errors, so the exit code alone cannot tell "intended failures" from
 // "broken pipeline". This script accepts exit code 1 only when the Loupe
-// reporter wrote a fresh report in which:
+// reporter wrote a fresh schema v1 report in which:
 //   - passed, failed, flaky and skipped tests are all present;
 //   - every failed or flaky test is marked "(intentional)" in its title.
 // Anything else (no report, unexpected pass, a test failing for another reason
@@ -32,13 +32,13 @@ const report = JSON.parse(readFileSync(reportFile, 'utf8'));
 const problems = [];
 
 if (status !== 1) problems.push(`Playwright exit code is ${status}, expected 1`);
+if (report.schemaVersion !== 1) problems.push(`schemaVersion is ${report.schemaVersion}, expected 1`);
 for (const expected of ['passed', 'failed', 'flaky', 'skipped']) {
-  if (!report.tests.some((test) => test.status === expected)) problems.push(`no ${expected} test`);
+  if (!report.tests.some((test) => test.outcome === expected)) problems.push(`no ${expected} test`);
 }
 for (const test of report.tests) {
-  const title = test.titlePath.at(-1) ?? '';
-  if ((test.status === 'failed' || test.status === 'flaky') && !title.includes('(intentional)')) {
-    problems.push(`unexpected ${test.status} test: [${test.project}] ${test.titlePath.join(' > ')}`);
+  if ((test.outcome === 'failed' || test.outcome === 'flaky') && !test.title.includes('(intentional)')) {
+    problems.push(`unexpected ${test.outcome} test: [${test.project}] ${[...test.suitePath, test.title].join(' > ')}`);
   }
 }
 

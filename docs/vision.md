@@ -48,7 +48,9 @@ The JSON model is designed for the full roadmap, even if phase 1 renders only pa
 | `schemaVersion` | Evolve the contract safely | Compatibility of stored history |
 | Dimensions and error category computed at run time | Rendering independent of config | Filters, matrices, statistics |
 
-The schema is documented and public. Its shape never changes without a version bump.
+The schema is documented and public. Its shape never changes without a version bump. Schema v1 is specified in [`docs/schema/v1.md`](schema/v1.md), with a [JSON Schema](schema/report-v1.schema.json).
+
+Paths in the model are relative to Playwright's root dir rather than to the config file, because that is the base `merge-reports` uses: a merged sharded run then has the same paths and test ids as a normal run.
 
 ## User interface
 
@@ -155,6 +157,5 @@ Each phase ships before the next one starts. Future features are prepared in the
 
 ## Open questions
 
-- Detailed JSON schema v1.
 - Renderer stack (UI framework or not).
 - How the VS Code extension runs tests, and whether it keeps the reporters declared in the config.

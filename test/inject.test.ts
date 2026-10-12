@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { DATA_PLACEHOLDER, injectData, serializeForScript } from '../src/core/inject.js';
+import { DATA_PLACEHOLDER, OPTIONS_PLACEHOLDER, injectData, injectOptions, serializeForScript } from '../src/core/inject.js';
 
 const LS = String.fromCharCode(0x2028);
 const PS = String.fromCharCode(0x2029);
 
 /** Returns the raw text of the #loupe-data script, the way an HTML parser would delimit it. */
-function extractScriptText(html: string): string {
-  const open = '<script id="loupe-data" type="application/json">';
+function extractScriptText(html: string, id = 'loupe-data'): string {
+  const open = `<script id="${id}" type="application/json">`;
   const start = html.indexOf(open) + open.length;
   return html.slice(start, html.indexOf('</script>', start));
 }
@@ -71,5 +71,19 @@ describe('injectData', () => {
 
   it('fails loudly when the placeholder is missing', () => {
     expect(() => injectData('<html></html>', {})).toThrow(/placeholder/);
+  });
+});
+
+describe('injectOptions', () => {
+  const template = `<html><body>${OPTIONS_PLACEHOLDER}${DATA_PLACEHOLDER}</body></html>`;
+
+  it('injects the options next to the data', () => {
+    const html = injectOptions(injectData(template, { tests: [] }), { title: 'Nightly </script>' });
+    expect(JSON.parse(extractScriptText(html, 'loupe-options'))).toEqual({ title: 'Nightly </script>' });
+    expect(JSON.parse(extractScriptText(html))).toEqual({ tests: [] });
+  });
+
+  it('fails loudly when the placeholder is missing', () => {
+    expect(() => injectOptions(DATA_PLACEHOLDER, { title: 'x' })).toThrow(/#loupe-options placeholder/);
   });
 });

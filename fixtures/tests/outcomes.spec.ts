@@ -4,6 +4,8 @@ import { expect, test } from '@playwright/test';
 
 test.describe('outcomes', () => {
   test('is flaky: fails on the first attempt, passes on retry (intentional)', { tag: '@layer:api' }, async ({}, testInfo) => {
+    // One attachment per attempt, so the report shows that each attempt keeps its own.
+    await testInfo.attach('attempt', { body: `attempt ${testInfo.retry}`, contentType: 'text/plain' });
     expect(testInfo.retry, 'fails on the first attempt on purpose').toBeGreaterThan(0);
   });
 

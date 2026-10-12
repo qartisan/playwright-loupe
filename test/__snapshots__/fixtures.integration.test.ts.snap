@@ -2,194 +2,1855 @@
 
 exports[`fixture suite with the built reporter > matches the normalized snapshot 1`] = `
 {
+  "categories": [
+    {
+      "builtIn": true,
+      "color": "#7c3aed",
+      "name": "Locator not found",
+    },
+    {
+      "builtIn": true,
+      "color": "#0891b2",
+      "name": "Network",
+    },
+    {
+      "builtIn": true,
+      "color": "#dc2626",
+      "name": "Assertion",
+    },
+    {
+      "builtIn": true,
+      "color": "#d97706",
+      "name": "Timeout",
+    },
+    {
+      "builtIn": true,
+      "color": "#6b7280",
+      "name": "Uncategorized",
+    },
+  ],
+  "dimensions": [
+    {
+      "key": "area",
+      "name": "area",
+      "source": "tag",
+    },
+    {
+      "key": "layer",
+      "name": "layer",
+      "source": "tag",
+    },
+  ],
+  "projects": [
+    {
+      "name": "chromium-a",
+      "retries": 1,
+      "stats": {
+        "failed": 7,
+        "flaky": 1,
+        "passed": 7,
+        "skipped": 2,
+        "total": 17,
+      },
+      "testDir": ".",
+      "timeoutMs": 30000,
+    },
+    {
+      "name": "chromium-b",
+      "retries": 1,
+      "stats": {
+        "failed": 7,
+        "flaky": 1,
+        "passed": 7,
+        "skipped": 2,
+        "total": 17,
+      },
+      "testDir": ".",
+      "timeoutMs": 30000,
+    },
+  ],
   "run": {
-    "duration": "<duration>",
-    "playwrightVersion": "<playwrightVersion>",
-    "startTime": "<startTime>",
+    "excluded": null,
+    "notes": [],
+    "scope": "full",
+    "scopeReasons": [],
+    "shard": null,
+    "stats": {
+      "failed": 14,
+      "flaky": 2,
+      "passed": 14,
+      "skipped": 4,
+      "total": 34,
+    },
     "status": "failed",
-    "title": "Loupe fixture suite",
   },
-  "schemaVersion": 0,
+  "schemaVersion": 1,
   "tests": [
     {
-      "attempts": 1,
-      "file": "basics.spec.ts",
-      "project": "chromium-a",
-      "status": "passed",
-      "titlePath": [
-        "basics",
-        "shows the heading",
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": false,
+          "index": 0,
+          "status": "passed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
       ],
+      "category": null,
+      "dimensions": {
+        "layer": [
+          "ui",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "279ae9d070ae7b81",
+      "location": "basics.spec.ts:17:3",
+      "outcome": "passed",
+      "project": "chromium-a",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "basics",
+      ],
+      "tags": [
+        "@layer:ui",
+      ],
+      "title": "shows the heading",
     },
     {
-      "attempts": 1,
-      "file": "basics.spec.ts",
-      "project": "chromium-a",
-      "status": "passed",
-      "titlePath": [
-        "basics",
-        "updates the button on click",
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": false,
+          "index": 0,
+          "status": "passed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
       ],
+      "category": null,
+      "dimensions": {
+        "layer": [
+          "ui",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "6f5e33da26ee46ef",
+      "location": "basics.spec.ts:21:3",
+      "outcome": "passed",
+      "project": "chromium-a",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "basics",
+      ],
+      "tags": [
+        "@layer:ui",
+      ],
+      "title": "updates the button on click",
     },
     {
-      "attempts": 1,
-      "file": "basics.spec.ts",
-      "project": "chromium-a",
-      "status": "passed",
-      "titlePath": [
-        "basics",
-        "computes a value",
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": false,
+          "index": 0,
+          "status": "passed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
       ],
+      "category": null,
+      "dimensions": {
+        "layer": [
+          "api",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "c2805e2fbe6cbc7f",
+      "location": "basics.spec.ts:26:3",
+      "outcome": "passed",
+      "project": "chromium-a",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "basics",
+      ],
+      "tags": [
+        "@layer:api",
+      ],
+      "title": "computes a value",
     },
     {
-      "attempts": 1,
-      "file": "basics.spec.ts",
-      "project": "chromium-a",
-      "status": "passed",
-      "titlePath": [
-        "basics",
-        "attaches a screenshot",
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [
+            {
+              "comparison": null,
+              "kind": "screenshot",
+              "name": "screenshot",
+              "stored": "file",
+            },
+          ],
+          "errors": false,
+          "index": 0,
+          "status": "passed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
       ],
+      "category": null,
+      "dimensions": {
+        "layer": [
+          "ui",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "2622e3552e16fe29",
+      "location": "basics.spec.ts:30:3",
+      "outcome": "passed",
+      "project": "chromium-a",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "basics",
+      ],
+      "tags": [
+        "@layer:ui",
+      ],
+      "title": "attaches a screenshot",
     },
     {
-      "attempts": 2,
-      "file": "basics.spec.ts",
-      "project": "chromium-a",
-      "status": "failed",
-      "titlePath": [
-        "basics",
-        "fails on a wrong heading (intentional)",
+      "annotations": [
+        {
+          "description": "BUG-1",
+          "type": "bug",
+        },
       ],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 0,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 1,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": "Assertion",
+      "dimensions": {
+        "layer": [
+          "ui",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "f67dffbfbe9d1c0b",
+      "location": "basics.spec.ts:34:3",
+      "outcome": "failed",
+      "project": "chromium-a",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "basics",
+      ],
+      "tags": [
+        "@layer:ui",
+      ],
+      "title": "fails on a wrong heading (intentional)",
     },
     {
-      "attempts": 2,
-      "file": "outcomes.spec.ts",
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 0,
+          "status": "timedOut",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 1,
+          "status": "timedOut",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": "Timeout",
+      "dimensions": {
+        "layer": [
+          "ui",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "b518dc20a8368177",
+      "location": "failures.spec.ts:18:5",
+      "outcome": "failed",
       "project": "chromium-a",
-      "status": "flaky",
-      "titlePath": [
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "failures",
+        "one per category",
+      ],
+      "tags": [
+        "@layer:ui",
+      ],
+      "title": "times out (intentional)",
+    },
+    {
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 0,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 1,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": "Locator not found",
+      "dimensions": {
+        "layer": [
+          "ui",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "08bbf91f87407683",
+      "location": "failures.spec.ts:24:5",
+      "outcome": "failed",
+      "project": "chromium-a",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "failures",
+        "one per category",
+      ],
+      "tags": [
+        "@layer:ui",
+      ],
+      "title": "does not find a locator (intentional)",
+    },
+    {
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 0,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 1,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": "Network",
+      "dimensions": {
+        "layer": [
+          "ui",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "a0f826a484aef99f",
+      "location": "failures.spec.ts:29:5",
+      "outcome": "failed",
+      "project": "chromium-a",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "failures",
+        "one per category",
+      ],
+      "tags": [
+        "@layer:ui",
+      ],
+      "title": "hits a network error (intentional)",
+    },
+    {
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 0,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 1,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": "Uncategorized",
+      "dimensions": {
+        "layer": [
+          "api",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "61c1b7026ec3c754",
+      "location": "failures.spec.ts:40:5",
+      "outcome": "failed",
+      "project": "chromium-a",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "failures",
+        "same error, different values",
+      ],
+      "tags": [
+        "@layer:api",
+      ],
+      "title": "syncs the first order (intentional)",
+    },
+    {
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 0,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 1,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": "Uncategorized",
+      "dimensions": {
+        "layer": [
+          "api",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "685e87cbbefb5d95",
+      "location": "failures.spec.ts:44:5",
+      "outcome": "failed",
+      "project": "chromium-a",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "failures",
+        "same error, different values",
+      ],
+      "tags": [
+        "@layer:api",
+      ],
+      "title": "syncs the second order (intentional)",
+    },
+    {
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [
+            {
+              "comparison": {
+                "group": "square.png",
+                "role": "expected",
+              },
+              "kind": "screenshot",
+              "name": "square-expected.png",
+              "stored": "file",
+            },
+            {
+              "comparison": {
+                "group": "square.png",
+                "role": "actual",
+              },
+              "kind": "screenshot",
+              "name": "square-actual.png",
+              "stored": "file",
+            },
+            {
+              "comparison": {
+                "group": "square.png",
+                "role": "diff",
+              },
+              "kind": "screenshot",
+              "name": "square-diff.png",
+              "stored": "file",
+            },
+          ],
+          "errors": true,
+          "index": 0,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+        {
+          "attachments": [
+            {
+              "comparison": {
+                "group": "square.png",
+                "role": "expected",
+              },
+              "kind": "screenshot",
+              "name": "square-expected.png",
+              "stored": "file",
+            },
+            {
+              "comparison": {
+                "group": "square.png",
+                "role": "actual",
+              },
+              "kind": "screenshot",
+              "name": "square-actual.png",
+              "stored": "file",
+            },
+            {
+              "comparison": {
+                "group": "square.png",
+                "role": "diff",
+              },
+              "kind": "screenshot",
+              "name": "square-diff.png",
+              "stored": "file",
+            },
+          ],
+          "errors": true,
+          "index": 1,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": "Assertion",
+      "dimensions": {
+        "layer": [
+          "ui",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "f49e1c79155fa7f4",
+      "location": "failures.spec.ts:49:3",
+      "outcome": "failed",
+      "project": "chromium-a",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "failures",
+      ],
+      "tags": [
+        "@layer:ui",
+      ],
+      "title": "differs from the screenshot baseline (intentional)",
+    },
+    {
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [
+            {
+              "comparison": null,
+              "kind": "text",
+              "name": "attempt",
+              "stored": "inline: attempt 0",
+            },
+          ],
+          "errors": true,
+          "index": 0,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+        {
+          "attachments": [
+            {
+              "comparison": null,
+              "kind": "text",
+              "name": "attempt",
+              "stored": "inline: attempt 1",
+            },
+          ],
+          "errors": false,
+          "index": 1,
+          "status": "passed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": "Assertion",
+      "dimensions": {
+        "layer": [
+          "api",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "c2cd6f823ac2cec4",
+      "location": "outcomes.spec.ts:6:3",
+      "outcome": "flaky",
+      "project": "chromium-a",
+      "repeatEachIndex": 0,
+      "suitePath": [
         "outcomes",
-        "is flaky: fails on the first attempt, passes on retry (intentional)",
       ],
+      "tags": [
+        "@layer:api",
+      ],
+      "title": "is flaky: fails on the first attempt, passes on retry (intentional)",
     },
     {
-      "attempts": 1,
-      "file": "outcomes.spec.ts",
+      "annotations": [
+        {
+          "description": null,
+          "type": "skip",
+        },
+      ],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": false,
+          "index": 0,
+          "status": "skipped",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": null,
+      "dimensions": {},
+      "expectedStatus": "skipped",
+      "id": "1153a57a5b90348b",
+      "location": "outcomes.spec.ts:12:8",
+      "outcome": "skipped",
       "project": "chromium-a",
-      "status": "skipped",
-      "titlePath": [
+      "repeatEachIndex": 0,
+      "suitePath": [
         "outcomes",
-        "is skipped (intentional)",
       ],
+      "tags": [],
+      "title": "is skipped (intentional)",
     },
     {
-      "attempts": 1,
-      "file": "outcomes.spec.ts",
+      "annotations": [
+        {
+          "description": null,
+          "type": "fixme",
+        },
+      ],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": false,
+          "index": 0,
+          "status": "skipped",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": null,
+      "dimensions": {},
+      "expectedStatus": "skipped",
+      "id": "2adbb707719a7b54",
+      "location": "outcomes.spec.ts:14:8",
+      "outcome": "skipped",
       "project": "chromium-a",
-      "status": "skipped",
-      "titlePath": [
+      "repeatEachIndex": 0,
+      "suitePath": [
         "outcomes",
-        "is marked fixme (intentional)",
       ],
+      "tags": [],
+      "title": "is marked fixme (intentional)",
     },
     {
-      "attempts": 1,
-      "file": "outcomes.spec.ts",
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": false,
+          "index": 0,
+          "status": "passed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": null,
+      "dimensions": {
+        "layer": [
+          "ui",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "258739b2c7c08a2c",
+      "location": "outcomes.spec.ts:16:3",
+      "outcome": "passed",
       "project": "chromium-a",
-      "status": "passed",
-      "titlePath": [
+      "repeatEachIndex": 0,
+      "suitePath": [
         "outcomes",
-        "is slow (about 3 s)",
       ],
+      "tags": [
+        "@layer:ui",
+      ],
+      "title": "is slow (about 3 s)",
     },
     {
-      "attempts": 1,
-      "file": "basics.spec.ts",
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": false,
+          "index": 0,
+          "status": "passed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [
+            {
+              "open the page": [
+                "check the button",
+              ],
+            },
+          ],
+        },
+      ],
+      "category": null,
+      "dimensions": {
+        "area": [
+          "checkout",
+        ],
+        "layer": [
+          "ui",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "9f347c21b3d2bd5f",
+      "location": "structure.spec.ts:8:7",
+      "outcome": "passed",
+      "project": "chromium-a",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "structure",
+        "nested level",
+        "deepest level",
+      ],
+      "tags": [
+        "@area:checkout",
+        "@layer:ui",
+        "@smoke",
+      ],
+      "title": "runs nested steps",
+    },
+    {
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": false,
+          "index": 0,
+          "status": "passed",
+          "stderr": {
+            "text": "A warning from the fixture suite
+",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "Hello from the fixture suite
+",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": null,
+      "dimensions": {
+        "layer": [
+          "api",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "ceaacab5661164dc",
+      "location": "structure.spec.ts:19:3",
+      "outcome": "passed",
+      "project": "chromium-a",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "structure",
+      ],
+      "tags": [
+        "@layer:api",
+      ],
+      "title": "writes to stdout and stderr",
+    },
+    {
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": false,
+          "index": 0,
+          "status": "passed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": null,
+      "dimensions": {
+        "layer": [
+          "ui",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "5b0fe57d8147b5e6",
+      "location": "basics.spec.ts:17:3",
+      "outcome": "passed",
       "project": "chromium-b",
-      "status": "passed",
-      "titlePath": [
+      "repeatEachIndex": 0,
+      "suitePath": [
         "basics",
-        "shows the heading",
       ],
+      "tags": [
+        "@layer:ui",
+      ],
+      "title": "shows the heading",
     },
     {
-      "attempts": 1,
-      "file": "basics.spec.ts",
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": false,
+          "index": 0,
+          "status": "passed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": null,
+      "dimensions": {
+        "layer": [
+          "ui",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "7b6715b74c47d0f5",
+      "location": "basics.spec.ts:21:3",
+      "outcome": "passed",
       "project": "chromium-b",
-      "status": "passed",
-      "titlePath": [
+      "repeatEachIndex": 0,
+      "suitePath": [
         "basics",
-        "updates the button on click",
       ],
+      "tags": [
+        "@layer:ui",
+      ],
+      "title": "updates the button on click",
     },
     {
-      "attempts": 1,
-      "file": "basics.spec.ts",
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": false,
+          "index": 0,
+          "status": "passed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": null,
+      "dimensions": {
+        "layer": [
+          "api",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "600fccbd5f0e202c",
+      "location": "basics.spec.ts:26:3",
+      "outcome": "passed",
       "project": "chromium-b",
-      "status": "passed",
-      "titlePath": [
+      "repeatEachIndex": 0,
+      "suitePath": [
         "basics",
-        "computes a value",
       ],
+      "tags": [
+        "@layer:api",
+      ],
+      "title": "computes a value",
     },
     {
-      "attempts": 1,
-      "file": "basics.spec.ts",
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [
+            {
+              "comparison": null,
+              "kind": "screenshot",
+              "name": "screenshot",
+              "stored": "file",
+            },
+          ],
+          "errors": false,
+          "index": 0,
+          "status": "passed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": null,
+      "dimensions": {
+        "layer": [
+          "ui",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "da27d7c0dc30849a",
+      "location": "basics.spec.ts:30:3",
+      "outcome": "passed",
       "project": "chromium-b",
-      "status": "passed",
-      "titlePath": [
+      "repeatEachIndex": 0,
+      "suitePath": [
         "basics",
-        "attaches a screenshot",
       ],
+      "tags": [
+        "@layer:ui",
+      ],
+      "title": "attaches a screenshot",
     },
     {
-      "attempts": 2,
-      "file": "basics.spec.ts",
+      "annotations": [
+        {
+          "description": "BUG-1",
+          "type": "bug",
+        },
+      ],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 0,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 1,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": "Assertion",
+      "dimensions": {
+        "layer": [
+          "ui",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "07bc9b094b03f828",
+      "location": "basics.spec.ts:34:3",
+      "outcome": "failed",
       "project": "chromium-b",
-      "status": "failed",
-      "titlePath": [
+      "repeatEachIndex": 0,
+      "suitePath": [
         "basics",
-        "fails on a wrong heading (intentional)",
       ],
+      "tags": [
+        "@layer:ui",
+      ],
+      "title": "fails on a wrong heading (intentional)",
     },
     {
-      "attempts": 2,
-      "file": "outcomes.spec.ts",
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 0,
+          "status": "timedOut",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 1,
+          "status": "timedOut",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": "Timeout",
+      "dimensions": {
+        "layer": [
+          "ui",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "a391c082913c12fd",
+      "location": "failures.spec.ts:18:5",
+      "outcome": "failed",
       "project": "chromium-b",
-      "status": "flaky",
-      "titlePath": [
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "failures",
+        "one per category",
+      ],
+      "tags": [
+        "@layer:ui",
+      ],
+      "title": "times out (intentional)",
+    },
+    {
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 0,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 1,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": "Locator not found",
+      "dimensions": {
+        "layer": [
+          "ui",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "a0e0f30fe0e5d5a7",
+      "location": "failures.spec.ts:24:5",
+      "outcome": "failed",
+      "project": "chromium-b",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "failures",
+        "one per category",
+      ],
+      "tags": [
+        "@layer:ui",
+      ],
+      "title": "does not find a locator (intentional)",
+    },
+    {
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 0,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 1,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": "Network",
+      "dimensions": {
+        "layer": [
+          "ui",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "b25404e04f6cb86c",
+      "location": "failures.spec.ts:29:5",
+      "outcome": "failed",
+      "project": "chromium-b",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "failures",
+        "one per category",
+      ],
+      "tags": [
+        "@layer:ui",
+      ],
+      "title": "hits a network error (intentional)",
+    },
+    {
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 0,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 1,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": "Uncategorized",
+      "dimensions": {
+        "layer": [
+          "api",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "8369dd7c9299dc1d",
+      "location": "failures.spec.ts:40:5",
+      "outcome": "failed",
+      "project": "chromium-b",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "failures",
+        "same error, different values",
+      ],
+      "tags": [
+        "@layer:api",
+      ],
+      "title": "syncs the first order (intentional)",
+    },
+    {
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 0,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 1,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": "Uncategorized",
+      "dimensions": {
+        "layer": [
+          "api",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "eb8444fbf19fd9bb",
+      "location": "failures.spec.ts:44:5",
+      "outcome": "failed",
+      "project": "chromium-b",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "failures",
+        "same error, different values",
+      ],
+      "tags": [
+        "@layer:api",
+      ],
+      "title": "syncs the second order (intentional)",
+    },
+    {
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [
+            {
+              "comparison": {
+                "group": "square.png",
+                "role": "expected",
+              },
+              "kind": "screenshot",
+              "name": "square-expected.png",
+              "stored": "file",
+            },
+            {
+              "comparison": {
+                "group": "square.png",
+                "role": "actual",
+              },
+              "kind": "screenshot",
+              "name": "square-actual.png",
+              "stored": "file",
+            },
+            {
+              "comparison": {
+                "group": "square.png",
+                "role": "diff",
+              },
+              "kind": "screenshot",
+              "name": "square-diff.png",
+              "stored": "file",
+            },
+          ],
+          "errors": true,
+          "index": 0,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+        {
+          "attachments": [
+            {
+              "comparison": {
+                "group": "square.png",
+                "role": "expected",
+              },
+              "kind": "screenshot",
+              "name": "square-expected.png",
+              "stored": "file",
+            },
+            {
+              "comparison": {
+                "group": "square.png",
+                "role": "actual",
+              },
+              "kind": "screenshot",
+              "name": "square-actual.png",
+              "stored": "file",
+            },
+            {
+              "comparison": {
+                "group": "square.png",
+                "role": "diff",
+              },
+              "kind": "screenshot",
+              "name": "square-diff.png",
+              "stored": "file",
+            },
+          ],
+          "errors": true,
+          "index": 1,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": "Assertion",
+      "dimensions": {
+        "layer": [
+          "ui",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "d4853c41857a8970",
+      "location": "failures.spec.ts:49:3",
+      "outcome": "failed",
+      "project": "chromium-b",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "failures",
+      ],
+      "tags": [
+        "@layer:ui",
+      ],
+      "title": "differs from the screenshot baseline (intentional)",
+    },
+    {
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [
+            {
+              "comparison": null,
+              "kind": "text",
+              "name": "attempt",
+              "stored": "inline: attempt 0",
+            },
+          ],
+          "errors": true,
+          "index": 0,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+        {
+          "attachments": [
+            {
+              "comparison": null,
+              "kind": "text",
+              "name": "attempt",
+              "stored": "inline: attempt 1",
+            },
+          ],
+          "errors": false,
+          "index": 1,
+          "status": "passed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": "Assertion",
+      "dimensions": {
+        "layer": [
+          "api",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "c93679c75242c7a5",
+      "location": "outcomes.spec.ts:6:3",
+      "outcome": "flaky",
+      "project": "chromium-b",
+      "repeatEachIndex": 0,
+      "suitePath": [
         "outcomes",
-        "is flaky: fails on the first attempt, passes on retry (intentional)",
       ],
+      "tags": [
+        "@layer:api",
+      ],
+      "title": "is flaky: fails on the first attempt, passes on retry (intentional)",
     },
     {
-      "attempts": 1,
-      "file": "outcomes.spec.ts",
-      "project": "chromium-b",
-      "status": "skipped",
-      "titlePath": [
-        "outcomes",
-        "is skipped (intentional)",
+      "annotations": [
+        {
+          "description": null,
+          "type": "skip",
+        },
       ],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": false,
+          "index": 0,
+          "status": "skipped",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": null,
+      "dimensions": {},
+      "expectedStatus": "skipped",
+      "id": "b3eb8c05923e4abc",
+      "location": "outcomes.spec.ts:12:8",
+      "outcome": "skipped",
+      "project": "chromium-b",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "outcomes",
+      ],
+      "tags": [],
+      "title": "is skipped (intentional)",
     },
     {
-      "attempts": 1,
-      "file": "outcomes.spec.ts",
-      "project": "chromium-b",
-      "status": "skipped",
-      "titlePath": [
-        "outcomes",
-        "is marked fixme (intentional)",
+      "annotations": [
+        {
+          "description": null,
+          "type": "fixme",
+        },
       ],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": false,
+          "index": 0,
+          "status": "skipped",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": null,
+      "dimensions": {},
+      "expectedStatus": "skipped",
+      "id": "edb1d1fb4b2e031f",
+      "location": "outcomes.spec.ts:14:8",
+      "outcome": "skipped",
+      "project": "chromium-b",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "outcomes",
+      ],
+      "tags": [],
+      "title": "is marked fixme (intentional)",
     },
     {
-      "attempts": 1,
-      "file": "outcomes.spec.ts",
-      "project": "chromium-b",
-      "status": "passed",
-      "titlePath": [
-        "outcomes",
-        "is slow (about 3 s)",
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": false,
+          "index": 0,
+          "status": "passed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
       ],
+      "category": null,
+      "dimensions": {
+        "layer": [
+          "ui",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "52d5143a0fcca816",
+      "location": "outcomes.spec.ts:16:3",
+      "outcome": "passed",
+      "project": "chromium-b",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "outcomes",
+      ],
+      "tags": [
+        "@layer:ui",
+      ],
+      "title": "is slow (about 3 s)",
+    },
+    {
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": false,
+          "index": 0,
+          "status": "passed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [
+            {
+              "open the page": [
+                "check the button",
+              ],
+            },
+          ],
+        },
+      ],
+      "category": null,
+      "dimensions": {
+        "area": [
+          "checkout",
+        ],
+        "layer": [
+          "ui",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "38f331442e486eaf",
+      "location": "structure.spec.ts:8:7",
+      "outcome": "passed",
+      "project": "chromium-b",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "structure",
+        "nested level",
+        "deepest level",
+      ],
+      "tags": [
+        "@area:checkout",
+        "@layer:ui",
+        "@smoke",
+      ],
+      "title": "runs nested steps",
+    },
+    {
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": false,
+          "index": 0,
+          "status": "passed",
+          "stderr": {
+            "text": "A warning from the fixture suite
+",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "Hello from the fixture suite
+",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": null,
+      "dimensions": {
+        "layer": [
+          "api",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "4b7cc9f4781d5425",
+      "location": "structure.spec.ts:19:3",
+      "outcome": "passed",
+      "project": "chromium-b",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "structure",
+      ],
+      "tags": [
+        "@layer:api",
+      ],
+      "title": "writes to stdout and stderr",
     },
   ],
 }

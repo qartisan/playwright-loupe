@@ -12,6 +12,9 @@ const loupeOptions: LoupeConfig = {
 export default defineConfig({
   testDir: './tests',
   outputDir: './test-results',
+  // One baseline for every project and platform: the screenshot comparison
+  // failure is intentional and uses colors far apart enough to fail anywhere.
+  snapshotPathTemplate: '{testDir}/__screenshots__/{testFilePath}/{arg}{ext}',
   fullyParallel: true,
   retries: 1,
   reporter: [['list'], ['../dist/index.js', loupeOptions]],

@@ -152,5 +152,7 @@ CLAUDE.local.md
 
 # Loupe
 loupe-report
+loupe-report-merged
+blob-report
 test-results
 playwright-report

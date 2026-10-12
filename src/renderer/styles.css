@@ -47,11 +47,14 @@ h2 { margin: 0 0 8px; font-size: 16px; }
 .count-label { color: var(--muted); text-transform: capitalize; }
 
 .project { margin-bottom: 24px; }
-.tests { padding: 0; margin: 0; list-style: none; border: 1px solid var(--border); border-radius: 6px; }
-.test { display: grid; grid-template-columns: 72px 1fr auto; gap: 4px 12px; align-items: baseline; padding: 6px 12px; border-top: 1px solid var(--border); }
-.test:first-child { border-top: 0; }
-.test .file { grid-column: 2; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
-.test .attempts { grid-column: 3; grid-row: 1; color: var(--muted); font-size: 12px; }
+.suites { padding: 0; margin: 0; list-style: none; border: 1px solid var(--border); border-radius: 6px; }
+.suites > .suite { padding: 6px 12px; border-top: 1px solid var(--border); }
+.suites > .suite:first-child { border-top: 0; }
+.tests { padding: 0 0 0 16px; margin: 0; list-style: none; }
+.suite .file { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.suite .suite-title { font-weight: 600; }
+.test { display: grid; grid-template-columns: 72px 1fr auto; gap: 4px 12px; align-items: baseline; padding: 2px 0; }
+.test .attempts { color: var(--muted); font-size: 12px; }
 
 .badge { font-size: 12px; font-weight: 600; text-transform: uppercase; }
 .status-passed { color: var(--passed); }

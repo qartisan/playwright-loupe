@@ -1,0 +1,349 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/qartisan/playwright-loupe/main/docs/schema/report-v1.schema.json",
+  "title": "Loupe report, schema v1",
+  "description": "JSON report produced by the Loupe reporter for Playwright. Source of truth: src/schema/v1.ts. Documentation: docs/schema/v1.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "generator", "run", "projects", "tests", "categories", "dimensions"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "playwright-loupe" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "run": { "$ref": "#/$defs/Run" },
+    "projects": { "type": "array", "items": { "$ref": "#/$defs/Project" } },
+    "tests": { "type": "array", "items": { "$ref": "#/$defs/TestCase" } },
+    "categories": { "type": "array", "items": { "$ref": "#/$defs/CategoryDefinition" } },
+    "dimensions": { "type": "array", "items": { "$ref": "#/$defs/DimensionDefinition" } }
+  },
+  "$defs": {
+    "DateTime": {
+      "description": "ISO 8601 date and time.",
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+    },
+    "Milliseconds": { "type": "integer", "minimum": 0 },
+    "NullableString": { "type": ["string", "null"] },
+    "TestId": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+    "Run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "startedAt",
+        "durationMs",
+        "status",
+        "scope",
+        "scopeReasons",
+        "playwrightVersion",
+        "workers",
+        "shard",
+        "environment",
+        "git",
+        "excluded",
+        "notes",
+        "stats"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "startedAt": { "$ref": "#/$defs/DateTime" },
+        "durationMs": { "$ref": "#/$defs/Milliseconds" },
+        "status": { "enum": ["passed", "failed", "timedout", "interrupted"] },
+        "scope": { "enum": ["full", "partial"] },
+        "scopeReasons": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+        "playwrightVersion": { "type": "string", "minLength": 1 },
+        "workers": { "type": "integer", "minimum": 0 },
+        "shard": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["current", "total"],
+              "properties": {
+                "current": { "type": "integer", "minimum": 1 },
+                "total": { "type": "integer", "minimum": 1 }
+              }
+            }
+          ]
+        },
+        "environment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "ci", "ciProvider", "os", "nodeVersion"],
+          "properties": {
+            "name": { "$ref": "#/$defs/NullableString" },
+            "ci": { "type": "boolean" },
+            "ciProvider": { "$ref": "#/$defs/NullableString" },
+            "os": { "type": "string" },
+            "nodeVersion": { "type": "string" }
+          }
+        },
+        "git": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["commit", "branch", "remote"],
+          "properties": {
+            "commit": { "$ref": "#/$defs/NullableString" },
+            "branch": { "$ref": "#/$defs/NullableString" },
+            "remote": { "$ref": "#/$defs/NullableString" }
+          }
+        },
+        "excluded": {
+          "description": "Phase 2 slot: always null in v1.",
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["reason"],
+              "properties": { "reason": { "type": "string" } }
+            }
+          ]
+        },
+        "notes": {
+          "description": "Phase 2 slot: always empty in v1.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/Note" }
+        },
+        "stats": { "$ref": "#/$defs/Stats" }
+      }
+    },
+    "Note": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["createdAt", "author", "text", "testId"],
+      "properties": {
+        "createdAt": { "$ref": "#/$defs/DateTime" },
+        "author": { "$ref": "#/$defs/NullableString" },
+        "text": { "type": "string" },
+        "testId": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/TestId" }] }
+      }
+    },
+    "Stats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "passed", "failed", "flaky", "skipped"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "flaky": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "Project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "testDir", "retries", "timeoutMs", "stats"],
+      "properties": {
+        "name": { "type": "string" },
+        "testDir": { "$ref": "#/$defs/RelativePath" },
+        "retries": { "type": "integer", "minimum": 0 },
+        "timeoutMs": { "$ref": "#/$defs/Milliseconds" },
+        "stats": { "$ref": "#/$defs/Stats" }
+      }
+    },
+    "RelativePath": {
+      "description": "Relative to the Playwright root dir, POSIX separators.",
+      "type": "string",
+      "minLength": 1,
+      "not": { "anyOf": [{ "pattern": "\\\\" }, { "pattern": "^/" }, { "pattern": "^[A-Za-z]:" }] }
+    },
+    "SourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "line", "column"],
+      "properties": {
+        "file": { "$ref": "#/$defs/RelativePath" },
+        "line": { "type": "integer", "minimum": 0 },
+        "column": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "NullableLocation": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/SourceLocation" }] },
+    "Outcome": { "enum": ["passed", "failed", "flaky", "skipped"] },
+    "AttemptStatus": { "enum": ["passed", "failed", "timedOut", "skipped", "interrupted"] },
+    "TestCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "repeatEachIndex",
+        "project",
+        "file",
+        "line",
+        "column",
+        "suitePath",
+        "title",
+        "tags",
+        "annotations",
+        "outcome",
+        "expectedStatus",
+        "durationMs",
+        "dimensions",
+        "category",
+        "errorSignature",
+        "attempts"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/TestId" },
+        "repeatEachIndex": { "type": "integer", "minimum": 0 },
+        "project": { "type": "string" },
+        "file": { "$ref": "#/$defs/RelativePath" },
+        "line": { "type": "integer", "minimum": 0 },
+        "column": { "type": "integer", "minimum": 0 },
+        "suitePath": { "type": "array", "items": { "type": "string" } },
+        "title": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string", "pattern": "^@" } },
+        "annotations": { "type": "array", "items": { "$ref": "#/$defs/Annotation" } },
+        "outcome": { "$ref": "#/$defs/Outcome" },
+        "expectedStatus": { "$ref": "#/$defs/AttemptStatus" },
+        "durationMs": { "$ref": "#/$defs/Milliseconds" },
+        "dimensions": {
+          "type": "object",
+          "additionalProperties": { "type": "array", "items": { "type": "string" } }
+        },
+        "category": { "$ref": "#/$defs/NullableString" },
+        "errorSignature": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/Signature" }] },
+        "attempts": { "type": "array", "items": { "$ref": "#/$defs/Attempt" } }
+      }
+    },
+    "Annotation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "description"],
+      "properties": {
+        "type": { "type": "string" },
+        "description": { "$ref": "#/$defs/NullableString" }
+      }
+    },
+    "Attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "status",
+        "startedAt",
+        "durationMs",
+        "workerIndex",
+        "errors",
+        "steps",
+        "attachments",
+        "annotations",
+        "stdout",
+        "stderr"
+      ],
+      "properties": {
+        "index": { "type": "integer", "minimum": 0 },
+        "status": { "$ref": "#/$defs/AttemptStatus" },
+        "startedAt": { "$ref": "#/$defs/DateTime" },
+        "durationMs": { "$ref": "#/$defs/Milliseconds" },
+        "workerIndex": { "type": "integer", "minimum": -1 },
+        "errors": { "type": "array", "items": { "$ref": "#/$defs/LoupeError" } },
+        "steps": { "type": "array", "items": { "$ref": "#/$defs/Step" } },
+        "attachments": { "type": "array", "items": { "$ref": "#/$defs/Attachment" } },
+        "annotations": { "type": "array", "items": { "$ref": "#/$defs/Annotation" } },
+        "stdout": { "$ref": "#/$defs/Output" },
+        "stderr": { "$ref": "#/$defs/Output" }
+      }
+    },
+    "Output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "truncated"],
+      "properties": {
+        "text": { "type": "string", "maxLength": 32768 },
+        "truncated": { "type": "boolean" }
+      }
+    },
+    "Signature": { "type": "string", "pattern": "^[0-9a-f]{12}$" },
+    "LoupeError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["message", "stack", "location", "snippet", "signature", "category"],
+      "properties": {
+        "message": { "type": "string" },
+        "stack": { "$ref": "#/$defs/NullableString" },
+        "location": { "$ref": "#/$defs/NullableLocation" },
+        "snippet": { "$ref": "#/$defs/NullableString" },
+        "signature": { "$ref": "#/$defs/Signature" },
+        "category": { "$ref": "#/$defs/NullableString" }
+      }
+    },
+    "Step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "subtitle", "category", "durationMs", "error", "location", "steps"],
+      "properties": {
+        "title": { "type": "string" },
+        "subtitle": { "$ref": "#/$defs/NullableString" },
+        "category": { "type": "string" },
+        "durationMs": { "$ref": "#/$defs/Milliseconds" },
+        "error": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/LoupeError" }] },
+        "location": { "$ref": "#/$defs/NullableLocation" },
+        "steps": { "type": "array", "items": { "$ref": "#/$defs/Step" } }
+      }
+    },
+    "Attachment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "contentType", "kind", "path", "body", "comparison"],
+      "properties": {
+        "name": { "type": "string" },
+        "contentType": { "type": "string" },
+        "kind": { "enum": ["screenshot", "video", "trace", "text", "other"] },
+        "path": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "pattern": "^data/[0-9a-f]{16}(-r\\d+)?/\\d+/[^/\\\\]+$" }
+          ]
+        },
+        "body": { "oneOf": [{ "type": "null" }, { "type": "string", "maxLength": 4096 }] },
+        "comparison": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["group", "role"],
+              "properties": {
+                "group": { "type": "string", "minLength": 1 },
+                "role": { "enum": ["expected", "actual", "diff"] }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "CategoryDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "color", "builtIn"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+        "builtIn": { "type": "boolean" }
+      }
+    },
+    "DimensionDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "source", "key"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "source": { "enum": ["tag", "annotation"] },
+        "key": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

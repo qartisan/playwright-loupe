@@ -9,5 +9,5 @@
     "outDir": "dist",
     "declaration": true
   },
-  "include": ["src/index.ts", "src/core", "src/config"]
+  "include": ["src/index.ts", "src/core", "src/config", "src/schema"]
 }

@@ -6,12 +6,17 @@ on:
 
 jobs:
   ci:
-    name: Node ${{ matrix.node }}
+    name: Node ${{ matrix.node }} · Playwright ${{ matrix.playwright }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         node: [22, 24]
+        playwright: [current]
+        include:
+          # Minimum supported version (peerDependency), see docs/schema/v1.md.
+          - node: 22
+            playwright: 1.52.0
     steps:
       - uses: actions/checkout@v4
 
@@ -22,7 +27,11 @@ jobs:
 
       - run: npm ci
 
-      # Needed by the fixture integration test in `npm test`, so installed before it.
+      - name: Install Playwright ${{ matrix.playwright }}
+        if: ${{ matrix.playwright != 'current' }}
+        run: npm install --no-save @playwright/test@${{ matrix.playwright }}
+
+      # Needed by the fixture integration tests in `npm test`, so installed before it.
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
@@ -38,6 +47,6 @@ jobs:
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: loupe-report-node-${{ matrix.node }}
+          name: loupe-report-node-${{ matrix.node }}-playwright-${{ matrix.playwright }}
           path: loupe-report
           if-no-files-found: error
