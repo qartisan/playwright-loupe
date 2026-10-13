@@ -6,6 +6,7 @@ import type { LoupeReport, Step, TestCase } from '../../src/schema/v1.js';
 
 export const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 export const FIXTURE_CONFIG = 'fixtures/playwright.config.ts';
+export const LOAD_ERROR_CONFIG = 'fixtures/load-error.config.ts';
 
 /** Fails early with a clear message when the reporter was not built. */
 export function assertBuilt(): void {
@@ -16,10 +17,14 @@ export function assertBuilt(): void {
   }
 }
 
-/** Runs `npx playwright <args>` from the repository root. */
-export function playwright(args: string[], env: Record<string, string> = {}): { status: number | null; output: string } {
+/** Runs `npx playwright <args>`, from the repository root unless `cwd` is given. */
+export function playwright(
+  args: string[],
+  env: Record<string, string> = {},
+  cwd: string = ROOT,
+): { status: number | null; output: string } {
   const result = spawnSync('npx', ['playwright', ...args], {
-    cwd: ROOT,
+    cwd,
     env: { ...process.env, ...env },
     encoding: 'utf8',
     shell: process.platform === 'win32',

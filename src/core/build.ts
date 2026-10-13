@@ -18,6 +18,7 @@ import type {
   LoupeReport,
   Outcome,
   Project,
+  RunError,
   RunScope,
   SourceLocation,
   Stats,
@@ -33,11 +34,12 @@ import {
   safeFileName,
   uniqueFileName,
 } from './attachments.js';
-import { categorize, usedCategories } from './categories.js';
-import { tagDimensions, usedTagDimensions } from './dimensions.js';
+import { DEFAULT_CATEGORIES, createCategorizer, type CategoriesOptions } from './categories.js';
+import { DEFAULT_DIMENSIONS, createDimensions, type DimensionsOptions } from './dimensions.js';
 import { computeTestId, relativePosix } from './identity.js';
 import { detectEnvironment, detectGit } from './metadata.js';
 import { collectOutput } from './output.js';
+import { esmImportLocation, isUsableLocation } from './runErrors.js';
 import { detectScopeReasons, resolveScope } from './scope.js';
 import { errorSignature, stripAnsi } from './signature.js';
 
@@ -51,6 +53,12 @@ export interface BuildOptions {
   outputFolder: string;
   env: Readonly<Record<string, string | undefined>>;
   scopeOverride: RunScope | null;
+  /** `run.environment.name`, from the config (`environment`, `LOUPE_ENV`). */
+  environmentName: string | null;
+  categories?: CategoriesOptions;
+  dimensions?: DimensionsOptions;
+  /** Errors received through `onError`, with the project of the worker when Playwright gives it. */
+  runErrors?: ReadonlyArray<{ error: TestError; project: string | null }>;
 }
 
 const OUTCOMES: Record<ReturnType<PwTestCase['outcome']>, Outcome> = {
@@ -146,6 +154,25 @@ function isFocused(test: PwTestCase): boolean {
   return false;
 }
 
+/**
+ * Titles of the failing steps leading to `error`, outermost first: the path to
+ * the deepest step that ended with the same message. Empty when no step did.
+ */
+export function failingSteps(steps: readonly TestStep[], error: TestError): string[] {
+  const message = error.message ?? error.value;
+  if (message === undefined) return [];
+  for (const step of [...steps].reverse()) {
+    if (!step.error || (step.error.message ?? step.error.value) !== message) continue;
+    return [step.title, ...failingSteps(step.steps, error)];
+  }
+  // A step may fail with a wrapped message while one of its children has the exact one.
+  for (const step of [...steps].reverse()) {
+    const inner = failingSteps(step.steps, error);
+    if (inner.length > 0) return [step.title, ...inner];
+  }
+  return [];
+}
+
 export async function buildReport(
   config: FullConfig,
   suite: Suite,
@@ -154,37 +181,46 @@ export async function buildReport(
 ): Promise<LoupeReport> {
   const rootDir = config.rootDir;
   const store = new AttachmentStore(options.outputFolder);
+  const categorizer = createCategorizer(options.categories ?? DEFAULT_CATEGORIES);
+  const dimensionSet = createDimensions(options.dimensions ?? DEFAULT_DIMENSIONS);
   const categories = new Set<string>();
-  const dimensionNames = new Set<string>();
+  const usedDimensions = new Set<string>();
 
+  // `<anonymous>` and other non-paths are not locations.
   const toLocation = (location: Location | undefined): SourceLocation | null =>
-    location ? { file: relativePosix(rootDir, location.file), line: location.line, column: location.column } : null;
+    isUsableLocation(location)
+      ? { file: relativePosix(rootDir, location.file), line: location.line, column: location.column }
+      : null;
 
-  const toError = (error: TestError): LoupeError => {
+  /** `steps`: titles of the failing steps leading to the error, outermost first. */
+  const toError = (error: TestError, steps: readonly string[] = [], location = error.location): LoupeError => {
     const message = stripAnsi(error.message ?? error.value ?? '');
     const stack = error.stack ? stripAnsi(error.stack) : null;
-    const category = categorize({ message, stack });
+    const category = categorizer.categorize({ message, stack, step: steps.length > 0 ? steps.join('\n') : null });
     categories.add(category);
     return {
       message,
       stack,
-      location: toLocation(error.location),
+      location: toLocation(location),
       snippet: error.snippet ? stripAnsi(error.snippet) : null,
       signature: errorSignature(message),
       category,
     };
   };
 
-  const toStep = (step: TestStep): Step => ({
-    title: step.title,
-    // `subtitle` exists from Playwright 1.61; older versions keep the target in the title.
-    subtitle: (step as { subtitle?: string }).subtitle ?? null,
-    category: step.category,
-    durationMs: toMs(step.duration),
-    error: step.error ? toError(step.error) : null,
-    location: toLocation(step.location),
-    steps: step.steps.map(toStep),
-  });
+  const toStep = (step: TestStep, parents: readonly string[]): Step => {
+    const chain = [...parents, step.title];
+    return {
+      title: step.title,
+      // `subtitle` exists from Playwright 1.61; older versions keep the target in the title.
+      subtitle: (step as { subtitle?: string }).subtitle ?? null,
+      category: step.category,
+      durationMs: toMs(step.duration),
+      error: step.error ? toError(step.error, chain) : null,
+      location: toLocation(step.location),
+      steps: step.steps.map((child) => toStep(child, chain)),
+    };
+  };
 
   const toAttempt = async (attempt: TestResult, folder: string): Promise<Attempt> => {
     const attachments: Attachment[] = [];
@@ -197,8 +233,8 @@ export async function buildReport(
       startedAt: attempt.startTime.toISOString(),
       durationMs: toMs(attempt.duration),
       workerIndex: attempt.workerIndex,
-      errors: attempt.errors.map(toError),
-      steps: attempt.steps.map(toStep),
+      errors: attempt.errors.map((error) => toError(error, failingSteps(attempt.steps, error))),
+      steps: attempt.steps.map((step) => toStep(step, [])),
       attachments,
       annotations: attempt.annotations.map(toAnnotation),
       stdout: collectOutput(attempt.stdout),
@@ -220,8 +256,12 @@ export async function buildReport(
     const attempts: Attempt[] = [];
     for (const attempt of test.results) attempts.push(await toAttempt(attempt, folder));
 
-    const dimensions = tagDimensions(test.tags);
-    for (const name of Object.keys(dimensions)) dimensionNames.add(name);
+    const annotations = [
+      ...test.annotations.map(toAnnotation),
+      ...attempts.flatMap((attempt) => attempt.annotations),
+    ];
+    const dimensions = dimensionSet.of(test.tags, annotations);
+    for (const name of Object.keys(dimensions)) usedDimensions.add(name);
 
     // A failing attempt did not end as expected (a test.fail() failing as expected is not one).
     const lastFailing = attempts.findLast(
@@ -289,6 +329,13 @@ export async function buildReport(
   });
   const actualWorkers = config.metadata['actualWorkers'];
 
+  const errors: RunError[] = [];
+  for (const { error, project } of options.runErrors ?? []) {
+    const message = stripAnsi(error.message ?? error.value ?? '');
+    const location = isUsableLocation(error.location) ? error.location : ((await esmImportLocation(message)) ?? undefined);
+    errors.push({ ...toError(error, [], location), project });
+  }
+
   return {
     schemaVersion: 1,
     generator: { name: 'playwright-loupe', version: options.generatorVersion },
@@ -301,15 +348,16 @@ export async function buildReport(
       playwrightVersion: config.version,
       workers: typeof actualWorkers === 'number' ? actualWorkers : config.workers,
       shard: config.shard ? { current: config.shard.current, total: config.shard.total } : null,
-      environment: detectEnvironment(options.env, process.platform, process.arch, process.version),
+      environment: detectEnvironment(options.env, options.environmentName, process.platform, process.arch, process.version),
       git: detectGit(config.metadata, options.env),
       excluded: null,
       notes: [],
       stats: runStats,
+      errors,
     },
     projects,
     tests,
-    categories: usedCategories(categories),
-    dimensions: usedTagDimensions(dimensionNames),
+    categories: categorizer.definitions(categories),
+    dimensions: dimensionSet.definitions(usedDimensions),
   };
 }

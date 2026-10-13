@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { DATA_PLACEHOLDER, OPTIONS_PLACEHOLDER, injectData, injectOptions, serializeForScript } from '../src/core/inject.js';
+import {
+  DATA_PLACEHOLDER,
+  DEFAULT_RENDERER_SETTINGS,
+  SETTINGS_PLACEHOLDER,
+  injectData,
+  injectSettings,
+  serializeForScript,
+} from '../src/core/inject.js';
 
 const LS = String.fromCharCode(0x2028);
 const PS = String.fromCharCode(0x2029);
@@ -74,16 +81,17 @@ describe('injectData', () => {
   });
 });
 
-describe('injectOptions', () => {
-  const template = `<html><body>${OPTIONS_PLACEHOLDER}${DATA_PLACEHOLDER}</body></html>`;
+describe('injectSettings', () => {
+  const template = `<html><body>${SETTINGS_PLACEHOLDER}${DATA_PLACEHOLDER}</body></html>`;
 
-  it('injects the options next to the data', () => {
-    const html = injectOptions(injectData(template, { tests: [] }), { title: 'Nightly </script>' });
-    expect(JSON.parse(extractScriptText(html, 'loupe-options'))).toEqual({ title: 'Nightly </script>' });
+  it('injects the settings next to the data', () => {
+    const settings = { ...DEFAULT_RENDERER_SETTINGS, title: 'Nightly </script>' };
+    const html = injectSettings(injectData(template, { tests: [] }), settings);
+    expect(JSON.parse(extractScriptText(html, 'loupe-settings'))).toEqual(settings);
     expect(JSON.parse(extractScriptText(html))).toEqual({ tests: [] });
   });
 
   it('fails loudly when the placeholder is missing', () => {
-    expect(() => injectOptions(DATA_PLACEHOLDER, { title: 'x' })).toThrow(/#loupe-options placeholder/);
+    expect(() => injectSettings(DATA_PLACEHOLDER, DEFAULT_RENDERER_SETTINGS)).toThrow(/#loupe-settings placeholder/);
   });
 });

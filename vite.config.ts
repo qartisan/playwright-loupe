@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
-import { injectData, injectOptions } from './src/core/inject.js';
+import { DEFAULT_RENDERER_SETTINGS, injectData, injectSettings } from './src/core/inject.js';
 
 const SAMPLE_JSON = fileURLToPath(new URL('./src/renderer/dev/sample.json', import.meta.url));
 
@@ -42,7 +42,8 @@ function sampleData(): Plugin {
     name: 'loupe:sample-data',
     apply: 'serve',
     transformIndexHtml(html) {
-      return injectOptions(injectData(html, JSON.parse(readFileSync(SAMPLE_JSON, 'utf8'))), { title: 'Loupe sample' });
+      const settings = { ...DEFAULT_RENDERER_SETTINGS, title: 'Loupe sample' };
+      return injectSettings(injectData(html, JSON.parse(readFileSync(SAMPLE_JSON, 'utf8'))), settings);
     },
     configureServer(server) {
       server.watcher.add(SAMPLE_JSON);

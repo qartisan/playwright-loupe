@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { LoupeReport } from '../src/schema/v1.js';
-import { FIXTURE_CONFIG, assertBuilt, findTest, playwright, readReport } from './helpers/fixtures.js';
+import { FIXTURE_CONFIG, ROOT, assertBuilt, findTest, playwright, readReport } from './helpers/fixtures.js';
 import { schemaErrors } from './helpers/schema.js';
 
 const MERGE_CONFIG = 'fixtures/merge.config.ts';
@@ -16,6 +16,8 @@ describe('sharded fixture suite merged through Loupe', () => {
   let merged: LoupeReport;
   /** Every test of the suite, from `--list`, as the reference. */
   let listed: LoupeReport;
+  /** Merged without --config, from the fixtures directory. */
+  let mergedFromCwd: LoupeReport;
 
   beforeAll(() => {
     assertBuilt();
@@ -49,6 +51,15 @@ describe('sharded fixture suite merged through Loupe', () => {
     const merge = playwright(['merge-reports', '--config', MERGE_CONFIG, blobs], { LOUPE_FIXTURE_OUTPUT: mergedFolder });
     mergeStatus = merge.status;
     merged = readReport(mergedFolder, `merge-reports exit code ${merge.status}.\n${merge.output}`);
+
+    // Without --config, Loupe looks for its config file in the working directory.
+    const cwdFolder = path.join(workDir, 'merged-cwd');
+    const mergeFromCwd = playwright(
+      ['merge-reports', '--reporter', path.join(ROOT, 'dist/index.js'), blobs],
+      { LOUPE_OUTPUT_FOLDER: cwdFolder },
+      path.join(ROOT, 'fixtures'),
+    );
+    mergedFromCwd = readReport(cwdFolder, `merge-reports (no config) exit code ${mergeFromCwd.status}.\n${mergeFromCwd.output}`);
 
     const listFolder = path.join(workDir, 'list');
     const list = playwright(['test', '--config', FIXTURE_CONFIG, '--list'], { LOUPE_FIXTURE_OUTPUT: listFolder });
@@ -98,6 +109,25 @@ describe('sharded fixture suite merged through Loupe', () => {
     const images = screenshot.attempts[0]?.attachments.filter((attachment) => attachment.comparison) ?? [];
     expect(images.map((image) => image.comparison?.role)).toEqual(['expected', 'actual', 'diff']);
     for (const image of images) expect(existsSync(path.join(mergedFolder, image.path ?? ''))).toBe(true);
+  });
+
+  it('applies the loupe.config.ts next to the merge config', () => {
+    expect(merged.run.environment.name).toBe('fixtures');
+    expect(findTest(merged, 'chromium-a', 'differs from the screenshot baseline (intentional)').category).toBe(
+      'Visual regression',
+    );
+    expect(merged.dimensions.map((dimension) => dimension.name)).toEqual(['Layer', 'Bug', 'area']);
+    expect(findTest(merged, 'chromium-b', 'fails on a wrong heading (intentional)').dimensions).toEqual({
+      Layer: ['ui'],
+      Bug: ['BUG-1'],
+    });
+  });
+
+  it('looks up loupe.config.ts in the working directory without a merge config', () => {
+    expect(schemaErrors(mergedFromCwd)).toEqual([]);
+    expect(mergedFromCwd.run.environment.name).toBe('fixtures');
+    expect(mergedFromCwd.categories.map((category) => category.name)).toContain('Visual regression');
+    expect(mergedFromCwd.tests).toHaveLength(merged.tests.length);
   });
 
   it('keeps relative locations in errors', () => {

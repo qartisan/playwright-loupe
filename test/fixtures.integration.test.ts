@@ -2,6 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { PALETTE } from '../src/core/categories.js';
 import type { Attachment, LoupeReport } from '../src/schema/v1.js';
 import { FIXTURE_CONFIG, assertBuilt, findTest, playwright, readReport, userSteps } from './helpers/fixtures.js';
 import { schemaErrors } from './helpers/schema.js';
@@ -33,6 +34,8 @@ function normalize(report: LoupeReport): unknown {
       excluded: report.run.excluded,
       notes: report.run.notes,
       stats: report.run.stats,
+      environment: report.run.environment.name,
+      errors: report.run.errors,
     },
     projects: report.projects,
     categories: report.categories,
@@ -133,7 +136,27 @@ describe('fixture suite with the built reporter', () => {
     expect(test.suitePath).toEqual(['structure', 'nested level', 'deepest level']);
     expect(userSteps(test.attempts[0]?.steps ?? [])).toEqual([{ 'open the page': ['check the button'] }]);
     expect(test.tags).toEqual(['@area:checkout', '@layer:ui', '@smoke']);
-    expect(test.dimensions).toEqual({ area: ['checkout'], layer: ['ui'] });
+    expect(test.dimensions).toEqual({ Layer: ['ui'], area: ['checkout'] });
+  });
+
+  it('applies fixtures/loupe.config.ts', () => {
+    expect(report.run.environment.name).toBe('fixtures');
+    expect(report.run.errors).toEqual([]);
+  });
+
+  it('builds configured dimensions from tags and annotations, keeping the other automatic ones', () => {
+    expect(report.dimensions).toEqual([
+      // `values` deliberately misses "ui", used by the suite.
+      { name: 'Layer', source: 'tag', key: 'layer', values: ['api', 'e2e'] },
+      { name: 'Bug', source: 'annotation', key: 'bug', values: null },
+      { name: 'area', source: 'tag', key: 'area', values: null },
+    ]);
+    for (const project of PROJECTS) {
+      const test = findTest(report, project, 'fails on a wrong heading (intentional)');
+      expect(test.dimensions).toEqual({ Layer: ['ui'], Bug: ['BUG-1'] });
+    }
+    expect(report.tests.some((test) => 'layer' in test.dimensions)).toBe(false);
+    expect(report.tests.filter((test) => test.dimensions['Bug'])).toHaveLength(PROJECTS.length);
   });
 
   it('gives the same signature to the same error with different UUID, URL and duration', () => {
@@ -148,6 +171,16 @@ describe('fixture suite with the built reporter', () => {
     expect(tests.map((test) => test.category)).toEqual(Array(4).fill('Uncategorized'));
   });
 
+  it('lets the custom category rule win over the built-in rules', () => {
+    for (const project of PROJECTS) {
+      const test = findTest(report, project, 'differs from the screenshot baseline (intentional)');
+      // Without the rule, the screenshot failure is an "Assertion".
+      expect(test.category).toBe('Visual regression');
+      expect(test.attempts.flatMap((attempt) => attempt.errors.map((error) => error.category))).toContain('Visual regression');
+    }
+    expect(report.categories[0]).toEqual({ name: 'Visual regression', color: PALETTE[0], builtIn: false });
+  });
+
   it('puts one failure in each built-in category', () => {
     const category = (title: string): string | null => findTest(report, 'chromium-a', title).category;
     expect(category('times out (intentional)')).toBe('Timeout');
@@ -155,6 +188,7 @@ describe('fixture suite with the built reporter', () => {
     expect(category('hits a network error (intentional)')).toBe('Network');
     expect(category('fails on a wrong heading (intentional)')).toBe('Assertion');
     expect(report.categories.map((definition) => definition.name)).toEqual([
+      'Visual regression',
       'Locator not found',
       'Network',
       'Assertion',
@@ -210,14 +244,19 @@ describe('fixture suite with the built reporter', () => {
     expect(attempt?.stderr).toEqual({ text: 'A warning from the fixture suite\n', truncated: false });
   });
 
-  it('embeds the same data and the title option in index.html', () => {
+  it('embeds the same data and the renderer settings in index.html', () => {
     const embedded = (id: string): unknown => {
       const open = `<script id="${id}" type="application/json">`;
       const start = html.indexOf(open) + open.length;
       return JSON.parse(html.slice(start, html.indexOf('</script>', start)));
     };
     expect(embedded('loupe-data')).toEqual(report);
-    expect(embedded('loupe-options')).toEqual({ title: 'Loupe fixture suite' });
+    // The inline title wins over the one in loupe.config.ts; theme and view come from the file.
+    expect(embedded('loupe-settings')).toEqual({
+      title: 'Loupe fixture suite',
+      theme: 'dark',
+      screenshots: { defaultView: 'slider' },
+    });
   });
 
   it('matches the normalized snapshot', () => {

@@ -1,7 +1,29 @@
 import { describe, expect, it } from 'vitest';
-import { BUILT_IN_RULES, UNCATEGORIZED, categorize, usedCategories } from '../src/core/categories.js';
+import type { ResolvedCategoryRule } from '../src/config/types.js';
+import {
+  BUILT_IN_RULES,
+  DEFAULT_CATEGORIES,
+  PALETTE,
+  UNCATEGORIZED_COLOR,
+  createCategorizer,
+  type CategoriesOptions,
+} from '../src/core/categories.js';
 
-const at = (message: string, stack: string | null = null) => ({ message, stack });
+const at = (message: string, stack: string | null = null, step: string | null = null) => ({ message, stack, step });
+
+const builtIn = createCategorizer(DEFAULT_CATEGORIES);
+const categorize = builtIn.categorize;
+const UNCATEGORIZED = { name: 'Uncategorized' };
+
+const rule = (overrides: Partial<ResolvedCategoryRule> & { name: string }): ResolvedCategoryRule => ({
+  match: [/never/],
+  on: 'all',
+  color: null,
+  ...overrides,
+});
+
+const withRules = (rules: ResolvedCategoryRule[], options: Partial<CategoriesOptions> = {}) =>
+  createCategorizer({ ...DEFAULT_CATEGORIES, rules, ...options });
 
 // Messages as Playwright 1.64 reports them (ANSI codes stripped).
 const MESSAGES = {
@@ -76,10 +98,116 @@ describe('categorize', () => {
     expect(categorize(at(MESSAGES.assertion))).toBe('Assertion');
   });
 
-  it('accepts custom rules', () => {
-    const rules = [{ name: 'Auth', color: '#000000', match: [/401/] }];
-    expect(categorize(at('status 401'), rules)).toBe('Auth');
-    expect(categorize(at('status 500'), rules)).toBe(UNCATEGORIZED.name);
+  it('does not match built-in rules on step titles', () => {
+    expect(categorize(at('Error: boom', null, 'wait until the request timed out'))).toBe(UNCATEGORIZED.name);
+  });
+});
+
+describe('config rules', () => {
+  it('run before the built-in rules in extend mode', () => {
+    const categorizer = withRules([rule({ name: 'Infra', match: [/ECONNREFUSED/] })]);
+    expect(categorizer.categorize(at('Error: connect ECONNREFUSED 127.0.0.1:5432'))).toBe('Infra');
+    // Built-in rules still apply to everything else.
+    expect(categorizer.categorize(at(MESSAGES.network))).toBe('Network');
+    expect(categorizer.categorize(at(MESSAGES.testTimeout))).toBe('Timeout');
+  });
+
+  it('drop the built-in rules in replace mode', () => {
+    const categorizer = withRules([rule({ name: 'Infra', match: [/ECONNREFUSED/] })], { mode: 'replace' });
+    expect(categorizer.categorize(at('Error: connect ECONNREFUSED 127.0.0.1:5432'))).toBe('Infra');
+    expect(categorizer.categorize(at(MESSAGES.network))).toBe(UNCATEGORIZED.name);
+    expect(categorizer.categorize(at(MESSAGES.assertion))).toBe(UNCATEGORIZED.name);
+  });
+
+  it('match when any of their patterns matches', () => {
+    const categorizer = withRules([rule({ name: 'Auth', match: [/401/, /session-token/] })]);
+    expect(categorizer.categorize(at('status 401'))).toBe('Auth');
+    expect(categorizer.categorize(at('missing session-token'))).toBe('Auth');
+  });
+
+  it('use the configured uncategorized name', () => {
+    const categorizer = withRules([], { uncategorized: 'To triage' });
+    expect(categorizer.categorize(at('Error: Order sync 42 rejected'))).toBe('To triage');
+    expect(categorizer.definitions(new Set(['To triage']))).toEqual([
+      { name: 'To triage', color: UNCATEGORIZED_COLOR, builtIn: true },
+    ]);
+  });
+
+  describe('on', () => {
+    const error = at('Error: message text', 'Error: message text\n    at stack-frame.ts:1:1', 'log in\nclick submit');
+    const target = (on: ResolvedCategoryRule['on'], pattern: RegExp): string =>
+      withRules([rule({ name: 'Hit', match: [pattern], on })], { mode: 'replace' }).categorize(error);
+
+    it.each([
+      ['message', /message text/, 'Hit'],
+      ['message', /stack-frame/, 'Uncategorized'],
+      ['message', /log in/, 'Uncategorized'],
+      ['stack', /stack-frame/, 'Hit'],
+      ['stack', /log in/, 'Uncategorized'],
+      ['step', /^click submit$/m, 'Hit'],
+      ['step', /message text/, 'Uncategorized'],
+      ['all', /message text/, 'Hit'],
+      ['all', /stack-frame/, 'Hit'],
+      ['all', /click submit/, 'Hit'],
+    ] as const)('on %s with %s gives %s', (on, pattern, expected) => {
+      expect(target(on, pattern)).toBe(expected);
+    });
+
+    it('never matches a step rule when there is no failing step', () => {
+      const categorizer = withRules([rule({ name: 'Hit', match: [/.*/], on: 'step' })], { mode: 'replace' });
+      expect(categorizer.categorize(at('Error: x'))).toBe('Uncategorized');
+    });
+  });
+});
+
+describe('category colors', () => {
+  it('keep the configured color, and the built-in colors', () => {
+    const categorizer = withRules([rule({ name: 'Infra', color: '#123456', match: [/x/] })]);
+    const definitions = categorizer.definitions(new Set(['Infra', 'Network']));
+    expect(definitions).toEqual([
+      { name: 'Infra', color: '#123456', builtIn: false },
+      { name: 'Network', color: '#0891b2', builtIn: true },
+    ]);
+  });
+
+  it('come from the palette, in rule order, for rules without color', () => {
+    const categorizer = withRules([
+      rule({ name: 'A' }),
+      rule({ name: 'B', color: PALETTE[1] as string }),
+      rule({ name: 'C' }),
+    ]);
+    const colors = Object.fromEntries(categorizer.definitions(new Set(['A', 'B', 'C'])).map((d) => [d.name, d.color]));
+    // C skips the palette color B already uses.
+    expect(colors).toEqual({ A: PALETTE[0], B: PALETTE[1], C: PALETTE[2] });
+  });
+
+  it('are stable whatever the categories used', () => {
+    const categorizer = withRules([rule({ name: 'A' }), rule({ name: 'B' })]);
+    expect(categorizer.definitions(new Set(['B']))).toEqual([{ name: 'B', color: PALETTE[1], builtIn: false }]);
+  });
+
+  it('wrap around when the palette is exhausted', () => {
+    const rules = Array.from({ length: PALETTE.length + 1 }, (_, index) => rule({ name: `R${index}` }));
+    const definitions = withRules(rules).definitions(new Set(rules.map((r) => r.name)));
+    expect(definitions.map((d) => d.color)).toEqual([...PALETTE, PALETTE[0]]);
+  });
+
+  it('let a config rule named like a built-in one recolor it, the built-in patterns still applying', () => {
+    const categorizer = withRules([rule({ name: 'Network', color: '#000000', match: [/upstream down/] })]);
+    expect(categorizer.categorize(at('upstream down'))).toBe('Network');
+    expect(categorizer.categorize(at(MESSAGES.network))).toBe('Network');
+    expect(categorizer.definitions(new Set(['Network']))).toEqual([{ name: 'Network', color: '#000000', builtIn: true }]);
+  });
+
+  it('give a config rule named like a built-in one in replace mode no built-in flag and a palette color', () => {
+    const categorizer = withRules([rule({ name: 'Network', match: [/x/] })], { mode: 'replace' });
+    expect(categorizer.definitions(new Set(['Network']))).toEqual([{ name: 'Network', color: PALETTE[0], builtIn: false }]);
+  });
+
+  it('never reuse the built-in or uncategorized colors from the palette', () => {
+    const used = [...BUILT_IN_RULES.map((r) => r.color), UNCATEGORIZED_COLOR];
+    expect(PALETTE.filter((color) => used.includes(color))).toEqual([]);
+    expect(new Set(PALETTE).size).toBe(PALETTE.length);
   });
 });
 
@@ -88,23 +216,23 @@ describe('built-in rules', () => {
     expect(BUILT_IN_RULES.map((rule) => rule.name).sort()).toEqual(
       ['Assertion', 'Locator not found', 'Network', 'Timeout'].sort(),
     );
-    const colors = [...BUILT_IN_RULES.map((rule) => rule.color), UNCATEGORIZED.color];
+    const colors = [...BUILT_IN_RULES.map((builtInRule) => builtInRule.color), UNCATEGORIZED_COLOR];
     expect(new Set(colors).size).toBe(colors.length);
   });
 });
 
-describe('usedCategories', () => {
+describe('definitions', () => {
   it('lists only used categories, in rule order, Uncategorized last', () => {
     const used = new Set(['Uncategorized', 'Timeout', 'Locator not found']);
-    expect(usedCategories(used).map((category) => category.name)).toEqual([
+    expect(builtIn.definitions(used).map((category) => category.name)).toEqual([
       'Locator not found',
       'Timeout',
       'Uncategorized',
     ]);
-    expect(usedCategories(used).every((category) => category.builtIn)).toBe(true);
+    expect(builtIn.definitions(used).every((category) => category.builtIn)).toBe(true);
   });
 
   it('is empty when nothing failed', () => {
-    expect(usedCategories(new Set())).toEqual([]);
+    expect(builtIn.definitions(new Set())).toEqual([]);
   });
 });

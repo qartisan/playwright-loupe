@@ -100,9 +100,16 @@ export function detectGit(metadata: Readonly<Record<string, unknown>>, env: Env)
   return { commit, branch, remote: remote === null ? null : stripCredentials(remote) };
 }
 
-export function detectEnvironment(env: Env, platform: string, arch: string, nodeVersion: string): Run['environment'] {
+/** `name` comes from the config (`environment` option, overridden by `LOUPE_ENV`). */
+export function detectEnvironment(
+  env: Env,
+  name: string | null,
+  platform: string,
+  arch: string,
+  nodeVersion: string,
+): Run['environment'] {
   return {
-    name: text(env['LOUPE_ENV']),
+    name: text(name),
     ...detectCi(env),
     os: `${platform}-${arch}`,
     nodeVersion,

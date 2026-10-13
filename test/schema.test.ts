@@ -173,13 +173,17 @@ const fullReport = {
       { createdAt: '2026-10-12T11:00:00+02:00', author: null, text: 'BUG-1', testId: '0123456789abcdef' },
     ],
     stats,
+    errors: [
+      { ...error(), project: 'chromium' },
+      { ...error({ stack: null, location: null, snippet: null, category: null }), project: null },
+    ],
   },
   projects: [{ name: 'chromium', testDir: '.', retries: 1, timeoutMs: 30000, stats }],
   tests: [failedTest, passedTest],
   categories: [{ name: 'Assertion', color: '#dc2626', builtIn: true }],
   dimensions: [
-    { name: 'layer', source: 'tag', key: 'layer' },
-    { name: 'bug', source: 'annotation', key: 'bug' },
+    { name: 'layer', source: 'tag', key: 'layer', values: ['api', 'ui'] },
+    { name: 'bug', source: 'annotation', key: 'bug', values: null },
   ],
 } satisfies LoupeReport;
 
@@ -195,6 +199,7 @@ const minimalReport = {
     git: { commit: null, branch: null, remote: null },
     excluded: null,
     notes: [],
+    errors: [],
   },
   projects: [],
   tests: [],
@@ -276,6 +281,17 @@ describe('typed samples validate against the JSON Schema', () => {
     for (const file of ['/repo/tests/a.spec.ts', 'C:/repo/a.spec.ts', 'auth\\a.spec.ts']) {
       expect(schemaErrors({ ...fullReport, tests: [{ ...failedTest, file }] }), file).not.toEqual([]);
     }
+  });
+
+  it('rejects a run error without project', () => {
+    const report = structuredClone(fullReport) as unknown as { run: { errors: Array<Record<string, unknown>> } };
+    delete report.run.errors[0]?.['project'];
+    expect(schemaErrors(report)).toContain("/run/errors/0 must have required property 'project'");
+  });
+
+  it('rejects duplicate expected dimension values', () => {
+    const dimensions = [{ name: 'layer', source: 'tag', key: 'layer', values: ['api', 'api'] }];
+    expect(schemaErrors({ ...fullReport, dimensions })).not.toEqual([]);
   });
 
   it('rejects a wrong schema version', () => {

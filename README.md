@@ -11,7 +11,7 @@ Loupe is a reporter for Playwright, not affiliated with Microsoft.
 npm install --save-dev @qartisan/playwright-loupe
 ```
 
-Requires Node.js 22 or later and `@playwright/test` 1.50 or later.
+Requires Node.js 22 or later and `@playwright/test` 1.52 or later.
 
 ## Usage
 
@@ -31,14 +31,33 @@ After a run, open `loupe-report/index.html`. The raw data is in `loupe-report/re
 
 Loupe requires `@playwright/test` 1.52 or later.
 
-Options can be typed with `defineConfig` from Loupe:
+A run that broke outside its tests (a spec file that fails to import, a failing global setup) is reported in `run.errors`, even when no test ran.
+
+## Configuration
+
+Put a `loupe.config.ts` next to `playwright.config.ts`:
 
 ```ts
-import { defineConfig as defineLoupeConfig } from '@qartisan/playwright-loupe';
+// loupe.config.ts
+import { defineConfig } from '@qartisan/playwright-loupe';
 
-const loupe = defineLoupeConfig({ outputFolder: 'loupe-report', title: 'My suite' });
-// reporter: [['@qartisan/playwright-loupe', loupe]]
+export default defineConfig({
+  title: 'My suite',
+  categories: {
+    rules: [{ name: 'Infra', match: [/ECONNRESET/, /ECONNREFUSED/] }],
+  },
+  dimensions: {
+    definitions: [
+      { name: 'Layer', from: 'tag', prefix: 'layer', values: ['api', 'ui', 'e2e'] },
+      { name: 'Bug', from: 'annotation', type: 'bug' },
+    ],
+  },
+});
 ```
+
+Options can also be passed inline (`['@qartisan/playwright-loupe', { title: 'Nightly' }]`) and through `LOUPE_*` environment variables. Precedence: defaults < config file < inline options < environment variables. The config is validated at startup: an invalid option, or a typo in a key, stops the run with an explicit message.
+
+Every option, the lookup rules and the environment variables are documented in [`docs/config.md`](docs/config.md).
 
 ## Development
 

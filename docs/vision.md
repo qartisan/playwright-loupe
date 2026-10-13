@@ -47,10 +47,15 @@ The JSON model is designed for the full roadmap, even if phase 1 renders only pa
 | All attempts kept, with their attachments | Keep retry information | Flakiness diagnosis |
 | `schemaVersion` | Evolve the contract safely | Compatibility of stored history |
 | Dimensions and error category computed at run time | Rendering independent of config | Filters, matrices, statistics |
+| Run-level errors (load errors, global setup / teardown failures) in the model | A run that broke before or around its tests must never look clean | A prominent warning, infra triage |
 
 The schema is documented and public. Its shape never changes without a version bump. Schema v1 is specified in [`docs/schema/v1.md`](schema/v1.md), with a [JSON Schema](schema/report-v1.schema.json).
 
-Paths in the model are relative to Playwright's root dir rather than to the config file, because that is the base `merge-reports` uses: a merged sharded run then has the same paths and test ids as a normal run.
+Paths in the model are relative to Playwright's root dir (`config.rootDir`) rather than to the config file, because that is the base `merge-reports` uses: a merged sharded run then has the same paths and test ids as a normal run.
+
+**Run-level errors are part of the model.** A spec file that fails to import makes Playwright run no test at all; a failing global setup does the same. Such a run has errors but no failed test, and a project can silently disappear from the report. Loupe records these errors in `run.errors`, keeps them through `merge-reports`, and the dashboard must show them prominently, above everything else.
+
+Presentation choices (title, theme, default screenshot view) are **renderer settings**, injected next to the data in the HTML. They are not part of the data contract.
 
 ## User interface
 
@@ -62,12 +67,17 @@ A collapsible sidebar holds the navigation: search, filters and a tree of projec
 
 The dashboard answers three questions in five seconds: *Is it green? What broke? Where is the problem?*
 
+- **Run errors**: when `run.errors` is not empty, a prominent warning comes first, before the verdict. A report with run errors is never presented as green.
 - **Verdict**: status, pass rate, test count, duration, environment, commit. Difference with the previous run once history exists.
 - **Look at first**: failures grouped by error signature, isolated failures, flaky tests; new failures once history exists.
 - **Project cards**, error category breakdown, one widget per dimension.
 - **Secondary**: slowest tests, skipped tests.
 
 The dashboard is a list of widgets. Without history, history-based widgets are absent rather than empty. Role presets (phase 3) select, order and size widgets; there is no separate dashboard per role.
+
+### Theme
+
+The renderer has a light and a dark theme with a visible switch. The default follows the system preference; `theme` in the config sets another default; the viewer's choice is remembered in the browser.
 
 ### Search and filters
 
@@ -114,7 +124,7 @@ A dedicated config file, `loupe.config.ts`, typed through `defineConfig()`. Inli
 
 **Precedence**: defaults < config file < inline options < environment variables.
 
-The config is validated at startup with explicit error messages. An invalid config never fails silently.
+The config is validated at startup with explicit error messages. An invalid config never fails silently: it stops the run. Unknown keys are errors, with a "did you mean" suggestion. Reference: [`docs/config.md`](config.md).
 
 | Option | Purpose |
 | --- | --- |
@@ -122,9 +132,10 @@ The config is validated at startup with explicit error messages. An invalid conf
 | `screenshots.defaultView` | `side-by-side`, `slider`, `overlay` or `diff` |
 | `categories` | Error categorization rules |
 | `dimensions` | Tags and annotations exposed as analysis axes |
-| `title`, `logo`, `theme` | Visual identity, light and dark themes |
+| `title`, `logo`, `theme` | Visual identity, light and dark themes (`theme`: `system`, `light` or `dark`) |
+| `environment` | Environment name of the run (`LOUPE_ENV` overrides it) |
 | `locale` | English and French |
-| `history` | Storage location, retention and analysis window |
+| `history` | Storage location, retention, analysis window, and when runs are recorded (`history.record`) |
 | `attachments` | Embed or link, maximum video size |
 | `dashboard` | Widget list or role preset |
 
@@ -132,6 +143,7 @@ The config is validated at startup with explicit error messages. An invalid conf
 
 Every run produces a report, but not every run counts in statistics.
 
+- **Recorded in CI only by default.** `history.record: 'ci-only'` is the default: only runs in CI are added to the history, so local and IDE runs never pollute statistics, whatever their scope. Scope detection (below) remains complementary information: a partial CI run is recorded but excluded from statistics.
 - **Partial runs.** Loupe detects the run scope (file filters, `--grep`, `--project`, `--last-failed`) and marks it `full` or `partial`. Partial runs, typically launched from the CLI or an IDE while debugging, are excluded from statistics by default so repeated reruns don't skew flakiness and trends.
 - **Comments.** Notes can be attached to a run or to a test result and are stored with the history. Durable test-level notes (known bug, ticket) belong in annotations or configuration.
 - **Excluded runs.** A run can be excluded with a mandatory reason, after the fact or at launch through an environment variable. It stays visible but no longer counts. Loupe may suggest an exclusion when most failures are infrastructure-related, but never applies one by itself.

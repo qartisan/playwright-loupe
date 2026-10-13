@@ -1,21 +1,19 @@
-import type { RenderOptions } from '../core/inject.js';
+import { DEFAULT_RENDERER_SETTINGS, type RendererSettings } from '../core/inject.js';
 import { OUTCOMES, type LoupeReport, type TestCase } from '../schema/v1.js';
 import './styles.css';
 
 // Skeleton renderer for schema v1. The UI stack is still an open question, so
 // this is intentionally plain DOM code.
 
-const DEFAULT_OPTIONS: RenderOptions = { title: 'Loupe report' };
-
 function readJson<T>(id: string): T {
   return JSON.parse(document.getElementById(id)?.textContent ?? '') as T;
 }
 
-function readOptions(): RenderOptions {
+function readSettings(): RendererSettings {
   try {
-    return { ...DEFAULT_OPTIONS, ...readJson<Partial<RenderOptions>>('loupe-options') };
+    return { ...DEFAULT_RENDERER_SETTINGS, ...readJson<Partial<RendererSettings>>('loupe-settings') };
   } catch {
-    return DEFAULT_OPTIONS;
+    return DEFAULT_RENDERER_SETTINGS;
   }
 }
 
@@ -113,7 +111,7 @@ function renderProject(name: string, tests: TestCase[]): HTMLElement {
 }
 
 function render(root: HTMLElement): void {
-  const options = readOptions();
+  const settings = readSettings();
   let report: LoupeReport;
   try {
     report = readJson<LoupeReport>('loupe-data');
@@ -126,13 +124,13 @@ function render(root: HTMLElement): void {
     return;
   }
 
-  document.title = options.title;
+  document.title = settings.title;
   const byProject = new Map<string, TestCase[]>(report.projects.map((project) => [project.name, []]));
   for (const test of report.tests) {
     byProject.set(test.project, [...(byProject.get(test.project) ?? []), test]);
   }
   root.append(
-    renderSummary(report, options.title),
+    renderSummary(report, settings.title),
     ...[...byProject].map(([name, tests]) => renderProject(name, tests)),
   );
 }

@@ -5,7 +5,8 @@
 // "broken pipeline". This script accepts exit code 1 only when the Loupe
 // reporter wrote a fresh schema v1 report in which:
 //   - passed, failed, flaky and skipped tests are all present;
-//   - every failed or flaky test is marked "(intentional)" in its title.
+//   - every failed or flaky test is marked "(intentional)" in its title;
+//   - there is no run error (load error, global setup failure, ...).
 // Anything else (no report, unexpected pass, a test failing for another reason
 // such as a missing browser) exits with an error.
 
@@ -35,6 +36,9 @@ if (status !== 1) problems.push(`Playwright exit code is ${status}, expected 1`)
 if (report.schemaVersion !== 1) problems.push(`schemaVersion is ${report.schemaVersion}, expected 1`);
 for (const expected of ['passed', 'failed', 'flaky', 'skipped']) {
   if (!report.tests.some((test) => test.outcome === expected)) problems.push(`no ${expected} test`);
+}
+for (const error of report.run.errors) {
+  problems.push(`unexpected run error: ${error.message.split('\n')[0]}`);
 }
 for (const test of report.tests) {
   if ((test.outcome === 'failed' || test.outcome === 'flaky') && !test.title.includes('(intentional)')) {

@@ -111,8 +111,8 @@ describe('stripCredentials', () => {
 });
 
 describe('detectEnvironment', () => {
-  it('reads LOUPE_ENV and formats the OS', () => {
-    expect(detectEnvironment({ LOUPE_ENV: 'staging' }, 'linux', 'x64', 'v22.0.0')).toEqual({
+  it('uses the configured name and formats the OS', () => {
+    expect(detectEnvironment({}, 'staging', 'linux', 'x64', 'v22.0.0')).toEqual({
       name: 'staging',
       ci: false,
       ciProvider: null,
@@ -121,7 +121,7 @@ describe('detectEnvironment', () => {
     });
   });
 
-  it('treats an empty LOUPE_ENV as unknown', () => {
-    expect(detectEnvironment({ LOUPE_ENV: ' ' }, 'darwin', 'arm64', 'v24.0.0').name).toBeNull();
+  it('treats an empty name as unknown', () => {
+    expect(detectEnvironment({}, ' ', 'darwin', 'arm64', 'v24.0.0').name).toBeNull();
   });
 });

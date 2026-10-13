@@ -49,7 +49,8 @@
         "git",
         "excluded",
         "notes",
-        "stats"
+        "stats",
+        "errors"
       ],
       "properties": {
         "id": {
@@ -116,7 +117,12 @@
           "type": "array",
           "items": { "$ref": "#/$defs/Note" }
         },
-        "stats": { "$ref": "#/$defs/Stats" }
+        "stats": { "$ref": "#/$defs/Stats" },
+        "errors": {
+          "description": "Errors not attached to a test: load errors, global setup/teardown failures, worker teardown errors.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/RunError" }
+        }
       }
     },
     "Note": {
@@ -280,6 +286,20 @@
         "category": { "$ref": "#/$defs/NullableString" }
       }
     },
+    "RunError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["message", "stack", "location", "snippet", "signature", "category", "project"],
+      "properties": {
+        "message": { "type": "string" },
+        "stack": { "$ref": "#/$defs/NullableString" },
+        "location": { "$ref": "#/$defs/NullableLocation" },
+        "snippet": { "$ref": "#/$defs/NullableString" },
+        "signature": { "$ref": "#/$defs/Signature" },
+        "category": { "$ref": "#/$defs/NullableString" },
+        "project": { "$ref": "#/$defs/NullableString" }
+      }
+    },
     "Step": {
       "type": "object",
       "additionalProperties": false,
@@ -338,11 +358,18 @@
     "DimensionDefinition": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "source", "key"],
+      "required": ["name", "source", "key", "values"],
       "properties": {
         "name": { "type": "string", "minLength": 1 },
         "source": { "enum": ["tag", "annotation"] },
-        "key": { "type": "string", "minLength": 1 }
+        "key": { "type": "string", "minLength": 1 },
+        "values": {
+          "description": "Expected values declared in the config; null when not declared.",
+          "oneOf": [
+            { "type": "null" },
+            { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }
+          ]
+        }
       }
     }
   }

@@ -1,13 +1,25 @@
 /** Placeholder the renderer template carries where the report data goes. */
 export const DATA_PLACEHOLDER = '<script id="loupe-data" type="application/json">__LOUPE_DATA__</script>';
 
-/** Placeholder for the presentation options, which are not part of the report data contract. */
-export const OPTIONS_PLACEHOLDER = '<script id="loupe-options" type="application/json">__LOUPE_OPTIONS__</script>';
+/** Placeholder for the renderer settings, which are not part of the report data contract. */
+export const SETTINGS_PLACEHOLDER = '<script id="loupe-settings" type="application/json">__LOUPE_SETTINGS__</script>';
 
-/** Presentation options passed to the renderer next to the report data. */
-export interface RenderOptions {
+/**
+ * Renderer settings: presentation choices injected next to the report data.
+ * Not part of the data contract (see "Renderer settings" in docs/schema/v1.md).
+ * Kept free of Node imports so the renderer can import it.
+ */
+export interface RendererSettings {
   title: string;
+  theme: 'system' | 'light' | 'dark';
+  screenshots: { defaultView: 'side-by-side' | 'slider' | 'overlay' | 'diff' };
 }
+
+export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
+  title: 'Loupe report',
+  theme: 'system',
+  screenshots: { defaultView: 'side-by-side' },
+};
 
 const UNSAFE_CHARS: Record<string, string> = {
   '<': '\\u003c',
@@ -49,7 +61,7 @@ export function injectData(template: string, data: unknown): string {
   return injectScript(template, DATA_PLACEHOLDER, 'loupe-data', data);
 }
 
-/** Replaces the options placeholder in the renderer template with the serialized options. */
-export function injectOptions(template: string, options: RenderOptions): string {
-  return injectScript(template, OPTIONS_PLACEHOLDER, 'loupe-options', options);
+/** Replaces the settings placeholder in the renderer template with the serialized settings. */
+export function injectSettings(template: string, settings: RendererSettings): string {
+  return injectScript(template, SETTINGS_PLACEHOLDER, 'loupe-settings', settings);
 }

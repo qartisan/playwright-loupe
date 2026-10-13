@@ -4,7 +4,9 @@
  * `docs/schema/v1.md` documents every field and rule.
  *
  * Any change to the shape below requires a new `schemaVersion` (see the
- * versioning policy in `docs/schema/v1.md`).
+ * versioning policy in `docs/schema/v1.md`). Before the first npm
+ * publication, v1 was amended in place (`Run.errors`,
+ * `DimensionDefinition.values`); after it, shape changes need a new version.
  *
  * Enumerations are declared as runtime constants so the JSON Schema test can
  * check that both sides list the same values. Kept free of Node imports so the
@@ -79,6 +81,22 @@ export interface Run {
   /** Phase 2 slot: always [] in v1. */
   notes: Note[];
   stats: Stats;
+  /** Errors not attached to a test: load errors, global setup/teardown failures, worker teardown errors. */
+  errors: RunError[];
+}
+
+export interface RunError {
+  /** ANSI codes stripped. */
+  message: string;
+  stack: string | null;
+  location: SourceLocation | null;
+  snippet: string | null;
+  /** Same normalization as test errors. */
+  signature: string;
+  /** Same rules as test errors. */
+  category: string | null;
+  /** Project concerned when Playwright makes it knowable, null otherwise. */
+  project: string | null;
 }
 
 export interface Note {
@@ -216,4 +234,6 @@ export interface DimensionDefinition {
   source: DimensionSource;
   /** Tag prefix (without '@' and ':') or annotation type. */
   key: string;
+  /** Expected values declared in the config; null when not declared. */
+  values: string[] | null;
 }
