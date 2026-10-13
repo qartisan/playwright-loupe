@@ -94,6 +94,39 @@ describe('normalizeErrorMessage', () => {
   it('handles an empty message', () => {
     expect(normalizeErrorMessage('')).toBe('');
   });
+
+  describe('merge-reports tag prefix on run errors', () => {
+    const message = "Error: Cannot find module './missing.js'";
+
+    it.each([
+      ['one tag', '(@chromium) '],
+      ['several tags', '(@chromium @nightly) '],
+      ['a tag with a space', '(@my tag) '],
+    ])('strips %s', (_label, prefix) => {
+      expect(normalizeErrorMessage(prefix + message, { runError: true })).toBe(normalizeErrorMessage(message));
+    });
+
+    it('strips it from a message with ANSI codes', () => {
+      expect(normalizeErrorMessage(`(@a) ${ESC}[31mboom${ESC}[39m`, { runError: true })).toBe('boom');
+    });
+
+    it('strips only the first prefix', () => {
+      expect(normalizeErrorMessage('(@a) (@b) boom', { runError: true })).toBe('(@b) boom');
+    });
+
+    it('keeps it on test errors', () => {
+      expect(normalizeErrorMessage('(@chromium) boom')).toBe('(@chromium) boom');
+    });
+
+    it.each([
+      ['parentheses not starting with @', '(intermediate value) is not a function'],
+      ['a prefix not at the start', 'Error: (@chromium) boom'],
+      ['no space after the prefix', '(@chromium)boom'],
+      ['a prefix spanning lines', '(@a\nb) boom'],
+    ])('keeps %s', (_label, input) => {
+      expect(normalizeErrorMessage(input, { runError: true })).toBe(normalizeErrorMessage(input));
+    });
+  });
 });
 
 describe('errorSignature', () => {
@@ -110,6 +143,11 @@ describe('errorSignature', () => {
 
   it('ignores the call log and whitespace', () => {
     expect(errorSignature('Timeout 1000ms exceeded.\nCall log:\n  - a')).toBe(errorSignature('Timeout  2000ms exceeded.'));
+  });
+
+  it('is the same for a run error with or without the merge-reports tag prefix', () => {
+    expect(errorSignature('(@shard-a) Error: boom', { runError: true })).toBe(errorSignature('Error: boom'));
+    expect(errorSignature('(@shard-a) Error: boom')).not.toBe(errorSignature('Error: boom'));
   });
 
   it('differs when the meaningful text differs', () => {

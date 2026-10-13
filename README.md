@@ -11,7 +11,7 @@ Loupe is a reporter for Playwright, not affiliated with Microsoft.
 npm install --save-dev @qartisan/playwright-loupe
 ```
 
-Requires Node.js 22 or later and `@playwright/test` 1.52 or later.
+Requires Node.js 22.12 or later and `@playwright/test` 1.52 or later.
 
 ## Usage
 

@@ -333,7 +333,7 @@ export async function buildReport(
   for (const { error, project } of options.runErrors ?? []) {
     const message = stripAnsi(error.message ?? error.value ?? '');
     const location = isUsableLocation(error.location) ? error.location : ((await esmImportLocation(message)) ?? undefined);
-    errors.push({ ...toError(error, [], location), project });
+    errors.push({ ...toError(error, [], location), signature: errorSignature(message, { runError: true }), project });
   }
 
   return {

@@ -188,12 +188,12 @@ The config file is loaded **synchronously, in the reporter constructor**. The co
 
 Loupe has no TypeScript loader of its own and no dependency for it. It relies on Playwright's: before Playwright builds a reporter that is not built-in, it installs its TypeScript transform (Babel) for the whole process, the same one that loads `playwright.config.ts` and your tests. Loupe then calls `require()` on the config file, which goes through that transform. This works in `playwright test` and in `playwright merge-reports`, with or without `--config`.
 
-It was checked with Playwright 1.52 on Node.js 22 and Playwright 1.64 on Node.js 22 and 24, in ES module and CommonJS packages, for `.ts`, `.mts`, `.js` and `.mjs` files. Node's own type stripping is not used: it would reject TypeScript-only syntax such as `enum`, which Playwright's transform accepts.
+It was checked with Playwright 1.52 on Node.js 22 and Playwright 1.64 on Node.js 22 and 24 (latest 22.x and 24.x), in ES module and CommonJS packages, for `.ts`, `.mts`, `.js` and `.mjs` files. Node's own type stripping is not used: it would reject TypeScript-only syntax such as `enum`, which Playwright's transform accepts.
 
 Limits:
 
-- **No top-level `await`** in the config file. ES module output is loaded with Node's `require(esm)` (Node.js 22.12 or later), which does not support it. The error says so.
-- **ES module config files need Node.js 22.12 or later** for the same reason. On earlier 22.x versions, use CommonJS (`module.exports`) or upgrade Node.js.
+- **No top-level `await`** in the config file. ES module output is loaded with Node's `require(esm)`, which does not support it. The error says so.
+- `require(esm)` is why Loupe requires **Node.js 22.12 or later** (`engines.node`): earlier 22.x versions cannot load ES module config files.
 - **Imports** from the config file follow Playwright's rules: relative `.ts` files can be imported with a `.js` extension, `tsconfig` paths are resolved, and files inside `node_modules` are not transformed (use the compiled package, as with `@qartisan/playwright-loupe` itself).
 - **Watch and UI mode** reuse the process: a CommonJS config is reloaded for each run, an ES module config is not (Node caches it). Restart after changing it.
 - Outside `playwright test` and `merge-reports` (another tool building Loupe's reporter itself), Playwright's transform is not there: `.js` and `.mjs` files load, and `.ts` files only through Node's own type stripping, when available, which rejects syntax such as `enum`.

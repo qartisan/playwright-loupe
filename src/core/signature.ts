@@ -12,6 +12,12 @@ export function stripAnsi(text: string): string {
 const CALL_LOG = /^[ \t]*Call log:/m;
 
 /**
+ * `merge-reports` prefixes the run errors of a blob whose config has a `tag`
+ * with `(<tags>) `, tags joined by spaces. Config tags always start with `@`.
+ */
+const MERGE_TAG_PREFIX = /^\(@[^()\n]*\) /;
+
+/**
  * Ordered replacements. The order matters: URLs before paths (a URL contains
  * slashes), paths before hex and numbers (so a path is replaced as a whole),
  * hex before numbers. See "Error signature" in docs/schema/v1.md.
@@ -34,13 +40,19 @@ const REPLACEMENTS: ReadonlyArray<[RegExp, string]> = [
   [/\d+(?:\.\d+)?/g, '<n>'],
 ];
 
+export interface NormalizeOptions {
+  /** Run errors (`onError`) also lose the `(<tags>) ` prefix added by `merge-reports`. */
+  runError?: boolean;
+}
+
 /**
  * Normalizes an error message so the same failure produces the same text
  * across tests and runs: ANSI codes and the call log are removed, volatile
  * values are replaced with placeholders and whitespace is collapsed.
  */
-export function normalizeErrorMessage(message: string): string {
+export function normalizeErrorMessage(message: string, options: NormalizeOptions = {}): string {
   let text = stripAnsi(message);
+  if (options.runError) text = text.replace(MERGE_TAG_PREFIX, '');
   const callLog = CALL_LOG.exec(text);
   if (callLog) text = text.slice(0, callLog.index);
   for (const [pattern, placeholder] of REPLACEMENTS) {
@@ -50,6 +62,6 @@ export function normalizeErrorMessage(message: string): string {
 }
 
 /** First 12 hex chars of sha256 of the normalized message. Independent of the test. */
-export function errorSignature(message: string): string {
-  return createHash('sha256').update(normalizeErrorMessage(message)).digest('hex').slice(0, 12);
+export function errorSignature(message: string, options: NormalizeOptions = {}): string {
+  return createHash('sha256').update(normalizeErrorMessage(message, options)).digest('hex').slice(0, 12);
 }

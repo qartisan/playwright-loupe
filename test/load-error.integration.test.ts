@@ -6,9 +6,11 @@ import type { LoupeReport, RunError } from '../src/schema/v1.js';
 import { LOAD_ERROR_CONFIG, assertBuilt, playwright, readReport } from './helpers/fixtures.js';
 import { schemaErrors } from './helpers/schema.js';
 
+const TAG = '@shard-a';
+
 /** The error of fixtures/load-error/broken.spec.ts, which imports a module that does not exist. */
 function expectLoadError(error: RunError | undefined): void {
-  expect(error?.message).toMatch(/Cannot find module '.*missing-helper\.js' imported from .*broken\.spec\.ts/);
+  expect(error?.message).toMatch(/^Error: Cannot find module '.*missing-helper\.js' imported from .*broken\.spec\.ts/);
   // ES module spec files get `<anonymous>:1:1` from Playwright; Loupe recovers the file and the import line.
   expect(error?.location).toEqual({ file: 'broken.spec.ts', line: 3, column: 1 });
   expect(error?.signature).toMatch(/^[0-9a-f]{12}$/);
@@ -22,6 +24,8 @@ describe('suite with a spec file that fails to load', () => {
   let report: LoupeReport;
   let merged: LoupeReport;
   let mergeOutput: string;
+  /** Merged from a blob whose config has a `tag`. */
+  let mergedTagged: LoupeReport;
 
   beforeAll(() => {
     assertBuilt();
@@ -33,20 +37,25 @@ describe('suite with a spec file that fails to load', () => {
     report = readReport(outputFolder, `Exit code ${exitCode}.\n${run.output}`);
 
     // The same run through a blob report and merge-reports.
-    const blobFolder = path.join(workDir, 'blob');
-    const blob = playwright(['test', '--config', LOAD_ERROR_CONFIG, '--reporter', 'blob'], {
-      PLAYWRIGHT_BLOB_OUTPUT_DIR: blobFolder,
-    });
-    const zips = existsSync(blobFolder) ? readdirSync(blobFolder).filter((file) => file.endsWith('.zip')) : [];
-    if (zips.length === 0) throw new Error(`No blob produced (exit code ${blob.status}).\n${blob.output}`);
-    const blobs = path.join(workDir, 'blobs');
-    mkdirSync(blobs);
-    for (const zip of zips) copyFileSync(path.join(blobFolder, zip), path.join(blobs, zip));
+    /** Runs the suite with the blob reporter, merges the blob and returns the merged report and output. */
+    const blobAndMerge = (name: string, env: Record<string, string> = {}): { report: LoupeReport; output: string } => {
+      const blobFolder = path.join(workDir, `blob-${name}`);
+      const blob = playwright(['test', '--config', LOAD_ERROR_CONFIG, '--reporter', 'blob'], {
+        ...env,
+        PLAYWRIGHT_BLOB_OUTPUT_DIR: blobFolder,
+      });
+      const zips = existsSync(blobFolder) ? readdirSync(blobFolder).filter((file) => file.endsWith('.zip')) : [];
+      if (zips.length === 0) throw new Error(`No blob produced (exit code ${blob.status}).\n${blob.output}`);
+      const blobs = path.join(workDir, `blobs-${name}`);
+      mkdirSync(blobs);
+      for (const zip of zips) copyFileSync(path.join(blobFolder, zip), path.join(blobs, zip));
 
-    const mergedFolder = path.join(workDir, 'merged');
-    const merge = playwright(['merge-reports', '--config', LOAD_ERROR_CONFIG, blobs], { LOUPE_FIXTURE_OUTPUT: mergedFolder });
-    mergeOutput = merge.output;
-    merged = readReport(mergedFolder, `merge-reports exit code ${merge.status}.\n${merge.output}`);
+      const mergedFolder = path.join(workDir, `merged-${name}`);
+      const merge = playwright(['merge-reports', '--config', LOAD_ERROR_CONFIG, blobs], { LOUPE_FIXTURE_OUTPUT: mergedFolder });
+      return { report: readReport(mergedFolder, `merge-reports exit code ${merge.status}.\n${merge.output}`), output: merge.output };
+    };
+    ({ report: merged, output: mergeOutput } = blobAndMerge('plain'));
+    ({ report: mergedTagged } = blobAndMerge('tagged', { LOUPE_FIXTURE_TAG: TAG }));
   }, 240_000);
 
   afterAll(() => {
@@ -78,5 +87,18 @@ describe('suite with a spec file that fails to load', () => {
     expectLoadError(merged.run.errors[0]);
     expect(merged.run.errors[0]?.signature).toBe(report.run.errors[0]?.signature);
     expect(mergeOutput).toContain('1 run error outside tests');
+  });
+
+  it('keeps the signature when merge-reports prefixes the error with the shard tag', () => {
+    expect(schemaErrors(mergedTagged)).toEqual([]);
+    expect(mergedTagged.run.errors).toHaveLength(1);
+    const error = mergedTagged.run.errors[0];
+    // Playwright adds the prefix from 1.57. The message and stack keep it: it tells which shard the error comes from.
+    const [major = 0, minor = 0] = mergedTagged.run.playwrightVersion.split('.').map(Number);
+    const prefix = major > 1 || minor >= 57 ? `(${TAG}) ` : '';
+    expect(error?.message.startsWith(`${prefix}Error: `)).toBe(true);
+    expect(error?.stack?.startsWith(`${prefix}Error: `)).toBe(true);
+    expectLoadError({ ...error, message: error?.message.slice(prefix.length) } as RunError);
+    expect(error?.signature).toBe(report.run.errors[0]?.signature);
   });
 });
