@@ -11,7 +11,7 @@ Loupe is a reporter for Playwright, not affiliated with Microsoft.
 npm install --save-dev @qartisan/playwright-loupe
 ```
 
-Requires Node.js 22.12 or later and `@playwright/test` 1.52 or later.
+Requires Node.js 22.12 or later and `@playwright/test` 1.52 or later. See [Compatibility](#compatibility).
 
 ## Usage
 
@@ -58,6 +58,17 @@ export default defineConfig({
 Options can also be passed inline (`['@qartisan/playwright-loupe', { title: 'Nightly' }]`) and through `LOUPE_*` environment variables. Precedence: defaults < config file < inline options < environment variables. The config is validated at startup: an invalid option, or a typo in a key, stops the run with an explicit message.
 
 Every option, the lookup rules and the environment variables are documented in [`docs/config.md`](docs/config.md).
+
+## Compatibility
+
+| | Supported | Tested in CI |
+| --- | --- | --- |
+| Node.js | 22.12 or later | latest 22.x and 24.x |
+| `@playwright/test` | 1.52 or later | 1.52 (on Node.js 22) and the latest version |
+
+Node.js 22.12 is the minimum because ES module config files are loaded with `require(esm)`, see [`docs/config.md`](docs/config.md#how-config-files-are-loaded).
+
+> **Playwright 1.52 hangs on recent Node.js 24 releases.** `playwright test` never exits, even for a single passing test with the built-in `list` reporter and without Loupe: this is not caused by Loupe. Reproduced with Node.js 24.17.0; Node.js 24.11.1 is not affected, nor is Playwright 1.53 or later on Node.js 24.17.0. With Playwright 1.52, use Node.js 22, or upgrade Playwright.
 
 ## Development
 

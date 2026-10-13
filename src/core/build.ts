@@ -34,14 +34,14 @@ import {
   safeFileName,
   uniqueFileName,
 } from './attachments.js';
-import { DEFAULT_CATEGORIES, createCategorizer, type CategoriesOptions } from './categories.js';
+import { DEFAULT_CATEGORIES, createCategorizer, type CategoriesOptions, type ErrorText } from './categories.js';
 import { DEFAULT_DIMENSIONS, createDimensions, type DimensionsOptions } from './dimensions.js';
 import { computeTestId, relativePosix } from './identity.js';
 import { detectEnvironment, detectGit } from './metadata.js';
 import { collectOutput } from './output.js';
 import { esmImportLocation, isUsableLocation } from './runErrors.js';
 import { detectScopeReasons, resolveScope } from './scope.js';
-import { errorSignature, stripAnsi } from './signature.js';
+import { errorSignature, stripAnsi, stripMergeTagPrefix } from './signature.js';
 
 /** Folder, inside the report folder, that holds the copied attachments. */
 export const DATA_FOLDER = 'data';
@@ -173,6 +173,23 @@ export function failingSteps(steps: readonly TestStep[], error: TestError): stri
   return [];
 }
 
+/**
+ * Text an error is categorized on. `steps`: titles of the failing steps, outermost first.
+ * Run errors lose the `merge-reports` tag prefix, so rules match the same text merged or not.
+ */
+export function errorText(
+  message: string,
+  stack: string | null,
+  steps: readonly string[],
+  runError: boolean,
+): ErrorText {
+  return {
+    message: runError ? stripMergeTagPrefix(message) : message,
+    stack: runError && stack !== null ? stripMergeTagPrefix(stack) : stack,
+    step: steps.length > 0 ? steps.join('\n') : null,
+  };
+}
+
 export async function buildReport(
   config: FullConfig,
   suite: Suite,
@@ -192,18 +209,26 @@ export async function buildReport(
       ? { file: relativePosix(rootDir, location.file), line: location.line, column: location.column }
       : null;
 
-  /** `steps`: titles of the failing steps leading to the error, outermost first. */
-  const toError = (error: TestError, steps: readonly string[] = [], location = error.location): LoupeError => {
+  /**
+   * `steps`: titles of the failing steps leading to the error, outermost first.
+   * `runError`: the `merge-reports` tag prefix is ignored by categories and the signature, kept in `message` and `stack`.
+   */
+  const toError = (
+    error: TestError,
+    steps: readonly string[] = [],
+    location = error.location,
+    runError = false,
+  ): LoupeError => {
     const message = stripAnsi(error.message ?? error.value ?? '');
     const stack = error.stack ? stripAnsi(error.stack) : null;
-    const category = categorizer.categorize({ message, stack, step: steps.length > 0 ? steps.join('\n') : null });
+    const category = categorizer.categorize(errorText(message, stack, steps, runError));
     categories.add(category);
     return {
       message,
       stack,
       location: toLocation(location),
       snippet: error.snippet ? stripAnsi(error.snippet) : null,
-      signature: errorSignature(message),
+      signature: errorSignature(message, { runError }),
       category,
     };
   };
@@ -333,7 +358,7 @@ export async function buildReport(
   for (const { error, project } of options.runErrors ?? []) {
     const message = stripAnsi(error.message ?? error.value ?? '');
     const location = isUsableLocation(error.location) ? error.location : ((await esmImportLocation(message)) ?? undefined);
-    errors.push({ ...toError(error, [], location), signature: errorSignature(message, { runError: true }), project });
+    errors.push({ ...toError(error, [], location, true), project });
   }
 
   return {

@@ -5,11 +5,13 @@ import type { LoupeReporterOptions } from '../src/config/index.js';
 // reports run-level errors. Kept apart from playwright.config.ts so the main
 // fixture suite still runs. Also used as the merge-reports config for its blobs.
 // LOUPE_FIXTURE_TAG sets the config `tag`, which merge-reports adds as a
-// `(<tag>) ` prefix to the run errors of the blob.
+// `(<tag>) ` prefix to the run errors of the blob. The category rule is anchored
+// with ^ to check that it matches the error merged or not.
 
 const loupeOptions: LoupeReporterOptions = {
   title: 'Loupe load-error fixture',
   outputFolder: process.env['LOUPE_FIXTURE_OUTPUT'] ?? '../loupe-report-load-error',
+  categories: { rules: [{ name: 'Missing module', match: /^Error: Cannot find module/, on: 'message' }] },
 };
 
 export default defineConfig({

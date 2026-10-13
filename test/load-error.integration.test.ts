@@ -14,7 +14,8 @@ function expectLoadError(error: RunError | undefined): void {
   // ES module spec files get `<anonymous>:1:1` from Playwright; Loupe recovers the file and the import line.
   expect(error?.location).toEqual({ file: 'broken.spec.ts', line: 3, column: 1 });
   expect(error?.signature).toMatch(/^[0-9a-f]{12}$/);
-  expect(error?.category).toBe('Uncategorized');
+  // The fixture config has a rule anchored with ^ for it.
+  expect(error?.category).toBe('Missing module');
   expect(error?.project).toBeNull();
 }
 
@@ -78,7 +79,7 @@ describe('suite with a spec file that fails to load', () => {
   it('records the load error in run.errors, with its file and location', () => {
     expect(report.run.errors).toHaveLength(1);
     expectLoadError(report.run.errors[0]);
-    expect(report.categories.map((category) => category.name)).toEqual(['Uncategorized']);
+    expect(report.categories.map((category) => category.name)).toEqual(['Missing module']);
   });
 
   it('keeps the run error through a blob report and merge-reports', () => {
@@ -100,5 +101,7 @@ describe('suite with a spec file that fails to load', () => {
     expect(error?.stack?.startsWith(`${prefix}Error: `)).toBe(true);
     expectLoadError({ ...error, message: error?.message.slice(prefix.length) } as RunError);
     expect(error?.signature).toBe(report.run.errors[0]?.signature);
+    // expectLoadError checked the category: the ^-anchored rule matches despite the prefix.
+    expect(mergedTagged.categories.map((category) => category.name)).toEqual(['Missing module']);
   });
 });

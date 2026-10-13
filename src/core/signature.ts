@@ -17,6 +17,11 @@ const CALL_LOG = /^[ \t]*Call log:/m;
  */
 const MERGE_TAG_PREFIX = /^\(@[^()\n]*\) /;
 
+/** Removes the `(<tags>) ` prefix `merge-reports` adds to run errors. ANSI codes must be stripped first. */
+export function stripMergeTagPrefix(text: string): string {
+  return text.replace(MERGE_TAG_PREFIX, '');
+}
+
 /**
  * Ordered replacements. The order matters: URLs before paths (a URL contains
  * slashes), paths before hex and numbers (so a path is replaced as a whole),
@@ -52,7 +57,7 @@ export interface NormalizeOptions {
  */
 export function normalizeErrorMessage(message: string, options: NormalizeOptions = {}): string {
   let text = stripAnsi(message);
-  if (options.runError) text = text.replace(MERGE_TAG_PREFIX, '');
+  if (options.runError) text = stripMergeTagPrefix(text);
   const callLog = CALL_LOG.exec(text);
   if (callLog) text = text.slice(0, callLog.index);
   for (const [pattern, placeholder] of REPLACEMENTS) {

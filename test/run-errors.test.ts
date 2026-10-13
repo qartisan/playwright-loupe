@@ -4,7 +4,8 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { TestStep } from '@playwright/test/reporter';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { failingSteps } from '../src/core/build.js';
+import { errorText, failingSteps } from '../src/core/build.js';
+import { DEFAULT_CATEGORIES, createCategorizer } from '../src/core/categories.js';
 import { esmImportLocation, isUsableLocation } from '../src/core/runErrors.js';
 
 describe('esmImportLocation', () => {
@@ -74,5 +75,36 @@ describe('failingSteps', () => {
   it('is empty when no step failed with the error', () => {
     expect(failingSteps([step('a', undefined)], { message: 'Error: boom' })).toEqual([]);
     expect(failingSteps([step('a', 'Error: other')], { message: 'Error: boom' })).toEqual([]);
+  });
+});
+
+describe('errorText', () => {
+  const message = 'Error: Cannot find module';
+  const stack = `${message}\n    at a.spec.ts:1:1`;
+
+  it('strips the merge-reports tag prefix from the message and stack of run errors', () => {
+    expect(errorText(`(@shard-a) ${message}`, `(@shard-a) ${stack}`, [], true)).toEqual({ message, stack, step: null });
+  });
+
+  it('keeps the text of test and step errors as is', () => {
+    expect(errorText(`(@shard-a) ${message}`, null, ['pay', 'Expect "toBeVisible"'], false)).toEqual({
+      message: `(@shard-a) ${message}`,
+      stack: null,
+      step: 'pay\nExpect "toBeVisible"',
+    });
+  });
+
+  it('lets a rule anchored with ^ match a run error merged or not', () => {
+    const { categorize } = createCategorizer({
+      ...DEFAULT_CATEGORIES,
+      rules: [
+        { name: 'Missing module', match: [/^Error: Cannot find module/], on: 'message', color: null },
+        { name: 'Missing module (stack)', match: [/^Error: Cannot find module/], on: 'stack', color: null },
+      ],
+    });
+    expect(categorize(errorText(message, null, [], true))).toBe('Missing module');
+    expect(categorize(errorText(`(@shard-a) ${message}`, null, [], true))).toBe('Missing module');
+    expect(categorize(errorText('(@shard-a) Error: other', `(@shard-a) ${stack}`, [], true))).toBe('Missing module (stack)');
+    expect(categorize(errorText(`(@shard-a) ${message}`, null, [], false))).toBe('Uncategorized');
   });
 });

@@ -54,7 +54,7 @@ Out of scope for phase 1 (prepare in the data model, do not implement): history,
 
 - TypeScript strict, ESM.
 - `@playwright/test` is a `peerDependency`.
-- `package.json` `files` ships only the build output.
+- `package.json` `files` ships only the build output plus README, LICENSE and CHANGELOG.
 - Code, comments, README, docs and commit messages in English.
 - Config is validated at startup with explicit error messages; an invalid config must never fail silently.
 

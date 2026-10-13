@@ -29,7 +29,8 @@
   "files": [
     "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "engines": {
     "node": ">=22.12"
@@ -47,7 +48,8 @@
     "pretest": "npm run build",
     "test": "vitest run",
     "fixtures": "npm run build && node scripts/run-fixtures.mjs",
-    "sample:update": "npm run fixtures && node scripts/update-sample.mjs"
+    "sample:update": "npm run fixtures && node scripts/update-sample.mjs",
+    "prepublishOnly": "npm run typecheck && npm run build && npm test"
   },
   "peerDependencies": {
     "@playwright/test": "^1.52.0"

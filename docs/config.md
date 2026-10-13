@@ -93,7 +93,7 @@ categories: {
 
 **`on` targets.** Each target is tested separately:
 
-- `message`: the error message, ANSI codes stripped.
+- `message`: the error message, ANSI codes stripped. For run errors, without the `(<tags>) ` prefix `merge-reports` adds for a shard config with a `tag` (the same applies to `stack`), so a rule anchored with `^` matches a merged run error too. See [merge-reports](schema/v1.md#merge-reports).
 - `stack`: the stack trace.
 - `step`: the titles of the failing steps, outermost first, **one per line**: for an `expect` failing inside `test.step('pay')`, the text is `pay\nExpect "toHaveText"`. Use `m` to anchor a pattern on one title (`/^pay$/m`). Errors outside any step, and run errors, have no step text: a `step` rule never matches them.
 - `all`: any of the three.
