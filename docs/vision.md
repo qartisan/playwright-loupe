@@ -43,7 +43,7 @@ The JSON model is designed for the full roadmap, even if phase 1 renders only pa
 | --- | --- | --- |
 | Stable test identity (file + title path + project) | Follow a test across runs | History, flakiness, run diff |
 | Run metadata (commit, branch, environment, CI, duration, Playwright version, scope) | Situate each run | Environment comparison, trends |
-| Normalized error signature (IDs, timings, URLs stripped) | Group similar failures | Recurring failures |
+| Normalized error signature (IDs, e-mails, timings, URLs stripped) | Group similar failures | Recurring failures |
 | All attempts kept, with their attachments | Keep retry information | Flakiness diagnosis |
 | `schemaVersion` | Evolve the contract safely | Compatibility of stored history |
 | Dimensions and error category computed at run time | Rendering independent of config | Filters, matrices, statistics |
@@ -112,7 +112,7 @@ Each dimension provides a sidebar filter, a dashboard widget and cross-analysis 
 
 Each failure gets a category from ordered regex rules; the first match wins.
 
-- Built-in default rules: timeout, locator not found, network, assertion.
+- Built-in default rules: locator not found, rate limited, server error, network, assertion, timeout. Setup and teardown failures are not built in: they depend on each suite's naming and belong in its config.
 - `match` accepts one regex or a list; `on` targets the message, the stack, the step name, or all of them.
 - Each category has a color reused across charts and badges.
 - `extend` mode adds to the defaults, `replace` mode drops them.
@@ -171,3 +171,4 @@ Each phase ships before the next one starts. Future features are prepared in the
 
 - Renderer stack (UI framework or not).
 - How the VS Code extension runs tests, and whether it keeps the reporters declared in the config.
+- **Root cause vs consequence.** When one cause (a rate-limited or failing backend, a broken fixture) makes many tests fail, the report should point at the cause rather than list its consequences. Candidate signals: the most frequent signature of the run, the chronologically first error. Attempts already carry `startedAt` and `durationMs`, but errors have no time of their own and run errors none at all: decide in the data model how errors are ordered before implementing it.

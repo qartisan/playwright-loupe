@@ -1,5 +1,5 @@
 # playwright-loupe
-Loupe — a clear, insightful HTML reporter for Playwright. Project overview, history, flakiness and error categories, using native Playwright APIs only.
+Loupe — an HTML reporter for Playwright: run summary, tests grouped by project and suite, dimensions from tags and annotations, and detailed failures with every attempt, error categories and signatures. Native Playwright APIs only.
 
 > **Status: work in progress — the JSON schema will change before 1.0.**
 

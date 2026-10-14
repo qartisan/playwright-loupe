@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- **Error signatures change: failures are grouped differently from 0.0.1.** Normalization now also replaces e-mail addresses with `<email>` and cuid-like and nanoid-like identifiers (20+ characters mixing letters and digits) with `<id>`, so the same failure for different users or records gets one signature. A signature computed by 0.0.1 for a message containing such values no longer matches. The JSON shape is unchanged: `schemaVersion` stays `1`. See [Error signature](docs/schema/v1.md#error-signature).
+- **New built-in error categories**, evaluated after "Locator not found" and before "Network", "Assertion" and "Timeout": **Rate limited** (`Too Many Requests`, `rate limit`, a 429 in an HTTP context such as `status 429`, `HTTP 429` or `Response status: 429`) and **Server error** (a 500–599 status in the same contexts, or with its reason phrase such as `502 Bad Gateway`). Errors from `failOnStatusCode` and failed `expect(response).toBeOK()` that were "Uncategorized" or "Assertion" now land in these categories. A bare number (`429ms`, `Received: 500`) does not match. See [Error categories](docs/schema/v1.md#error-categories).
+- The package description now lists only what exists today.
+
 ## [0.0.1] - 2026-10-13
 
 First public release. Work in progress: the reporter and its JSON model are usable, the HTML renderer is a minimal skeleton.

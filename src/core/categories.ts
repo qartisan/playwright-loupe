@@ -29,6 +29,18 @@ const ALL_TARGETS: readonly Target[] = ['message', 'stack', 'step'];
 
 export const UNCATEGORIZED_COLOR = '#6b7280';
 
+/**
+ * An HTTP status in context: `status 429`, `status code: 429`, `"status": 429`,
+ * `statusCode=429`, `HTTP 429`, `HTTP/1.1 429`, `Response status: 429`, or
+ * `← 429`, the response line of Playwright's fetch log.
+ */
+function httpStatus(code: string): RegExp {
+  return new RegExp(
+    `(?:\\b(?:status(?:[ _]?code)?["']?\\s*[:=]?|HTTP(?:/\\d(?:\\.\\d)?)?:?)|\u2190)\\s*${code}(?!\\w|\\.\\d)`,
+    'i',
+  );
+}
+
 export const BUILT_IN_RULES: readonly CategoryRule[] = [
   {
     // Before "Assertion" and "Timeout": a missing element surfaces as a failed
@@ -36,6 +48,25 @@ export const BUILT_IN_RULES: readonly CategoryRule[] = [
     name: 'Locator not found',
     color: '#7c3aed',
     match: [/element\(s\) not found/i, /resolved to 0 elements/i],
+    targets: ['message', 'stack'],
+  },
+  {
+    // Before "Network", "Assertion" and "Timeout": the status is the diagnosis,
+    // whether it surfaces through `failOnStatusCode`, `toBeOK()` or a thrown
+    // error. A bare 429 is not enough (`429ms`, `Received: 429`): it needs an
+    // HTTP context.
+    name: 'Rate limited',
+    color: '#c026d3',
+    match: [/\bToo Many Requests\b/i, /\brate[- ]?limit/i, httpStatus('429')],
+    targets: ['message', 'stack'],
+  },
+  {
+    name: 'Server error',
+    color: '#7c2d12',
+    match: [
+      httpStatus('5\\d\\d'),
+      /\b5\d\d (?:Internal Server Error|Not Implemented|Bad Gateway|Service Unavailable|Gateway Time-?out|HTTP Version Not Supported)\b/i,
+    ],
     targets: ['message', 'stack'],
   },
   {

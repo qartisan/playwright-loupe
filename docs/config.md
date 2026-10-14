@@ -100,7 +100,7 @@ categories: {
 
 **Modes.**
 
-- `extend` (default): your rules run **before** the built-in rules (timeout, locator not found, network, assertion; see [schema docs](schema/v1.md#error-categories)), so they win when both match.
+- `extend` (default): your rules run **before** the built-in rules (locator not found, rate limited, server error, network, assertion, timeout; see [schema docs](schema/v1.md#error-categories)), so they win when both match.
 - `replace`: the built-in rules are dropped; only your rules apply.
 
 **Colors.** Built-in categories keep their colors. A rule without `color` gets the next color of a fixed palette (`#2563eb`, `#16a34a`, `#db2777`, `#ca8a04`, `#0d9488`, `#9333ea`, `#ea580c`, `#4f46e5`, `#65a30d`, `#be123c`), in rule order, skipping colors already used by another category; the palette wraps around after ten. When several rules share a name, the first explicit `color` wins. In `extend` mode, a rule named like a built-in category (for example `Network`) adds patterns to it, and its `color` recolors it.

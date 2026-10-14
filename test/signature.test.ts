@@ -50,6 +50,70 @@ describe('normalizeErrorMessage', () => {
     expect(normalizeErrorMessage(input)).toBe(expected);
   });
 
+  describe('e-mail addresses', () => {
+    it.each([
+      ['a plain address', 'User jane.doe@example.com already exists', 'User <email> already exists'],
+      ['plus addressing with a timestamp', 'invite qa+1717171717171@test.example.org failed', 'invite <email> failed'],
+      ['an address in quotes', 'Expected: "a_b-c@mail.co.uk"', 'Expected: "<email>"'],
+      ['an address before a period', 'Sent to ops@example.com.', 'Sent to <email>.'],
+      ['an address after the merge-reports prefix is stripped', '(@chromium) no user x@y.io', 'no user <email>'],
+    ])('replaces %s', (_label, input, expected) => {
+      expect(normalizeErrorMessage(input, { runError: true })).toBe(expected);
+    });
+
+    it.each([
+      ['a tag', 'tagged @layer:api', 'tagged @layer:api'],
+      ['a scoped package', "Cannot find module '@scope/pkg'", "Cannot find module '@scope/pkg'"],
+      ['a host without a dot', 'login as admin@localhost', 'login as admin@localhost'],
+      ['a decorator-like word', 'foo@bar is not a function', 'foo@bar is not a function'],
+    ])('keeps %s', (_label, input, expected) => {
+      expect(normalizeErrorMessage(input)).toBe(expected);
+    });
+
+    it('keeps an address inside a URL as part of the URL', () => {
+      expect(normalizeErrorMessage('GET https://api.example.com/users?email=a@b.com failed')).toBe('GET <url> failed');
+    });
+
+    it('gives the same signature to the same failure for different users', () => {
+      expect(errorSignature('User test-1@example.com not found')).toBe(errorSignature('User qa.42@corp.example.net not found'));
+    });
+  });
+
+  describe('identifiers', () => {
+    it.each([
+      ['cuid v1', 'Order cjld2cjxh0000qzrmn831i7rn not found', 'Order <id> not found'],
+      ['cuid2', 'Order tz4a98xxat96iws9zmbrgj3a not found', 'Order <id> not found'],
+      ['nanoid', 'Session V1StGXR8_Z5jdHi6B-myT expired', 'Session <id> expired'],
+      ['a nanoid starting with a separator', 'token -x8Kq2LmNpRt5VwYz3Ab9 revoked', 'token <id> revoked'],
+      ['an id inside a quoted locator', `getByTestId('row-cjld2cjxh0000qzrmn831i7rn')`, `getByTestId('row-<id>')`],
+      ['an id after an underscore', 'record user_tz4a98xxat96iws9zmbrgj3a', 'record user_<id>'],
+    ])('replaces %s', (_label, input, expected) => {
+      expect(normalizeErrorMessage(input)).toBe(expected);
+    });
+
+    it.each([
+      ['long words', 'toHaveAccessibleDescription internationalization', 'toHaveAccessibleDescription internationalization'],
+      ['long camelCase words', 'expect(locator).toHaveAccessibleErrorMessage failed', 'expect(locator).toHaveAccessibleErrorMessage failed'],
+      ['kebab-case names with numbers', 'checkout-step-2-payment-form-submit', 'checkout-step-<n>-payment-form-submit'],
+      ['snake_case names with numbers', 'ORDER_STATUS_2_PENDING_REVIEW', 'ORDER_STATUS_<n>_PENDING_REVIEW'],
+      ['short mixed tokens', 'build Xy12Kq34Zw56', 'build Xy<n>Kq<n>Zw<n>'],
+      ['timings', 'Timeout 429ms exceeded after 1500 ms', 'Timeout <duration> exceeded after <duration>'],
+    ])('keeps %s', (_label, input, expected) => {
+      expect(normalizeErrorMessage(input)).toBe(expected);
+    });
+
+    it('keeps long hex strings as hex', () => {
+      expect(normalizeErrorMessage('commit da39a3ee5e6b4b0d3255bfef95601890afd80709')).toBe('commit <hex>');
+    });
+
+    it('gives the same signature to the same failure on different records', () => {
+      expect(errorSignature('Order cjld2cjxh0000qzrmn831i7rn not found')).toBe(
+        errorSignature('Order ckx9qz1a20001abcdj3f8x7yp not found'),
+      );
+      expect(errorSignature('Session V1StGXR8_Z5jdHi6B-myT expired')).toBe(errorSignature('Session Uakgb_J5m9g-0JDMbcJqLJ expired'));
+    });
+  });
+
   it('does not treat a regex-like single segment as a path', () => {
     expect(normalizeErrorMessage('Expected pattern: /login/')).toBe('Expected pattern: /login/');
   });

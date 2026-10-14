@@ -78,6 +78,60 @@ describe('categorize', () => {
     expect(categorize(at(message))).toBe('Network');
   });
 
+  it.each([
+    'Error: apiRequestContext.get: 429 Too Many Requests',
+    'Error: expect(response).toBeOK() failed\n\nCall log:\n  - → GET https://api.example.com/orders\n  - \u2190 429 Too Many Requests',
+    'Error: Request failed with status 429',
+    'Error: Request failed with status code 429',
+    'HTTPError: HTTP 429 on /orders',
+    'Error: unexpected HTTP/1.1 429',
+    'Error: Response status: 429',
+    'Error: {"status": 429, "error": "slow down"}',
+    'Error: statusCode=429',
+    'Error: rate limit exceeded',
+    'Error: API rate-limited, retry later',
+  ])('treats %j as rate limited', (message) => {
+    expect(categorize(at(message))).toBe('Rate limited');
+  });
+
+  it.each([
+    'Error: apiRequestContext.post: 500 Internal Server Error',
+    'Error: expect(response).toBeOK() failed\n\nCall log:\n  - \u2190 502 Bad Gateway',
+    'Error: page.goto: 503 Service Unavailable',
+    'Error: 504 Gateway Timeout',
+    'Error: Request failed with status code 500',
+    'Error: Response status: 599.',
+    'HTTPError: HTTP 503',
+    'Error: {"status":500}',
+  ])('treats %j as a server error', (message) => {
+    expect(categorize(at(message))).toBe('Server error');
+  });
+
+  it.each([
+    ['a timing', 'Error: locator.click: Timeout 429ms exceeded.', 'Timeout'],
+    ['a status without HTTP context', 'Error: expect(received).toBe(expected)\n\nExpected: 200\nReceived: 429', 'Assertion'],
+    ['a 5xx without HTTP context', 'Error: expect(received).toBe(expected)\n\nExpected: 200\nReceived: 500', 'Assertion'],
+    ['a number that only starts like a status', 'Error: Response status: 5000', 'Uncategorized'],
+    ['a status outside 5xx', 'Error: Response status: 404', 'Uncategorized'],
+    ['a status in a decimal', 'Error: status 500.5 out of range', 'Uncategorized'],
+    ['a count of 500', 'Error: expected 500 rows', 'Uncategorized'],
+  ])('does not treat %s as an HTTP failure', (_label, message, category) => {
+    expect(categorize(at(message))).toBe(category);
+  });
+
+  it('puts HTTP status failures before network, assertion and timeout', () => {
+    // A failed toBeOK() is an expect; a 504 mentions a timeout.
+    expect(categorize(at('Error: expect(response).toBeOK() failed\n  - \u2190 500 Internal Server Error'))).toBe(
+      'Server error',
+    );
+    expect(categorize(at('Error: 504 Gateway Timeout after Timeout 1000ms exceeded'))).toBe('Server error');
+    expect(categorize(at('Error: status 429 then ECONNRESET'))).toBe('Rate limited');
+    // Rate limited comes first: a 503 that says "rate limit" is rate limiting.
+    expect(categorize(at('Error: 503 Service Unavailable: rate limit exceeded'))).toBe('Rate limited');
+    // A missing element is still the diagnosis.
+    expect(categorize(at('Error: element(s) not found after HTTP 500'))).toBe('Locator not found');
+  });
+
   it('puts unmatched errors in Uncategorized', () => {
     expect(categorize(at('Error: Order sync 42 rejected'))).toBe(UNCATEGORIZED.name);
     expect(categorize(at(''))).toBe(UNCATEGORIZED.name);
@@ -212,10 +266,15 @@ describe('category colors', () => {
 });
 
 describe('built-in rules', () => {
-  it('are timeout, locator not found, network and assertion, with distinct colors', () => {
-    expect(BUILT_IN_RULES.map((rule) => rule.name).sort()).toEqual(
-      ['Assertion', 'Locator not found', 'Network', 'Timeout'].sort(),
-    );
+  it('are, in order, locator not found, rate limited, server error, network, assertion and timeout, with distinct colors', () => {
+    expect(BUILT_IN_RULES.map((rule) => rule.name)).toEqual([
+      'Locator not found',
+      'Rate limited',
+      'Server error',
+      'Network',
+      'Assertion',
+      'Timeout',
+    ]);
     const colors = [...BUILT_IN_RULES.map((builtInRule) => builtInRule.color), UNCATEGORIZED_COLOR];
     expect(new Set(colors).size).toBe(colors.length);
   });

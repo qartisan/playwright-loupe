@@ -23,13 +23,17 @@ export function stripMergeTagPrefix(text: string): string {
 }
 
 /**
- * Ordered replacements. The order matters: URLs before paths (a URL contains
- * slashes), paths before hex and numbers (so a path is replaced as a whole),
- * hex before numbers. See "Error signature" in docs/schema/v1.md.
+ * Ordered replacements. The order matters: URLs before e-mails (a URL may
+ * contain `user@host`) and paths (a URL contains slashes), e-mails and paths
+ * before identifiers, identifiers before durations, hex and numbers (so each
+ * is replaced as a whole), hex before numbers. See "Error signature" in
+ * docs/schema/v1.md.
  */
 const REPLACEMENTS: ReadonlyArray<[RegExp, string]> = [
   [/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, '<uuid>'],
   [/\b[a-z][a-z0-9+.-]*:\/\/[^\s'"`<>()[\]{}]*[^\s'"`<>()[\]{}.,;:!?]/gi, '<url>'],
+  // Local part, then a domain with at least one dot and an alphabetic TLD.
+  [/(?<![\w.%+-])[\w.%+-]+@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}(?![\w-])/gi, '<email>'],
   // ISO 8601 date with optional time and zone.
   [/\b\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:[.,]\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?(?![\w:])/g, '<date>'],
   // Time of day.
@@ -39,6 +43,13 @@ const REPLACEMENTS: ReadonlyArray<[RegExp, string]> = [
   // Absolute POSIX paths with at least two segments, and Windows drive paths.
   [/(?<![\w.~:/\\-])\/(?:[\w.@+~-]+\/)+[\w.@+~-]+\/?/g, '<path>'],
   [/\b[A-Za-z]:[\\/](?:[^\\/\s'"`:*?<>|]+[\\/])*[^\\/\s'"`:*?<>|]+/g, '<path>'],
+  // nanoid-like: 20+ chars of [A-Za-z0-9_-] with a lowercase letter, an
+  // uppercase letter and a digit. Mixed case keeps kebab-case and snake_case
+  // names out; a digit keeps camelCase words out.
+  [/(?<![\w-])(?=[\w-]*[a-z])(?=[\w-]*[A-Z])(?=[\w-]*\d)[\w-]{20,}(?![\w-])/g, '<id>'],
+  // cuid-like: 20+ lowercase letters and digits, with a digit and a letter
+  // beyond a-f (pure hex strings stay <hex>).
+  [/(?<![0-9A-Za-z])(?=[a-z0-9]*\d)(?=[a-z0-9]*[g-z])[a-z0-9]{20,}(?![0-9A-Za-z])/g, '<id>'],
   [/\b\d+(?:\.\d+)?\s?(?:ms|milliseconds?|s|secs?|seconds?|m|mins?|minutes?|h|hours?)\b/gi, '<duration>'],
   // 8+ hex chars with at least one letter (pure digit runs fall through to <n>).
   [/(?<![0-9A-Za-z])(?=[0-9a-f]*[a-f])[0-9a-f]{8,}(?![0-9A-Za-z])/gi, '<hex>'],
