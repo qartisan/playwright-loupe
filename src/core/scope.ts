@@ -9,8 +9,13 @@ import type { RunScope } from '../schema/v1.js';
  *   command line (`config.argv` from 1.61, `process.argv` before).
  * - `--project` is visible as `config.filteredProjects` from 1.64; earlier, the
  *   command line plus the projects present in the suite are used.
+ * - `--no-deps` leaves `project.dependencies` / `teardown` untouched in the
+ *   config reporters get: only the command line tells that they did not run.
  * - A `grep` / `grepInvert` in the config file is visible in the config.
  * - `test.only` is only visible through Playwright's internal `_only` flag.
+ * - `default: false` on a project (1.64+) is only visible through Playwright's
+ *   internal config; a plain run already leaves those projects out of
+ *   `config.filteredProjects`.
  *
  * Limits are documented in docs/schema/v1.md ("Run scope").
  */
@@ -55,6 +60,12 @@ const VALUE_OPTIONS = new Set([
   '--ui-port',
 ]);
 
+/**
+ * Variadic options (`--project <name...>`): like commander, they take every
+ * following token up to the next one starting with '-'. `--project=a` takes one.
+ */
+const VARIADIC_OPTIONS = new Set(['--project']);
+
 /** Options with an optional value: like commander, they take the next token unless it starts with '-'. */
 const OPTIONAL_VALUE_OPTIONS = new Set(['--only-changed', '-u', '--update-snapshots']);
 
@@ -63,6 +74,11 @@ export interface TestCommand {
   filters: string[];
   /** Option names used (long form when given that way), e.g. '--grep', '-g'. */
   options: Set<string>;
+}
+
+/** What commander takes for an option rather than a value: '-' followed by anything. */
+function isOptionLike(arg: string): boolean {
+  return arg.length > 1 && arg.startsWith('-');
 }
 
 /** Parses `playwright test` arguments from a full argv; null when the command is not `test`. */
@@ -90,8 +106,10 @@ export function parseTestCommand(argv: readonly string[]): TestCommand | null {
     }
     command.options.add(name);
     if (name !== arg) continue;
-    if (VALUE_OPTIONS.has(name)) i++;
-    else if (OPTIONAL_VALUE_OPTIONS.has(name) && args[i + 1] !== undefined && !args[i + 1]?.startsWith('-')) i++;
+    if (VARIADIC_OPTIONS.has(name)) {
+      while (args[i + 1] !== undefined && !isOptionLike(args[i + 1] as string)) i++;
+    } else if (VALUE_OPTIONS.has(name)) i++;
+    else if (OPTIONAL_VALUE_OPTIONS.has(name) && args[i + 1] !== undefined && !isOptionLike(args[i + 1] as string)) i++;
   }
   return command;
 }
@@ -111,6 +129,11 @@ export interface ScopeInput {
   projects: readonly ProjectRef[];
   /** `config.filteredProjects` names when Playwright exposes them (1.64+); empty under merge-reports. */
   filteredProjects: readonly string[] | undefined;
+  /**
+   * Names of the projects with `default: false` (Playwright 1.64+), read from
+   * Playwright's internal config; undefined when it is not available.
+   */
+  nonDefaultProjects: readonly string[] | undefined;
   /** Names of the projects that have a suite in this run. */
   runProjects: readonly string[];
   /** A `test.only` / `describe.only` is in effect. */
@@ -134,12 +157,23 @@ function withDependencies(selected: readonly string[], projects: readonly Projec
   return result;
 }
 
+/**
+ * The reference for a full run is the set of default projects: a project with
+ * `default: false` only runs when selected with --project, and its absence
+ * never makes a run partial.
+ */
 function hasProjectFilter(input: ScopeInput, command: TestCommand | null): boolean {
   const all = input.projects.map((project) => project.name);
   // merge-reports exposes an empty list: a real run always selects at least one project.
   if (input.filteredProjects && input.filteredProjects.length > 0) {
-    const running = withDependencies(input.filteredProjects, input.projects);
-    return all.some((name) => !running.has(name));
+    // Without the internal flags, a plain `playwright test` already ran every default project.
+    if (!input.nonDefaultProjects && command && !command.options.has('--project')) return false;
+    // With --no-deps, dependencies and teardowns of the selected projects do not run.
+    const running = command?.options.has('--no-deps')
+      ? new Set(input.filteredProjects)
+      : withDependencies(input.filteredProjects, input.projects);
+    const nonDefault = new Set(input.nonDefaultProjects ?? []);
+    return all.some((name) => !nonDefault.has(name) && !running.has(name));
   }
   if (!command?.options.has('--project')) return false;
   const running = new Set(input.runProjects);

@@ -43,6 +43,14 @@ function httpStatus(code: string): RegExp {
 
 export const BUILT_IN_RULES: readonly CategoryRule[] = [
   {
+    // Before "Locator not found", "Assertion" and "Timeout": a locator matching
+    // several elements fails strict mode, through an action or an expect.
+    name: 'Ambiguous locator',
+    color: '#4338ca',
+    match: [/\bstrict mode violation\b/i],
+    targets: ['message', 'stack'],
+  },
+  {
     // Before "Assertion" and "Timeout": a missing element surfaces as a failed
     // or timed-out expect/action, and "not found" is the useful diagnosis.
     name: 'Locator not found',

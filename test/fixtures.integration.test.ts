@@ -186,10 +186,16 @@ describe('fixture suite with the built reporter', () => {
     expect(category('times out (intentional)')).toBe('Timeout');
     expect(category('does not find a locator (intentional)')).toBe('Locator not found');
     expect(category('hits a network error (intentional)')).toBe('Network');
+    expect(category('matches several elements (intentional)')).toBe('Ambiguous locator');
+    expect(category('is rate limited (intentional)')).toBe('Rate limited');
+    expect(category('gets a server error (intentional)')).toBe('Server error');
     expect(category('fails on a wrong heading (intentional)')).toBe('Assertion');
     expect(report.categories.map((definition) => definition.name)).toEqual([
       'Visual regression',
+      'Ambiguous locator',
       'Locator not found',
+      'Rate limited',
+      'Server error',
       'Network',
       'Assertion',
       'Timeout',

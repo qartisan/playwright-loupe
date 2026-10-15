@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Before 1.0, minor versions may contain breaking changes. The JSON report has its own version (`schemaVersion`), see [`docs/schema/v1.md`](docs/schema/v1.md#versioning-policy).
 
+## [Unreleased]
+
+### Changed
+
+- **New built-in error category: Ambiguous locator**, evaluated first, before "Locator not found". It matches Playwright's `strict mode violation` (a locator resolving to several elements), which was "Uncategorized" or "Assertion" before. See [Error categories](docs/schema/v1.md#error-categories).
+
+### Fixed
+
+- **Run scope with `--no-deps`.** Playwright keeps `project.dependencies` in the config reporters get, so with `--project x --no-deps` the dependencies of `x` counted as running and the run could be reported `full` while a configured project was left out. They no longer count: the run is `partial` with the `project-filter` reason.
+- **Run scope with `default: false` projects** (Playwright 1.64+). The reference for a full run is now the set of default projects: a plain run is `full` even though the non-default projects did not run, and `--project nightly` alone is `partial` because the default projects are missing. See [Default projects](docs/schema/v1.md#default-projects).
+- **Run scope with several `--project` values.** `--project a b` selects two projects, as in Playwright; `b` was taken for a file filter and the run reported a `file-filter` reason.
+
 ## [0.0.2] - 2026-10-15
 
 ### Changed

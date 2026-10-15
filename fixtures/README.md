@@ -9,14 +9,14 @@ This Playwright suite exists to feed the Loupe reporter with realistic results. 
 - a flaky test that fails on the first attempt and passes on retry (`testInfo.retry`), with one attachment per attempt;
 - a skipped test and a `fixme`;
 - a slow test (about 3 seconds);
-- one failure per built-in error category: timeout, locator not found, network (a refused connection) and assertion;
+- one failure per built-in error category: ambiguous locator (a strict mode violation), locator not found, rate limited and server error (a 429 through `toBeOK()` and a 500 through `failOnStatusCode`, both from a local HTTP server on 127.0.0.1), network (a refused connection), assertion and timeout;
 - two tests throwing the same error with a different UUID, URL and duration, which must share an error signature (their category is `Uncategorized`);
 - a `toHaveScreenshot` failure producing expected / actual / diff images, against the committed baseline in `tests/__screenshots__/` (a red square; the test renders a blue one);
 - nested `describe` blocks, a `test.step` with a nested step, and a test writing to stdout and stderr;
 - prefixed tags (`@layer:api`, `@layer:ui`, `@area:checkout`), an unprefixed tag (`@smoke`) and a `bug` annotation;
 - a screenshot attachment, plus the videos and traces Playwright keeps on failure.
 
-Everything runs offline through `page.setContent`. Two Chromium projects (`chromium-a`, `chromium-b`) run the same tests so the report has more than one project. `snapshotPathTemplate` uses one baseline for every project and platform.
+Everything runs offline, through `page.setContent` and local servers on 127.0.0.1. Two Chromium projects (`chromium-a`, `chromium-b`) run the same tests so the report has more than one project. `snapshotPathTemplate` uses one baseline for every project and platform.
 
 `merge.config.ts` is the config for `playwright merge-reports` on blob reports of a sharded run (see `test/merge.integration.test.ts`). It uses the same `testDir` so merged paths and test ids match an unsharded run.
 
@@ -34,6 +34,10 @@ Everything runs offline through `page.setContent`. Two Chromium projects (`chrom
 ## Load error
 
 `load-error.config.ts` runs `load-error/`, where `broken.spec.ts` imports a module that does not exist and `passing.spec.ts` would pass. **The load error is intentional.** Playwright runs no test at all when a file fails to load, so the report has zero tests and the error in `run.errors` (see `test/load-error.integration.test.ts`, which also merges its blob with `merge-reports`). It is kept apart from the main suite so that suite still runs.
+
+## Scope
+
+`scope.config.ts` runs `scope/`, a browserless suite for run scope detection (see `test/scope.integration.test.ts`). **The `test.only` in `scope/focused.spec.ts` is intentional:** a plain run must be `partial` with the `only` reason alone, which checks that Playwright's internal `_only` flag still works. The `main` project depends on `setup`, to check `--project` and `--no-deps`. Other runs of this suite pass a file filter (`plain.spec.ts`) so the `test.only` does not apply. `scope-default.config.ts` runs the same folder without the `test.only` and adds a `nightly` project with `default: false` (Playwright 1.64+).
 
 ## Scripts
 

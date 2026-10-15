@@ -1,4 +1,5 @@
 import { randomInt, randomUUID } from 'node:crypto';
+import { createServer as createHttpServer } from 'node:http';
 import { createServer, type AddressInfo } from 'node:net';
 import { expect, test } from '@playwright/test';
 
@@ -11,6 +12,21 @@ import { expect, test } from '@playwright/test';
 function failOrderSync(): never {
   const url = `http://localhost:${randomInt(3000, 9000)}/api/orders/${randomInt(1, 10_000)}`;
   throw new Error(`Order sync ${randomUUID()} rejected by ${url} after ${randomInt(100, 5000)}ms`);
+}
+
+/** Serves `status` on 127.0.0.1 while `use` runs: no external network. */
+async function withStatusServer(status: number, use: (url: string) => Promise<void>): Promise<void> {
+  const server = createHttpServer((_request, response) => {
+    response.statusCode = status;
+    response.end('Intentional failure');
+  }).listen(0, '127.0.0.1');
+  await new Promise((resolve) => server.once('listening', resolve));
+  const { port } = server.address() as AddressInfo;
+  try {
+    await use(`http://127.0.0.1:${port}/api/orders`);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
 }
 
 test.describe('failures', () => {
@@ -33,6 +49,23 @@ test.describe('failures', () => {
       const { port } = server.address() as AddressInfo;
       await new Promise((resolve) => server.close(resolve));
       await page.goto(`http://127.0.0.1:${port}/`);
+    });
+
+    test('matches several elements (intentional)', { tag: '@layer:ui' }, async ({ page }) => {
+      await page.setContent('<button>Save</button><button>Save draft</button>');
+      await page.getByRole('button', { name: 'Save' }).click({ timeout: 300 });
+    });
+
+    test('is rate limited (intentional)', { tag: '@layer:api' }, async ({ request }) => {
+      await withStatusServer(429, async (url) => {
+        await expect(await request.get(url)).toBeOK();
+      });
+    });
+
+    test('gets a server error (intentional)', { tag: '@layer:api' }, async ({ request }) => {
+      await withStatusServer(500, async (url) => {
+        await request.get(url, { failOnStatusCode: true });
+      });
     });
   });
 

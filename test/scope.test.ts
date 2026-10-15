@@ -24,6 +24,7 @@ function input(args: string[], overrides: Partial<ScopeInput> = {}): ScopeInput 
     shard: false,
     projects: PROJECTS,
     filteredProjects: ALL,
+    nonDefaultProjects: [],
     runProjects: ALL,
     only: false,
     ...overrides,
@@ -56,6 +57,14 @@ describe('parseTestCommand', () => {
     expect(parseTestCommand([...BIN, 'test', '--only-changed', 'main'])?.filters).toEqual([]);
     expect(parseTestCommand([...BIN, 'test', '--only-changed', '--headed', 'a.spec.ts'])?.filters).toEqual(['a.spec.ts']);
     expect(parseTestCommand([...BIN, 'test', '-u', 'all'])?.filters).toEqual([]);
+  });
+
+  it('gives --project every following value like commander does', () => {
+    expect(parseTestCommand([...BIN, 'test', '--project', 'a', 'b', '--headed', 'c.spec.ts'])?.filters).toEqual(['c.spec.ts']);
+    expect(parseTestCommand([...BIN, 'test', '--project', 'a', 'b'])?.filters).toEqual([]);
+    // The = form takes a single value.
+    expect(parseTestCommand([...BIN, 'test', '--project=a', 'b.spec.ts'])?.filters).toEqual(['b.spec.ts']);
+    expect(parseTestCommand([...BIN, 'test', '--project', 'a', '--', 'b.spec.ts'])?.filters).toEqual(['b.spec.ts']);
   });
 
   it('treats everything after -- as filters', () => {
@@ -94,6 +103,60 @@ describe('detectScopeReasons', () => {
         filteredProjects: ['chromium', 'firefox'],
       })),
     ).toEqual([]);
+  });
+
+  it('does not count dependencies and teardowns as running under --no-deps', () => {
+    const projects = [
+      { name: 'setup', dependencies: [], teardown: 'cleanup' },
+      { name: 'cleanup', dependencies: [] },
+      { name: 'chromium', dependencies: ['setup'] },
+    ];
+    // Without --no-deps, chromium pulls setup and cleanup: every project runs.
+    expect(detectScopeReasons(input(['test', '--project', 'chromium'], { projects, filteredProjects: ['chromium'] }))).toEqual(
+      [],
+    );
+    // What Playwright 1.64 passes: dependencies unchanged, filteredProjects without them.
+    expect(
+      detectScopeReasons(input(['test', '--project', 'chromium', '--no-deps'], { projects, filteredProjects: ['chromium'] })),
+    ).toEqual(['project-filter']);
+    // Before 1.64, the projects present in the run already leave them out.
+    expect(
+      detectScopeReasons(input(['test', '--project', 'chromium', '--no-deps'], {
+        projects,
+        filteredProjects: undefined,
+        runProjects: ['chromium'],
+      })),
+    ).toEqual(['project-filter']);
+    // --no-deps alone: every project is selected and runs.
+    expect(detectScopeReasons(input(['test', '--no-deps'], { projects, filteredProjects: ['setup', 'cleanup', 'chromium'] }))).toEqual(
+      [],
+    );
+  });
+
+  it('takes the default projects as the reference for a full run', () => {
+    const projects = [...PROJECTS, { name: 'nightly', dependencies: ['setup'] }];
+    const base = { projects, nonDefaultProjects: ['nightly'] };
+    // What Playwright 1.64 passes for a plain run: nightly is not selected.
+    expect(detectScopeReasons(input(['test'], { ...base, filteredProjects: ALL }))).toEqual([]);
+    expect(detectScopeReasons(input(['test', '--project', 'nightly'], { ...base, filteredProjects: ['nightly'] }))).toEqual([
+      'project-filter',
+    ]);
+    expect(
+      detectScopeReasons(input(['test', '--project', 'chromium', 'firefox', 'nightly'], {
+        ...base,
+        filteredProjects: ['chromium', 'firefox', 'nightly'],
+      })),
+    ).toEqual([]);
+  });
+
+  it('treats a plain run as covering the default projects when their flags are unavailable', () => {
+    const projects = [...PROJECTS, { name: 'nightly', dependencies: [] }];
+    const base = { projects, nonDefaultProjects: undefined };
+    expect(detectScopeReasons(input(['test'], { ...base, filteredProjects: ALL }))).toEqual([]);
+    // With --project, every configured project is the reference.
+    expect(detectScopeReasons(input(['test', '--project', 'chromium', 'firefox'], { ...base, filteredProjects: ['chromium', 'firefox'] }))).toEqual(
+      ['project-filter'],
+    );
   });
 
   it('falls back to the projects present in the run when filteredProjects is unavailable', () => {

@@ -15,9 +15,15 @@ jobs:
         node: [22, 24]
         playwright: [current]
         include:
-          # Minimum supported version (peerDependency), see docs/schema/v1.md.
+          # Minimum supported version (peerDependency), see docs/schema/v1.md:
+          # exercises the pre-1.61 (`process.argv`) and pre-1.64 (no
+          # `filteredProjects`) paths of run scope detection.
           - node: 22
             playwright: 1.52.0
+          # Latest release, ahead of the lockfile: catches changes to the
+          # internals Loupe reads (`_only`, see test/scope.integration.test.ts).
+          - node: 24
+            playwright: latest
     steps:
       - uses: actions/checkout@v4
 

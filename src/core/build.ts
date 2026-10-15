@@ -146,6 +146,24 @@ function isDefaultGrep(grep: RegExp | RegExp[]): boolean {
   return grep instanceof RegExp && grep.source === '.*' && grep.flags === '';
 }
 
+/**
+ * Names of the projects with `default: false` (Playwright 1.64+). Only
+ * Playwright's internal config has the flag, under a private symbol; undefined
+ * when it is missing (older versions, merge-reports) or has another shape.
+ */
+function nonDefaultProjects(config: FullConfig): string[] | undefined {
+  const symbol = Object.getOwnPropertySymbols(config).find((candidate) => candidate.description === 'configInternalSymbol');
+  const internal = symbol ? (config as unknown as Record<symbol, unknown>)[symbol] : undefined;
+  const projects = (internal as { projects?: unknown } | undefined)?.projects;
+  if (!Array.isArray(projects)) return undefined;
+  const names: string[] = [];
+  for (const project of projects as Array<{ default?: unknown; project?: { name?: unknown } }>) {
+    if (typeof project.default !== 'boolean' || typeof project.project?.name !== 'string') return undefined;
+    if (!project.default) names.push(project.project.name);
+  }
+  return names;
+}
+
 /** `test.only` / `describe.only` leave Playwright's internal `_only` flag on the node or an ancestor. */
 function isFocused(test: PwTestCase): boolean {
   for (let node: PwTestCase | Suite | undefined = test; node; node = node.parent) {
@@ -349,6 +367,7 @@ export async function buildReport(
       teardown: project.teardown,
     })),
     filteredProjects: extra.filteredProjects?.map((project) => project.name),
+    nonDefaultProjects: nonDefaultProjects(config),
     runProjects: projects.map((project) => project.name),
     only: suite.allTests().some(isFocused),
   });

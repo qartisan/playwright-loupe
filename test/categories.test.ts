@@ -49,6 +49,18 @@ const MESSAGES = {
     'Timeout: 300ms',
     'Error: element(s) not found',
   ].join('\n'),
+  ambiguous: [
+    "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:",
+    "    1) <button>Save</button> aka getByRole('button', { name: 'Save', exact: true })",
+    "    2) <button>Save draft</button> aka getByRole('button', { name: 'Save draft' })",
+  ].join('\n'),
+  ambiguousExpect: [
+    'Error: expect(locator).toBeVisible() failed',
+    '',
+    "Locator: getByRole('button', { name: 'Save' })",
+    'Expected: visible',
+    "Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:",
+  ].join('\n'),
   testTimeout: 'Test timeout of 1000ms exceeded.',
   actionTimeout: "Error: locator.click: Timeout 1000ms exceeded.\nCall log:\n  - waiting for getByRole('button')",
   network: 'Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:37989/',
@@ -60,6 +72,8 @@ describe('categorize', () => {
     ['screenshot', 'Assertion'],
     ['generic', 'Assertion'],
     ['locator', 'Locator not found'],
+    ['ambiguous', 'Ambiguous locator'],
+    ['ambiguousExpect', 'Ambiguous locator'],
     ['testTimeout', 'Timeout'],
     ['actionTimeout', 'Timeout'],
     ['network', 'Network'],
@@ -147,6 +161,10 @@ describe('categorize', () => {
     // Matches both "Locator not found" and "Assertion"; the earlier rule wins.
     expect(categorize(at('expect(locator).toBeVisible() failed\nError: element(s) not found'))).toBe(
       'Locator not found',
+    );
+    // A strict mode violation is an ambiguous locator, before anything else.
+    expect(categorize(at('Error: strict mode violation: x resolved to 2 elements\nError: element(s) not found'))).toBe(
+      'Ambiguous locator',
     );
     // A retrying assertion mentions a timeout but is an assertion failure.
     expect(categorize(at(MESSAGES.assertion))).toBe('Assertion');
@@ -266,8 +284,9 @@ describe('category colors', () => {
 });
 
 describe('built-in rules', () => {
-  it('are, in order, locator not found, rate limited, server error, network, assertion and timeout, with distinct colors', () => {
+  it('are, in order, ambiguous locator, locator not found, rate limited, server error, network, assertion and timeout, with distinct colors', () => {
     expect(BUILT_IN_RULES.map((rule) => rule.name)).toEqual([
+      'Ambiguous locator',
       'Locator not found',
       'Rate limited',
       'Server error',
