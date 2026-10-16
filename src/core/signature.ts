@@ -12,6 +12,36 @@ export function stripAnsi(text: string): string {
 const CALL_LOG = /^[ \t]*Call log:/m;
 
 /**
+ * A strict mode violation lists the matching elements, one per line:
+ * `    1) <li>Order 13</li> aka locator('li').first()`. Their positions and
+ * content change when the page gains an item, so the list is dropped and the
+ * count becomes `<n>`. Playwright ends a long list with a `...` line.
+ */
+const STRICT_MODE = /\bstrict mode violation\b/;
+const STRICT_MODE_COUNT = /(\bstrict mode violation:.*?\bresolved to )\d+( elements?\b)/g;
+const ENUMERATED_ELEMENT = /^[ \t]*(?:\d+\) <.*|\.\.\.)[ \t]*$/;
+
+/**
+ * Lines of a locator assertion that identify the failure: the `Error:` lines
+ * (the matcher line, and `Error: element(s) not found` or a strict mode
+ * violation under it), a matcher line without `Error:` (after a custom
+ * message), `Locator:`, and `Expected…:` / `Received…:`. The rest (timeout,
+ * screenshot pixel counts, diff bodies, element lists) varies between runs.
+ */
+const LOCATOR_LINE = /^[ \t]*Locator:/m;
+const STABLE_LINE = /^[ \t]*(?:Error:|Locator:|(?:Expected|Received)\b[^:\n]*:|expect(?:\.\w+)*\()/;
+
+/** The stable part of a Playwright message (the call log is already cut). See "Error signature" in docs/schema/v1.md. */
+function stablePart(text: string): string {
+  let lines = text.split('\n');
+  if (STRICT_MODE.test(text)) {
+    lines = lines.filter((line) => !ENUMERATED_ELEMENT.test(line)).map((line) => line.replace(STRICT_MODE_COUNT, '$1<n>$2'));
+  }
+  if (LOCATOR_LINE.test(text)) lines = lines.filter((line) => STABLE_LINE.test(line));
+  return lines.join('\n');
+}
+
+/**
  * `merge-reports` prefixes the run errors of a blob whose config has a `tag`
  * with `(<tags>) `, tags joined by spaces. Config tags always start with `@`.
  */
@@ -63,14 +93,16 @@ export interface NormalizeOptions {
 
 /**
  * Normalizes an error message so the same failure produces the same text
- * across tests and runs: ANSI codes and the call log are removed, volatile
- * values are replaced with placeholders and whitespace is collapsed.
+ * across tests, retries and runs: ANSI codes and the call log are removed,
+ * only the stable part of Playwright messages is kept, volatile values are
+ * replaced with placeholders and whitespace is collapsed.
  */
 export function normalizeErrorMessage(message: string, options: NormalizeOptions = {}): string {
   let text = stripAnsi(message);
   if (options.runError) text = stripMergeTagPrefix(text);
   const callLog = CALL_LOG.exec(text);
   if (callLog) text = text.slice(0, callLog.index);
+  text = stablePart(text);
   for (const [pattern, placeholder] of REPLACEMENTS) {
     text = text.replace(pattern, placeholder);
   }

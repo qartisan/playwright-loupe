@@ -147,7 +147,7 @@ describe('normalizeErrorMessage', () => {
       '  - Expect "toHaveText" with timeout 500ms',
     ].join('\n');
     expect(normalizeErrorMessage(message)).toBe(
-      "Error: expect(locator).toHaveText(expected) failed Locator: getByRole('heading', { level: <n> }) Expected: \"Wrong heading\" Received: \"Loupe fixture\" Timeout: <duration>",
+      "Error: expect(locator).toHaveText(expected) failed Locator: getByRole('heading', { level: <n> }) Expected: \"Wrong heading\" Received: \"Loupe fixture\"",
     );
   });
 
@@ -216,5 +216,131 @@ describe('errorSignature', () => {
 
   it('differs when the meaningful text differs', () => {
     expect(errorSignature('Expected: "a"')).not.toBe(errorSignature('Expected: "b"'));
+  });
+});
+
+/**
+ * A strict mode violation on a test and its retry: the page gained an item
+ * between the attempts, so the element count, the positions in the element
+ * list (`.first()` / `.nth(1)`, `li:nth-child(13)` / `14`) and the items differ.
+ * Playwright 1.64 format.
+ */
+const STRICT_FIRST_RUN = [
+  "Error: locator.click: Error: strict mode violation: getByRole('listitem').filter({ hasText: 'Pending' }) resolved to 2 elements:",
+  "    1) <li class=\"order pending\">Order 41 · Pending</li> aka getByRole('listitem').filter({ hasText: 'Order 41 · Pending' }).first()",
+  "    2) <li class=\"order pending\">Order 42 · Pending</li> aka locator('li:nth-child(13)')",
+  '',
+  'Call log:',
+  "  - waiting for getByRole('listitem').filter({ hasText: 'Pending' })",
+].join('\n');
+
+const STRICT_RETRY = [
+  "Error: locator.click: Error: strict mode violation: getByRole('listitem').filter({ hasText: 'Pending' }) resolved to 3 elements:",
+  "    1) <li class=\"order pending\">Order 40 · Pending</li> aka getByRole('listitem').filter({ hasText: 'Order 40 · Pending' })",
+  "    2) <li class=\"order pending\">Order 41 · Pending</li> aka getByRole('listitem').filter({ hasText: 'Order 41 · Pending' }).nth(1)",
+  "    3) <li class=\"order pending\">Order 42 · Pending</li> aka locator('li:nth-child(14)')",
+  '',
+  'Call log:',
+  "  - waiting for getByRole('listitem').filter({ hasText: 'Pending' })",
+].join('\n');
+
+/** The same violation surfacing through a locator assertion. */
+const strictAssertion = (count: number, nth: number) =>
+  [
+    'Error: expect(locator).toBeVisible() failed',
+    '',
+    "Locator: getByRole('listitem').filter({ hasText: 'Pending' })",
+    'Expected: visible',
+    'Timeout: 5000ms',
+    `Error: strict mode violation: getByRole('listitem').filter({ hasText: 'Pending' }) resolved to ${count} elements:`,
+    ...Array.from({ length: count }, (_, index) => `    ${index + 1}) <li>Order ${40 + index}</li> aka locator('li:nth-child(${nth + index})')`),
+    '',
+    'Call log:',
+    '  - Expect "toBeVisible" with timeout 5000ms',
+  ].join('\n');
+
+describe('stable part of Playwright messages', () => {
+  it('gives a strict mode violation the same signature on a test and its retry', () => {
+    expect(errorSignature(STRICT_RETRY)).toBe(errorSignature(STRICT_FIRST_RUN));
+    expect(normalizeErrorMessage(STRICT_FIRST_RUN)).toBe(
+      "Error: locator.click: Error: strict mode violation: getByRole('listitem').filter({ hasText: 'Pending' }) resolved to <n> elements:",
+    );
+  });
+
+  it('gives a strict mode violation through an assertion the same signature on a test and its retry', () => {
+    expect(errorSignature(strictAssertion(3, 14))).toBe(errorSignature(strictAssertion(2, 13)));
+    expect(normalizeErrorMessage(strictAssertion(2, 13))).toBe(
+      "Error: expect(locator).toBeVisible() failed Locator: getByRole('listitem').filter({ hasText: 'Pending' }) Expected: visible " +
+        "Error: strict mode violation: getByRole('listitem').filter({ hasText: 'Pending' }) resolved to <n> elements:",
+    );
+  });
+
+  it('drops the "..." line ending a long element list', () => {
+    const long = `${STRICT_FIRST_RUN.split('\nCall log:')[0]}\n    ...\n`;
+    expect(errorSignature(long)).toBe(errorSignature(STRICT_FIRST_RUN));
+  });
+
+  it('keeps the matcher, Locator, Expected and Received lines of a locator assertion, and drops the rest', () => {
+    const message = [
+      'Error: expect(locator).toHaveScreenshot(expected) failed',
+      '',
+      "Locator: locator('div')",
+      '  10000 pixels (ratio 1.00 of all image pixels) are different.',
+      '',
+      '  Snapshot: square.png',
+      'Expected string: "a"',
+      'Received string: "b"',
+    ].join('\n');
+    expect(normalizeErrorMessage(message)).toBe(
+      "Error: expect(locator).toHaveScreenshot(expected) failed Locator: locator('div') Expected string: \"a\" Received string: \"b\"",
+    );
+  });
+
+  it('keeps the matcher line after a custom assertion message', () => {
+    const message = "Error: cart badge\n\nexpect(locator).toBeVisible() failed\n\nLocator: getByTestId('badge')\nExpected: visible";
+    expect(normalizeErrorMessage(message)).toBe("Error: cart badge expect(locator).toBeVisible() failed Locator: getByTestId('badge') Expected: visible");
+  });
+
+  describe('still tells different failures apart', () => {
+    it('different locators in a strict mode violation', () => {
+      const other = STRICT_FIRST_RUN.replaceAll("hasText: 'Pending' })", "hasText: 'Shipped' })");
+      expect(errorSignature(other)).not.toBe(errorSignature(STRICT_FIRST_RUN));
+    });
+
+    it('different locators in an assertion', () => {
+      const a = "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: 'Pay' })\nExpected: visible";
+      const b = "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: 'Cancel' })\nExpected: visible";
+      expect(errorSignature(a)).not.toBe(errorSignature(b));
+    });
+
+    it('a missing element and several elements on the same locator', () => {
+      const notFound = [
+        'Error: expect(locator).toBeVisible() failed',
+        '',
+        "Locator: getByRole('listitem').filter({ hasText: 'Pending' })",
+        'Expected: visible',
+        'Timeout: 5000ms',
+        'Error: element(s) not found',
+      ].join('\n');
+      expect(errorSignature(notFound)).not.toBe(errorSignature(strictAssertion(2, 13)));
+    });
+
+    it('different expected or received values', () => {
+      const text = (expected: string) => `Error: expect(locator).toHaveText(expected) failed\n\nLocator: locator('h1')\nExpected: "${expected}"\nReceived: "Home"`;
+      expect(errorSignature(text('Checkout'))).not.toBe(errorSignature(text('Cart')));
+    });
+
+    it('different actions on the same strict mode violation', () => {
+      expect(errorSignature(STRICT_FIRST_RUN.replace('locator.click', 'locator.fill'))).not.toBe(errorSignature(STRICT_FIRST_RUN));
+    });
+  });
+
+  it('leaves numbered lines alone outside strict mode violations, and messages without Locator line whole', () => {
+    const message = 'Error: Import failed\n  1) <row id=7> rejected: missing SKU\n  2) <row id=9> rejected: bad price';
+    expect(normalizeErrorMessage(message)).toBe(
+      'Error: Import failed <n>) <row id=<n>> rejected: missing SKU <n>) <row id=<n>> rejected: bad price',
+    );
+    const deepEqual = 'Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 1\n\n  Object {\n-   "total": 10,\n+   "total": 12,\n  }';
+    expect(normalizeErrorMessage(deepEqual)).toContain('"total"');
   });
 });
