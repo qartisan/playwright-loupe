@@ -1,7 +1,9 @@
 # playwright-loupe
-Loupe — an HTML reporter for Playwright: run summary, tests grouped by project and suite, dimensions from tags and annotations, and detailed failures with every attempt, error categories and signatures. Native Playwright APIs only.
+Loupe — an HTML reporter for Playwright: a dashboard that shows what failed and why, error groups by normalized signature, tests grouped by project, file and describe block, and dimensions from tags and annotations. Native Playwright APIs only.
 
 > **Status: work in progress — the JSON schema will change before 1.0.**
+
+![Loupe overview](https://raw.githubusercontent.com/qartisan/playwright-loupe/main/docs/images/overview.png)
 
 Loupe is a reporter for Playwright, not affiliated with Microsoft.
 
@@ -29,9 +31,23 @@ export default defineConfig({
 
 After a run, open `loupe-report/index.html`. The raw data is in `loupe-report/report.json`, with attachments in `loupe-report/data/`. Its format is documented in [`docs/schema/v1.md`](docs/schema/v1.md), with a [JSON Schema](docs/schema/report-v1.schema.json) and TypeScript types (`import type { LoupeReport } from '@qartisan/playwright-loupe'`).
 
-Loupe requires `@playwright/test` 1.52 or later.
-
 A run that broke outside its tests (a spec file that fails to import, a failing global setup) is reported in `run.errors`, even when no test ran.
+
+## The report
+
+The report is a single self-contained HTML file. It works offline, straight from `file://`, in light and dark themes.
+
+- **Overview:** verdict with pass rate, run errors first when the run broke outside its tests, error categories, project cards.
+- **Errors:** every error group, built from normalized error signatures, with the failed / flaky split and links to the affected tests.
+- **Suite health:** dimensions from tags and annotations (with hints for unknown or inconsistent values), slowest, skipped and flaky tests.
+- **Sidebar:** projects, files, `describe` blocks and tests, with status icons, failure counts and keyboard navigation.
+
+### Coming next
+
+- Search and filters (name, suite, status, tag), kept in the URL.
+- Test detail: error, steps, and attachments per attempt (screenshots, video, trace), copyable rerun command and AI prompt.
+
+History and flakiness tracking are planned for a later phase; the JSON model is already prepared for them.
 
 ## Configuration
 
@@ -44,7 +60,7 @@ import { defineConfig } from '@qartisan/playwright-loupe';
 export default defineConfig({
   title: 'My suite',
   categories: {
-    rules: [{ name: 'Infra', match: [/ECONNRESET/, /ECONNREFUSED/] }],
+    rules: [{ name: 'Infra', match: [/ECONNRESET/, /ECONNREFUSED/], color: 'teal' }],
   },
   dimensions: {
     definitions: [
