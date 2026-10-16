@@ -1,14 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { formatHash, parseHash, type AppLocation } from '../src/renderer/router.js';
+import { formatHash, parseHash, redirectHash, type AppLocation } from '../src/renderer/router.js';
 
 describe('parseHash', () => {
   it.each(['', '#', '#/', '/', '#//'])('reads %j as the dashboard', (hash) => {
     expect(parseHash(hash)).toEqual({ route: { page: 'dashboard' }, query: {} });
   });
 
-  it('reads the run errors page, with or without a trailing slash', () => {
-    expect(parseHash('#/run-errors').route).toEqual({ page: 'run-errors' });
-    expect(parseHash('#/run-errors/').route).toEqual({ page: 'run-errors' });
+  it('reads the errors and suite health views, with or without a trailing slash', () => {
+    expect(parseHash('#/errors').route).toEqual({ page: 'errors' });
+    expect(parseHash('#/health/').route).toEqual({ page: 'health' });
+  });
+
+  it('reads the former run errors path as the errors view', () => {
+    expect(parseHash('#/run-errors').route).toEqual({ page: 'errors' });
   });
 
   it('reads a test route', () => {
@@ -27,7 +31,7 @@ describe('parseHash', () => {
     expect(parseHash('#/test/a%2Fb%20c').route).toEqual({ page: 'test', id: 'a/b c', repeatEachIndex: 0 });
   });
 
-  it.each(['#/nope', '#/test', '#/test/abc/repeat', '#/test/abc/repeat/-1', '#/test/abc/repeat/01', '#/test/abc/repeat/x', '#/test/abc/extra', '#/run-errors/x', '#/group', '#/group/abc/extra', '#/test/%E0%A4%A'])(
+  it.each(['#/nope', '#/test', '#/test/abc/repeat', '#/test/abc/repeat/-1', '#/test/abc/repeat/01', '#/test/abc/repeat/x', '#/test/abc/extra', '#/run-errors/x', '#/errors/x', '#/constructor', '#/toString', '#/group', '#/group/abc/extra', '#/test/%E0%A4%A'])(
     'reads %j as not found',
     (hash) => {
       expect(parseHash(hash).route.page).toBe('not-found');
@@ -46,7 +50,8 @@ describe('parseHash', () => {
 describe('formatHash', () => {
   it('formats each route', () => {
     expect(formatHash({ route: { page: 'dashboard' }, query: {} })).toBe('#/');
-    expect(formatHash({ route: { page: 'run-errors' }, query: {} })).toBe('#/run-errors');
+    expect(formatHash({ route: { page: 'errors' }, query: {} })).toBe('#/errors');
+    expect(formatHash({ route: { page: 'health' }, query: {} })).toBe('#/health');
     expect(formatHash({ route: { page: 'test', id: 'abc', repeatEachIndex: 0 }, query: {} })).toBe('#/test/abc');
     expect(formatHash({ route: { page: 'test', id: 'abc', repeatEachIndex: 2 }, query: {} })).toBe('#/test/abc/repeat/2');
     expect(formatHash({ route: { page: 'group', signature: '3f2a9c0d1e4b' }, query: {} })).toBe('#/group/3f2a9c0d1e4b');
@@ -60,7 +65,8 @@ describe('formatHash', () => {
 
   it.each<AppLocation>([
     { route: { page: 'dashboard' }, query: {} },
-    { route: { page: 'run-errors' }, query: { status: 'failed' } },
+    { route: { page: 'errors' }, query: { status: 'failed' } },
+    { route: { page: 'health' }, query: {} },
     { route: { page: 'test', id: 'f67dffbfbe9d1c0b', repeatEachIndex: 0 }, query: {} },
     { route: { page: 'test', id: 'weird / id ? # %', repeatEachIndex: 4 }, query: { q: 'a=b&c', tag: '@smoke' } },
     { route: { page: 'group', signature: 'a/b c' }, query: {} },
@@ -71,5 +77,16 @@ describe('formatHash', () => {
   it('keeps an unknown path as is', () => {
     const location = parseHash('#/somewhere/else');
     expect(formatHash(location)).toBe('#/somewhere/else');
+  });
+});
+
+describe('redirectHash', () => {
+  it('sends the former run errors path to the errors view, keeping the query', () => {
+    expect(redirectHash('#/run-errors')).toBe('#/errors');
+    expect(redirectHash('#/run-errors/?tag=%40smoke')).toBe('#/errors?tag=%40smoke');
+  });
+
+  it.each(['', '#/', '#/errors', '#/test/abc', '#/run-errors/x', '#/constructor'])('leaves %j alone', (hash) => {
+    expect(redirectHash(hash)).toBeNull();
   });
 });

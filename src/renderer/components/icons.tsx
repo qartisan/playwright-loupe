@@ -128,3 +128,21 @@ export function AlertIcon(props: IconProps) {
     </Svg>
   );
 }
+
+export function ErrorsIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="8" cy="8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.3" />
+      <path d="M8 4.6v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      <circle cx="8" cy="11.1" r=".9" fill="currentColor" />
+    </Svg>
+  );
+}
+
+export function HealthIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M1.5 8.5h3l1.5-4 2.5 7 1.8-4.5 1 1.5h3.2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
+    </Svg>
+  );
+}

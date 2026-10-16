@@ -4,10 +4,11 @@ import type { LoupeReport, TestCase } from '../../schema/v1.js';
 import { isNarrow, sidebarOpen } from '../layout.js';
 import { currentLocation } from '../navigation.js';
 import { errorGroups } from '../dashboard.js';
-import { DashboardPage } from '../pages/DashboardPage.js';
+import { ErrorsPage } from '../pages/ErrorsPage.js';
 import { GroupPage } from '../pages/GroupPage.js';
+import { HealthPage } from '../pages/HealthPage.js';
 import { NotFoundPage } from '../pages/NotFoundPage.js';
-import { RunErrorsPage } from '../pages/RunErrorsPage.js';
+import { OverviewPage } from '../pages/OverviewPage.js';
 import { TestPage } from '../pages/TestPage.js';
 import { buildTree, testKey } from '../tree.js';
 import { Footer } from './Footer.js';
@@ -35,10 +36,13 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
   let page;
   switch (route.page) {
     case 'dashboard':
-      page = <DashboardPage report={report} groups={groups} />;
+      page = <OverviewPage report={report} groups={groups} />;
       break;
-    case 'run-errors':
-      page = <RunErrorsPage report={report} />;
+    case 'errors':
+      page = <ErrorsPage report={report} groups={groups} />;
+      break;
+    case 'health':
+      page = <HealthPage report={report} />;
       break;
     case 'test':
       page = <TestPage test={testsByKey.get(testKey(route.id, route.repeatEachIndex))} />;

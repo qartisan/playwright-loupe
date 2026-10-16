@@ -1,12 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import {
   NO_CATEGORY,
+  caseVariants,
   categoryCounts,
   dimensionDistributions,
   errorGroups,
+  errorHeadline,
   firstLine,
+  flakyTests,
+  groupSummary,
   lookAtFirst,
+  outcomeShares,
+  passRate,
   projectSummaries,
+  rankGroups,
   skippedTests,
   slowestTests,
   verdict,
@@ -263,6 +270,169 @@ describe('skippedTests', () => {
       ['reasoned', 'skip', 'not on CI'],
       ['runtime', 'skip', 'feature flag off'],
       ['fixme', 'fixme', null],
+    ]);
+  });
+});
+
+/** Messages as Playwright 1.64 reports them (from the fixture suite, ANSI codes stripped). */
+const PLAYWRIGHT = {
+  toHaveText: `Error: expect(locator).toHaveText(expected) failed
+
+Locator:  getByRole('heading', { level: 1 })
+Expected: "Wrong heading"
+Received: "Loupe fixture"
+Timeout:  500ms
+
+Call log:
+  - Expect "toHaveText" getByRole('heading', { level: 1 }) with timeout 500ms
+  - waiting for getByRole('heading', { level: 1 })
+    6 × locator resolved to <h1>Loupe fixture</h1>`,
+  toBeVisible: `Error: expect(locator).toBeVisible() failed
+
+Locator: getByRole('button', { name: 'Missing' })
+Expected: visible
+Timeout: 300ms
+Error: element(s) not found
+
+Call log:
+  - Expect "toBeVisible" getByRole('button', { name: 'Missing' }) with timeout 300ms`,
+  notToBeVisible: `Error: expect(locator).not.toBeVisible() failed
+
+Locator:  getByText('Loading')
+Expected: not visible
+Received: visible`,
+  toHaveScreenshot: `Error: expect(locator).toHaveScreenshot(expected) failed
+
+Locator: locator('div')
+  10000 pixels (ratio 1.00 of all image pixels) are different.
+
+  Snapshot: square.png`,
+  toBeOK: `Error: expect(response).toBeOK() failed
+
+
+Call log:
+→ GET http://127.0.0.1:36595/api/orders
+  accept: */*
+← 429 Too Many Requests
+  date: Fri, 16 Oct 2026 09:25:27 GMT`,
+  toBeGreaterThan: `Error: expect(received).toBeGreaterThan(expected)
+
+Expected: > 0
+Received:   0`,
+  customMessage: `Error: fails on the first attempt on purpose
+
+expect(received).toBeGreaterThan(expected)
+
+Expected: > 0
+Received:   0`,
+  actionTimeout: `Error: locator.click: Timeout 1000ms exceeded.
+Call log:
+  - waiting for getByRole('button')`,
+  strictMode: `Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:
+    1) <button>Save</button> aka getByRole('button', { name: 'Save', exact: true })`,
+  testTimeout: 'Test timeout of 1000ms exceeded.',
+  network: `Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:38159/
+Call log:
+  - navigating to "http://127.0.0.1:38159/", waiting until "load"`,
+  serverError: `Error: apiRequestContext.get: 500 Internal Server Error
+Response text:
+Intentional failure
+Call log:
+  - ← 500 Internal Server Error`,
+};
+
+describe('errorHeadline', () => {
+  it.each([
+    ['toHaveText', "Locator: getByRole('heading', { level: 1 })"],
+    ['toBeVisible', "Locator: getByRole('button', { name: 'Missing' })"],
+    ['notToBeVisible', "Locator: getByText('Loading')"],
+    ['toHaveScreenshot', "Locator: locator('div')"],
+    ['toBeOK', '\u2190 429 Too Many Requests'],
+    // No locator: the generic line is all there is.
+    ['toBeGreaterThan', 'Error: expect(received).toBeGreaterThan(expected)'],
+    // A custom message is telling: it is kept.
+    ['customMessage', 'Error: fails on the first attempt on purpose'],
+    ['actionTimeout', 'Error: locator.click: Timeout 1000ms exceeded.'],
+    ['strictMode', "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:"],
+    ['testTimeout', 'Test timeout of 1000ms exceeded.'],
+    ['network', 'Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:38159/'],
+    // The response line only stands in for a generic matcher line.
+    ['serverError', 'Error: apiRequestContext.get: 500 Internal Server Error'],
+  ] as const)('picks the telling line of a %s failure', (kind, expected) => {
+    expect(errorHeadline(PLAYWRIGHT[kind])).toBe(expected);
+  });
+
+  it('reads the older "Timed out ... waiting for expect" format', () => {
+    const message = "Error: Timed out 5000ms waiting for expect(locator).toBeVisible()\n\nLocator: getByRole('dialog')\nExpected: visible";
+    expect(errorHeadline(message)).toBe("Locator: getByRole('dialog')");
+  });
+});
+
+describe('groupSummary', () => {
+  it('gives the headline, the first affected test and how many others', () => {
+    const a = failed([error('g', 'Assertion', PLAYWRIGHT.toBeVisible)], { title: 'first' });
+    const b = flaky([error('g', 'Assertion', PLAYWRIGHT.toBeVisible)], { title: 'second' });
+    const [group] = errorGroups({ tests: [a, b] });
+    expect(groupSummary(group!)).toEqual({ headline: "Locator: getByRole('button', { name: 'Missing' })", firstTest: a, others: 1 });
+  });
+});
+
+describe('rankGroups', () => {
+  it('sorts every group like "look at first", without a limit', () => {
+    const tests = [flaky([error('f')]), ...Array.from({ length: 7 }, (_, index) => failed([error(`g${index}`)])), failed([error('g6')])];
+    const ranked = rankGroups(errorGroups({ tests }));
+    expect(ranked.map((group) => group.signature)).toEqual(['g6', 'g0', 'g1', 'g2', 'g3', 'g4', 'g5', 'f']);
+    expect(lookAtFirst(errorGroups({ tests }))).toEqual(ranked.slice(0, 5));
+  });
+});
+
+describe('outcomeShares and passRate', () => {
+  it('give each outcome its share of the run, leaving out empty outcomes', () => {
+    expect(outcomeShares(stats({ total: 8, passed: 4, failed: 2, skipped: 2 }))).toEqual([
+      { outcome: 'passed', count: 4, share: 0.5 },
+      { outcome: 'failed', count: 2, share: 0.25 },
+      { outcome: 'skipped', count: 2, share: 0.25 },
+    ]);
+    expect(outcomeShares(stats())).toEqual([]);
+  });
+
+  it('count passed tests among the tests that ran', () => {
+    expect(passRate(stats({ total: 8, passed: 3, failed: 2, flaky: 1, skipped: 2 }))).toBe(0.5);
+    expect(passRate(stats({ total: 2, skipped: 2 }))).toBeNull();
+  });
+});
+
+describe('caseVariants', () => {
+  it('pairs values that differ only by case, and nothing else', () => {
+    const variants = caseVariants(['api', 'API', 'Api', 'ui', 'e2e', 'E2E', 'db']);
+    expect(Object.fromEntries(variants)).toEqual({
+      api: ['API', 'Api'],
+      API: ['api', 'Api'],
+      Api: ['api', 'API'],
+      e2e: ['E2E'],
+      E2E: ['e2e'],
+    });
+  });
+
+  it('flags case variants in a dimension distribution, both declared and undeclared, without merging them', () => {
+    const tests = [makeTest({ dimensions: { Layer: ['api'] } }), failed([error('e')], { dimensions: { Layer: ['API'] } }), makeTest({ dimensions: { Layer: ['ui'] } })];
+    const [layer] = dimensionDistributions({ dimensions: [{ name: 'Layer', source: 'tag', key: 'layer', values: ['api', 'ui'] }], tests });
+    expect(layer?.values.map(({ value, total, unknown, caseVariants: twins }) => [value, total, unknown, twins])).toEqual([
+      ['api', 1, false, ['API']],
+      ['ui', 1, false, []],
+      ['API', 1, true, ['api']],
+    ]);
+  });
+});
+
+describe('flakyTests', () => {
+  it('lists flaky tests with the first error of their failing attempt', () => {
+    const first = error('f1', 'Timeout', PLAYWRIGHT.testTimeout);
+    const test = makeTest({ outcome: 'flaky', attempts: [attempt(0, 'failed', [first, error('f2')]), attempt(1, 'failed', [error('f3')]), attempt(2, 'passed')] });
+    const silent = makeTest({ outcome: 'flaky', attempts: [attempt(0, 'failed'), attempt(1, 'passed')] });
+    expect(flakyTests({ tests: [makeTest(), test, failed([error('x')]), silent] })).toEqual([
+      { test, error: first },
+      { test: silent, error: null },
     ]);
   });
 });

@@ -58,7 +58,7 @@
     --shadow: 0 8px 24px rgb(0 0 0 / 0.6);
     color-scheme: dark;
   }
-  :root:not([data-theme='light']) .category-badge {
+  :root:not([data-theme='light']) .category-badge, :root:not([data-theme='light']) .category-bar {
     --cat-text: var(--cat-text-dark);
     --cat-bg: var(--cat-bg-dark);
     --cat-border: var(--cat-border-dark);
@@ -88,12 +88,12 @@
 }
 
 /* Category badges: colors set inline per category (light and dark sets), picked here per theme. */
-.category-badge {
+.category-badge, .category-bar {
   --cat-text: var(--cat-text-light);
   --cat-bg: var(--cat-bg-light);
   --cat-border: var(--cat-border-light);
 }
-:root[data-theme='dark'] .category-badge {
+:root[data-theme='dark'] .category-badge, :root[data-theme='dark'] .category-bar {
   --cat-text: var(--cat-text-dark);
   --cat-bg: var(--cat-bg-dark);
   --cat-border: var(--cat-border-dark);
@@ -298,8 +298,8 @@ h1, h2, h3, strong, b { font-weight: 600; }
 .nav-link:hover { background: var(--bg-card); }
 .nav-link[aria-current='page'] { background: var(--bg-card); box-shadow: inset 3px 0 0 var(--fg); font-weight: 600; }
 .nav-link .icon { color: var(--fg-secondary); }
-.nav-run-errors .icon { color: var(--status-failed); }
-.nav-link .badge { margin-left: auto; }
+.nav-marker { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
+.nav-marker .icon { color: var(--status-failed); }
 
 .tree-section { padding: 8px 0; }
 .tree-toolbar { display: flex; align-items: center; gap: 2px; padding: 0 8px 4px 16px; }
@@ -366,14 +366,16 @@ pre.message {
 .load-error { max-width: 640px; margin: 48px auto; padding: 0 16px; }
 .load-error h1 { color: var(--status-failed); font-size: 20px; }
 
-/* Dashboard */
-.widgets {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
-  align-items: start;
-  gap: 16px;
-  max-width: 1280px;
-}
+/*
+ * Views (overview, errors, suite health): widgets stacked in a column. The
+ * layout follows the width of the page, not of the window (the sidebar takes
+ * part of it): container queries.
+ */
+.page { container-type: inline-size; }
+.view { display: flex; flex-direction: column; gap: 16px; }
+.view > *, .view h1 { max-width: 1280px; }
+.view > h1 { margin-bottom: 0; }
+
 .widget {
   min-width: 0;
   padding: 16px;
@@ -381,45 +383,89 @@ pre.message {
   border-radius: 8px;
   background: var(--bg-card);
 }
-.widget-wide { grid-column: 1 / -1; }
 .widget > h2 { margin: 0 0 12px; font-size: 15px; line-height: 1.3; }
 .widget-note { margin: -8px 0 12px; color: var(--fg-secondary); font-size: 13px; }
+.widget-hint { margin: 12px 0 0; color: var(--fg-secondary); font-size: 13px; }
 .widget-list { display: flex; flex-direction: column; padding: 0; margin: 0; list-style: none; }
 .widget-list > li { border-top: 1px solid var(--border); }
 .widget-list > li:first-child { border-top: 0; }
+.widget-more { margin: 8px 0 0; }
 
-.verdict { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 32px; }
+/* Two columns at most; an odd last widget takes the full row, so no row is half empty. */
+.widget-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max(380px, calc((100% - 16px) / 2)), 1fr));
+  align-items: start;
+  gap: 16px;
+}
+.widget-grid > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+/* Overview: Look at first (wide) next to the categories (narrow). */
+.overview-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; gap: 16px; }
+
+@container (max-width: 900px) {
+  .overview-row { grid-template-columns: minmax(0, 1fr); }
+  .widget-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+.verdict { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 32px; }
 .verdict-outcome { display: flex; margin: 0; align-items: center; gap: 10px; font-size: 22px; font-weight: 600; }
 .verdict-outcome .icon { width: 28px; height: 28px; }
 .verdict-outcome.outcome-flaky { padding: 2px 12px 2px 8px; border-radius: 8px; background: var(--status-flaky-bg); }
-.verdict-counts { display: flex; flex-wrap: wrap; gap: 8px 20px; padding: 0; margin: 0; list-style: none; }
-.verdict-counts li { display: flex; align-items: center; gap: 6px; }
-.verdict-counts strong { font-size: 18px; font-variant-numeric: tabular-nums; }
-.verdict-meta { margin: 0; color: var(--fg-secondary); }
+.verdict-meta { margin: 0; color: var(--fg-secondary); font-variant-numeric: tabular-nums; }
 .verdict-meta strong { color: var(--fg); }
+
+/* Stacked bar of outcomes; parts are separated by a gap so neighbours never blend. */
+.outcome-bar { display: flex; gap: 2px; height: 10px; margin: 12px 0 8px; overflow: hidden; border-radius: 5px; }
+.outcome-bar-part { flex-basis: 0; min-width: 4px; }
+.bar-passed { background: var(--status-passed); }
+.bar-failed { background: var(--status-failed); }
+.bar-flaky { background: var(--status-flaky); }
+.bar-skipped { background: var(--status-skipped); }
+.outcome-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 0; margin: 0; color: var(--fg-secondary); font-size: 13px; list-style: none; font-variant-numeric: tabular-nums; }
+.outcome-legend li { display: flex; align-items: center; gap: 4px; }
 
 .widget-run-errors { border-left: 3px solid var(--status-failed); }
 .widget-run-errors h2 { display: flex; align-items: center; gap: 8px; }
 .widget-run-errors h2 .icon { color: var(--status-failed); }
 .widget-run-errors .widget-list code { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .widget-run-errors .widget-list li { padding: 6px 0; }
-.widget-more { margin: 8px 0 0; }
 
-.group-link {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 4px 12px;
+/* An error group on one row: category and split, first affected test, telling line. */
+.group-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   padding: 8px 4px;
   color: inherit;
   text-decoration: none;
 }
-.group-link:hover { background: var(--bg-muted); }
-.group-link .group-message { grid-column: 1 / -1; overflow: hidden; color: var(--fg-secondary); text-overflow: ellipsis; white-space: nowrap; }
+.group-row:hover { background: var(--bg-muted); }
+.group-row-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; }
+.group-test { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.group-row:hover .group-test { text-decoration: underline; }
+.group-message { overflow: hidden; color: var(--fg-secondary); text-overflow: ellipsis; white-space: nowrap; }
 .group-count { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.group-split { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px 12px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.group-split { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .group-split-part { display: inline-flex; align-items: center; gap: 4px; }
-.group-signature { color: var(--fg-secondary); }
+
+/* Compact categories: one bar per category, as long as its test count; columns shared so the bars align. */
+.category-bars { display: grid; grid-template-columns: minmax(0, max-content) minmax(40px, 1fr) auto; }
+.category-bars > li { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; }
+.category-bar-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  color: inherit;
+  text-decoration: none;
+}
+.category-bar-row:hover { background: var(--bg-muted); }
+.category-bar-row .category-badge { justify-self: start; }
+.category-bar-track { display: block; height: 8px; }
+.category-bar { display: block; height: 100%; min-width: 4px; border-radius: 4px; background: var(--cat-border); }
 
 .category-list > li > details > summary {
   display: flex;
@@ -436,12 +482,15 @@ pre.message {
 .category-list summary .group-count { margin-left: auto; }
 .category-list .widget-list { margin: 0 0 8px 28px; }
 
-.project-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: 12px; padding: 0; margin: 0; list-style: none; }
+/* Project cards fill each row: the last row's cards grow instead of leaving gaps. */
+.project-cards { display: flex; flex-wrap: wrap; gap: 12px; padding: 0; margin: 0; list-style: none; }
+.project-cards > li { flex: 1 1 240px; min-width: 0; }
 .project-card {
   display: flex;
   flex-direction: column;
   gap: 6px;
   width: 100%;
+  height: 100%;
   padding: 12px;
   border: 1px solid var(--border-control);
   border-radius: 8px;
@@ -463,7 +512,7 @@ pre.message {
 .data-table th:first-child, .data-table td:first-child { text-align: left; }
 .data-table .zero { color: var(--fg-secondary); }
 .data-table tbody th { font-weight: 400; overflow-wrap: anywhere; }
-.unknown-value { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; color: var(--status-flaky); font-size: 12px; }
+.hygiene-flag { display: flex; align-items: center; gap: 4px; margin-top: 2px; color: var(--status-flaky); font-size: 12px; }
 
 .test-line { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
 .test-line .test-text { flex: 1; min-width: 0; }
@@ -471,6 +520,8 @@ pre.message {
 .test-line .test-where { display: block; overflow: hidden; color: var(--fg-secondary); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .test-line .duration { flex: none; font-variant-numeric: tabular-nums; }
 .skip-kind { padding: 0 6px; border: 1px solid var(--border-control); border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+.flaky-error { display: flex; align-items: center; gap: 8px; min-width: 0; margin-top: 2px; }
+.flaky-error code { overflow: hidden; color: var(--fg-secondary); text-overflow: ellipsis; white-space: nowrap; }
 
 /* Error group page */
 .group-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 0 0 16px; }

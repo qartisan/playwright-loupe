@@ -108,7 +108,13 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     await expect.poll(() => page.title()).toBe('Sample run');
     expect(await page.locator('.header .title').textContent()).toBe('Sample run');
     expect(await page.getByRole('note').textContent()).toMatch(/Partial run.*grep filter/);
-    expect(await page.getByRole('link', { name: /Run errors/ }).textContent()).toContain(String(report.run.errors.length));
+    const nav = page.locator('.nav-fixed .nav-link');
+    expect(await nav.locator('span:not(.visually-hidden):not(.badge):not(.nav-marker)').allTextContents()).toEqual(['Overview', 'Errors', 'Suite health']);
+    expect(await page.getByRole('link', { name: /Run errors/ }).count()).toBe(0);
+    // The Errors entry carries a warning marker and the run error count.
+    const errorsLink = page.getByRole('link', { name: /^Errors/ });
+    expect(await errorsLink.locator('.nav-marker .badge').textContent()).toBe(String(report.run.errors.length));
+    expect(await errorsLink.textContent()).toContain(`${report.run.errors.length} run error`);
     expect(await page.getByRole('treeitem', { level: 1 }).count()).toBe(report.projects.length);
     expect(errors).toEqual([]);
     await page.close();
@@ -122,12 +128,35 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     // Opening a test from the URL reveals and selects it in the tree.
     expect(await page.locator('[role="treeitem"][aria-selected="true"]').textContent()).toContain(failed.title);
 
-    await page.getByRole('link', { name: /Run errors/ }).click();
-    await page.getByRole('heading', { level: 1, name: 'Run errors' }).waitFor();
-    expect(page.url()).toMatch(/#\/run-errors$/);
+    for (const [name, path, heading] of [
+      ['Suite health', 'health', 'Suite health'],
+      ['Errors', 'errors', 'Errors'],
+      ['Overview', '', 'Overview'],
+    ] as const) {
+      await page.getByRole('link', { name: new RegExp(`^${name}`) }).click();
+      await page.getByRole('heading', { level: 1, name: heading }).waitFor();
+      expect(page.url()).toMatch(new RegExp(`#/${path}$`));
+      expect(await page.getByRole('link', { name: new RegExp(`^${name}`) }).getAttribute('aria-current')).toBe('page');
+    }
 
     await page.goBack();
-    await page.getByRole('heading', { level: 1, name: failed.title }).waitFor();
+    await page.getByRole('heading', { level: 1, name: 'Errors' }).waitFor();
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('redirects the former run errors route to the errors view', async () => {
+    const url = writeReport('redirect', report);
+    const { page, errors } = await open(`${url}#/run-errors`);
+    await page.getByRole('heading', { level: 1, name: 'Errors' }).waitFor();
+    expect(page.url()).toMatch(/#\/errors$/);
+    // Replaced, not pushed: Back does not return to the former route.
+    await page.goto(`${url}#/health`);
+    await page.evaluate("window.location.hash = '#/run-errors'");
+    await page.getByRole('heading', { level: 1, name: 'Errors' }).waitFor();
+    expect(page.url()).toMatch(/#\/errors$/);
+    await page.goBack();
+    await page.getByRole('heading', { level: 1, name: 'Suite health' }).waitFor();
     expect(errors).toEqual([]);
     await page.close();
   });
@@ -195,26 +224,36 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     const { page, errors } = await open(writeReport('empty', empty));
     await page.getByText('No tests in this run.').waitFor();
     expect(await page.getByRole('note').count()).toBe(0);
-    await page.getByRole('link', { name: /Run errors/ }).click();
+    await page.getByRole('link', { name: /^Errors/ }).click();
     await page.locator('.run-error').first().waitFor();
     expect(await page.locator('.run-error').count()).toBe(report.run.errors.length);
     expect(errors).toEqual([]);
     await page.close();
   });
 
-  const WIDGETS = ['Look at first', 'Error categories', 'Projects', 'Slowest tests', 'Skipped tests'];
-
-  it.each(['light', 'dark'] as const)('renders the dashboard in the %s theme, with the embedded font', async (colorScheme) => {
-    const { page, errors } = await open(writeReport(`dashboard-${colorScheme}`, report), { colorScheme });
+  it.each(['light', 'dark'] as const)('renders the overview in the %s theme, with the embedded font', async (colorScheme) => {
+    const { page, errors } = await open(writeReport(`overview-${colorScheme}`, report), { colorScheme });
     const verdict = page.locator('.verdict-outcome');
     await verdict.waitFor();
     expect(await verdict.getAttribute('data-verdict')).toBe('failed');
     expect(await verdict.textContent()).toBe('Failed');
-    // Widgets in the documented order; run errors come first, before the verdict.
-    const headings = await page.locator('.widget h2').allTextContents();
-    expect(headings.slice(0, 2)).toEqual([`${report.run.errors.length} error outside tests`, 'Verdict']);
-    expect(headings.filter((heading) => WIDGETS.includes(heading))).toEqual(WIDGETS);
-    for (const dimension of report.dimensions) expect(headings).toContain(dimension.name);
+    // Verdict, run errors, Look at first next to the categories, projects.
+    expect(await page.locator('.widget h2').allTextContents()).toEqual([
+      'Verdict',
+      `${report.run.errors.length} error outside tests`,
+      'Look at first',
+      'Error categories',
+      'Projects',
+    ]);
+    // The counts stay in the header: the verdict shows a bar and shares, not a count list.
+    expect(await page.locator('.outcome-bar-part').count()).toBe(['passed', 'failed', 'flaky', 'skipped'].filter((key) => report.run.stats[key as 'passed'] > 0).length);
+    expect(await page.locator('.outcome-bar').getAttribute('aria-label')).toBe(
+      `${report.run.stats.passed} passed, ${report.run.stats.failed} failed, ${report.run.stats.flaky} flaky, ${report.run.stats.skipped} skipped`,
+    );
+    // No signature hash on the overview rows: it stays on the group page.
+    const lookText = (await page.locator('.widget-look-at-first').textContent()) ?? '';
+    const signatures = new Set(report.tests.flatMap((test) => test.attempts.flatMap((attempt) => attempt.errors.map((error) => error.signature))));
+    expect([...signatures].filter((signature) => lookText.includes(signature))).toEqual([]);
 
     const background = await page.evaluate<string>('getComputedStyle(document.body).backgroundColor');
     expect(background).toBe(colorScheme === 'light' ? 'rgb(247, 245, 240)' : 'rgb(8, 8, 8)');
@@ -230,10 +269,52 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     await page.close();
   });
 
+  /** Bounding box of the first element matching `selector`. */
+  async function box(page: Page, selector: string): Promise<{ x: number; y: number; width: number; height: number }> {
+    const result = await page.locator(selector).first().boundingBox();
+    if (!result) throw new Error(`${selector} is not visible`);
+    return result;
+  }
+
+  it.each([
+    ['light', 1600],
+    ['dark', 1600],
+    ['light', 700],
+    ['dark', 700],
+  ] as const)('lays out the overview at %s, %ipx wide', async (colorScheme, width) => {
+    const page = await browser.newPage({ colorScheme, viewport: { width, height: 1200 } });
+    await page.goto(writeReport(`layout-${colorScheme}-${width}`, report));
+    await page.locator('.widget-look-at-first').waitFor();
+    const look = await box(page, '.widget-look-at-first');
+    const categories = await box(page, '.widget-categories');
+    const verdict = await box(page, '.widget-verdict');
+    const projects = await box(page, '.widget-projects');
+    if (width > 900) {
+      // Side by side, Look at first wider; the verdict and projects span both.
+      expect(Math.abs(look.y - categories.y)).toBeLessThan(2);
+      expect(look.width).toBeGreaterThan(categories.width * 1.5);
+      expect(Math.abs(verdict.width - (categories.x + categories.width - look.x))).toBeLessThan(2);
+    } else {
+      // Stacked in the same order, full width.
+      expect(categories.y).toBeGreaterThan(look.y + look.height);
+      expect(Math.abs(look.width - categories.width)).toBeLessThan(2);
+    }
+    expect(projects.y).toBeGreaterThan(Math.max(look.y + look.height, categories.y + categories.height));
+    // Project cards fill their row.
+    const cards = await page.locator('.project-card').evaluateAll(
+      (elements) => elements.map((element) => element.getBoundingClientRect().right),
+    );
+    const list = await box(page, '.project-cards');
+    expect(Math.max(...cards)).toBeCloseTo(list.x + list.width, 0);
+    // No horizontal scrolling.
+    expect(await page.evaluate<boolean>("document.querySelector('.main').scrollWidth <= document.querySelector('.main').clientWidth")).toBe(true);
+    await page.close();
+  });
+
   it('links the dashboard to error groups and tests', async () => {
     const { page, errors } = await open(writeReport('dashboard-links', report));
-    const firstGroup = page.locator('.widget-look-at-first a.group-link').first();
-    const signature = (await firstGroup.locator('.group-signature').textContent()) ?? '';
+    const firstGroup = page.locator('.widget-look-at-first a.group-row').first();
+    const signature = decodeURIComponent((await firstGroup.getAttribute('href'))?.replace(/^#\/group\//, '') ?? '');
     const affected = report.tests.filter((test) => test.attempts.some((attempt) => attempt.errors.some((error) => error.signature === signature)));
     const split = (['failed', 'flaky'] as const)
       .map((outcome) => [outcome, affected.filter((test) => test.outcome === outcome).length] as const)
@@ -245,6 +326,7 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     await page.locator('.group-sample').waitFor();
     expect(page.url()).toMatch(new RegExp(`#/group/${signature}$`));
     expect(await page.locator('.group-meta .group-split').textContent()).toBe(split);
+    expect(await page.locator('.group-meta code').textContent()).toBe(signature);
     expect(await page.locator('.affected-tests tbody tr').count()).toBe(affected.length);
 
     const testLink = page.locator('.affected-tests tbody a').first();
@@ -253,7 +335,7 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     await page.getByRole('heading', { level: 1, name: title }).waitFor();
     expect(page.url()).toMatch(/#\/test\/[0-9a-f]{16}$/);
 
-    await page.goto(`${page.url().split('#')[0]}#/`);
+    await page.goto(`${page.url().split('#')[0]}#/health`);
     await page.locator('.widget-slowest a').first().click();
     await page.locator('.test-title').waitFor();
     expect(page.url()).toMatch(/#\/test\//);
@@ -264,11 +346,55 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     await page.close();
   });
 
-  it('expands a category into its error groups, and reveals a project in the sidebar from its card', async () => {
-    const { page } = await open(writeReport('dashboard-interactions', report));
+  it('lists run errors, every error group and the categories in the errors view', async () => {
+    const { page, errors } = await open(`${writeReport('errors-view', report)}#/errors`);
+    await page.locator('.widget-groups').waitFor();
+    expect(await page.locator('.widget h2').allTextContents()).toEqual([
+      `${report.run.errors.length} run error`,
+      `${new Set(report.tests.flatMap((test) => test.attempts.flatMap((attempt) => attempt.errors.map((error) => error.signature)))).size} error groups`,
+      'Error categories',
+    ]);
+    expect(await page.locator('.run-error').count()).toBe(report.run.errors.length);
+    // Same row format and order as Look at first.
+    await page.goto(writeReport('errors-view-overview', report));
+    const top = await page.locator('.widget-look-at-first .group-row').evaluateAll(
+      (rows) => rows.map((row) => row.getAttribute('href')),
+    );
+    await page.getByRole('link', { name: /^Errors/ }).click();
+    await page.locator('.widget-groups').waitFor();
+    const all = await page.locator('.widget-groups .group-row').evaluateAll(
+      (rows) => rows.map((row) => row.getAttribute('href')),
+    );
+    expect(all.slice(0, top.length)).toEqual(top);
     const category = page.locator('.widget-categories details').first();
     await category.locator('summary').click();
-    expect(await category.locator('a.group-link').count()).toBeGreaterThan(0);
+    expect(await category.locator('a.group-row').count()).toBeGreaterThan(0);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('shows dimensions with tag hygiene, slow, flaky and skipped tests in the suite health view', async () => {
+    // A case variant of a declared value: flagged, counted apart.
+    const tests = report.tests.map((test, index) => (index === 0 ? { ...test, dimensions: { ...test.dimensions, Layer: ['API'] } } : test));
+    const { page, errors } = await open(`${writeReport('health-view', { ...report, tests })}#/health`);
+    await page.locator('.widget-dimension').first().waitFor();
+    const headings = await page.locator('.widget h2').allTextContents();
+    expect(headings).toEqual([...report.dimensions.map((dimension) => dimension.name), 'Slowest tests', 'Flaky tests', 'Skipped tests']);
+    const layer = page.locator('[data-dimension="Layer"]');
+    expect(await layer.locator('tr', { hasText: /^API/ }).locator('.flag-case').textContent()).toContain('likely duplicate of api');
+    expect(await layer.locator('tr', { hasText: /^api/ }).locator('.flag-case').textContent()).toContain('likely duplicate of API');
+    expect(await layer.locator('.flag-unknown').count()).toBeGreaterThan(0);
+    expect(await layer.locator('.widget-hint').count()).toBe(0);
+    // A dimension without declared values points to the option.
+    const undeclared = report.dimensions.find((dimension) => dimension.values === null);
+    expect(await page.locator(`[data-dimension="${undeclared?.name}"] .widget-hint`).textContent()).toContain('values');
+    expect(await page.locator('.widget-flaky .flaky-error').count()).toBe(report.run.stats.flaky);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('reveals a project in the sidebar from its card', async () => {
+    const { page } = await open(writeReport('dashboard-interactions', report));
 
     await page.getByRole('button', { name: 'Collapse all' }).click();
     const project = report.projects[1]?.name ?? '';
@@ -286,6 +412,12 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     await page.locator('.verdict-outcome').waitFor();
     expect(await page.locator('.widget h2').allTextContents()).toEqual(['Verdict']);
     expect(await page.locator('.verdict-outcome').getAttribute('data-verdict')).toBe('passed');
+    expect(await page.locator('.nav-marker').count()).toBe(0);
+    await page.getByRole('link', { name: /^Errors/ }).click();
+    await page.getByText('No errors in this run.').waitFor();
+    await page.getByRole('link', { name: /^Suite health/ }).click();
+    await page.getByText('No dimension, slow, skipped or flaky test to show for this run.').waitFor();
+    await page.getByRole('link', { name: /^Overview/ }).click();
 
     // Only passing tests: no error, category or skipped widget.
     const passing = report.tests.filter((test) => test.outcome === 'passed');
@@ -296,7 +428,10 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     };
     await page.goto(writeReport('dashboard-green', green));
     await page.locator('.verdict-outcome').waitFor();
-    expect(await page.locator('.widget h2').allTextContents()).toEqual(['Verdict', 'Projects', 'Slowest tests']);
+    expect(await page.locator('.widget h2').allTextContents()).toEqual(['Verdict', 'Projects']);
+    await page.getByRole('link', { name: /^Suite health/ }).click();
+    await page.locator('.widget-slowest').waitFor();
+    expect(await page.locator('.widget h2').allTextContents()).toEqual(['Slowest tests']);
     expect(errors).toEqual([]);
     await page.close();
   });
@@ -305,7 +440,7 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     const tests = report.tests.map((test) =>
       test.outcome === 'skipped' ? { ...test, annotations: [{ type: 'skip', description: 'needs a payment sandbox' }] } : test,
     );
-    const { page } = await open(writeReport('dashboard-skip', { ...report, tests }));
+    const { page } = await open(`${writeReport('dashboard-skip', { ...report, tests })}#/health`);
     await page.locator('.widget-skipped').waitFor();
     expect(await page.locator('.widget-skipped').textContent()).toContain('needs a payment sandbox');
     await page.close();

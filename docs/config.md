@@ -148,6 +148,7 @@ dimensions: {
 - **Override.** A tag definition takes over the automatic dimension of its prefix: with `{ name: 'Layer', from: 'tag', prefix: 'layer' }`, tests get `Layer`, never `layer`. An automatic dimension whose name is used by a definition is dropped too.
 - **Annotation values.** Tests with several annotations of the type get several values. Annotations declared on the test and those added at runtime (`testInfo.annotations.push`) count; an annotation without description gives no value.
 - **Listing.** Definitions from the config are always listed in the report, in config order, even when no test uses them. Automatic dimensions follow, sorted by name, when at least one test uses them.
+- **Tag hygiene.** The Suite health view flags, within a dimension, values outside `values` as unknown and values that differ only by case (`@layer:API` and `@layer:api`) as likely duplicates. Nothing is merged: Playwright tags are case-sensitive, so `API` and `api` are counted apart until the tests are fixed. Without `values`, unknown values cannot be told from expected ones; an automatic dimension needs a definition to declare them (`{ name: 'area', from: 'tag', prefix: 'area', values: [...] }`).
 
 ### Renderer settings
 

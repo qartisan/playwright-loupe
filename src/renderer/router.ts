@@ -2,8 +2,9 @@
  * Hash routing: the report is opened from file://, so the route lives in the
  * URL fragment. The fragment is the single source of navigation state:
  *
- *   #/                          dashboard (also an empty fragment)
- *   #/run-errors                run errors
+ *   #/                          overview (also an empty fragment)
+ *   #/errors                    errors: run errors, error groups, categories
+ *   #/health                    suite health: dimensions, slow, skipped and flaky tests
  *   #/test/<id>                 a test (repeatEachIndex 0)
  *   #/test/<id>/repeat/<n>      a test repeated with --repeat-each
  *   #/group/<signature>         an error group: the tests failing with one error signature
@@ -11,12 +12,15 @@
  * followed by an optional `?key=value&...` query, reserved for view state such
  * as filters: it is kept when navigating between pages.
  *
+ * Former routes redirect: `#/run-errors` → `#/errors`.
+ *
  * Pure functions, no DOM: unit-tested in Node.
  */
 
 export type Route =
   | { page: 'dashboard' }
-  | { page: 'run-errors' }
+  | { page: 'errors' }
+  | { page: 'health' }
   | { page: 'test'; id: string; repeatEachIndex: number }
   | { page: 'group'; signature: string }
   | { page: 'not-found'; path: string };
@@ -30,12 +34,19 @@ export interface AppLocation {
 
 const REPEAT_INDEX = /^(0|[1-9]\d*)$/;
 
+/** Former single-segment paths and the route they now lead to. */
+const REDIRECTS: Readonly<Record<string, Route>> = { 'run-errors': { page: 'errors' } };
+
 function decode(segment: string): string | null {
   try {
     return decodeURIComponent(segment);
   } catch {
     return null;
   }
+}
+
+function decodeURIComponentSafe(segment: string): string {
+  return decode(segment) ?? segment;
 }
 
 function parseQuery(search: string): Query {
@@ -53,7 +64,8 @@ function parsePath(path: string): Route {
   const [first, id, third, index] = segments as string[];
 
   if (segments.length === 0) return { page: 'dashboard' };
-  if (first === 'run-errors' && segments.length === 1) return { page: 'run-errors' };
+  if (segments.length === 1 && (first === 'errors' || first === 'health')) return { page: first };
+  if (segments.length === 1 && first !== undefined && Object.hasOwn(REDIRECTS, first)) return REDIRECTS[first] as Route;
   if (first === 'group' && id !== undefined && segments.length === 2) return { page: 'group', signature: id };
   if (first === 'test' && id !== undefined) {
     if (segments.length === 2) return { page: 'test', id, repeatEachIndex: 0 };
@@ -77,8 +89,10 @@ function routePath(route: Route): string {
   switch (route.page) {
     case 'dashboard':
       return '/';
-    case 'run-errors':
-      return '/run-errors';
+    case 'errors':
+      return '/errors';
+    case 'health':
+      return '/health';
     case 'test': {
       const base = `/test/${encodeURIComponent(route.id)}`;
       return route.repeatEachIndex === 0 ? base : `${base}/repeat/${route.repeatEachIndex}`;
@@ -95,4 +109,16 @@ export function formatHash(location: AppLocation): string {
   const entries = Object.entries(location.query).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
   const search = new URLSearchParams(entries).toString();
   return `#${routePath(location.route)}${search ? `?${search}` : ''}`;
+}
+
+/**
+ * The fragment to show instead of `hash` when it uses a former path
+ * (`#/run-errors` → `#/errors`), query kept; null when no redirect applies.
+ */
+export function redirectHash(hash: string): string | null {
+  const fragment = hash.startsWith('#') ? hash.slice(1) : hash;
+  const path = fragment.split('?')[0] ?? '';
+  const segments = path.split('/').filter((segment) => segment !== '');
+  if (segments.length !== 1 || !Object.hasOwn(REDIRECTS, decodeURIComponentSafe(segments[0] as string))) return null;
+  return formatHash(parseHash(hash));
 }

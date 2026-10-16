@@ -1,6 +1,6 @@
 {
   "name": "@qartisan/playwright-loupe",
-  "version": "0.0.2",
+  "version": "0.0.3-dev.0",
   "description": "Loupe — an HTML reporter for Playwright: run summary, tests grouped by project and suite, dimensions from tags and annotations, and detailed failures with every attempt, error categories and signatures. Native Playwright APIs only.",
   "keywords": [
     "playwright",

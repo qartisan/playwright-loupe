@@ -70,13 +70,15 @@ The header carries the run summary (status, counts, duration, branch, commit, en
 
 The dashboard answers three questions in five seconds: *Is it green? What broke? Where is the problem?*
 
-- **Run errors**: when `run.errors` is not empty, a prominent warning comes first, before the verdict. A report with run errors is never presented as green.
-- **Verdict**: status, pass rate, test count, duration, environment, commit. Difference with the previous run once history exists.
-- **Look at first**: failures grouped by error signature, isolated failures, flaky tests; new failures once history exists.
-- **Project cards**, error category breakdown, one widget per dimension.
-- **Secondary**: slowest tests, skipped tests.
+The dashboard is a list of widgets, split into three views **by subject**, each a fixed sidebar entry with its own route:
 
-The dashboard is a list of widgets. Without history, history-based widgets are absent rather than empty. Role presets (phase 3) select, order and size widgets; there is no separate dashboard per role.
+- **Overview** (`#/`): the verdict on top (outcome, a stacked bar of the outcomes, pass rate, duration; the counts stay in the header), then run errors when there are any, as a prominent warning right under the verdict, then "Look at first" (error groups with the most failed tests, then the most flaky tests) next to compact error categories, then project cards. A report with run errors is never presented as green.
+- **Errors** (`#/errors`): run errors first, every error group in the "look at first" order, then the categories in detail. The sidebar entry carries a warning marker and the count when the run has run errors.
+- **Suite health** (`#/health`): one widget per dimension with tag hygiene (unknown values, values differing only by case), slowest, skipped and flaky tests.
+
+Error groups have their own page (`#/group/<signature>`). Without history, history-based widgets are absent rather than empty.
+
+*Refinement of the "single dashboard built from widgets" decision:* the widgets are grouped into views by **subject** (what you are looking at), not by **role** (who is looking). Role presets (phase 3) still select, order and size widgets within these views; there is no separate dashboard per role.
 
 ### Theme
 
