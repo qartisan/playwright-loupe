@@ -78,7 +78,7 @@ Node.js 22.12 is the minimum because ES module config files are loaded with `req
 | `npm run typecheck` | Type-checks the core, tests, fixtures and renderer. |
 | `npm test` | Builds, then runs the Vitest unit tests and the integration tests (fixture suite, and a sharded run merged with `merge-reports`). |
 | `npm run fixtures` | Builds, then runs the fixture suite into `loupe-report/`. Its failures are intentional, see [`fixtures/README.md`](fixtures/README.md). |
-| `npm run sample:update` | Runs the fixture suite and copies its report to `src/renderer/dev/sample.json`. |
-| `npm run dev:renderer` | Vite dev server for the renderer, fed with `src/renderer/dev/sample.json`, with hot reload. |
+| `npm run sample:update` | Builds, then runs the fixture suite with `fixtures/sample.config.ts` and writes its report to `src/renderer/dev/sample.json`: failures, flaky and skipped tests, a partial run and a run error. |
+| `npm run dev:renderer` | Vite dev server for the renderer, fed with `src/renderer/dev/sample.json`, with hot reload. No Playwright run needed for UI work. |
 
 Tests that drive a browser need Chromium: `npx playwright install chromium`.

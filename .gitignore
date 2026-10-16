@@ -158,3 +158,4 @@ test-results
 playwright-report
 loupe-report-load-error
 loupe-report-scope
+loupe-report-sample

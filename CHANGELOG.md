@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **HTML report application shell.** The renderer is rebuilt with Preact and `@preact/signals`, still one self-contained `index.html` that works from `file://` (both libraries are bundled into it: the package keeps zero runtime dependencies).
+  - Header with the run summary: status, counts per outcome, duration, branch, commit and environment. A partial run shows a banner with the reasons it was detected.
+  - Collapsible sidebar with a test tree: projects → files → describe blocks → tests, single-child levels merged, a status icon per test (passed, failed, flaky, skipped) and failure counts per node. Keyboard navigation (arrows, Home / End, Enter), the current test highlighted and revealed. Collapsed nodes are not rendered, so large suites stay responsive.
+  - Hash routes that work from `file://`: `#/` (dashboard), `#/run-errors`, `#/test/<id>`. The URL is the single source of navigation state.
+  - A Run errors page listing `run.errors`, linked from the sidebar with its count when the run has any.
+  - Light and dark themes: the system theme by default, or the `theme` option; the viewer's choice is remembered in the browser when storage is available.
+  - The dashboard and the test page are placeholders for now.
+
 ### Changed
 
 - **New built-in error category: Ambiguous locator**, evaluated first, before "Locator not found". It matches Playwright's `strict mode violation` (a locator resolving to several elements), which was "Uncategorized" or "Assertion" before. See [Error categories](docs/schema/v1.md#error-categories).

@@ -1,4 +1,6 @@
 import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { gzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
 import { DEFAULT_RENDERER_SETTINGS, injectData, injectSettings } from './src/core/inject.js';
@@ -33,7 +35,20 @@ function inlineAssets(): Plugin {
       }
       html.source = source;
     },
+    writeBundle(options, bundle) {
+      const html = bundle['index.html'];
+      if (!html || html.type !== 'asset') return;
+      const others = Object.keys(bundle).filter((fileName) => fileName !== 'index.html');
+      if (others.length > 0) this.error(`the renderer must build to index.html alone, got also: ${others.join(', ')}`);
+      const bytes = Buffer.byteLength(html.source);
+      const gzip = gzipSync(html.source).byteLength;
+      this.info(`renderer bundle: ${path.relative(process.cwd(), path.join(options.dir ?? '', 'index.html'))}, ${formatKb(bytes)} (gzip ${formatKb(gzip)}), JS and CSS inlined`);
+    },
   };
+}
+
+function formatKb(bytes: number): string {
+  return `${(bytes / 1000).toFixed(1)} kB`;
 }
 
 /** Dev server only: injects the sample report and reloads the page when it changes. */
@@ -62,6 +77,8 @@ export default defineConfig({
   root: 'src/renderer',
   base: './',
   plugins: [sampleData(), inlineAssets()],
+  // Preact's automatic JSX runtime (no React, no extra plugin).
+  oxc: { jsx: { runtime: 'automatic', importSource: 'preact' } },
   build: {
     outDir: '../../dist/renderer',
     emptyOutDir: true,

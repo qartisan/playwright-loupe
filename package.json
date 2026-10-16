@@ -48,7 +48,7 @@
     "pretest": "npm run build",
     "test": "vitest run",
     "fixtures": "npm run build && node scripts/run-fixtures.mjs",
-    "sample:update": "npm run fixtures && node scripts/update-sample.mjs",
+    "sample:update": "npm run build && node scripts/update-sample.mjs",
     "prepublishOnly": "npm run typecheck && npm run build && npm test"
   },
   "peerDependencies": {
@@ -56,8 +56,10 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.64.0",
+    "@preact/signals": "^2.11.3",
     "@types/node": "^22.20.5",
     "ajv": "^8.20.0",
+    "preact": "^10.29.8",
     "typescript": "^7.0.2",
     "vite": "^8.3.4",
     "vitest": "^5.0.4"

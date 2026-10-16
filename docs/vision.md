@@ -30,7 +30,8 @@ These are non-negotiable. Any proposal that conflicts with them must be flagged 
 ## Architecture
 
 - A **core** reporter produces a **versioned JSON model**. This model is the public contract.
-- A **renderer** builds a self-contained static HTML report from that model.
+- A **renderer** builds a self-contained static HTML report from that model. It is a Preact application with `@preact/signals`, built by Vite into one HTML file with its JS and CSS inlined. Both libraries are bundled into that file, so the published package keeps zero runtime dependencies.
+- The report works from `file://`, so navigation uses hash routes (`#/test/<id>`). The URL is the single source of navigation state, and later of filter state.
 - Other outputs (PR Markdown summary, notifications) will plug into the same model later.
 - The report stays compatible with `merge-reports`.
 - The Playwright trace viewer requires an HTTP server, so traces are opened through a `show` command rather than `file://`.
@@ -61,7 +62,9 @@ Presentation choices (title, theme, default screenshot view) are **renderer sett
 
 ### Layout
 
-A collapsible sidebar holds the navigation: search, filters and a tree of projects → suites → tests, with counters per node. The main area shows the dashboard or the selected item at full width.
+A collapsible sidebar holds the navigation: search, filters and a tree of projects → files → describe blocks → tests, with a status icon per test and counters per node. A level with a single child describe block is merged with it (`login.spec.ts › login`); projects always stay visible. The main area shows the dashboard or the selected item at full width.
+
+The header carries the run summary (status, counts, duration, branch, commit, environment) and the theme switch. A partial run shows a visible banner with the reasons it was detected as partial.
 
 ### Entry dashboard
 
@@ -169,6 +172,5 @@ Each phase ships before the next one starts. Future features are prepared in the
 
 ## Open questions
 
-- Renderer stack (UI framework or not).
 - How the VS Code extension runs tests, and whether it keeps the reporters declared in the config.
 - **Root cause vs consequence.** When one cause (a rate-limited or failing backend, a broken fixture) makes many tests fail, the report should point at the cause rather than list its consequences. Candidate signals: the most frequent signature of the run, the chronologically first error. Attempts already carry `startedAt` and `durationMs`, but errors have no time of their own and run errors none at all: decide in the data model how errors are ordered before implementing it.
