@@ -22,7 +22,11 @@ export interface CategoryRuleConfig {
   match: RegExp | RegExp[];
   /** What the patterns are tested against. Default: `'all'`. */
   on?: CategoryTarget;
-  /** `#rrggbb`. Default: a color from Loupe's palette. */
+  /**
+   * `#rrggbb`, or the name of a palette color: `blue`, `cyan`, `teal`,
+   * `violet`, `magenta`, `orange`, `brown`, `gold`. Default: the first
+   * palette color no other category of the report uses, in rule order.
+   */
   color?: string;
 }
 
@@ -88,6 +92,7 @@ export interface ResolvedCategoryRule {
   name: string;
   match: RegExp[];
   on: CategoryTarget;
+  /** `#rrggbb` (palette names are resolved to their reference color); null when not configured. */
   color: string | null;
 }
 

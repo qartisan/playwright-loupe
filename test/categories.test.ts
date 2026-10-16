@@ -8,6 +8,7 @@ import {
   createCategorizer,
   type CategoriesOptions,
 } from '../src/core/categories.js';
+import { paletteReference } from '../src/shared/palette.js';
 
 const at = (message: string, stack: string | null = null, step: string | null = null) => ({ message, stack, step });
 
@@ -238,29 +239,42 @@ describe('category colors', () => {
     const definitions = categorizer.definitions(new Set(['Infra', 'Network']));
     expect(definitions).toEqual([
       { name: 'Infra', color: '#123456', builtIn: false },
-      { name: 'Network', color: '#0891b2', builtIn: true },
+      { name: 'Network', color: paletteReference('cyan'), builtIn: true },
     ]);
   });
 
   it('come from the palette, in rule order, for rules without color', () => {
-    const categorizer = withRules([
-      rule({ name: 'A' }),
-      rule({ name: 'B', color: PALETTE[1] as string }),
-      rule({ name: 'C' }),
-    ]);
+    const categorizer = withRules(
+      [rule({ name: 'A' }), rule({ name: 'B', color: PALETTE[1] as string }), rule({ name: 'C' })],
+      { mode: 'replace' },
+    );
     const colors = Object.fromEntries(categorizer.definitions(new Set(['A', 'B', 'C'])).map((d) => [d.name, d.color]));
     // C skips the palette color B already uses.
     expect(colors).toEqual({ A: PALETTE[0], B: PALETTE[1], C: PALETTE[2] });
   });
 
-  it('are stable whatever the categories used', () => {
+  it('are shared among the categories a report uses: a color is free when its category is not in the report', () => {
     const categorizer = withRules([rule({ name: 'A' }), rule({ name: 'B' })]);
-    expect(categorizer.definitions(new Set(['B']))).toEqual([{ name: 'B', color: PALETTE[1], builtIn: false }]);
+    // Assertion (blue, PALETTE[0]) is not used, so A gets it; Network (cyan, PALETTE[1]) is, so B skips it.
+    const definitions = categorizer.definitions(new Set(['A', 'B', 'Network']));
+    expect(definitions.map((d) => [d.name, d.color])).toEqual([
+      ['A', PALETTE[0]],
+      ['B', PALETTE[2]],
+      ['Network', PALETTE[1]],
+    ]);
+  });
+
+  it('give distinct colors to the categories of a report as long as the palette lasts', () => {
+    const rules = Array.from({ length: PALETTE.length - 4 }, (_, index) => rule({ name: `R${index}` }));
+    const used = new Set([...rules.map((r) => r.name), ...BUILT_IN_RULES.slice(0, 4).map((r) => r.name)]);
+    const colors = withRules(rules).definitions(used).map((d) => d.color);
+    expect(colors).toHaveLength(PALETTE.length);
+    expect(new Set(colors).size).toBe(PALETTE.length);
   });
 
   it('wrap around when the palette is exhausted', () => {
     const rules = Array.from({ length: PALETTE.length + 1 }, (_, index) => rule({ name: `R${index}` }));
-    const definitions = withRules(rules).definitions(new Set(rules.map((r) => r.name)));
+    const definitions = withRules(rules, { mode: 'replace' }).definitions(new Set(rules.map((r) => r.name)));
     expect(definitions.map((d) => d.color)).toEqual([...PALETTE, PALETTE[0]]);
   });
 
@@ -276,10 +290,36 @@ describe('category colors', () => {
     expect(categorizer.definitions(new Set(['Network']))).toEqual([{ name: 'Network', color: PALETTE[0], builtIn: false }]);
   });
 
-  it('never reuse the built-in or uncategorized colors from the palette', () => {
-    const used = [...BUILT_IN_RULES.map((r) => r.color), UNCATEGORIZED_COLOR];
-    expect(PALETTE.filter((color) => used.includes(color))).toEqual([]);
+  it('use palette reference colors for the built-in categories and the neutral one for uncategorized', () => {
+    expect(BUILT_IN_RULES.every((r) => r.color !== null && PALETTE.includes(r.color))).toBe(true);
+    expect(PALETTE).not.toContain(UNCATEGORIZED_COLOR);
     expect(new Set(PALETTE).size).toBe(PALETTE.length);
+  });
+
+  it('never give gold to a built-in category, and give it last to the others', () => {
+    const gold = paletteReference('gold');
+    expect(BUILT_IN_RULES.map((r) => r.color)).not.toContain(gold);
+    expect(PALETTE[PALETTE.length - 1]).toBe(gold);
+    // Every built-in category is shown: the first rule without a color takes the one free color, gold.
+    const all = new Set([...BUILT_IN_RULES.map((r) => r.name), 'A', 'B']);
+    const colors = Object.fromEntries(withRules([rule({ name: 'A' }), rule({ name: 'B' })]).definitions(all).map((d) => [d.name, d.color]));
+    expect(colors['A']).toBe(gold);
+    // With a free non-gold color, that color goes first.
+    const someFree = new Set(['A', 'B', ...BUILT_IN_RULES.slice(1).map((r) => r.name)]);
+    const first = withRules([rule({ name: 'A' }), rule({ name: 'B' })]).definitions(someFree);
+    expect(first.find((d) => d.name === 'A')?.color).toBe(BUILT_IN_RULES[0]?.color);
+    expect(first.find((d) => d.name === 'B')?.color).toBe(gold);
+  });
+
+  it('are deterministic: the same config with the same categories present gives the same colors, whatever the run order', () => {
+    const config = () => withRules([rule({ name: 'Infra' }), rule({ name: 'Auth', color: paletteReference('teal') }), rule({ name: 'Checkout' })]);
+    const names = ['Checkout', 'Timeout', 'Infra', 'Network', 'Uncategorized', 'Auth'];
+    const forward = config().definitions(new Set(names));
+    const backward = config().definitions(new Set([...names].reverse()));
+    expect(backward).toEqual(forward);
+    // Colors follow the config rule order: Infra (first rule) takes the first free color, Checkout the next one.
+    const colors = Object.fromEntries(forward.map((d) => [d.name, d.color]));
+    expect([colors['Infra'], colors['Checkout']]).toEqual([PALETTE[0], PALETTE[3]]);
   });
 });
 

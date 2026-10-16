@@ -19,11 +19,15 @@ describe('parseHash', () => {
     expect(parseHash('#/test/abc/repeat/3').route).toEqual({ page: 'test', id: 'abc', repeatEachIndex: 3 });
   });
 
+  it('reads an error group route', () => {
+    expect(parseHash('#/group/3f2a9c0d1e4b').route).toEqual({ page: 'group', signature: '3f2a9c0d1e4b' });
+  });
+
   it('decodes encoded segments', () => {
     expect(parseHash('#/test/a%2Fb%20c').route).toEqual({ page: 'test', id: 'a/b c', repeatEachIndex: 0 });
   });
 
-  it.each(['#/nope', '#/test', '#/test/abc/repeat', '#/test/abc/repeat/-1', '#/test/abc/repeat/01', '#/test/abc/repeat/x', '#/test/abc/extra', '#/run-errors/x', '#/test/%E0%A4%A'])(
+  it.each(['#/nope', '#/test', '#/test/abc/repeat', '#/test/abc/repeat/-1', '#/test/abc/repeat/01', '#/test/abc/repeat/x', '#/test/abc/extra', '#/run-errors/x', '#/group', '#/group/abc/extra', '#/test/%E0%A4%A'])(
     'reads %j as not found',
     (hash) => {
       expect(parseHash(hash).route.page).toBe('not-found');
@@ -45,6 +49,7 @@ describe('formatHash', () => {
     expect(formatHash({ route: { page: 'run-errors' }, query: {} })).toBe('#/run-errors');
     expect(formatHash({ route: { page: 'test', id: 'abc', repeatEachIndex: 0 }, query: {} })).toBe('#/test/abc');
     expect(formatHash({ route: { page: 'test', id: 'abc', repeatEachIndex: 2 }, query: {} })).toBe('#/test/abc/repeat/2');
+    expect(formatHash({ route: { page: 'group', signature: '3f2a9c0d1e4b' }, query: {} })).toBe('#/group/3f2a9c0d1e4b');
   });
 
   it('encodes ids and sorts query keys, so a location has a single form', () => {
@@ -58,6 +63,7 @@ describe('formatHash', () => {
     { route: { page: 'run-errors' }, query: { status: 'failed' } },
     { route: { page: 'test', id: 'f67dffbfbe9d1c0b', repeatEachIndex: 0 }, query: {} },
     { route: { page: 'test', id: 'weird / id ? # %', repeatEachIndex: 4 }, query: { q: 'a=b&c', tag: '@smoke' } },
+    { route: { page: 'group', signature: 'a/b c' }, query: {} },
   ])('round-trips %j', (location) => {
     expect(parseHash(formatHash(location))).toEqual(location);
   });

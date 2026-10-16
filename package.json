@@ -28,6 +28,7 @@
   "types": "./dist/index.d.ts",
   "files": [
     "dist",
+    "licenses",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"
@@ -55,6 +56,7 @@
     "@playwright/test": "^1.52.0"
   },
   "devDependencies": {
+    "@fontsource/dm-sans": "^5.3.0",
     "@playwright/test": "^1.64.0",
     "@preact/signals": "^2.11.3",
     "@types/node": "^22.20.5",

@@ -1,5 +1,6 @@
 import path from 'node:path';
 import type { LoupeConfig, LoupeReporterOptions, ResolvedCategoryRule, ResolvedConfig, ResolvedDimension } from './types.js';
+import { paletteReference } from '../shared/palette.js';
 import { validateConfig } from './validate.js';
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -77,7 +78,8 @@ function resolveRules(config: LoupeConfig): ResolvedCategoryRule[] {
     name: rule.name,
     match: (Array.isArray(rule.match) ? rule.match : [rule.match]).map(stateless),
     on: rule.on ?? 'all',
-    color: rule.color ?? null,
+    // A palette name becomes its reference color: the report only carries #rrggbb colors.
+    color: rule.color === undefined ? null : rule.color.startsWith('#') ? rule.color : paletteReference(rule.color),
   }));
 }
 

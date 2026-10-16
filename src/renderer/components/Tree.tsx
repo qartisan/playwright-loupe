@@ -1,5 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { plural } from '../format.js';
+import { revealRequest } from '../layout.js';
 import { hrefTo, navigate } from '../navigation.js';
 import type { Route } from '../router.js';
 import { ancestorKeys, groupKeys, testKey, visibleRows, type GroupNode, type TestNode, type VisibleRow } from '../tree.js';
@@ -19,6 +20,23 @@ export function Tree({ roots, route }: { roots: GroupNode[]; route: Route }) {
   const rowElements = useRef(new Map<string, HTMLLIElement>());
   const focusPending = useRef(false);
   const revealPending = useRef(false);
+  // A group revealed from the dashboard stays highlighted until another one is, or a test is opened.
+  const [revealedKey, setRevealedKey] = useState<string | null>(null);
+  // Focused once its row is rendered (the group may only now be expanded or the sidebar shown).
+  const revealFocus = useRef<string | null>(null);
+  const request = revealRequest.value;
+
+  useLayoutEffect(() => {
+    if (!request || !roots.some((root) => root.key === request.key)) return;
+    setRevealedKey(request.key);
+    setExpanded((previous) => (previous.has(request.key) ? previous : new Set([...previous, request.key])));
+    revealFocus.current = request.key;
+    setFocusedKey(request.key);
+  }, [roots, request]);
+
+  useLayoutEffect(() => {
+    if (selectedKey) setRevealedKey(null);
+  }, [selectedKey]);
 
   // Opening a test (link, URL, back button) reveals it in the tree. A layout
   // effect, so it runs right after the route changes: a passive effect could
@@ -46,6 +64,12 @@ export function Tree({ roots, route }: { roots: GroupNode[]; route: Route }) {
     if (revealPending.current && selectedKey && rowElements.current.has(selectedKey)) {
       revealPending.current = false;
       rowElements.current.get(selectedKey)?.scrollIntoView({ block: 'nearest' });
+    }
+    const revealed = revealFocus.current !== null ? rowElements.current.get(revealFocus.current) : undefined;
+    if (revealed) {
+      revealFocus.current = null;
+      revealed.focus({ preventScroll: true });
+      revealed.scrollIntoView({ block: 'nearest' });
     }
     if (focusPending.current && activeKey) {
       focusPending.current = false;
@@ -148,7 +172,12 @@ export function Tree({ roots, route }: { roots: GroupNode[]; route: Route }) {
               <TestRow node={row.node} />
             </li>
           ) : (
-            <li key={key} {...common} class={`tree-row tree-group tree-${row.node.kind}`} aria-expanded={expanded.has(key)}>
+            <li
+              key={key}
+              {...common}
+              class={`tree-row tree-group tree-${row.node.kind}${key === revealedKey ? ' revealed' : ''}`}
+              aria-expanded={expanded.has(key)}
+            >
               <GroupRow node={row.node} onToggle={() => setOpen(key, !expanded.has(key))} />
             </li>
           );

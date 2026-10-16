@@ -7,5 +7,5 @@
     "types": ["node"],
     "noEmit": true
   },
-  "include": ["src/index.ts", "src/core", "src/config", "src/schema", "test", "fixtures", "vite.config.ts", "vitest.config.ts"]
+  "include": ["src/index.ts", "src/core", "src/config", "src/schema", "src/shared", "test", "fixtures", "vite.config.ts", "vitest.config.ts"]
 }

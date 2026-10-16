@@ -6,6 +6,7 @@
  *   #/run-errors                run errors
  *   #/test/<id>                 a test (repeatEachIndex 0)
  *   #/test/<id>/repeat/<n>      a test repeated with --repeat-each
+ *   #/group/<signature>         an error group: the tests failing with one error signature
  *
  * followed by an optional `?key=value&...` query, reserved for view state such
  * as filters: it is kept when navigating between pages.
@@ -17,6 +18,7 @@ export type Route =
   | { page: 'dashboard' }
   | { page: 'run-errors' }
   | { page: 'test'; id: string; repeatEachIndex: number }
+  | { page: 'group'; signature: string }
   | { page: 'not-found'; path: string };
 
 export type Query = Readonly<Record<string, string>>;
@@ -52,6 +54,7 @@ function parsePath(path: string): Route {
 
   if (segments.length === 0) return { page: 'dashboard' };
   if (first === 'run-errors' && segments.length === 1) return { page: 'run-errors' };
+  if (first === 'group' && id !== undefined && segments.length === 2) return { page: 'group', signature: id };
   if (first === 'test' && id !== undefined) {
     if (segments.length === 2) return { page: 'test', id, repeatEachIndex: 0 };
     if (segments.length === 4 && third === 'repeat' && index !== undefined && REPEAT_INDEX.test(index)) {
@@ -80,6 +83,8 @@ function routePath(route: Route): string {
       const base = `/test/${encodeURIComponent(route.id)}`;
       return route.repeatEachIndex === 0 ? base : `${base}/repeat/${route.repeatEachIndex}`;
     }
+    case 'group':
+      return `/group/${encodeURIComponent(route.signature)}`;
     case 'not-found':
       return route.path.startsWith('/') ? route.path : `/${route.path}`;
   }

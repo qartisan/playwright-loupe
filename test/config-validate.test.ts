@@ -95,8 +95,22 @@ describe('validateConfig: errors name the source, the exact path and the expecte
   it('checks the rule fields', () => {
     expect(validate({ categories: { rules: [{ match: /a/, on: 'title', color: 'red' }] } })).toEqual([
       `${SOURCE}: categories.rules[0].on must be one of "message", "stack", "step", "all", got "title"`,
-      `${SOURCE}: categories.rules[0].color must be a #rrggbb color, got "red"`,
+      `${SOURCE}: categories.rules[0].color must be a #rrggbb color or a palette color ("blue", "cyan", "teal", "violet", "magenta", "orange", "brown", "gold"), got "red"`,
       `${SOURCE}: categories.rules[0].name is required`,
+    ]);
+  });
+
+  it('accepts a palette color name and rejects an unknown one, listing the valid names', () => {
+    expect(validate({ categories: { rules: [{ name: 'A', match: /a/, color: 'teal' }] } })).toEqual([]);
+    expect(validate({ categories: { rules: [{ name: 'A', match: /a/, color: 'tael' }] } })).toEqual([
+      `${SOURCE}: categories.rules[0].color must be a #rrggbb color or a palette color ("blue", "cyan", "teal", "violet", "magenta", "orange", "brown", "gold"), got "tael". Did you mean "teal"?`,
+    ]);
+    // Names are lowercase, like the CSS color keywords they look like.
+    expect(validate({ categories: { rules: [{ name: 'A', match: /a/, color: 'Teal' }] } })).toEqual([
+      `${SOURCE}: categories.rules[0].color must be a #rrggbb color or a palette color ("blue", "cyan", "teal", "violet", "magenta", "orange", "brown", "gold"), got "Teal". Did you mean "teal"?`,
+    ]);
+    expect(validate({ categories: { rules: [{ name: 'A', match: /a/, color: '#12345' }] } })).toEqual([
+      `${SOURCE}: categories.rules[0].color must be a #rrggbb color or a palette color ("blue", "cyan", "teal", "violet", "magenta", "orange", "brown", "gold"), got "#12345"`,
     ]);
   });
 

@@ -17,3 +17,12 @@ export function toggleSidebar(): void {
   sidebarOpen.value = !sidebarOpen.value;
   if (!isNarrow()) writePreference(SIDEBAR_KEY, sidebarOpen.value ? 'open' : 'closed');
 }
+
+/** A request to show a tree group (a project card was clicked); `seq` makes repeated requests distinct. */
+export const revealRequest = signal<{ key: string; seq: number } | null>(null);
+
+/** Opens the sidebar, expands the group with this tree key, scrolls to it and focuses it. */
+export function revealInSidebar(key: string): void {
+  sidebarOpen.value = true;
+  revealRequest.value = { key, seq: (revealRequest.value?.seq ?? 0) + 1 };
+}

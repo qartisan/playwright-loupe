@@ -82,6 +82,8 @@ The dashboard is a list of widgets. Without history, history-based widgets are a
 
 The renderer has a light and a dark theme with a visible switch. The default follows the system preference; `theme` in the config sets another default; the viewer's choice is remembered in the browser.
 
+Visual identity: QArtisan's palette adapted for a test report, as CSS custom properties defined once per theme, and DM Sans embedded in the HTML (the report works offline from `file://`), with a system monospace stack for errors and stack traces. Sage green is reserved for the passed status and the "Loupe" wordmark; links, selection and focus use the text color and a muted background, never a hue. A status color is always paired with an icon. Contrast is checked automatically: 4.5:1 for text, 3:1 for borders and icons, in both themes. The built report has a size budget: a warning above 100 kB gzip, a failed build above 150 kB.
+
 ### Search and filters
 
 Full-text search and combinable filters. Filter state is synced to the URL so a view can be shared.
@@ -117,7 +119,7 @@ Each failure gets a category from ordered regex rules; the first match wins.
 
 - Built-in default rules: locator not found, rate limited, server error, network, assertion, timeout. Setup and teardown failures are not built in: they depend on each suite's naming and belong in its config.
 - `match` accepts one regex or a list; `on` targets the message, the stack, the step name, or all of them.
-- Each category has a color reused across charts and badges.
+- Each category has a color reused across charts and badges, from a palette of eight hues without reds or greens (a category must never read as a status), distinct enough to tell apart (ΔE2000 ≥ 15). A config color is a palette name or any `#rrggbb` color; the report stores a reference color, and the renderer derives per-theme shades that pass the contrast rules.
 - `extend` mode adds to the defaults, `replace` mode drops them.
 - A visible **Uncategorized** bucket signals a missing rule.
 

@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { PALETTE } from '../src/core/categories.js';
+import { paletteReference } from '../src/shared/palette.js';
 import type { Attachment, LoupeReport } from '../src/schema/v1.js';
 import { FIXTURE_CONFIG, assertBuilt, findTest, playwright, readReport, userSteps } from './helpers/fixtures.js';
 import { schemaErrors } from './helpers/schema.js';
@@ -178,7 +178,9 @@ describe('fixture suite with the built reporter', () => {
       expect(test.category).toBe('Visual regression');
       expect(test.attempts.flatMap((attempt) => attempt.errors.map((error) => error.category))).toContain('Visual regression');
     }
-    expect(report.categories[0]).toEqual({ name: 'Visual regression', color: PALETTE[0], builtIn: false });
+    // Every built-in category is used, so the rule without a color gets the one palette hue left, gold (never built in).
+    expect(report.categories[0]).toEqual({ name: 'Visual regression', color: paletteReference('gold'), builtIn: false });
+    expect(new Set(report.categories.map((category) => category.color)).size).toBe(report.categories.length);
   });
 
   it('puts one failure in each built-in category', () => {

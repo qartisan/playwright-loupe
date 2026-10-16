@@ -46,6 +46,9 @@ describe('built renderer', () => {
     expect(template).not.toMatch(/<script[^>]*\ssrc=/);
     expect(template).not.toMatch(/<link[^>]*stylesheet/);
     expect(template).not.toMatch(/\s(?:src|href)="(?:\.\/|\/|https?:)/);
+    // Fonts are embedded: every CSS url() is a data URI, nothing comes from the network.
+    expect(template.match(/url\(\s*["']?data:font\/woff2;base64,/g)).toHaveLength(2);
+    expect(template).not.toMatch(/url\(\s*["']?(?!data:)[^)\s]/);
   });
 
   it('keeps each injection placeholder exactly once', () => {
@@ -196,6 +199,115 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     await page.locator('.run-error').first().waitFor();
     expect(await page.locator('.run-error').count()).toBe(report.run.errors.length);
     expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  const WIDGETS = ['Look at first', 'Error categories', 'Projects', 'Slowest tests', 'Skipped tests'];
+
+  it.each(['light', 'dark'] as const)('renders the dashboard in the %s theme, with the embedded font', async (colorScheme) => {
+    const { page, errors } = await open(writeReport(`dashboard-${colorScheme}`, report), { colorScheme });
+    const verdict = page.locator('.verdict-outcome');
+    await verdict.waitFor();
+    expect(await verdict.getAttribute('data-verdict')).toBe('failed');
+    expect(await verdict.textContent()).toBe('Failed');
+    // Widgets in the documented order; run errors come first, before the verdict.
+    const headings = await page.locator('.widget h2').allTextContents();
+    expect(headings.slice(0, 2)).toEqual([`${report.run.errors.length} error outside tests`, 'Verdict']);
+    expect(headings.filter((heading) => WIDGETS.includes(heading))).toEqual(WIDGETS);
+    for (const dimension of report.dimensions) expect(headings).toContain(dimension.name);
+
+    const background = await page.evaluate<string>('getComputedStyle(document.body).backgroundColor');
+    expect(background).toBe(colorScheme === 'light' ? 'rgb(247, 245, 240)' : 'rgb(8, 8, 8)');
+    // String expressions: the test tsconfig has no DOM types.
+    const badgeColors = await page.evaluate<string[]>(
+      "(({ color, backgroundColor }) => [color, backgroundColor])(getComputedStyle(document.querySelector('.widget-look-at-first .category-badge')))",
+    );
+    expect(new Set(badgeColors).size).toBe(2);
+    expect(await page.locator('.wordmark').textContent()).toBe('Loupe');
+    expect(await page.locator('.footer').textContent()).toContain(`Loupe — a reporter for Playwright · v${report.generator.version}`);
+    expect(await page.evaluate<boolean>('document.fonts.ready.then(() => document.fonts.check(\'600 16px "DM Sans"\'))')).toBe(true);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('links the dashboard to error groups and tests', async () => {
+    const { page, errors } = await open(writeReport('dashboard-links', report));
+    const firstGroup = page.locator('.widget-look-at-first a.group-link').first();
+    const signature = (await firstGroup.locator('.group-signature').textContent()) ?? '';
+    const affected = report.tests.filter((test) => test.attempts.some((attempt) => attempt.errors.some((error) => error.signature === signature)));
+    const split = (['failed', 'flaky'] as const)
+      .map((outcome) => [outcome, affected.filter((test) => test.outcome === outcome).length] as const)
+      .filter(([, count]) => count > 0)
+      .map(([outcome, count]) => `${count} ${outcome}`)
+      .join('');
+    expect(await firstGroup.locator('.group-split').textContent()).toBe(split);
+    await firstGroup.click();
+    await page.locator('.group-sample').waitFor();
+    expect(page.url()).toMatch(new RegExp(`#/group/${signature}$`));
+    expect(await page.locator('.group-meta .group-split').textContent()).toBe(split);
+    expect(await page.locator('.affected-tests tbody tr').count()).toBe(affected.length);
+
+    const testLink = page.locator('.affected-tests tbody a').first();
+    const title = ((await testLink.textContent()) ?? '').split(' › ').pop() ?? '';
+    await testLink.click();
+    await page.getByRole('heading', { level: 1, name: title }).waitFor();
+    expect(page.url()).toMatch(/#\/test\/[0-9a-f]{16}$/);
+
+    await page.goto(`${page.url().split('#')[0]}#/`);
+    await page.locator('.widget-slowest a').first().click();
+    await page.locator('.test-title').waitFor();
+    expect(page.url()).toMatch(/#\/test\//);
+
+    await page.goto(`${page.url().split('#')[0]}#/group/000000000000`);
+    await page.getByText('No error group with this signature in this report.').waitFor();
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('expands a category into its error groups, and reveals a project in the sidebar from its card', async () => {
+    const { page } = await open(writeReport('dashboard-interactions', report));
+    const category = page.locator('.widget-categories details').first();
+    await category.locator('summary').click();
+    expect(await category.locator('a.group-link').count()).toBeGreaterThan(0);
+
+    await page.getByRole('button', { name: 'Collapse all' }).click();
+    const project = report.projects[1]?.name ?? '';
+    await page.locator('.project-card', { hasText: project }).click();
+    const row = page.getByRole('treeitem', { level: 1, name: new RegExp(project) });
+    await expect.poll(() => row.getAttribute('aria-expanded')).toBe('true');
+    await expect.poll(() => page.evaluate<boolean>(`document.activeElement?.getAttribute('aria-level') === '1' && document.activeElement.textContent.includes(${JSON.stringify(project)})`)).toBe(true);
+    expect(await row.getAttribute('class')).toContain('revealed');
+    await page.close();
+  });
+
+  it('hides the widgets with nothing to show, but always shows the verdict', async () => {
+    const empty = { ...report, tests: [], projects: [], dimensions: [], run: { ...report.run, errors: [], status: 'passed', stats: { total: 0, passed: 0, failed: 0, flaky: 0, skipped: 0 } } };
+    const { page, errors } = await open(writeReport('dashboard-empty', empty));
+    await page.locator('.verdict-outcome').waitFor();
+    expect(await page.locator('.widget h2').allTextContents()).toEqual(['Verdict']);
+    expect(await page.locator('.verdict-outcome').getAttribute('data-verdict')).toBe('passed');
+
+    // Only passing tests: no error, category or skipped widget.
+    const passing = report.tests.filter((test) => test.outcome === 'passed');
+    const green = {
+      ...empty,
+      tests: passing,
+      projects: report.projects.map((project) => ({ ...project, stats: { ...project.stats, failed: 0, flaky: 0, skipped: 0 } })),
+    };
+    await page.goto(writeReport('dashboard-green', green));
+    await page.locator('.verdict-outcome').waitFor();
+    expect(await page.locator('.widget h2').allTextContents()).toEqual(['Verdict', 'Projects', 'Slowest tests']);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('shows the skip reason when there is one', async () => {
+    const tests = report.tests.map((test) =>
+      test.outcome === 'skipped' ? { ...test, annotations: [{ type: 'skip', description: 'needs a payment sandbox' }] } : test,
+    );
+    const { page } = await open(writeReport('dashboard-skip', { ...report, tests }));
+    await page.locator('.widget-skipped').waitFor();
+    expect(await page.locator('.widget-skipped').textContent()).toContain('needs a payment sandbox');
     await page.close();
   });
 

@@ -78,10 +78,16 @@ export function Header({ report, title }: { report: LoupeReport; title: string }
           <SidebarIcon />
           <span class="visually-hidden">{sidebarOpen.value ? 'Hide sidebar' : 'Show sidebar'}</span>
         </button>
-        <a class="title" href={hrefTo({ page: 'dashboard' })}>
-          {title}
-        </a>
-        <span class={`run-status run-${run.status}`}>{RUN_STATUS_LABELS[run.status] ?? run.status}</span>
+        <div class="brand">
+          <span class="wordmark">Loupe</span>
+          <a class="title" href={hrefTo({ page: 'dashboard' })}>
+            {title}
+          </a>
+        </div>
+        <span class={`run-status run-${run.status}`}>
+          <OutcomeIcon outcome={run.status === 'passed' ? 'passed' : 'failed'} decorative />
+          {RUN_STATUS_LABELS[run.status] ?? run.status}
+        </span>
         <ul class="counts" aria-label="Test counts">
           {OUTCOMES.map((outcome) => (
             <li key={outcome} class={run.stats[outcome] === 0 ? 'count zero' : 'count'} title={outcomeLabel(outcome)}>

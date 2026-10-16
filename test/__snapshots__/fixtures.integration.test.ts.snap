@@ -5,47 +5,47 @@ exports[`fixture suite with the built reporter > matches the normalized snapshot
   "categories": [
     {
       "builtIn": false,
-      "color": "#2563eb",
+      "color": "#b9a542",
       "name": "Visual regression",
     },
     {
       "builtIn": true,
-      "color": "#4338ca",
+      "color": "#8656b7",
       "name": "Ambiguous locator",
     },
     {
       "builtIn": true,
-      "color": "#7c3aed",
+      "color": "#ad4681",
       "name": "Locator not found",
     },
     {
       "builtIn": true,
-      "color": "#c026d3",
+      "color": "#04837c",
       "name": "Rate limited",
     },
     {
       "builtIn": true,
-      "color": "#7c2d12",
+      "color": "#ab5803",
       "name": "Server error",
     },
     {
       "builtIn": true,
-      "color": "#0891b2",
+      "color": "#0a7da1",
       "name": "Network",
     },
     {
       "builtIn": true,
-      "color": "#dc2626",
+      "color": "#466cc8",
       "name": "Assertion",
     },
     {
       "builtIn": true,
-      "color": "#d97706",
+      "color": "#745f43",
       "name": "Timeout",
     },
     {
       "builtIn": true,
-      "color": "#6b7280",
+      "color": "#6b6b6b",
       "name": "Uncategorized",
     },
   ],

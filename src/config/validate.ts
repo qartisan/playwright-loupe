@@ -1,3 +1,4 @@
+import { PALETTE_NAMES } from '../shared/palette.js';
 import { CATEGORY_MODES, CATEGORY_TARGETS, SCREENSHOT_VIEWS, THEMES } from './types.js';
 
 /**
@@ -120,9 +121,14 @@ function boolean(ctx: Context): Check {
   };
 }
 
+/** A `#rrggbb` color or the name of a palette color (`teal`). */
 function color(ctx: Context): Check {
   return (value, path, errors) => {
-    if (typeof value !== 'string' || !COLOR.test(value)) fail(ctx, path, 'a #rrggbb color', value, errors);
+    if (typeof value === 'string' && (COLOR.test(value) || PALETTE_NAMES.includes(value))) return;
+    const expected = `a #rrggbb color or a palette color (${PALETTE_NAMES.map((name) => `"${name}"`).join(', ')})`;
+    const suggestion = typeof value === 'string' && !value.startsWith('#') ? suggestKey(value, PALETTE_NAMES) : null;
+    fail(ctx, path, expected, value, errors);
+    if (suggestion) errors[errors.length - 1] += `. Did you mean "${suggestion}"?`;
   };
 }
 

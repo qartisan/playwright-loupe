@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { loadConfig } from '../src/config/index.js';
 import { CONFIG_FILE_NAMES, findConfigFile, loadConfigFile } from '../src/config/load.js';
 import { LoupeConfigError, envLayer, mergeLayers, resolveConfig, stripPlaywrightKeys } from '../src/config/resolve.js';
+import { paletteReference } from '../src/shared/palette.js';
 
 const BASE = path.resolve('/project');
 const CWD = path.resolve('/project/sub');
@@ -103,6 +104,13 @@ describe('resolveConfig: compiled values', () => {
     expect(rule).toEqual({ name: 'A', match: [/a/], on: 'all', color: null });
     // A `g` pattern would alternate between true and false.
     expect([rule?.match[0]?.test('a'), rule?.match[0]?.test('a')]).toEqual([true, true]);
+  });
+
+  it('turns a palette color name into its reference color and keeps a #rrggbb color', () => {
+    const rules = resolve({
+      file: { categories: { rules: [{ name: 'A', match: /a/, color: 'teal' }, { name: 'B', match: /b/, color: '#AbCdEf' }] } },
+    }).categories.rules;
+    expect(rules.map((rule) => rule.color)).toEqual([paletteReference('teal'), '#AbCdEf']);
   });
 
   it('keeps expected dimension values', () => {

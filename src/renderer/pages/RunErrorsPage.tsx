@@ -1,4 +1,5 @@
 import type { LoupeReport, RunError } from '../../schema/v1.js';
+import { CategoryBadge } from '../components/CategoryBadge.js';
 import { plural } from '../format.js';
 
 function RunErrorItem({ error, color }: { error: RunError; color: string | undefined }) {
@@ -7,14 +8,12 @@ function RunErrorItem({ error, color }: { error: RunError; color: string | undef
     <li class="run-error">
       <div class="run-error-meta">
         {error.category && (
-          <span class="category" style={color ? { '--category': color } : undefined}>
-            {error.category}
-          </span>
+          <CategoryBadge name={error.category} color={color} />
         )}
         {error.project !== null && <span>Project {error.project || '(unnamed)'}</span>}
         {location && <code>{location}</code>}
       </div>
-      <pre class="error-message">{error.message}</pre>
+      <pre class="message error-message">{error.message}</pre>
       {error.snippet && <pre class="code-snippet">{error.snippet}</pre>}
       {error.stack && error.stack !== error.message && (
         <details>

@@ -26,8 +26,13 @@ export function outcomeLabel(outcome: Outcome): string {
   return OUTCOME_LABELS[outcome];
 }
 
-/** Status icon of a test; the shape differs per status, not only the color. */
-export function OutcomeIcon({ outcome, labelled = false }: { outcome: Outcome; labelled?: boolean }) {
+/**
+ * Status icon of a test; the shape differs per status, not only the color.
+ * `labelled`: the status name is shown next to it. `decorative`: the
+ * surrounding text already names the status, so the icon is hidden from
+ * assistive technologies.
+ */
+export function OutcomeIcon({ outcome, labelled = false, decorative = false }: { outcome: Outcome; labelled?: boolean; decorative?: boolean }) {
   const shape = {
     passed: <path d="M4.5 8.2l2.3 2.3 4.7-4.9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />,
     failed: <path d="M5.5 5.5l5 5m0-5l-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />,
@@ -44,12 +49,16 @@ export function OutcomeIcon({ outcome, labelled = false }: { outcome: Outcome; l
     skipped: <path d="M5 8h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />,
   }[outcome];
   return (
-    <span class={`outcome-icon outcome-${outcome}`} title={labelled ? undefined : OUTCOME_LABELS[outcome]}>
+    <span
+      class={`outcome-icon outcome-${outcome}`}
+      title={labelled || decorative ? undefined : OUTCOME_LABELS[outcome]}
+      aria-hidden={decorative ? 'true' : undefined}
+    >
       <Svg>
         <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.4" />
         {shape}
       </Svg>
-      <span class={labelled ? 'outcome-text' : 'visually-hidden'}>{OUTCOME_LABELS[outcome]}</span>
+      {!decorative && <span class={labelled ? 'outcome-text' : 'visually-hidden'}>{OUTCOME_LABELS[outcome]}</span>}
     </span>
   );
 }

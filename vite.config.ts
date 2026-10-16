@@ -7,6 +7,13 @@ import { DEFAULT_RENDERER_SETTINGS, injectData, injectSettings } from './src/cor
 
 const SAMPLE_JSON = fileURLToPath(new URL('./src/renderer/dev/sample.json', import.meta.url));
 
+/** Size budget of the built renderer, gzipped: a warning above the first, a failed build above the second. */
+const BUDGET_WARN_BYTES = 100_000;
+const BUDGET_FAIL_BYTES = 150_000;
+
+/** Embedded fonts (data URIs), to report the size without them. */
+const EMBEDDED_FONT = /url\(["']?data:font\/woff2;base64,[A-Za-z0-9+/=]+["']?\)/g;
+
 /**
  * Inlines the built JS and CSS into index.html so the renderer ships as one
  * self-contained file the reporter can fill with data and write anywhere.
@@ -40,9 +47,17 @@ function inlineAssets(): Plugin {
       if (!html || html.type !== 'asset') return;
       const others = Object.keys(bundle).filter((fileName) => fileName !== 'index.html');
       if (others.length > 0) this.error(`the renderer must build to index.html alone, got also: ${others.join(', ')}`);
-      const bytes = Buffer.byteLength(html.source);
-      const gzip = gzipSync(html.source).byteLength;
-      this.info(`renderer bundle: ${path.relative(process.cwd(), path.join(options.dir ?? '', 'index.html'))}, ${formatKb(bytes)} (gzip ${formatKb(gzip)}), JS and CSS inlined`);
+      const source = String(html.source);
+      const bytes = Buffer.byteLength(source);
+      const gzip = gzipSync(source).byteLength;
+      const gzipWithoutFonts = gzipSync(source.replace(EMBEDDED_FONT, 'url()')).byteLength;
+      this.info(
+        `renderer bundle: ${path.relative(process.cwd(), path.join(options.dir ?? '', 'index.html'))}, ${formatKb(bytes)} ` +
+          `(gzip ${formatKb(gzip)}; without fonts ${formatKb(gzipWithoutFonts)}, fonts ${formatKb(gzip - gzipWithoutFonts)}), JS, CSS and fonts inlined`,
+      );
+      const budget = `budget: warning above ${formatKb(BUDGET_WARN_BYTES)}, failure above ${formatKb(BUDGET_FAIL_BYTES)} gzip`;
+      if (gzip > BUDGET_FAIL_BYTES) this.error(`the renderer is ${formatKb(gzip)} gzip, over its size ${budget}`);
+      if (gzip > BUDGET_WARN_BYTES) this.warn(`the renderer is ${formatKb(gzip)} gzip, close to its size ${budget}`);
     },
   };
 }

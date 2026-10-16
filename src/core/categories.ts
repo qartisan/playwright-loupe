@@ -1,5 +1,6 @@
 import type { CategoryMode, CategoryTarget, ResolvedCategoryRule } from '../config/types.js';
 import type { CategoryDefinition } from '../schema/v1.js';
+import { NEUTRAL_ENTRY, PALETTE_ENTRIES, paletteReference } from '../shared/palette.js';
 
 /**
  * Error categorization. Rules are ordered: the first rule with a pattern
@@ -19,7 +20,7 @@ type Target = Exclude<CategoryTarget, 'all'>;
 
 export interface CategoryRule {
   name: string;
-  /** Null: a color is picked from the palette. */
+  /** `#rrggbb`. Null: a color is picked from the palette. */
   color: string | null;
   match: RegExp[];
   targets: readonly Target[];
@@ -27,7 +28,7 @@ export interface CategoryRule {
 
 const ALL_TARGETS: readonly Target[] = ['message', 'stack', 'step'];
 
-export const UNCATEGORIZED_COLOR = '#6b7280';
+export const UNCATEGORIZED_COLOR = NEUTRAL_ENTRY.reference;
 
 /**
  * An HTTP status in context: `status 429`, `status code: 429`, `"status": 429`,
@@ -46,7 +47,7 @@ export const BUILT_IN_RULES: readonly CategoryRule[] = [
     // Before "Locator not found", "Assertion" and "Timeout": a locator matching
     // several elements fails strict mode, through an action or an expect.
     name: 'Ambiguous locator',
-    color: '#4338ca',
+    color: paletteReference('violet'),
     match: [/\bstrict mode violation\b/i],
     targets: ['message', 'stack'],
   },
@@ -54,7 +55,7 @@ export const BUILT_IN_RULES: readonly CategoryRule[] = [
     // Before "Assertion" and "Timeout": a missing element surfaces as a failed
     // or timed-out expect/action, and "not found" is the useful diagnosis.
     name: 'Locator not found',
-    color: '#7c3aed',
+    color: paletteReference('magenta'),
     match: [/element\(s\) not found/i, /resolved to 0 elements/i],
     targets: ['message', 'stack'],
   },
@@ -64,13 +65,13 @@ export const BUILT_IN_RULES: readonly CategoryRule[] = [
     // error. A bare 429 is not enough (`429ms`, `Received: 429`): it needs an
     // HTTP context.
     name: 'Rate limited',
-    color: '#c026d3',
+    color: paletteReference('teal'),
     match: [/\bToo Many Requests\b/i, /\brate[- ]?limit/i, httpStatus('429')],
     targets: ['message', 'stack'],
   },
   {
     name: 'Server error',
-    color: '#7c2d12',
+    color: paletteReference('orange'),
     match: [
       httpStatus('5\\d\\d'),
       /\b5\d\d (?:Internal Server Error|Not Implemented|Bad Gateway|Service Unavailable|Gateway Time-?out|HTTP Version Not Supported)\b/i,
@@ -80,7 +81,7 @@ export const BUILT_IN_RULES: readonly CategoryRule[] = [
   {
     // Before "Timeout" so connection timeouts (ETIMEDOUT) count as network.
     name: 'Network',
-    color: '#0891b2',
+    color: paletteReference('cyan'),
     match: [
       /\bnet::ERR_[A-Z_]+/,
       /\bNS_ERROR_[A-Z_]+/,
@@ -94,35 +95,23 @@ export const BUILT_IN_RULES: readonly CategoryRule[] = [
     // Before "Timeout": a retrying expect that never matched reports its own
     // timeout but is an assertion failure.
     name: 'Assertion',
-    color: '#dc2626',
+    color: paletteReference('blue'),
     match: [/\bexpect\(/, /^\s*Expected\b.*:/m, /\bAssertionError\b/],
     targets: ['message', 'stack'],
   },
   {
     name: 'Timeout',
-    color: '#d97706',
+    color: paletteReference('brown'),
     match: [/\bTest timeout of \d+ms exceeded/i, /\bTimeout \d+ms exceeded/i, /\btimed out\b/i],
     targets: ['message', 'stack'],
   },
 ];
 
 /**
- * Colors for categories without one, assigned in rule order. Distinct from the
- * built-in and uncategorized colors; colors already taken by another category
- * are skipped, and the palette wraps around when exhausted.
+ * Colors for categories without one: the reference colors of the palette, in
+ * palette order (see `src/shared/palette.ts`).
  */
-export const PALETTE: readonly string[] = [
-  '#2563eb',
-  '#16a34a',
-  '#db2777',
-  '#ca8a04',
-  '#0d9488',
-  '#9333ea',
-  '#ea580c',
-  '#4f46e5',
-  '#65a30d',
-  '#be123c',
-];
+export const PALETTE: readonly string[] = PALETTE_ENTRIES.map((entry) => entry.reference);
 
 export interface CategoriesOptions {
   mode: CategoryMode;
@@ -164,26 +153,46 @@ export function createCategorizer(options: CategoriesOptions): Categorizer {
     const color = rules.find((rule) => rule.name === name && rule.color !== null)?.color;
     if (color) colors.set(name, color);
   }
-  const taken = new Set([...colors.values(), UNCATEGORIZED_COLOR].map((color) => color.toLowerCase()));
-  let next = 0;
-  for (const name of names) {
-    if (colors.has(name)) continue;
-    const free = PALETTE.slice(next).concat(PALETTE.slice(0, next)).find((color) => !taken.has(color));
-    const color = free ?? (PALETTE[next % PALETTE.length] as string);
-    next = (PALETTE.indexOf(color) + 1) % PALETTE.length;
-    taken.add(color);
-    colors.set(name, color);
-  }
   const builtInNames = new Set(builtIns.map((rule) => rule.name));
+
+  /**
+   * Colors of the categories in `used` (names in rule order). Explicit colors
+   * (configured or built-in) never change. Each category without one takes,
+   * in config rule order, the first palette color that no category of the
+   * report uses, in palette order (gold last). Once every color is taken,
+   * colors repeat in palette order. The result only depends on the config and
+   * on which categories the report contains.
+   */
+  function assignColors(used: readonly string[]): Map<string, string> {
+    const assigned = new Map<string, string>();
+    const taken = new Set([UNCATEGORIZED_COLOR]);
+    for (const name of used) {
+      const color = colors.get(name);
+      if (color) {
+        assigned.set(name, color);
+        taken.add(color.toLowerCase());
+      }
+    }
+    let repeated = 0;
+    for (const name of used) {
+      if (assigned.has(name)) continue;
+      const color = PALETTE.find((candidate) => !taken.has(candidate)) ?? (PALETTE[repeated++ % PALETTE.length] as string);
+      taken.add(color);
+      assigned.set(name, color);
+    }
+    return assigned;
+  }
 
   return {
     categorize(error) {
       return rules.find((rule) => matches(rule, error))?.name ?? options.uncategorized;
     },
     definitions(used) {
-      const definitions = names
-        .filter((name) => used.has(name))
-        .map((name): CategoryDefinition => ({ name, color: colors.get(name) as string, builtIn: builtInNames.has(name) }));
+      const usedNames = names.filter((name) => used.has(name));
+      const assigned = assignColors(usedNames);
+      const definitions = usedNames.map(
+        (name): CategoryDefinition => ({ name, color: assigned.get(name) as string, builtIn: builtInNames.has(name) }),
+      );
       if (used.has(options.uncategorized)) {
         definitions.push({ name: options.uncategorized, color: UNCATEGORIZED_COLOR, builtIn: true });
       }

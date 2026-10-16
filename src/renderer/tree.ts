@@ -45,6 +45,11 @@ export function testKey(testId: string, repeatEachIndex: number): string {
   return `t${SEPARATOR}${testId}${SEPARATOR}${repeatEachIndex}`;
 }
 
+/** Tree key of a project node. */
+export function projectKey(name: string): string {
+  return `p${SEPARATOR}${name}`;
+}
+
 function group(kind: GroupKind, key: string, label: string): GroupNode {
   return { kind, key, labels: [label], children: [], counts: emptyCounts(), line: Number.POSITIVE_INFINITY };
 }
@@ -106,7 +111,7 @@ function flatten(node: GroupNode): GroupNode {
 export function buildTree(report: Pick<LoupeReport, 'projects' | 'tests'>): GroupNode[] {
   const projects = new Map<string, GroupNode>();
   for (const project of report.projects) {
-    projects.set(project.name, group('project', `p${SEPARATOR}${project.name}`, project.name || UNNAMED_PROJECT));
+    projects.set(project.name, group('project', projectKey(project.name), project.name || UNNAMED_PROJECT));
   }
   // Groups by key, so describe blocks of the same name in the same parent are merged, as in Playwright.
   const groups = new Map<string, GroupNode>();
@@ -114,7 +119,7 @@ export function buildTree(report: Pick<LoupeReport, 'projects' | 'tests'>): Grou
   for (const test of report.tests) {
     let parent = projects.get(test.project);
     if (!parent) {
-      parent = group('project', `p${SEPARATOR}${test.project}`, test.project || UNNAMED_PROJECT);
+      parent = group('project', projectKey(test.project), test.project || UNNAMED_PROJECT);
       projects.set(test.project, parent);
     }
     const levels: Array<[GroupKind, string]> = [['file', test.file], ...test.suitePath.map((title): [GroupKind, string] => ['suite', title])];

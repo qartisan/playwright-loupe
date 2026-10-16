@@ -14,7 +14,7 @@ export default defineConfig({
   categories: {
     mode: 'extend',
     rules: [
-      { name: 'Infra', match: [/ECONNRESET/, /ECONNREFUSED/], color: '#d97706' },
+      { name: 'Infra', match: [/ECONNRESET/, /ECONNREFUSED/], color: 'gold' },
       { name: 'Auth', match: /session-token/, on: 'message' },
     ],
     uncategorized: 'Uncategorized',
@@ -77,7 +77,7 @@ Every error (test errors, step errors and [run errors](schema/v1.md#runerror)) g
 categories: {
   mode: 'extend',
   rules: [
-    { name: 'Infra', match: [/ECONNRESET/, /ECONNREFUSED/], color: '#d97706' },
+    { name: 'Infra', match: [/ECONNRESET/, /ECONNREFUSED/], color: 'gold' },
     { name: 'Auth', match: /session-token/, on: 'message' },
     { name: 'Checkout', match: /^pay/m, on: 'step' },
   ],
@@ -89,7 +89,7 @@ categories: {
 | `name` | `string` | required | Category name. Several rules may use the same name. |
 | `match` | `RegExp \| RegExp[]` | required | The rule matches when any pattern matches. The `g` and `y` flags are ignored (they make `RegExp.test` stateful). |
 | `on` | `'message' \| 'stack' \| 'step' \| 'all'` | `'all'` | What the patterns are tested against. |
-| `color` | `#rrggbb` | from the palette | Color used in charts and badges. |
+| `color` | palette name or `#rrggbb` | a free palette color | Color of the category's badges and charts: a [palette](#category-palette) name such as `'teal'`, or any `#rrggbb` color. |
 
 **`on` targets.** Each target is tested separately:
 
@@ -103,7 +103,22 @@ categories: {
 - `extend` (default): your rules run **before** the built-in rules (locator not found, rate limited, server error, network, assertion, timeout; see [schema docs](schema/v1.md#error-categories)), so they win when both match.
 - `replace`: the built-in rules are dropped; only your rules apply.
 
-**Colors.** Built-in categories keep their colors. A rule without `color` gets the next color of a fixed palette (`#2563eb`, `#16a34a`, `#db2777`, `#ca8a04`, `#0d9488`, `#9333ea`, `#ea580c`, `#4f46e5`, `#65a30d`, `#be123c`), in rule order, skipping colors already used by another category; the palette wraps around after ten. When several rules share a name, the first explicit `color` wins. In `extend` mode, a rule named like a built-in category (for example `Network`) adds patterns to it, and its `color` recolors it.
+**Colors.** Built-in categories always keep their palette color (see [schema docs](schema/v1.md#error-categories)). A rule without `color` takes a palette color that no other category **of the report** uses: rules without a color are served in config rule order, each taking the first free color in palette order (the order of the table below, gold last). So the same config with the same categories present always gives the same colors; a color only changes when the set of categories in the report changes (a built-in category that does not appear leaves its color free). The palette has eight colors: when a report shows more categories, colors repeat in palette order. Set `color` for a color that never changes. When several rules share a name, the first explicit `color` wins. In `extend` mode, a rule named like a built-in category (for example `Network`) adds patterns to it, and its `color` recolors it.
+
+#### Category palette
+
+| Name | Reference color | Built-in category |
+| --- | --- | --- |
+| `blue` | `#466cc8` | Assertion |
+| `cyan` | `#0a7da1` | Network |
+| `teal` | `#04837c` | Rate limited |
+| `violet` | `#8656b7` | Ambiguous locator |
+| `magenta` | `#ad4681` | Locator not found |
+| `orange` | `#ab5803` | Server error |
+| `brown` | `#745f43` | Timeout |
+| `gold` | `#b9a542` | — (never built in, given last) |
+
+The uncategorized bucket uses a neutral grey (`#6b6b6b`), not available by name. The palette has no red or green, so a category never reads as a failed or passed test. The report stores the reference color; the HTML report shows each palette color with hand-tuned light and dark shades. A `#rrggbb` color gets shades derived from it, lightened or darkened until text and borders meet WCAG contrast (4.5:1 for text, 3:1 for borders) in both themes, so any color stays readable. An unknown palette name is a config error that lists the valid names.
 
 `categories.uncategorized` must not be the name of a rule.
 
