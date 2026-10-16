@@ -11,6 +11,10 @@ describe('parseHash', () => {
     expect(parseHash('#/health/').route).toEqual({ page: 'health' });
   });
 
+  it('reads the errors view scrolled to a category', () => {
+    expect(parseHash('#/errors/category/Locator%20not%20found').route).toEqual({ page: 'errors', category: 'Locator not found' });
+  });
+
   it('reads the former run errors path as the errors view', () => {
     expect(parseHash('#/run-errors').route).toEqual({ page: 'errors' });
   });
@@ -31,7 +35,7 @@ describe('parseHash', () => {
     expect(parseHash('#/test/a%2Fb%20c').route).toEqual({ page: 'test', id: 'a/b c', repeatEachIndex: 0 });
   });
 
-  it.each(['#/nope', '#/test', '#/test/abc/repeat', '#/test/abc/repeat/-1', '#/test/abc/repeat/01', '#/test/abc/repeat/x', '#/test/abc/extra', '#/run-errors/x', '#/errors/x', '#/constructor', '#/toString', '#/group', '#/group/abc/extra', '#/test/%E0%A4%A'])(
+  it.each(['#/nope', '#/test', '#/test/abc/repeat', '#/test/abc/repeat/-1', '#/test/abc/repeat/01', '#/test/abc/repeat/x', '#/test/abc/extra', '#/run-errors/x', '#/errors/x', '#/errors/category', '#/errors/category/a/b', '#/constructor', '#/toString', '#/group', '#/group/abc/extra', '#/test/%E0%A4%A'])(
     'reads %j as not found',
     (hash) => {
       expect(parseHash(hash).route.page).toBe('not-found');
@@ -52,6 +56,7 @@ describe('formatHash', () => {
     expect(formatHash({ route: { page: 'dashboard' }, query: {} })).toBe('#/');
     expect(formatHash({ route: { page: 'errors' }, query: {} })).toBe('#/errors');
     expect(formatHash({ route: { page: 'health' }, query: {} })).toBe('#/health');
+    expect(formatHash({ route: { page: 'errors', category: 'Server error' }, query: {} })).toBe('#/errors/category/Server%20error');
     expect(formatHash({ route: { page: 'test', id: 'abc', repeatEachIndex: 0 }, query: {} })).toBe('#/test/abc');
     expect(formatHash({ route: { page: 'test', id: 'abc', repeatEachIndex: 2 }, query: {} })).toBe('#/test/abc/repeat/2');
     expect(formatHash({ route: { page: 'group', signature: '3f2a9c0d1e4b' }, query: {} })).toBe('#/group/3f2a9c0d1e4b');
@@ -67,6 +72,7 @@ describe('formatHash', () => {
     { route: { page: 'dashboard' }, query: {} },
     { route: { page: 'errors' }, query: { status: 'failed' } },
     { route: { page: 'health' }, query: {} },
+    { route: { page: 'errors', category: 'a/b ? #' }, query: {} },
     { route: { page: 'test', id: 'f67dffbfbe9d1c0b', repeatEachIndex: 0 }, query: {} },
     { route: { page: 'test', id: 'weird / id ? # %', repeatEachIndex: 4 }, query: { q: 'a=b&c', tag: '@smoke' } },
     { route: { page: 'group', signature: 'a/b c' }, query: {} },

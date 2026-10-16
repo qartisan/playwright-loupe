@@ -64,17 +64,12 @@ export function errorGroups(report: Pick<LoupeReport, 'tests'>): ErrorGroup[] {
   return [...groups.values()];
 }
 
-/** Groups by importance: most tests that finally failed, then most flaky tests, then first occurrence. */
+/** Groups by importance: most tests that finally failed, then most flaky tests, then first occurrence. The Errors view order. */
 export function rankGroups(groups: readonly ErrorGroup[]): ErrorGroup[] {
   return groups
     .map((group, index) => ({ group, index }))
     .sort((a, b) => b.group.failed - a.group.failed || b.group.flaky - a.group.flaky || a.index - b.index)
     .map(({ group }) => group);
-}
-
-/** The groups to look at first: the top of `rankGroups`. */
-export function lookAtFirst(groups: readonly ErrorGroup[], limit = 5): ErrorGroup[] {
-  return rankGroups(groups).slice(0, limit);
 }
 
 export function firstLine(text: string): string {
@@ -168,10 +163,25 @@ export function outcomeShares(stats: Stats): OutcomeShare[] {
   }));
 }
 
-/** Passed tests among the tests that ran (skipped left out); null when none ran. Flaky tests do not count as passed. */
+/**
+ * The pass rate, one definition everywhere (verdict, projects): passed /
+ * (total − skipped). Skipped tests are left out; flaky tests do not count as
+ * passed. Null when no test ran.
+ */
 export function passRate(stats: Stats): number | null {
   const ran = stats.total - stats.skipped;
   return ran > 0 ? stats.passed / ran : null;
+}
+
+/** Explains the pass rate wherever it is shown. */
+export const PASS_RATE_HELP = 'Pass rate: passed / (total − skipped). Skipped tests are excluded; flaky tests do not count as passed.';
+
+/** A pass rate as a whole percentage, never rounded up to 100% or down to 0% when it is not exact. */
+export function formatPassRate(rate: number): string {
+  const value = rate * 100;
+  if (value > 99 && value < 100) return '99%';
+  if (value > 0 && value < 1) return '<1%';
+  return `${Math.round(value)}%`;
 }
 
 export interface ProjectSummary {
@@ -246,6 +256,61 @@ export function dimensionDistributions(report: Pick<LoupeReport, 'dimensions' | 
     for (const row of values) row.caseVariants = variants.get(row.value) ?? [];
     return { definition, values, without };
   });
+}
+
+/**
+ * Up to this many values, a dimension shows one stacked bar per value; above,
+ * a grid of tiles, which stays readable with dozens of values.
+ */
+export const DIMENSION_BARS_MAX = 8;
+
+export type DimensionRepresentation = 'bars' | 'tiles';
+
+export function dimensionRepresentation(distribution: Pick<DimensionDistribution, 'values'>): DimensionRepresentation {
+  return distribution.values.length <= DIMENSION_BARS_MAX ? 'bars' : 'tiles';
+}
+
+/** The worst outcome of a value: failed, then flaky, then passed, then skipped; `none` when no test has it. */
+export type WorstStatus = 'failed' | 'flaky' | 'passed' | 'skipped' | 'none';
+
+export function worstStatus(row: Pick<DimensionValueCounts, 'failed' | 'flaky' | 'passed' | 'skipped'>): WorstStatus {
+  if (row.failed > 0) return 'failed';
+  if (row.flaky > 0) return 'flaky';
+  if (row.passed > 0) return 'passed';
+  return row.skipped > 0 ? 'skipped' : 'none';
+}
+
+const STATUS_RANK: Record<WorstStatus, number> = { failed: 0, flaky: 1, passed: 2, skipped: 3, none: 4 };
+
+/**
+ * Tiles order: problem values first (failed, then flaky), the most failed or
+ * flaky tests first within each; then the others. Ties keep the
+ * distribution order.
+ */
+export function tileOrder(values: readonly DimensionValueCounts[]): DimensionValueCounts[] {
+  return values
+    .map((row, index) => ({ row, index, status: worstStatus(row) }))
+    .sort(
+      (a, b) =>
+        STATUS_RANK[a.status] - STATUS_RANK[b.status] ||
+        b.row.failed - a.row.failed ||
+        b.row.flaky - a.row.flaky ||
+        a.index - b.index,
+    )
+    .map(({ row }) => row);
+}
+
+/** Summary of a tile grid: `38 values · 36 all passed · 2 with failures`. Empty groups are left out. */
+export function tileSummary(values: readonly DimensionValueCounts[]): string {
+  const count = (status: WorstStatus): number => values.filter((row) => worstStatus(row) === status).length;
+  const parts: Array<[number, string]> = [
+    [count('passed'), 'all passed'],
+    [count('failed'), 'with failures'],
+    [count('flaky'), 'flaky'],
+    [count('skipped'), 'skipped only'],
+    [count('none'), 'without tests'],
+  ];
+  return [`${values.length} ${values.length === 1 ? 'value' : 'values'}`, ...parts.filter(([n]) => n > 0).map(([n, label]) => `${n} ${label}`)].join(' · ');
 }
 
 /** For each value, the other values equal to it ignoring case; values without such a twin are left out. */

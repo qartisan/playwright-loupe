@@ -28,7 +28,8 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
   // A new page starts at the top, like a page load.
   const routeKey = JSON.stringify(route);
   useEffect(() => {
-    main.current?.scrollTo(0, 0);
+    // Except a link to a category: the errors view scrolls to it.
+    if (!(route.page === 'errors' && route.category !== undefined)) main.current?.scrollTo(0, 0);
     // On narrow screens the sidebar is an overlay: close it once a page is chosen.
     if (isNarrow()) sidebarOpen.value = false;
   }, [routeKey]);
@@ -39,7 +40,7 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
       page = <OverviewPage report={report} groups={groups} />;
       break;
     case 'errors':
-      page = <ErrorsPage report={report} groups={groups} />;
+      page = <ErrorsPage report={report} groups={groups} category={route.category} />;
       break;
     case 'health':
       page = <HealthPage report={report} />;

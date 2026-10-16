@@ -72,9 +72,11 @@ The dashboard answers three questions in five seconds: *Is it green? What broke?
 
 The dashboard is a list of widgets, split into three views **by subject**, each a fixed sidebar entry with its own route:
 
-- **Overview** (`#/`): the verdict on top (outcome, a stacked bar of the outcomes, pass rate, duration; the counts stay in the header), then run errors when there are any, as a prominent warning right under the verdict, then "Look at first" (error groups with the most failed tests, then the most flaky tests) next to compact error categories, then project cards. A report with run errors is never presented as green.
-- **Errors** (`#/errors`): run errors first, every error group in the "look at first" order, then the categories in detail. The sidebar entry carries a warning marker and the count when the run has run errors.
-- **Suite health** (`#/health`): one widget per dimension with tag hygiene (unknown values, values differing only by case), slowest, skipped and flaky tests.
+- **Overview** (`#/`): the verdict on top (outcome, a stacked bar of the outcomes with their counts, pass rate, duration), then run errors when there are any, as a prominent warning right under the verdict, then compact error categories (each opening its category in the Errors view), then project cards. A report with run errors is never presented as green.
+- **Errors** (`#/errors`): run errors first, every error group (most failed tests first, then most flaky), then the categories in detail. Error groups live here only. The sidebar entry carries a warning marker and the count when the run has run errors.
+- **Suite health** (`#/health`): one widget per dimension with tag hygiene (unknown values, values differing only by case), slowest, skipped and flaky tests. A dimension adapts to its number of values: one stacked bar per value up to about 8 values, a grid of tiles colored by worst status above (problem values first, details on hover and focus); the exact table is always one click away.
+
+**Pass rate**, one definition everywhere: passed / (total − skipped). Skipped tests are excluded and flaky tests do not count as passed. It is always labeled "pass rate" and explained in a tooltip.
 
 Error groups have their own page (`#/group/<signature>`). Without history, history-based widgets are absent rather than empty.
 

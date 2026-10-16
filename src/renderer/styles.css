@@ -400,11 +400,7 @@ pre.message {
 }
 .widget-grid > :last-child:nth-child(odd) { grid-column: 1 / -1; }
 
-/* Overview: Look at first (wide) next to the categories (narrow). */
-.overview-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; gap: 16px; }
-
 @container (max-width: 900px) {
-  .overview-row { grid-template-columns: minmax(0, 1fr); }
   .widget-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
@@ -512,6 +508,76 @@ pre.message {
 .data-table th:first-child, .data-table td:first-child { text-align: left; }
 .data-table .zero { color: var(--fg-secondary); }
 .data-table tbody th { font-weight: 400; overflow-wrap: anywhere; }
+/* Dimensions: one stacked bar per value, or tiles when there are many values. */
+.dimension-bars { display: grid; grid-template-columns: minmax(0, max-content) minmax(60px, 1fr) auto auto; align-items: center; gap: 0 12px; padding: 0; margin: 0; list-style: none; }
+.dimension-bar-row { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; padding: 6px 0; border-top: 1px solid var(--border); }
+.dimension-bar-row:first-child { border-top: 0; }
+.dimension-value-cell { min-width: 0; overflow-wrap: anywhere; }
+.dimension-bar { margin: 0; height: 10px; }
+.dimension-bar:empty { background: var(--bg-muted); }
+.dimension-bar-counts { display: flex; justify-content: flex-end; gap: 10px; font-size: 13px; }
+.dimension-bar-counts .count { font-weight: 600; }
+.dimension-total { min-width: 28px; color: var(--fg-secondary); font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; }
+
+.tile-summary { margin: 0 0 10px; font-size: 13px; }
+.dimension-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; padding: 0; margin: 0; list-style: none; }
+.dimension-tile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--tile-color);
+  border-radius: 6px;
+  background: var(--bg-card);
+  font-size: 13px;
+  cursor: default;
+}
+.dimension-tile:hover, .dimension-tile:focus-visible { background: var(--bg-muted); }
+.tile-failed { --tile-color: var(--status-failed); }
+.tile-flaky { --tile-color: var(--status-flaky); background: var(--status-flaky-bg); }
+.tile-passed { --tile-color: var(--status-passed); }
+.tile-skipped, .tile-none { --tile-color: var(--status-skipped); }
+.tile-failed .tile-value, .tile-flaky .tile-value { font-weight: 600; }
+.tile-value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tile-icon-none { width: 16px; height: 16px; flex: none; border: 1.4px dashed var(--status-skipped); border-radius: 50%; }
+.tile-flag { color: var(--status-flaky); }
+.tile-details {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 180px;
+  max-width: 280px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-control);
+  border-radius: 6px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow);
+  color: var(--fg);
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+.tooltip-open .tile-details { display: flex; }
+/* Bridges the gap between the tooltip and its tile, so moving the pointer onto the tooltip keeps it open. */
+.tile-details::after { content: ''; position: absolute; top: 100%; right: 0; left: 0; height: 8px; }
+.tile-note { color: var(--status-flaky); }
+
+.dimension-table { margin-top: 12px; }
+.dimension-table > summary { display: inline-flex; align-items: center; gap: 4px; color: var(--fg-secondary); font-size: 13px; cursor: pointer; list-style: none; }
+.dimension-table > summary::-webkit-details-marker { display: none; }
+.dimension-table > summary:hover { color: var(--fg); }
+.dimension-table[open] > summary .chevron { transform: rotate(90deg); }
+.dimension-table > .data-table { margin-top: 8px; }
+
+.pass-rate { cursor: help; }
+.pass-rate strong { color: var(--fg); }
+
 .hygiene-flag { display: flex; align-items: center; gap: 4px; margin-top: 2px; color: var(--status-flaky); font-size: 12px; }
 
 .test-line { display: flex; align-items: center; gap: 8px; padding: 6px 0; }

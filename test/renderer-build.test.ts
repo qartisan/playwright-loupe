@@ -80,7 +80,10 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     return pathToFileURL(file).href;
   }
 
-  async function open(url: string, options: { colorScheme?: 'light' | 'dark' } = {}): Promise<{ page: Page; errors: string[] }> {
+  async function open(
+    url: string,
+    options: { colorScheme?: 'light' | 'dark'; viewport?: { width: number; height: number } } = {},
+  ): Promise<{ page: Page; errors: string[] }> {
     const page = await browser.newPage(options);
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
@@ -231,35 +234,50 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     await page.close();
   });
 
+  /** Pass rate as the report shows it: passed / (total − skipped). */
+  function expectedPassRate(stats: { total: number; passed: number; skipped: number }): string {
+    return `${Math.round((stats.passed / (stats.total - stats.skipped)) * 100)}%`;
+  }
+
   it.each(['light', 'dark'] as const)('renders the overview in the %s theme, with the embedded font', async (colorScheme) => {
     const { page, errors } = await open(writeReport(`overview-${colorScheme}`, report), { colorScheme });
     const verdict = page.locator('.verdict-outcome');
     await verdict.waitFor();
     expect(await verdict.getAttribute('data-verdict')).toBe('failed');
     expect(await verdict.textContent()).toBe('Failed');
-    // Verdict, run errors, Look at first next to the categories, projects.
+    // Verdict, run errors, error categories, projects: no error group list.
     expect(await page.locator('.widget h2').allTextContents()).toEqual([
       'Verdict',
       `${report.run.errors.length} error outside tests`,
-      'Look at first',
       'Error categories',
       'Projects',
     ]);
-    // The counts stay in the header: the verdict shows a bar and shares, not a count list.
-    expect(await page.locator('.outcome-bar-part').count()).toBe(['passed', 'failed', 'flaky', 'skipped'].filter((key) => report.run.stats[key as 'passed'] > 0).length);
+    expect(await page.locator('.group-row').count()).toBe(0);
+    const { stats } = report.run;
+    expect(await page.locator('.outcome-bar-part').count()).toBe(['passed', 'failed', 'flaky', 'skipped'].filter((key) => stats[key as 'passed'] > 0).length);
     expect(await page.locator('.outcome-bar').getAttribute('aria-label')).toBe(
-      `${report.run.stats.passed} passed, ${report.run.stats.failed} failed, ${report.run.stats.flaky} flaky, ${report.run.stats.skipped} skipped`,
+      `${stats.passed} passed, ${stats.failed} failed, ${stats.flaky} flaky, ${stats.skipped} skipped`,
     );
-    // No signature hash on the overview rows: it stays on the group page.
-    const lookText = (await page.locator('.widget-look-at-first').textContent()) ?? '';
-    const signatures = new Set(report.tests.flatMap((test) => test.attempts.flatMap((attempt) => attempt.errors.map((error) => error.signature))));
-    expect([...signatures].filter((signature) => lookText.includes(signature))).toEqual([]);
+    // The legend shows counts, not percentages.
+    expect(await page.locator('.outcome-legend li').allTextContents()).toEqual(
+      (['passed', 'failed', 'flaky', 'skipped'] as const).filter((key) => stats[key] > 0).map((key) => `${stats[key]} ${key}`),
+    );
+    // One pass rate definition, labeled, explained in a tooltip.
+    const rate = page.locator('.widget-verdict .pass-rate');
+    expect(await rate.locator('strong').textContent()).toBe(expectedPassRate(stats));
+    expect(await rate.textContent()).toContain('pass rate');
+    expect(await rate.getAttribute('title')).toContain('Skipped tests are excluded');
+    for (const project of report.projects) {
+      const card = page.locator('.project-card', { hasText: project.name });
+      expect(await card.locator('.pass-rate strong').textContent()).toBe(expectedPassRate(project.stats));
+      expect(await card.locator('.pass-rate').getAttribute('title')).toContain('Skipped tests are excluded');
+    }
 
     const background = await page.evaluate<string>('getComputedStyle(document.body).backgroundColor');
     expect(background).toBe(colorScheme === 'light' ? 'rgb(247, 245, 240)' : 'rgb(8, 8, 8)');
     // String expressions: the test tsconfig has no DOM types.
     const badgeColors = await page.evaluate<string[]>(
-      "(({ color, backgroundColor }) => [color, backgroundColor])(getComputedStyle(document.querySelector('.widget-look-at-first .category-badge')))",
+      "(({ color, backgroundColor }) => [color, backgroundColor])(getComputedStyle(document.querySelector('.widget-categories .category-badge')))",
     );
     expect(new Set(badgeColors).size).toBe(2);
     expect(await page.locator('.wordmark').textContent()).toBe('Loupe');
@@ -281,39 +299,54 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     ['dark', 1600],
     ['light', 700],
     ['dark', 700],
-  ] as const)('lays out the overview at %s, %ipx wide', async (colorScheme, width) => {
+  ] as const)('lays out the views at %s, %ipx wide', async (colorScheme, width) => {
     const page = await browser.newPage({ colorScheme, viewport: { width, height: 1200 } });
-    await page.goto(writeReport(`layout-${colorScheme}-${width}`, report));
-    await page.locator('.widget-look-at-first').waitFor();
-    const look = await box(page, '.widget-look-at-first');
-    const categories = await box(page, '.widget-categories');
-    const verdict = await box(page, '.widget-verdict');
-    const projects = await box(page, '.widget-projects');
-    if (width > 900) {
-      // Side by side, Look at first wider; the verdict and projects span both.
-      expect(Math.abs(look.y - categories.y)).toBeLessThan(2);
-      expect(look.width).toBeGreaterThan(categories.width * 1.5);
-      expect(Math.abs(verdict.width - (categories.x + categories.width - look.x))).toBeLessThan(2);
-    } else {
-      // Stacked in the same order, full width.
-      expect(categories.y).toBeGreaterThan(look.y + look.height);
-      expect(Math.abs(look.width - categories.width)).toBeLessThan(2);
+    const url = writeReport(`layout-${colorScheme}-${width}`, report);
+    await page.goto(url);
+    await page.locator('.widget-projects').waitFor();
+    // Overview: one column, in order, full width.
+    const boxes = await Promise.all(['.widget-verdict', '.widget-run-errors', '.widget-categories', '.widget-projects'].map((selector) => box(page, selector)));
+    for (const [previous, next] of boxes.slice(0, -1).map((current, index) => [current, boxes[index + 1]!] as const)) {
+      expect(next.y).toBeGreaterThan(previous.y + previous.height);
+      expect(Math.abs(next.width - previous.width)).toBeLessThan(2);
     }
-    expect(projects.y).toBeGreaterThan(Math.max(look.y + look.height, categories.y + categories.height));
     // Project cards fill their row.
-    const cards = await page.locator('.project-card').evaluateAll(
-      (elements) => elements.map((element) => element.getBoundingClientRect().right),
-    );
+    const cards = await page.locator('.project-card').evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().right));
     const list = await box(page, '.project-cards');
     expect(Math.max(...cards)).toBeCloseTo(list.x + list.width, 0);
-    // No horizontal scrolling.
-    expect(await page.evaluate<boolean>("document.querySelector('.main').scrollWidth <= document.querySelector('.main').clientWidth")).toBe(true);
+    const noHorizontalScroll = "document.querySelector('.main').scrollWidth <= document.querySelector('.main').clientWidth";
+    expect(await page.evaluate<boolean>(noHorizontalScroll)).toBe(true);
+
+    // Suite health: dimension widgets two by two when wide, stacked when narrow.
+    await page.goto(`${url}#/health`);
+    await page.locator('.widget-dimension').first().waitFor();
+    const [first, second] = await Promise.all([0, 1].map(async (index) => (await page.locator('.widget-dimension').nth(index).boundingBox())!));
+    if (width > 900) expect(Math.abs(first!.y - second!.y)).toBeLessThan(2);
+    else expect(second!.y).toBeGreaterThan(first!.y + first!.height);
+    expect(await page.evaluate<boolean>(noHorizontalScroll)).toBe(true);
     await page.close();
   });
 
-  it('links the dashboard to error groups and tests', async () => {
-    const { page, errors } = await open(writeReport('dashboard-links', report));
-    const firstGroup = page.locator('.widget-look-at-first a.group-row').first();
+  it('links each overview category to that category in the errors view', async () => {
+    const { page, errors } = await open(writeReport('category-links', report), { viewport: { width: 1400, height: 700 } });
+    const name = report.categories[report.categories.length - 1]?.name ?? '';
+    await page.locator('.category-bar-row', { hasText: name }).click();
+    const target = page.locator(`.widget-categories [data-category="${name}"]`);
+    await target.locator('details[open]').waitFor();
+    expect(page.url()).toMatch(new RegExp(`#/errors/category/${encodeURIComponent(name)}$`));
+    // Scrolled to it, its summary focused, its groups shown.
+    await expect.poll(() => target.evaluate(
+      (element) => element.getBoundingClientRect().top >= 0 && element.getBoundingClientRect().top < (element.ownerDocument.defaultView?.innerHeight ?? 0),
+    )).toBe(true);
+    expect(await page.evaluate<string>("document.activeElement?.closest('[data-category]')?.dataset.category ?? ''")).toBe(name);
+    expect(await target.locator('a.group-row').count()).toBeGreaterThan(0);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('links error groups to their page and to the tests', async () => {
+    const { page, errors } = await open(`${writeReport('dashboard-links', report)}#/errors`);
+    const firstGroup = page.locator('.widget-groups a.group-row').first();
     const signature = decodeURIComponent((await firstGroup.getAttribute('href'))?.replace(/^#\/group\//, '') ?? '');
     const affected = report.tests.filter((test) => test.attempts.some((attempt) => attempt.errors.some((error) => error.signature === signature)));
     const split = (['failed', 'flaky'] as const)
@@ -322,6 +355,8 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
       .map(([outcome, count]) => `${count} ${outcome}`)
       .join('');
     expect(await firstGroup.locator('.group-split').textContent()).toBe(split);
+    // The signature hash is not on the rows: it stays on the group page.
+    expect(await page.locator('.widget-groups').textContent()).not.toContain(signature);
     await firstGroup.click();
     await page.locator('.group-sample').waitFor();
     expect(page.url()).toMatch(new RegExp(`#/group/${signature}$`));
@@ -355,17 +390,10 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
       'Error categories',
     ]);
     expect(await page.locator('.run-error').count()).toBe(report.run.errors.length);
-    // Same row format and order as Look at first.
-    await page.goto(writeReport('errors-view-overview', report));
-    const top = await page.locator('.widget-look-at-first .group-row').evaluateAll(
-      (rows) => rows.map((row) => row.getAttribute('href')),
-    );
-    await page.getByRole('link', { name: /^Errors/ }).click();
-    await page.locator('.widget-groups').waitFor();
-    const all = await page.locator('.widget-groups .group-row').evaluateAll(
-      (rows) => rows.map((row) => row.getAttribute('href')),
-    );
-    expect(all.slice(0, top.length)).toEqual(top);
+    // Most failed tests first, then most flaky.
+    const splits = await page.locator('.widget-groups .group-row .group-split').allTextContents();
+    const failedCounts = splits.map((text) => Number(/(\d+) failed/.exec(text)?.[1] ?? 0));
+    expect(failedCounts).toEqual([...failedCounts].sort((a, b) => b - a));
     const category = page.locator('.widget-categories details').first();
     await category.locator('summary').click();
     expect(await category.locator('a.group-row').count()).toBeGreaterThan(0);
@@ -373,7 +401,7 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     await page.close();
   });
 
-  it('shows dimensions with tag hygiene, slow, flaky and skipped tests in the suite health view', async () => {
+  it('shows dimensions as bars with tag hygiene, and slow, flaky and skipped tests, in the suite health view', async () => {
     // A case variant of a declared value: flagged, counted apart.
     const tests = report.tests.map((test, index) => (index === 0 ? { ...test, dimensions: { ...test.dimensions, Layer: ['API'] } } : test));
     const { page, errors } = await open(`${writeReport('health-view', { ...report, tests })}#/health`);
@@ -381,14 +409,116 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     const headings = await page.locator('.widget h2').allTextContents();
     expect(headings).toEqual([...report.dimensions.map((dimension) => dimension.name), 'Slowest tests', 'Flaky tests', 'Skipped tests']);
     const layer = page.locator('[data-dimension="Layer"]');
-    expect(await layer.locator('tr', { hasText: /^API/ }).locator('.flag-case').textContent()).toContain('likely duplicate of api');
-    expect(await layer.locator('tr', { hasText: /^api/ }).locator('.flag-case').textContent()).toContain('likely duplicate of API');
-    expect(await layer.locator('.flag-unknown').count()).toBeGreaterThan(0);
+    expect(await layer.getAttribute('data-representation')).toBe('bars');
+    // One stacked bar per value, labeled with its counts.
+    const api = layer.locator('.dimension-bar-row[data-value="api"]');
+    expect(await api.locator('.dimension-bar').getAttribute('aria-label')).toMatch(/^api: \d+ passed, \d+ failed/);
+    expect(await layer.locator('.dimension-bar-row[data-value="API"] .flag-case').textContent()).toContain('likely duplicate of api');
+    expect(await api.locator('.flag-case').textContent()).toContain('likely duplicate of API');
+    expect(await layer.locator('.dimension-bars .flag-unknown').count()).toBeGreaterThan(0);
     expect(await layer.locator('.widget-hint').count()).toBe(0);
+    // The exact table is one click away.
+    const table = layer.locator('.dimension-table');
+    expect(await table.locator('table').isVisible()).toBe(false);
+    await table.locator('summary').click();
+    expect(await table.locator('tbody tr').count()).toBe(await layer.locator('.dimension-bar-row').count());
     // A dimension without declared values points to the option.
     const undeclared = report.dimensions.find((dimension) => dimension.values === null);
     expect(await page.locator(`[data-dimension="${undeclared?.name}"] .widget-hint`).textContent()).toContain('values');
     expect(await page.locator('.widget-flaky .flaky-error').count()).toBe(report.run.stats.flaky);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('shows a dimension with many values as tiles, problem values first, details on focus', async () => {
+    // 20 values: tiles. Every test gets one.
+    const tests = report.tests.map((test, index) => ({ ...test, dimensions: { ...test.dimensions, module: [`m${String(index % 20).padStart(2, '0')}`] } }));
+    const dimensions = [...report.dimensions, { name: 'module', source: 'tag', key: 'module', values: null }];
+    const { page, errors } = await open(`${writeReport('tiles', { ...report, tests, dimensions })}#/health`);
+    const widget = page.locator('[data-dimension="module"]');
+    await widget.waitFor();
+    expect(await widget.getAttribute('data-representation')).toBe('tiles');
+    const tiles = widget.locator('.dimension-tile');
+    expect(await tiles.count()).toBe(20);
+    // Summary line, consistent with the tiles.
+    const statuses = await tiles.evaluateAll((elements) => elements.map((element) => element.getAttribute('data-status') ?? ''));
+    const count = (status: string) => statuses.filter((value) => value === status).length;
+    expect(await widget.locator('.tile-summary').textContent()).toMatch(new RegExp(`^20 values · ${count('passed')} all passed · ${count('failed')} with failures`));
+    // Problem values first: failed, then flaky, then the rest.
+    const rank = { failed: 0, flaky: 1, passed: 2, skipped: 3, none: 4 } as Record<string, number>;
+    expect(statuses.map((status) => rank[status])).toEqual([...statuses.map((status) => rank[status])].sort());
+    expect(statuses[0]).toBe('failed');
+    // Never color alone: each tile has the status icon and, for screen readers, its details as text.
+    const first = tiles.first();
+    expect(await first.locator('.outcome-icon.outcome-failed').count()).toBe(1);
+    expect(await first.locator('.visually-hidden').textContent()).toMatch(/with failures, .*\d+ failed/);
+    // Keyboard: focusable, details shown on focus.
+    expect(await first.locator('.tile-details').isVisible()).toBe(false);
+    await first.focus();
+    expect(await first.locator('.tile-details').isVisible()).toBe(true);
+    await page.keyboard.press('Tab');
+    expect(await tiles.nth(1).evaluate(
+      (element) => element === element.ownerDocument.activeElement,
+    )).toBe(true);
+    // The exact table is still available.
+    await widget.locator('.dimension-table summary').click();
+    expect(await widget.locator('.dimension-table tbody tr').count()).toBe(20);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('shows one tile tooltip at a time, dismissible, hoverable and persistent (WCAG 1.4.13)', async () => {
+    const tests = report.tests.map((test, index) => ({ ...test, dimensions: { ...test.dimensions, module: [`m${String(index % 20).padStart(2, '0')}`] } }));
+    const dimensions = [...report.dimensions, { name: 'module', source: 'tag', key: 'module', values: null }];
+    const { page, errors } = await open(`${writeReport('tooltips', { ...report, tests, dimensions })}#/health`, {
+      viewport: { width: 1400, height: 900 },
+    });
+    const tiles = page.locator('[data-dimension="module"] .dimension-tile');
+    const visibleTooltips = page.locator('.tile-details:visible');
+    const first = tiles.nth(0);
+    const second = tiles.nth(4);
+    await first.scrollIntoViewIfNeeded();
+
+    // Click a tile: it is focused and shows its tooltip, which stays when the pointer leaves.
+    await first.click();
+    await expect.poll(() => visibleTooltips.count()).toBe(1);
+    await page.mouse.move(0, 0);
+    expect(await first.locator('.tile-details').isVisible()).toBe(true);
+
+    // Hover another tile: its tooltip replaces the focus one.
+    await second.hover();
+    await expect.poll(() => visibleTooltips.count()).toBe(1);
+    expect(await second.locator('.tile-details').isVisible()).toBe(true);
+
+    // Hoverable: the pointer can move onto the tooltip without closing it.
+    const tooltip = await second.locator('.tile-details').boundingBox();
+    if (!tooltip) throw new Error('no tooltip box');
+    const tile = await second.boundingBox();
+    if (!tile) throw new Error('no tile box');
+    await page.mouse.move(tile.x + 10, tile.y + 2);
+    await page.mouse.move(tooltip.x + 10, tooltip.y + tooltip.height - 2, { steps: 5 });
+    await page.mouse.move(tooltip.x + 10, tooltip.y + 4, { steps: 5 });
+    expect(await second.locator('.tile-details').isVisible()).toBe(true);
+
+    // Escape closes it without moving focus.
+    await page.keyboard.press('Escape');
+    await expect.poll(() => visibleTooltips.count()).toBe(0);
+    expect(await first.evaluate((element) => element === element.ownerDocument.activeElement)).toBe(true);
+
+    // Moving the pointer away closes a hover tooltip.
+    await second.hover();
+    await expect.poll(() => visibleTooltips.count()).toBe(1);
+    await page.mouse.move(0, 0);
+    await expect.poll(() => visibleTooltips.count()).toBe(0);
+
+    // Focusing replaces a hover tooltip; blur closes a focus tooltip.
+    await second.hover();
+    await page.keyboard.press('Tab');
+    await expect.poll(() => visibleTooltips.count()).toBe(1);
+    expect(await tiles.nth(1).locator('.tile-details').isVisible()).toBe(true);
+    await page.mouse.move(0, 0);
+    await page.evaluate("document.activeElement.blur()");
+    await expect.poll(() => visibleTooltips.count()).toBe(0);
     expect(errors).toEqual([]);
     await page.close();
   });

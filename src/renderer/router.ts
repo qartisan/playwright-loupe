@@ -4,6 +4,7 @@
  *
  *   #/                          overview (also an empty fragment)
  *   #/errors                    errors: run errors, error groups, categories
+ *   #/errors/category/<name>    the errors view, scrolled to a category
  *   #/health                    suite health: dimensions, slow, skipped and flaky tests
  *   #/test/<id>                 a test (repeatEachIndex 0)
  *   #/test/<id>/repeat/<n>      a test repeated with --repeat-each
@@ -19,7 +20,7 @@
 
 export type Route =
   | { page: 'dashboard' }
-  | { page: 'errors' }
+  | { page: 'errors'; category?: string }
   | { page: 'health' }
   | { page: 'test'; id: string; repeatEachIndex: number }
   | { page: 'group'; signature: string }
@@ -65,6 +66,7 @@ function parsePath(path: string): Route {
 
   if (segments.length === 0) return { page: 'dashboard' };
   if (segments.length === 1 && (first === 'errors' || first === 'health')) return { page: first };
+  if (first === 'errors' && id === 'category' && segments.length === 3 && third !== undefined) return { page: 'errors', category: third };
   if (segments.length === 1 && first !== undefined && Object.hasOwn(REDIRECTS, first)) return REDIRECTS[first] as Route;
   if (first === 'group' && id !== undefined && segments.length === 2) return { page: 'group', signature: id };
   if (first === 'test' && id !== undefined) {
@@ -90,7 +92,7 @@ function routePath(route: Route): string {
     case 'dashboard':
       return '/';
     case 'errors':
-      return '/errors';
+      return route.category === undefined ? '/errors' : `/errors/category/${encodeURIComponent(route.category)}`;
     case 'health':
       return '/health';
     case 'test': {

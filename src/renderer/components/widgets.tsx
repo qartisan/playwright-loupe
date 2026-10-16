@@ -1,14 +1,23 @@
+import { signal } from '@preact/signals';
 import type { ComponentChildren } from 'preact';
+import { useEffect } from 'preact/hooks';
 import type { LoupeReport, RunError, TestCase } from '../../schema/v1.js';
 import { categoryStyle } from '../categoryColors.js';
 import {
+  PASS_RATE_HELP,
+  dimensionRepresentation,
   errorHeadline,
+  formatPassRate,
   groupSummary,
   outcomeShares,
   passRate,
+  tileOrder,
+  tileSummary,
   verdict,
+  worstStatus,
   type CategoryCount,
   type DimensionDistribution,
+  type DimensionValueCounts,
   type ErrorGroup,
   type FlakyTest,
   type ProjectSummary,
@@ -37,9 +46,13 @@ export function projectLabel(name: string): string {
   return name || UNNAMED_PROJECT;
 }
 
-function percent(share: number): string {
-  const value = share * 100;
-  return `${value > 0 && value < 1 ? '<1' : Math.round(value)}%`;
+/** The pass rate, labeled, with its definition as a tooltip (and for screen readers). */
+export function PassRate({ rate }: { rate: number }) {
+  return (
+    <span class="pass-rate" title={PASS_RATE_HELP}>
+      <strong>{formatPassRate(rate)}</strong> pass rate<span class="visually-hidden"> (skipped tests excluded)</span>
+    </span>
+  );
 }
 
 export function Widget({
@@ -87,7 +100,7 @@ export function Verdict({ report }: { report: LoupeReport }) {
         <p class="verdict-meta">
           {rate !== null && (
             <>
-              <strong>{percent(rate)}</strong> passed ·{' '}
+              <PassRate rate={rate} /> ·{' '}
             </>
           )}
           {plural(stats.total, 'test')} in <strong>{formatDuration(report.run.durationMs)}</strong>
@@ -106,10 +119,10 @@ export function Verdict({ report }: { report: LoupeReport }) {
             ))}
           </div>
           <ul class="outcome-legend" aria-hidden="true">
-            {shares.map(({ outcome: key, share }) => (
+            {shares.map(({ outcome: key, count }) => (
               <li key={key}>
                 <OutcomeIcon outcome={key} decorative />
-                {outcomeLabel(key)} {percent(share)}
+                {count} {outcomeLabel(key).toLowerCase()}
               </li>
             ))}
           </ul>
@@ -204,14 +217,14 @@ export function GroupList({ groups, colors }: { groups: readonly ErrorGroup[]; c
   );
 }
 
-/** Failing tests per category as bars, linking to the errors view. */
+/** Failing tests per category as bars, each linking to its category in the errors view. */
 export function CategoryBars({ categories, colors }: { categories: readonly CategoryCount[]; colors: Colors }) {
   const max = Math.max(...categories.map((category) => category.tests), 1);
   return (
     <ul class="widget-list category-bars">
       {categories.map((category) => (
         <li key={category.name}>
-          <a class="category-bar-row" href={hrefTo({ page: 'errors' })}>
+          <a class="category-bar-row" href={hrefTo({ page: 'errors', category: category.name })}>
             <CategoryBadge name={category.name} color={colors.get(category.name)} />
             <span class="category-bar-track" aria-hidden="true">
               <span class="category-bar" style={{ ...categoryStyle(colors.get(category.name)), width: `${(category.tests / max) * 100}%` }} />
@@ -224,13 +237,13 @@ export function CategoryBars({ categories, colors }: { categories: readonly Cate
   );
 }
 
-/** Categories with their group and test counts, each expanding to its groups. */
-export function CategoryDetails({ categories, colors }: { categories: readonly CategoryCount[]; colors: Colors }) {
+/** Categories with their group and test counts, each expanding to its groups; `open` starts expanded. */
+export function CategoryDetails({ categories, colors, open }: { categories: readonly CategoryCount[]; colors: Colors; open?: string | undefined }) {
   return (
     <ul class="widget-list category-list">
       {categories.map((category) => (
-        <li key={category.name}>
-          <details>
+        <li key={category.name} data-category={category.name}>
+          <details open={category.name === open}>
             <summary>
               <ChevronIcon class="chevron" />
               <CategoryBadge name={category.name} color={colors.get(category.name)} />
@@ -270,7 +283,13 @@ export function ProjectCards({ projects }: { projects: readonly ProjectSummary[]
             </span>
             <span class="project-meta">
               {plural(project.stats.total, 'test')}
-              {rate !== null && ` · ${percent(rate)} passed`} · {formatDuration(durationMs)} test time
+              {rate !== null && (
+                <>
+                  {' · '}
+                  <PassRate rate={rate} />
+                </>
+              )}{' '}
+              · {formatDuration(durationMs)} test time
             </span>
           </button>
         </li>
@@ -283,58 +302,210 @@ function CountCell({ value }: { value: number }) {
   return <td class={value === 0 ? 'zero' : undefined}>{value}</td>;
 }
 
-/** Outcomes per value of a dimension, with tag hygiene: unknown values and case variants are flagged, never merged. */
+const STATUS_OUTCOMES = ['passed', 'failed', 'flaky', 'skipped'] as const;
+
+/** `3 passed, 1 failed`, for labels and tooltips; outcomes without tests left out. */
+function countsText(row: DimensionValueCounts): string {
+  const parts = STATUS_OUTCOMES.filter((outcome) => row[outcome] > 0).map((outcome) => `${row[outcome]} ${outcome}`);
+  return parts.length > 0 ? parts.join(', ') : 'no tests';
+}
+
+/** Tag hygiene notes of a value: never merged, only flagged. */
+function hygieneNotes(row: DimensionValueCounts): string[] {
+  return [
+    ...(row.unknown ? ['unknown value'] : []),
+    ...(row.caseVariants.length > 0 ? [`likely duplicate of ${row.caseVariants.join(', ')}`] : []),
+  ];
+}
+
+function HygieneFlags({ row }: { row: DimensionValueCounts }) {
+  return (
+    <>
+      {row.unknown && (
+        <span class="hygiene-flag flag-unknown" title="Not among the values declared in the config">
+          <AlertIcon />
+          unknown value
+        </span>
+      )}
+      {row.caseVariants.length > 0 && (
+        <span class="hygiene-flag flag-case" title="Differs from another value only by case. Tags are case-sensitive, so they are counted apart.">
+          <AlertIcon />
+          likely duplicate of {row.caseVariants.join(', ')}
+        </span>
+      )}
+    </>
+  );
+}
+
+/** One stacked bar per value (passed / failed / flaky / skipped), the failed and flaky counts with their icons, and the total. */
+function DimensionBars({ values }: { values: readonly DimensionValueCounts[] }) {
+  return (
+    <ul class="dimension-bars">
+      {values.map((row) => (
+        <li key={row.value} class="dimension-bar-row" data-value={row.value}>
+          <span class="dimension-value-cell">
+            <span class="dimension-value">{row.value}</span>
+            <HygieneFlags row={row} />
+          </span>
+          <span class="outcome-bar dimension-bar" role="img" aria-label={`${row.value}: ${countsText(row)}`} title={countsText(row)}>
+            {STATUS_OUTCOMES.filter((outcome) => row[outcome] > 0).map((outcome) => (
+              <span key={outcome} class={`outcome-bar-part bar-${outcome}`} style={{ flexGrow: row[outcome] }} />
+            ))}
+          </span>
+          <span class="dimension-bar-counts" aria-hidden="true">
+            {(['failed', 'flaky'] as const)
+              .filter((outcome) => row[outcome] > 0)
+              .map((outcome) => (
+                <span key={outcome} class="count">
+                  <OutcomeIcon outcome={outcome} decorative />
+                  {row[outcome]}
+                </span>
+              ))}
+          </span>
+          <span class="dimension-total" aria-hidden="true">
+            {row.total}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const WORST_LABELS = { failed: 'with failures', flaky: 'flaky', passed: 'all passed', skipped: 'skipped only', none: 'no tests' } as const;
+
+/**
+ * A grid of tiles, one per value, for dimensions with many values: colored by
+ * worst status with its icon, problem values first, details on hover and
+ * focus. Each tile is focusable and carries its details as text for screen
+ * readers.
+ */
+/**
+ * The one open tile tooltip on the page, and what opened it. The latest
+ * interaction wins: hovering a tile replaces a focus tooltip and focusing
+ * replaces a hover tooltip, so two never overlap. WCAG 1.4.13: Escape
+ * dismisses it without moving focus; it stays open while its tile or the
+ * tooltip itself is hovered, or while its tile is focused.
+ */
+const openTooltip = signal<{ key: string; source: 'hover' | 'focus' } | null>(null);
+
+function closeTooltip(key: string, source: 'hover' | 'focus'): void {
+  const current = openTooltip.value;
+  if (current?.key === key && current.source === source) openTooltip.value = null;
+}
+
+function closeOnEscape(event: KeyboardEvent): void {
+  if (event.key === 'Escape' && openTooltip.value) openTooltip.value = null;
+}
+
+function DimensionTiles({ name, values }: { name: string; values: readonly DimensionValueCounts[] }) {
+  useEffect(() => {
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('keydown', closeOnEscape);
+      if (openTooltip.value?.key.startsWith(`${name}\u0000`)) openTooltip.value = null;
+    };
+  }, [name]);
+  return (
+    <>
+      <p class="tile-summary">{tileSummary(values)}</p>
+      <ul class="dimension-tiles" aria-label={`${name} values`}>
+        {tileOrder(values).map((row) => {
+          const status = worstStatus(row);
+          const notes = hygieneNotes(row);
+          const details = [countsText(row), ...notes].join('; ');
+          const key = `${name}\u0000${row.value}`;
+          const open = openTooltip.value?.key === key;
+          return (
+            <li
+              key={row.value}
+              class={`dimension-tile tile-${status}${open ? ' tooltip-open' : ''}`}
+              tabIndex={0}
+              data-value={row.value}
+              data-status={status}
+              onPointerEnter={() => (openTooltip.value = { key, source: 'hover' })}
+              onPointerLeave={() => closeTooltip(key, 'hover')}
+              onFocus={() => (openTooltip.value = { key, source: 'focus' })}
+              onBlur={() => closeTooltip(key, 'focus')}
+            >
+              {status === 'none' ? (
+                <span class="tile-icon-none" aria-hidden="true" />
+              ) : (
+                <OutcomeIcon outcome={status} decorative />
+              )}
+              <span class="tile-value">{row.value}</span>
+              {notes.length > 0 && <AlertIcon class="tile-flag" />}
+              <span class="visually-hidden">
+                : {WORST_LABELS[status]}, {details}
+              </span>
+              {/* Inside the tile, so the pointer can move onto it without leaving the tile. */}
+              <span class="tile-details" aria-hidden="true" hidden={!open}>
+                <strong>{row.value}</strong>
+                <span>{WORST_LABELS[status]}</span>
+                <span>{countsText(row)}</span>
+                {notes.map((note) => (
+                  <span key={note} class="tile-note">
+                    {note}
+                  </span>
+                ))}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </>
+  );
+}
+
+/**
+ * Outcomes per value of a dimension, with tag hygiene (unknown values and case
+ * variants flagged, never merged). Bars up to `DIMENSION_BARS_MAX` values,
+ * tiles above; the exact table is one click away.
+ */
 export function DimensionWidget({ distribution }: { distribution: DimensionDistribution }) {
   const { definition, values, without } = distribution;
   const id = `w-dimension-${definition.name}`;
+  const representation = dimensionRepresentation(distribution);
   return (
-    <section class="widget widget-dimension" aria-labelledby={id} data-dimension={definition.name}>
+    <section class="widget widget-dimension" aria-labelledby={id} data-dimension={definition.name} data-representation={representation}>
       <h2 id={id}>{definition.name}</h2>
       <p class="widget-note">
         From {definition.source === 'tag' ? `tags @${definition.key}:…` : `annotations of type "${definition.key}"`}
         {without > 0 && ` · ${plural(without, 'test')} without a value`}
       </p>
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th scope="col">Value</th>
-            {(['passed', 'failed', 'flaky'] as const).map((outcome) => (
-              <th key={outcome} scope="col">
-                <OutcomeIcon outcome={outcome} labelled />
-              </th>
-            ))}
-            <th scope="col">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {values.map((row) => (
-            <tr key={row.value} class={row.unknown || row.caseVariants.length > 0 ? 'flagged' : undefined}>
-              <th scope="row">
-                <span class="dimension-value">{row.value}</span>
-                {row.unknown && (
-                  <span class="hygiene-flag flag-unknown" title="Not among the values declared in the config">
-                    <AlertIcon />
-                    unknown value
-                  </span>
-                )}
-                {row.caseVariants.length > 0 && (
-                  <span
-                    class="hygiene-flag flag-case"
-                    title="Differs from another value only by case. Tags are case-sensitive, so they are counted apart."
-                  >
-                    <AlertIcon />
-                    likely duplicate of {row.caseVariants.join(', ')}
-                  </span>
-                )}
-              </th>
-              <CountCell value={row.passed} />
-              <CountCell value={row.failed} />
-              <CountCell value={row.flaky} />
-              <CountCell value={row.total} />
+      {representation === 'bars' ? <DimensionBars values={values} /> : <DimensionTiles name={definition.name} values={values} />}
+      <details class="dimension-table">
+        <summary>
+          <ChevronIcon class="chevron" />
+          Table
+        </summary>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th scope="col">Value</th>
+              {STATUS_OUTCOMES.map((outcome) => (
+                <th key={outcome} scope="col">
+                  <OutcomeIcon outcome={outcome} labelled />
+                </th>
+              ))}
+              <th scope="col">Total</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {values.map((row) => (
+              <tr key={row.value}>
+                <th scope="row">
+                  <span class="dimension-value">{row.value}</span>
+                  <HygieneFlags row={row} />
+                </th>
+                {STATUS_OUTCOMES.map((outcome) => (
+                  <CountCell key={outcome} value={row[outcome]} />
+                ))}
+                <CountCell value={row.total} />
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </details>
       {definition.values === null && (
         <p class="widget-hint">
           No expected values are configured, so typos cannot be flagged as unknown. Declare them with <code>values</code> in{' '}

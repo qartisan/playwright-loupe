@@ -1,15 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import {
   NO_CATEGORY,
+  DIMENSION_BARS_MAX,
   caseVariants,
   categoryCounts,
+  dimensionRepresentation,
+  formatPassRate,
+  tileOrder,
+  tileSummary,
+  worstStatus,
   dimensionDistributions,
   errorGroups,
   errorHeadline,
   firstLine,
   flakyTests,
   groupSummary,
-  lookAtFirst,
   outcomeShares,
   passRate,
   projectSummaries,
@@ -117,7 +122,7 @@ describe('errorGroups', () => {
   });
 });
 
-describe('lookAtFirst', () => {
+describe('rankGroups ordering', () => {
   it('orders by failed tests, then flaky tests, then first occurrence, and keeps five', () => {
     const tests = [
       ...Array.from({ length: 3 }, () => flaky([error('three-flaky')])),
@@ -131,7 +136,7 @@ describe('lookAtFirst', () => {
       flaky([error('x1')]),
       failed([error('x2')]),
     ];
-    const top = lookAtFirst(errorGroups({ tests }));
+    const top = rankGroups(errorGroups({ tests })).slice(0, 5);
     // A group of three flaky tests ranks below any group with a failed test.
     expect(top.map((group) => [group.signature, group.failed, group.flaky])).toEqual([
       ['two-failed-one-flaky', 2, 1],
@@ -140,7 +145,7 @@ describe('lookAtFirst', () => {
       ['one-failed', 1, 0],
       ['x2', 1, 0],
     ]);
-    expect(lookAtFirst(errorGroups({ tests: tests.slice(0, 3) }))[0]).toMatchObject({ signature: 'three-flaky', failed: 0, flaky: 3 });
+    expect(rankGroups(errorGroups({ tests: tests.slice(0, 3) }))[0]).toMatchObject({ signature: 'three-flaky', failed: 0, flaky: 3 });
   });
 
   it('takes the first non-empty line of a message', () => {
@@ -378,11 +383,10 @@ describe('groupSummary', () => {
 });
 
 describe('rankGroups', () => {
-  it('sorts every group like "look at first", without a limit', () => {
+  it('sorts every group, without a limit', () => {
     const tests = [flaky([error('f')]), ...Array.from({ length: 7 }, (_, index) => failed([error(`g${index}`)])), failed([error('g6')])];
     const ranked = rankGroups(errorGroups({ tests }));
     expect(ranked.map((group) => group.signature)).toEqual(['g6', 'g0', 'g1', 'g2', 'g3', 'g4', 'g5', 'f']);
-    expect(lookAtFirst(errorGroups({ tests }))).toEqual(ranked.slice(0, 5));
   });
 });
 
@@ -396,9 +400,27 @@ describe('outcomeShares and passRate', () => {
     expect(outcomeShares(stats())).toEqual([]);
   });
 
-  it('count passed tests among the tests that ran', () => {
+  it('define the pass rate once: passed / (total − skipped), flaky not counted as passed', () => {
     expect(passRate(stats({ total: 8, passed: 3, failed: 2, flaky: 1, skipped: 2 }))).toBe(0.5);
     expect(passRate(stats({ total: 2, skipped: 2 }))).toBeNull();
+    // Not the share of all tests: with skipped tests the two differ (95% vs 90% here).
+    const run = stats({ total: 40, passed: 36, failed: 2, skipped: 2 });
+    expect(formatPassRate(passRate(run) as number)).toBe('95%');
+    expect(outcomeShares(run).find((share) => share.outcome === 'passed')?.share).toBe(0.9);
+  });
+
+  it('give projects the same pass rate as the verdict', () => {
+    const projectStats = { total: 5, passed: 3, failed: 1, flaky: 0, skipped: 1 };
+    const [summary] = projectSummaries({ projects: [project('p', projectStats)], tests: [] });
+    expect(summary?.passRate).toBe(passRate(stats(projectStats)));
+  });
+
+  it('format the pass rate without rounding to 100% or 0% when it is not exact', () => {
+    expect(formatPassRate(1)).toBe('100%');
+    expect(formatPassRate(0.999)).toBe('99%');
+    expect(formatPassRate(0.354)).toBe('35%');
+    expect(formatPassRate(0.004)).toBe('<1%');
+    expect(formatPassRate(0)).toBe('0%');
   });
 });
 
@@ -434,5 +456,48 @@ describe('flakyTests', () => {
       { test, error: first },
       { test: silent, error: null },
     ]);
+  });
+});
+
+describe('dimension representation', () => {
+  const values = (count: number) => Array.from({ length: count }, (_, index) => ({ value: `v${index}` }));
+
+  it(`uses one bar per value up to ${DIMENSION_BARS_MAX} values, tiles above`, () => {
+    expect(DIMENSION_BARS_MAX).toBe(8);
+    expect(dimensionRepresentation({ values: values(0) as never })).toBe('bars');
+    expect(dimensionRepresentation({ values: values(DIMENSION_BARS_MAX) as never })).toBe('bars');
+    expect(dimensionRepresentation({ values: values(DIMENSION_BARS_MAX + 1) as never })).toBe('tiles');
+  });
+
+  const row = (value: string, counts: Partial<Record<'passed' | 'failed' | 'flaky' | 'skipped', number>>) => {
+    const filled = { passed: 0, failed: 0, flaky: 0, skipped: 0, ...counts };
+    return { value, ...filled, total: filled.passed + filled.failed + filled.flaky + filled.skipped, unknown: false, caseVariants: [] };
+  };
+
+  it('takes the worst status of a value: failed, then flaky, then passed, then skipped', () => {
+    expect(worstStatus(row('a', { passed: 5, failed: 1, flaky: 2 }))).toBe('failed');
+    expect(worstStatus(row('a', { passed: 5, flaky: 1 }))).toBe('flaky');
+    expect(worstStatus(row('a', { passed: 5, skipped: 3 }))).toBe('passed');
+    expect(worstStatus(row('a', { skipped: 3 }))).toBe('skipped');
+    expect(worstStatus(row('a', {}))).toBe('none');
+  });
+
+  it('orders tiles with problem values first, the most failing first', () => {
+    const rows = [
+      row('ok-1', { passed: 3 }),
+      row('flaky', { passed: 1, flaky: 1 }),
+      row('fail-1', { failed: 1 }),
+      row('empty', {}),
+      row('fail-3', { failed: 3, passed: 9 }),
+      row('skipped', { skipped: 1 }),
+      row('ok-2', { passed: 1 }),
+    ];
+    expect(tileOrder(rows).map((r) => r.value)).toEqual(['fail-3', 'fail-1', 'flaky', 'ok-1', 'ok-2', 'skipped', 'empty']);
+  });
+
+  it('sums up the tiles in one line', () => {
+    const rows = [...Array.from({ length: 36 }, (_, index) => row(`ok${index}`, { passed: 1 })), row('a', { failed: 1 }), row('b', { failed: 2 })];
+    expect(tileSummary(rows)).toBe('38 values · 36 all passed · 2 with failures');
+    expect(tileSummary([row('x', { flaky: 1 }), row('y', { skipped: 1 }), row('z', {})])).toBe('3 values · 1 flaky · 1 skipped only · 1 without tests');
   });
 });
