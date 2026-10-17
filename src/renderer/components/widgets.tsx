@@ -23,6 +23,8 @@ import {
   type ProjectSummary,
   type SkippedTest,
 } from '../dashboard.js';
+import { filtersHref } from '../filters/store.js';
+import { EMPTY_FILTERS, dimensionFacet, type FacetId } from '../filters/url.js';
 import { formatDuration, plural } from '../format.js';
 import { revealInSidebar } from '../layout.js';
 import { hrefTo } from '../navigation.js';
@@ -40,6 +42,11 @@ const DIMENSIONS_DOCS = 'https://github.com/qartisan/playwright-loupe/blob/main/
 
 export function testHref(test: TestCase): string {
   return hrefTo({ page: 'test', id: test.id, repeatEachIndex: test.repeatEachIndex });
+}
+
+/** Link to the Tests view showing the tests with this value, replacing the current filters. */
+export function facetHref(facet: FacetId, value: string): string {
+  return filtersHref({ ...EMPTY_FILTERS, facets: { [facet]: [value] } }, { page: 'tests' });
 }
 
 export function projectLabel(name: string): string {
@@ -217,14 +224,14 @@ export function GroupList({ groups, colors }: { groups: readonly ErrorGroup[]; c
   );
 }
 
-/** Failing tests per category as bars, each linking to its category in the errors view. */
+/** Failing tests per category as bars, each linking to those tests in the Tests view. */
 export function CategoryBars({ categories, colors }: { categories: readonly CategoryCount[]; colors: Colors }) {
   const max = Math.max(...categories.map((category) => category.tests), 1);
   return (
     <ul class="widget-list category-bars">
       {categories.map((category) => (
         <li key={category.name}>
-          <a class="category-bar-row" href={hrefTo({ page: 'errors', category: category.name })}>
+          <a class="category-bar-row" href={facetHref('category', category.name)}>
             <CategoryBadge name={category.name} color={colors.get(category.name)} />
             <span class="category-bar-track" aria-hidden="true">
               <span class="category-bar" style={{ ...categoryStyle(colors.get(category.name)), width: `${(category.tests / max) * 100}%` }} />
@@ -338,13 +345,13 @@ function HygieneFlags({ row }: { row: DimensionValueCounts }) {
 }
 
 /** One stacked bar per value (passed / failed / flaky / skipped), the failed and flaky counts with their icons, and the total. */
-function DimensionBars({ values }: { values: readonly DimensionValueCounts[] }) {
+function DimensionBars({ name, values }: { name: string; values: readonly DimensionValueCounts[] }) {
   return (
     <ul class="dimension-bars">
       {values.map((row) => (
         <li key={row.value} class="dimension-bar-row" data-value={row.value}>
           <span class="dimension-value-cell">
-            <span class="dimension-value">{row.value}</span>
+            <DimensionValue name={name} row={row} />
             <HygieneFlags row={row} />
           </span>
           <span class="outcome-bar dimension-bar" role="img" aria-label={`${row.value}: ${countsText(row)}`} title={countsText(row)}>
@@ -371,13 +378,23 @@ function DimensionBars({ values }: { values: readonly DimensionValueCounts[] }) 
   );
 }
 
+/** A dimension value: a link to its tests in the Tests view, plain text when no test has it. */
+function DimensionValue({ name, row }: { name: string; row: DimensionValueCounts }) {
+  if (row.total === 0) return <span class="dimension-value">{row.value}</span>;
+  return (
+    <a class="dimension-value" href={facetHref(dimensionFacet(name), row.value)} title={`Show the ${plural(row.total, 'test')} with ${name} ${row.value}`}>
+      {row.value}
+    </a>
+  );
+}
+
 const WORST_LABELS = { failed: 'with failures', flaky: 'flaky', passed: 'all passed', skipped: 'skipped only', none: 'no tests' } as const;
 
 /**
  * A grid of tiles, one per value, for dimensions with many values: colored by
  * worst status with its icon, problem values first, details on hover and
- * focus. Each tile is focusable and carries its details as text for screen
- * readers.
+ * focus. Each tile links to its tests and carries its details as text for
+ * screen readers.
  */
 /**
  * The one open tile tooltip on the page, and what opened it. The latest
@@ -415,18 +432,17 @@ function DimensionTiles({ name, values }: { name: string; values: readonly Dimen
           const details = [countsText(row), ...notes].join('; ');
           const key = `${name}\u0000${row.value}`;
           const open = openTooltip.value?.key === key;
-          return (
-            <li
-              key={row.value}
-              class={`dimension-tile tile-${status}${open ? ' tooltip-open' : ''}`}
-              tabIndex={0}
-              data-value={row.value}
-              data-status={status}
-              onPointerEnter={() => (openTooltip.value = { key, source: 'hover' })}
-              onPointerLeave={() => closeTooltip(key, 'hover')}
-              onFocus={() => (openTooltip.value = { key, source: 'focus' })}
-              onBlur={() => closeTooltip(key, 'focus')}
-            >
+          const tile = {
+            class: `dimension-tile tile-${status}${open ? ' tooltip-open' : ''}`,
+            'data-value': row.value,
+            'data-status': status,
+            onPointerEnter: () => (openTooltip.value = { key, source: 'hover' }),
+            onPointerLeave: () => closeTooltip(key, 'hover'),
+            onFocus: () => (openTooltip.value = { key, source: 'focus' }),
+            onBlur: () => closeTooltip(key, 'focus'),
+          };
+          const content = (
+            <>
               {status === 'none' ? (
                 <span class="tile-icon-none" aria-hidden="true" />
               ) : (
@@ -448,6 +464,20 @@ function DimensionTiles({ name, values }: { name: string; values: readonly Dimen
                   </span>
                 ))}
               </span>
+            </>
+          );
+          // A value with tests links to them; one without stays focusable for its details.
+          return (
+            <li key={row.value}>
+              {row.total > 0 ? (
+                <a {...tile} href={facetHref(dimensionFacet(name), row.value)}>
+                  {content}
+                </a>
+              ) : (
+                <span {...tile} tabIndex={0}>
+                  {content}
+                </span>
+              )}
             </li>
           );
         })}
@@ -472,7 +502,7 @@ export function DimensionWidget({ distribution }: { distribution: DimensionDistr
         From {definition.source === 'tag' ? `tags @${definition.key}:…` : `annotations of type "${definition.key}"`}
         {without > 0 && ` · ${plural(without, 'test')} without a value`}
       </p>
-      {representation === 'bars' ? <DimensionBars values={values} /> : <DimensionTiles name={definition.name} values={values} />}
+      {representation === 'bars' ? <DimensionBars name={definition.name} values={values} /> : <DimensionTiles name={definition.name} values={values} />}
       <details class="dimension-table">
         <summary>
           <ChevronIcon class="chevron" />
@@ -494,7 +524,7 @@ export function DimensionWidget({ distribution }: { distribution: DimensionDistr
             {values.map((row) => (
               <tr key={row.value}>
                 <th scope="row">
-                  <span class="dimension-value">{row.value}</span>
+                  <DimensionValue name={definition.name} row={row} />
                   <HygieneFlags row={row} />
                 </th>
                 {STATUS_OUTCOMES.map((outcome) => (

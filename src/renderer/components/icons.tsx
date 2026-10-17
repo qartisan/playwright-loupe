@@ -146,3 +146,41 @@ export function HealthIcon(props: IconProps) {
     </Svg>
   );
 }
+
+export function TestsIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M6 4h8M6 8h8M6 12h8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+      <circle cx="2.8" cy="4" r="1" fill="currentColor" />
+      <circle cx="2.8" cy="8" r="1" fill="currentColor" />
+      <circle cx="2.8" cy="12" r="1" fill="currentColor" />
+    </Svg>
+  );
+}
+
+export function SearchIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.4" />
+      <path d="M10.4 10.4L14 14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+    </Svg>
+  );
+}
+
+export function CloseIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M4.5 4.5l7 7m0-7l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+    </Svg>
+  );
+}
+
+/** Sort direction of a column: up for ascending, down for descending, both when the column is not sorted. */
+export function SortIcon({ direction, ...props }: IconProps & { direction: 'asc' | 'desc' | null }) {
+  return (
+    <Svg {...props}>
+      {direction !== 'desc' && <path d="M5 6.5L8 3.5l3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />}
+      {direction !== 'asc' && <path d="M5 9.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />}
+    </Svg>
+  );
+}

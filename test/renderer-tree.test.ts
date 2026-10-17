@@ -187,6 +187,51 @@ describe('buildTree', () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 
+  it('groups files by folder, below the common prefix, folders before files', () => {
+    const input: Input = {
+      projects: [project('p')],
+      tests: [
+        makeTest({ file: 'tests/e2e/root.spec.ts', title: 'r' }),
+        makeTest({ file: 'tests/e2e/checkout/cart.spec.ts', title: 'c1' }),
+        makeTest({ file: 'tests/e2e/checkout/pay.spec.ts', title: 'c2' }),
+        makeTest({ file: 'tests/e2e/api/users.spec.ts', title: 'u' }),
+      ],
+    };
+    expect(shape(group(buildTree(input)).children)).toEqual([
+      { 'folder: api': [{ 'file: users.spec.ts': ['u [passed]'] }] },
+      { 'folder: checkout': [{ 'file: cart.spec.ts': ['c1 [passed]'] }, { 'file: pay.spec.ts': ['c2 [passed]'] }] },
+      { 'file: root.spec.ts': ['r [passed]'] },
+    ]);
+  });
+
+  it('merges single-child folders into one node, never a folder with its file', () => {
+    const input: Input = {
+      projects: [project('p')],
+      tests: [makeTest({ file: 'tests/api/users/v2/list.spec.ts', title: 'l' }), makeTest({ file: 'tests/ui/home.spec.ts', title: 'h' })],
+    };
+    const [root] = buildTree(input);
+    expect(shape(root?.children ?? [])).toEqual([
+      { 'folder: api/users/v2': [{ 'file: list.spec.ts': ['l [passed]'] }] },
+      { 'folder: ui': [{ 'file: home.spec.ts': ['h [passed]'] }] },
+    ]);
+    const folder = group(root?.children ?? []);
+    expect(folder.path).toBe('tests/api/users/v2');
+    expect(group(folder.children).path).toBe('tests/api/users/v2/list.spec.ts');
+  });
+
+  it('uses the given prefix, so a filtered tree keeps the folders of the whole run', () => {
+    const input: Input = { projects: [project('p')], tests: [makeTest({ file: 'tests/api/users.spec.ts', title: 'u' })] };
+    expect(shape(group(buildTree(input)).children)).toEqual([{ 'file: users.spec.ts': ['u [passed]'] }]);
+    expect(shape(group(buildTree(input, { prefix: 'tests/' })).children)).toEqual([{ 'folder: api': [{ 'file: users.spec.ts': ['u [passed]'] }] }]);
+  });
+
+  it('keeps folder keys stable when filtering changes the merged folders', () => {
+    const tests = [makeTest({ file: 'tests/api/a.spec.ts', title: 'a' }), makeTest({ file: 'tests/ui/b.spec.ts', title: 'b' })];
+    const full = buildTree({ projects: [project('p')], tests }, { prefix: 'tests/' });
+    const filtered = buildTree({ projects: [project('p')], tests: [tests[0] as TestCase] }, { prefix: 'tests/' });
+    expect(group(group(filtered).children).key).toBe(group(group(full).children).key);
+  });
+
   it('returns no root for a run without tests', () => {
     expect(buildTree({ projects: [project('p')], tests: [] })).toEqual([]);
   });

@@ -1,5 +1,9 @@
-import type { LoupeReport, RunStatus } from '../../schema/v1.js';
+import { useMemo, useState } from 'preact/hooks';
+import type { LoupeReport, Outcome, RunStatus } from '../../schema/v1.js';
 import { OUTCOMES } from '../../schema/v1.js';
+import { formatRunStart } from '../datetime.js';
+import { filtersHref } from '../filters/store.js';
+import { EMPTY_FILTERS } from '../filters/url.js';
 import { formatDuration } from '../format.js';
 import { sidebarOpen, toggleSidebar } from '../layout.js';
 import { hrefTo } from '../navigation.js';
@@ -57,9 +61,76 @@ function ThemeSwitch() {
   );
 }
 
+/**
+ * The run start in the viewer's time zone, then the duration. Hover or focus
+ * shows the full date with seconds, the time zone and the UTC timestamp;
+ * Escape hides it (WCAG 1.4.13). Without a valid start, the duration alone.
+ */
+function RunTime({ startedAt, durationMs }: { startedAt: unknown; durationMs: number }) {
+  const start = useMemo(() => formatRunStart(startedAt), [startedAt]);
+  const [dismissed, setDismissed] = useState(false);
+  return (
+    <div class="run-time" onPointerLeave={() => setDismissed(false)}>
+      <dt class="visually-hidden">Run</dt>
+      <dd>
+        {start && (
+          <>
+            <time
+              dateTime={start.utc}
+              tabIndex={0}
+              aria-describedby="run-time-details"
+              onKeyDown={(event) => event.key === 'Escape' && setDismissed(true)}
+              onBlur={() => setDismissed(false)}
+            >
+              {start.label}
+            </time>
+            {' · '}
+          </>
+        )}
+        {formatDuration(durationMs)}
+      </dd>
+      {start && (
+        <span id="run-time-details" role="tooltip" class={`run-time-details${dismissed ? ' dismissed' : ''}`}>
+          <span>{start.full}</span>
+          <span>Time zone: {start.timeZone}</span>
+          <span>UTC: {start.utc}</span>
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** A count of the header: a link to those tests in the Tests view, except a zero count. */
+function CountLink({ outcome, count }: { outcome: Outcome; count: number }) {
+  const label = outcomeLabel(outcome).toLowerCase();
+  const content = (
+    <>
+      <OutcomeIcon outcome={outcome} decorative />
+      <span class="count-value">{count}</span>
+      <span class="visually-hidden"> {label}</span>
+    </>
+  );
+  if (count === 0) {
+    return (
+      <li class="count zero" title={outcomeLabel(outcome)}>
+        {content}
+      </li>
+    );
+  }
+  // Replaces the current filter: "show me all failures".
+  const href = filtersHref({ ...EMPTY_FILTERS, facets: { status: [outcome] } }, { page: 'tests' });
+  return (
+    <li class="count">
+      <a class="count-link" href={href} title={`Show the ${count} ${label} ${count === 1 ? 'test' : 'tests'}`}>
+        {content}
+      </a>
+    </li>
+  );
+}
+
 export function Header({ report, title }: { report: LoupeReport; title: string }) {
   const { run } = report;
-  const meta: Array<[string, string, string?]> = [['Duration', formatDuration(run.durationMs), new Date(run.startedAt).toLocaleString()]];
+  const meta: Array<[string, string, string?]> = [];
   if (run.git.branch) meta.push(['Branch', run.git.branch]);
   if (run.git.commit) meta.push(['Commit', run.git.commit.slice(0, 8), run.git.commit]);
   if (run.environment.name) meta.push(['Environment', run.environment.name]);
@@ -90,13 +161,11 @@ export function Header({ report, title }: { report: LoupeReport; title: string }
         </span>
         <ul class="counts" aria-label="Test counts">
           {OUTCOMES.map((outcome) => (
-            <li key={outcome} class={run.stats[outcome] === 0 ? 'count zero' : 'count'} title={outcomeLabel(outcome)}>
-              <OutcomeIcon outcome={outcome} />
-              <span class="count-value">{run.stats[outcome]}</span>
-            </li>
+            <CountLink key={outcome} outcome={outcome} count={run.stats[outcome]} />
           ))}
         </ul>
         <dl class="run-meta">
+          <RunTime startedAt={run.startedAt} durationMs={run.durationMs} />
           {meta.map(([label, value, tooltip]) => (
             <div key={label} title={tooltip}>
               <dt>{label}</dt>

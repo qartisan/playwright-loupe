@@ -82,7 +82,7 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
 
   async function open(
     url: string,
-    options: { colorScheme?: 'light' | 'dark'; viewport?: { width: number; height: number } } = {},
+    options: { colorScheme?: 'light' | 'dark'; viewport?: { width: number; height: number }; timezoneId?: string; locale?: string } = {},
   ): Promise<{ page: Page; errors: string[] }> {
     const page = await browser.newPage(options);
     const errors: string[] = [];
@@ -112,7 +112,7 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     expect(await page.locator('.header .title').textContent()).toBe('Sample run');
     expect(await page.getByRole('note').textContent()).toMatch(/Partial run.*grep filter/);
     const nav = page.locator('.nav-fixed .nav-link');
-    expect(await nav.locator('span:not(.visually-hidden):not(.badge):not(.nav-marker)').allTextContents()).toEqual(['Overview', 'Errors', 'Suite health']);
+    expect(await nav.locator('span:not(.visually-hidden):not(.badge):not(.nav-marker)').allTextContents()).toEqual(['Overview', 'Errors', 'Suite health', 'Tests']);
     expect(await page.getByRole('link', { name: /Run errors/ }).count()).toBe(0);
     // The Errors entry carries a warning marker and the run error count.
     const errorsLink = page.getByRole('link', { name: /^Errors/ });
@@ -327,13 +327,26 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     await page.close();
   });
 
-  it('links each overview category to that category in the errors view', async () => {
+  it('links each overview category to its failing tests in the tests view', async () => {
     const { page, errors } = await open(writeReport('category-links', report), { viewport: { width: 1400, height: 700 } });
+    // The uncategorized bucket is a category like the others.
     const name = report.categories[report.categories.length - 1]?.name ?? '';
-    await page.locator('.category-bar-row', { hasText: name }).click();
+    const row = page.locator('.category-bar-row', { hasText: name });
+    const count = Number(/(\d+) tests?/.exec((await row.locator('.group-count').textContent()) ?? '')?.[1]);
+    await row.click();
+    await page.getByRole('heading', { level: 1, name: 'Tests' }).waitFor();
+    expect(page.url()).toMatch(new RegExp(`#/tests\\?category=${encodeURIComponent(name)}$`));
+    expect(await page.locator('.tests-table tbody tr').count()).toBe(count);
+    expect(await page.locator('.result-count').textContent()).toBe(`${count} of ${report.tests.length} tests`);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('still opens a category in the errors view from its route', async () => {
+    const name = report.categories[report.categories.length - 1]?.name ?? '';
+    const { page, errors } = await open(`${writeReport('category-route', report)}#/errors/category/${encodeURIComponent(name)}`, { viewport: { width: 1400, height: 700 } });
     const target = page.locator(`.widget-categories [data-category="${name}"]`);
     await target.locator('details[open]').waitFor();
-    expect(page.url()).toMatch(new RegExp(`#/errors/category/${encodeURIComponent(name)}$`));
     // Scrolled to it, its summary focused, its groups shown.
     await expect.poll(() => target.evaluate(
       (element) => element.getBoundingClientRect().top >= 0 && element.getBoundingClientRect().top < (element.ownerDocument.defaultView?.innerHeight ?? 0),
@@ -479,8 +492,8 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     const second = tiles.nth(4);
     await first.scrollIntoViewIfNeeded();
 
-    // Click a tile: it is focused and shows its tooltip, which stays when the pointer leaves.
-    await first.click();
+    // Focus a tile: it shows its tooltip, which stays when the pointer leaves.
+    await first.focus();
     await expect.poll(() => visibleTooltips.count()).toBe(1);
     await page.mouse.move(0, 0);
     expect(await first.locator('.tile-details').isVisible()).toBe(true);
@@ -573,6 +586,294 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     const { page } = await open(`${writeReport('dashboard-skip', { ...report, tests })}#/health`);
     await page.locator('.widget-skipped').waitFor();
     expect(await page.locator('.widget-skipped').textContent()).toContain('needs a payment sandbox');
+    await page.close();
+  });
+
+  /** Path of the URL fragment: `#/tests?status=failed`. */
+  function fragment(page: Page): string {
+    return `#${page.url().split('#')[1] ?? ''}`;
+  }
+
+  it('links a header count to those tests, replacing the filters, and reduces the sidebar to them', async () => {
+    const { page, errors } = await open(`${writeReport('header-counts', report)}#/health?tag=%40smoke`);
+    const { stats } = report.run;
+    const failed = page.getByRole('link', { name: `${stats.failed} failed` });
+    expect(await failed.getAttribute('href')).toBe('#/tests?status=failed');
+    // A zero count is not a link.
+    const zero = (['passed', 'failed', 'flaky', 'skipped'] as const).find((outcome) => stats[outcome] === 0);
+    if (zero) expect(await page.locator('.counts .count.zero a').count()).toBe(0);
+    await failed.click();
+    await page.getByRole('heading', { level: 1, name: 'Tests' }).waitFor();
+    expect(fragment(page)).toBe('#/tests?status=failed');
+    expect(await page.locator('.tests-table tbody tr').count()).toBe(stats.failed);
+    expect(await page.locator('.tests-table tbody .outcome-failed').count()).toBe(stats.failed);
+    // The filtered sidebar opens fully and holds exactly those tests.
+    await expect.poll(() => page.locator('.tree-test').count()).toBe(stats.failed);
+    expect(await page.locator('.tree-test .outcome-failed').count()).toBe(stats.failed);
+    expect(await page.locator('.filter-indicator').textContent()).toContain(`1 filter · ${stats.failed} tests`);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('restores filters and sort from a pasted URL, and normalizes it', async () => {
+    const url = writeReport('restore', report);
+    const { page, errors } = await open(`${url}#/tests?sort=duration:desc&status=flaky,failed,bogus&unknown=1&tag=%40nope`);
+    await page.getByRole('heading', { level: 1, name: 'Tests' }).waitFor();
+    // Unknown parameters and values dropped, canonical order, replaced rather than pushed.
+    expect(fragment(page)).toBe('#/tests?status=failed,flaky&sort=duration:desc');
+    const expected = report.tests.filter((test) => test.outcome === 'failed' || test.outcome === 'flaky').length;
+    expect(await page.locator('.tests-table tbody tr').count()).toBe(expected);
+    expect(await page.getByRole('columnheader', { name: 'Duration' }).getAttribute('aria-sort')).toBe('descending');
+    expect(await page.locator('.chip').allTextContents()).toEqual(['Status: Failed', 'Status: Flaky']);
+    // Reloading keeps the state: it lives in the URL.
+    await page.reload();
+    await page.locator('.tests-table').waitFor();
+    expect(await page.locator('.tests-table tbody tr').count()).toBe(expected);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('undoes a clicked filter with Back, and does not fill the history while typing', async () => {
+    const { page, errors } = await open(`${writeReport('history', report)}#/tests`);
+    await page.locator('.tests-table').waitFor();
+    await page.locator('.facet[data-facet="status"] summary').click();
+    await page.getByRole('checkbox', { name: /^Failed/ }).check();
+    await expect.poll(() => fragment(page)).toBe('#/tests?status=failed');
+    await page.getByRole('checkbox', { name: /^Flaky/ }).check();
+    await expect.poll(() => fragment(page)).toBe('#/tests?status=failed,flaky');
+    await page.goBack();
+    await expect.poll(() => fragment(page)).toBe('#/tests?status=failed');
+    expect(await page.locator('.chip').allTextContents()).toEqual(['Status: Failed']);
+
+    const length = await page.evaluate<number>('history.length');
+    await page.locator('#sidebar-search').pressSequentially('one per', { delay: 30 });
+    await expect.poll(() => fragment(page)).toBe('#/tests?q=one%20per&status=failed');
+    expect(await page.evaluate<number>('history.length')).toBe(length);
+    // Back leaves the search: it replaced the entry of the last clicked filter.
+    await page.goBack();
+    await expect.poll(() => fragment(page)).toBe('#/tests');
+    await expect.poll(() => page.locator('#sidebar-search').inputValue()).toBe('');
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('operates the filter bar, the sort and the search with the keyboard, and announces the count', async () => {
+    const { page, errors } = await open(`${writeReport('keyboard-filters', report)}#/tests`);
+    await page.locator('.tests-table').waitFor();
+    const live = page.locator('[aria-live="polite"].result-count');
+    expect(await live.textContent()).toBe(`${report.tests.length} tests`);
+
+    const summary = page.locator('.facet[data-facet="status"] summary');
+    await summary.focus();
+    await page.keyboard.press('Enter');
+    expect(await page.locator('.facet[data-facet="status"]').getAttribute('open')).not.toBeNull();
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Space');
+    const failed = report.tests.filter((test) => test.outcome === 'failed').length;
+    await expect.poll(() => live.textContent()).toBe(`${failed} of ${report.tests.length} tests`);
+    // Escape closes the menu and returns to its button.
+    await page.keyboard.press('Escape');
+    expect(await page.locator('.facet[data-facet="status"]').getAttribute('open')).toBeNull();
+    expect(await summary.evaluate((element) => element === element.ownerDocument.activeElement)).toBe(true);
+
+    // Sorting from a header button.
+    const header = page.getByRole('columnheader', { name: 'Test' });
+    expect(await header.getAttribute('aria-sort')).toBeNull();
+    await header.getByRole('button').focus();
+    await page.keyboard.press('Enter');
+    await expect.poll(() => header.getAttribute('aria-sort')).toBe('ascending');
+    expect(fragment(page)).toBe('#/tests?status=failed&sort=title:asc');
+
+    // Removing a chip with the keyboard keeps the focus in the chip row.
+    await page.getByRole('button', { name: 'Remove filter Status: Failed' }).focus();
+    await page.keyboard.press('Enter');
+    await expect.poll(() => live.textContent()).toBe(`${report.tests.length} tests`);
+    expect(await page.evaluate<boolean>("document.activeElement?.matches('.facets summary') ?? false")).toBe(true);
+
+    // `/` focuses the search, Escape clears it.
+    await page.locator('body').click({ position: { x: 600, y: 5 } });
+    await page.keyboard.press('/');
+    expect(await page.evaluate<string>('document.activeElement?.id ?? ""')).toBe('sidebar-search');
+    await page.keyboard.type('zzz-no-such-test');
+    await page.getByText('No tests match these filters.').waitFor();
+    await page.keyboard.press('Escape');
+    await expect.poll(() => fragment(page)).toBe('#/tests?sort=title:asc');
+    expect(await page.locator('#sidebar-search').inputValue()).toBe('');
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  /** The sample repeated to `count` tests, each with its own id. */
+  function manyTests(count: number): LoupeReport {
+    const tests = Array.from({ length: count }, (_, index) => {
+      const test = report.tests[index % report.tests.length] as LoupeReport['tests'][number];
+      return { ...test, id: index.toString(16).padStart(16, '0'), title: `${test.title} #${index}` };
+    });
+    return { ...report, tests };
+  }
+
+  it('caps the tests view at 500 rows, shows more on demand, and resets the cap on any change', async () => {
+    const big = manyTests(1200);
+    const { page, errors } = await open(`${writeReport('cap', big)}#/tests`);
+    const rows = page.locator('.tests-table tbody tr');
+    const live = page.locator('[aria-live="polite"].result-count');
+    await page.locator('.tests-table').waitFor();
+    expect(await rows.count()).toBe(500);
+    expect(await live.textContent()).toBe('Showing 500 of 1,200 tests');
+    expect(await page.locator('.table-more p').textContent()).toBe('Showing 500 of 1,200 tests');
+
+    // More rows; focus moves to the first added one.
+    await page.getByRole('button', { name: 'Show 500 more' }).click();
+    await expect.poll(() => rows.count()).toBe(1000);
+    expect(await rows.nth(500).locator('a').evaluate((element) => element === element.ownerDocument.activeElement)).toBe(true);
+    expect(await page.getByRole('button', { name: 'Show 200 more' }).count()).toBe(1);
+    await page.getByRole('button', { name: 'Show all' }).click();
+    await expect.poll(() => rows.count()).toBe(1200);
+    expect(await live.textContent()).toBe('1,200 tests');
+    expect(await page.locator('.table-more').count()).toBe(0);
+
+    // A sort change starts again from 500, and the first rows are those of the new order.
+    await page.getByRole('button', { name: 'Duration' }).click();
+    await expect.poll(() => rows.count()).toBe(500);
+    const longest = Math.max(...big.tests.map((test) => test.durationMs));
+    const longestTitles = big.tests.filter((test) => test.durationMs === longest).map((test) => [...test.suitePath, test.title].join(' › '));
+    expect(longestTitles).toContain(await rows.first().locator('a').textContent());
+
+    // So does a filter change, even back to a state shown in full before.
+    await page.getByRole('button', { name: 'Show all' }).click();
+    await expect.poll(() => rows.count()).toBe(1200);
+    await page.locator('.facet[data-facet="status"] summary').click();
+    await page.getByRole('checkbox', { name: /^Failed/ }).check();
+    const failed = big.tests.filter((test) => test.outcome === 'failed').length;
+    await expect.poll(() => live.textContent()).toBe(`Showing 500 of ${failed} matching tests (1,200 in total)`);
+    await page.getByRole('checkbox', { name: /^Failed/ }).uncheck();
+    await expect.poll(() => live.textContent()).toBe('Showing 500 of 1,200 tests');
+    expect(await rows.count()).toBe(500);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('shows the primary category of a test and +N for the other categories of its failing attempts', async () => {
+    const index = report.tests.findIndex((test) => test.outcome === 'failed' && test.attempts.length > 1);
+    const original = report.tests[index] as LoupeReport['tests'][number];
+    const withCategory = (attempt: (typeof original.attempts)[number], category: string) => ({
+      ...attempt,
+      errors: attempt.errors.map((error) => ({ ...error, category })),
+    });
+    const mixed = {
+      ...original,
+      category: 'Network',
+      attempts: original.attempts.map((attempt, position) => withCategory(attempt, position === 0 ? 'Timeout' : 'Network')),
+    };
+    const tests = report.tests.map((test, position) => (position === index ? mixed : test));
+    const { page, errors } = await open(`${writeReport('category-more', { ...report, tests })}#/tests?category=Timeout`);
+    const row = page.locator('.tests-table tbody tr', { hasText: original.title }).first();
+    await row.waitFor();
+    // Filtered on Timeout, the row shows its primary category, Network, and +1.
+    expect(await row.locator('.category-badge').allTextContents()).toEqual(['Network']);
+    const more = row.locator('.category-more');
+    expect(await more.locator('[aria-hidden="true"]').textContent()).toBe('+1');
+    expect(await more.getAttribute('title')).toBe('Other category in failing attempts: Timeout');
+    expect(await more.locator('.visually-hidden').textContent()).toBe(', and 1 other category: Timeout');
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('shows an empty state with a reset button', async () => {
+    const { page, errors } = await open(`${writeReport('empty-state', report)}#/tests?q=zzz-no-such-test&sort=title:desc`);
+    await page.getByText('No tests match these filters.').waitFor();
+    expect(await page.locator('.tree-empty').textContent()).toBe('No tests match the filters.');
+    await page.getByRole('button', { name: 'Reset filters' }).click();
+    await page.locator('.tests-table').waitFor();
+    expect(fragment(page)).toBe('#/tests?sort=title:desc');
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('links suite health dimension values to their tests', async () => {
+    const { page, errors } = await open(`${writeReport('dimension-links', report)}#/health`);
+    const layer = page.locator('[data-dimension="Layer"]');
+    const value = layer.locator('.dimension-bar-row[data-value="api"] a.dimension-value');
+    expect(await value.getAttribute('href')).toBe('#/tests?dim.Layer=api');
+    // The exact table links the same way.
+    await layer.locator('.dimension-table summary').click();
+    expect(await layer.locator('.dimension-table tbody a', { hasText: 'api' }).getAttribute('href')).toBe('#/tests?dim.Layer=api');
+    await value.click();
+    await page.getByRole('heading', { level: 1, name: 'Tests' }).waitFor();
+    const expected = report.tests.filter((test) => test.dimensions['Layer']?.includes('api')).length;
+    expect(await page.locator('.tests-table tbody tr').count()).toBe(expected);
+    // The summaries ignore the filters; the sidebar keeps them.
+    await page.getByRole('link', { name: /^Overview/ }).click();
+    await page.locator('.verdict-outcome').waitFor();
+    expect(fragment(page)).toBe('#/?dim.Layer=api');
+    expect(await page.locator('.outcome-legend').textContent()).toContain(`${report.run.stats.passed} passed`);
+    expect(await page.locator('.filter-indicator').textContent()).toContain(`${expected} tests`);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('groups the sidebar by folder below the common prefix, file names cut in the middle', async () => {
+    const files: Record<string, string> = {
+      'basics.spec.ts': 'tests/e2e/api/users/basics.spec.ts',
+      'failures.spec.ts': 'tests/e2e/checkout/failures.spec.ts',
+      'outcomes.spec.ts': 'tests/e2e/checkout/outcomes.spec.ts',
+      'structure.spec.ts': 'tests/e2e/structure-and-organisation-of-the-describe-blocks-in-a-long-file.spec.ts',
+    };
+    const tests = report.tests.map((test) => ({ ...test, file: files[test.file] ?? test.file }));
+    const { page, errors } = await open(writeReport('folders', { ...report, tests }), { viewport: { width: 1400, height: 900 } });
+    await page.getByRole('button', { name: 'Expand all' }).click();
+    expect(await page.locator('.tree-prefix').textContent()).toBe('Files in tests/e2e/');
+    // Visible labels only: the accessible name of a file holds its full path.
+    const labels = await page.locator('.tree .label-part:not(.file-name), .tree .name-head').allTextContents();
+    expect(labels.filter((label) => label.includes('tests/e2e'))).toEqual([]);
+    const firstProject = page.getByRole('treeitem', { level: 1 }).first();
+    expect(await firstProject.getAttribute('aria-expanded')).toBe('true');
+    // Single-child folders merged on one line; folders before files.
+    const folders = await page.locator('.tree-folder').first().locator('.row-label').textContent();
+    expect(folders).toBe('api/users');
+    // A long name keeps its start and its extension; the full path is in the tooltip and the accessible name.
+    const file = page.locator('.tree-file', { has: page.locator('.name-head', { hasText: /^structure-and/ }) }).first();
+    expect(await file.locator('.name-tail').textContent()).toBe('file.spec.ts');
+    expect(await file.locator('.row-label').getAttribute('title')).toMatch(/^tests\/e2e\/structure-and-organisation-of-the-describe-blocks-in-a-long-file\.spec\.ts/);
+    expect(await file.locator('.visually-hidden').first().textContent()).toBe(files['structure.spec.ts']);
+    const clipped = await file.locator('.name-head').evaluate((element) => element.scrollWidth > element.clientWidth);
+    expect(clipped).toBe(true);
+    expect(await file.locator('.name-tail').isVisible()).toBe(true);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('shows the run start in the viewer time zone, with details on focus', async () => {
+    const { page, errors } = await open(writeReport('run-time', report), { timezoneId: 'Europe/Paris', locale: 'en-GB' });
+    const time = page.locator('.run-time time');
+    expect(await time.getAttribute('datetime')).toBe(new Date(report.run.startedAt).toISOString());
+    expect(await time.textContent()).toMatch(/^\d{1,2} \w{3} \d{4}, \d{2}:\d{2} CES?T$/);
+    const details = page.locator('#run-time-details');
+    expect(await details.isVisible()).toBe(false);
+    await time.focus();
+    expect(await details.isVisible()).toBe(true);
+    expect(await details.textContent()).toContain('Time zone: Europe/Paris');
+    expect(await details.textContent()).toContain(`UTC: ${new Date(report.run.startedAt).toISOString()}`);
+    expect(await time.getAttribute('aria-describedby')).toBe('run-time-details');
+    // Escape hides it without moving focus.
+    await page.keyboard.press('Escape');
+    expect(await details.isVisible()).toBe(false);
+    expect(await time.evaluate((element) => element === element.ownerDocument.activeElement)).toBe(true);
+    await page.close();
+
+    // Without a valid start: no date, the duration alone, no error.
+    const broken = await open(writeReport('run-time-missing', { ...report, run: { ...report.run, startedAt: 'garbage' } }));
+    await broken.page.locator('.run-time').waitFor();
+    expect(await broken.page.locator('.run-time time').count()).toBe(0);
+    expect(await broken.page.locator('.run-time dd').textContent()).toMatch(/^\d[\d.]* (?:ms|s|min)\b[^·]*$/);
+    expect([...errors, ...broken.errors]).toEqual([]);
+    await broken.page.close();
+  });
+
+  it('lays out the tests view without horizontal page scroll on a narrow screen', async () => {
+    const { page } = await open(`${writeReport('tests-narrow', report)}#/tests`, { viewport: { width: 700, height: 900 } });
+    await page.locator('.tests-table').waitFor();
+    expect(await page.evaluate<boolean>("document.querySelector('.main').scrollWidth <= document.querySelector('.main').clientWidth")).toBe(true);
     await page.close();
   });
 

@@ -6,12 +6,15 @@
  *   #/errors                    errors: run errors, error groups, categories
  *   #/errors/category/<name>    the errors view, scrolled to a category
  *   #/health                    suite health: dimensions, slow, skipped and flaky tests
+ *   #/tests                     tests: the flat, filterable and sortable test list
  *   #/test/<id>                 a test (repeatEachIndex 0)
  *   #/test/<id>/repeat/<n>      a test repeated with --repeat-each
  *   #/group/<signature>         an error group: the tests failing with one error signature
  *
- * followed by an optional `?key=value&...` query, reserved for view state such
- * as filters: it is kept when navigating between pages.
+ * followed by an optional `?key=value&...` query holding view state (filters
+ * and sort, see filters/url.ts): it is kept when navigating between pages.
+ * The query is kept raw, undecoded: filter values are encoded one by one and
+ * joined with commas, so it is decoded by the filters module, not here.
  *
  * Former routes redirect: `#/run-errors` → `#/errors`.
  *
@@ -22,15 +25,15 @@ export type Route =
   | { page: 'dashboard' }
   | { page: 'errors'; category?: string }
   | { page: 'health' }
+  | { page: 'tests' }
   | { page: 'test'; id: string; repeatEachIndex: number }
   | { page: 'group'; signature: string }
   | { page: 'not-found'; path: string };
 
-export type Query = Readonly<Record<string, string>>;
-
 export interface AppLocation {
   route: Route;
-  query: Query;
+  /** Raw query, without the leading `?`; empty when there is none. */
+  search: string;
 }
 
 const REPEAT_INDEX = /^(0|[1-9]\d*)$/;
@@ -50,14 +53,6 @@ function decodeURIComponentSafe(segment: string): string {
   return decode(segment) ?? segment;
 }
 
-function parseQuery(search: string): Query {
-  const query: Record<string, string> = {};
-  for (const [key, value] of new URLSearchParams(search)) {
-    if (key !== '') query[key] = value;
-  }
-  return query;
-}
-
 function parsePath(path: string): Route {
   const raw = path.split('/').filter((segment) => segment !== '');
   const segments = raw.map(decode);
@@ -65,7 +60,7 @@ function parsePath(path: string): Route {
   const [first, id, third, index] = segments as string[];
 
   if (segments.length === 0) return { page: 'dashboard' };
-  if (segments.length === 1 && (first === 'errors' || first === 'health')) return { page: first };
+  if (segments.length === 1 && (first === 'errors' || first === 'health' || first === 'tests')) return { page: first };
   if (first === 'errors' && id === 'category' && segments.length === 3 && third !== undefined) return { page: 'errors', category: third };
   if (segments.length === 1 && first !== undefined && Object.hasOwn(REDIRECTS, first)) return REDIRECTS[first] as Route;
   if (first === 'group' && id !== undefined && segments.length === 2) return { page: 'group', signature: id };
@@ -84,7 +79,7 @@ export function parseHash(hash: string): AppLocation {
   const queryStart = fragment.indexOf('?');
   const path = queryStart === -1 ? fragment : fragment.slice(0, queryStart);
   const search = queryStart === -1 ? '' : fragment.slice(queryStart + 1);
-  return { route: parsePath(path), query: parseQuery(search) };
+  return { route: parsePath(path), search };
 }
 
 function routePath(route: Route): string {
@@ -95,6 +90,8 @@ function routePath(route: Route): string {
       return route.category === undefined ? '/errors' : `/errors/category/${encodeURIComponent(route.category)}`;
     case 'health':
       return '/health';
+    case 'tests':
+      return '/tests';
     case 'test': {
       const base = `/test/${encodeURIComponent(route.id)}`;
       return route.repeatEachIndex === 0 ? base : `${base}/repeat/${route.repeatEachIndex}`;
@@ -106,11 +103,9 @@ function routePath(route: Route): string {
   }
 }
 
-/** Serializes a location to a fragment (`#/...`). Query keys are sorted, so a location has one form. */
+/** Serializes a location to a fragment (`#/...`); the query is written as is. */
 export function formatHash(location: AppLocation): string {
-  const entries = Object.entries(location.query).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-  const search = new URLSearchParams(entries).toString();
-  return `#${routePath(location.route)}${search ? `?${search}` : ''}`;
+  return `#${routePath(location.route)}${location.search ? `?${location.search}` : ''}`;
 }
 
 /**

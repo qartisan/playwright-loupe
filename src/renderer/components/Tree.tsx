@@ -2,6 +2,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { plural } from '../format.js';
 import { revealRequest } from '../layout.js';
 import { hrefTo, navigate } from '../navigation.js';
+import { splitForMiddleEllipsis } from '../paths.js';
 import type { Route } from '../router.js';
 import { ancestorKeys, groupKeys, testKey, visibleRows, type GroupNode, type TestNode, type VisibleRow } from '../tree.js';
 import { ChevronIcon, OutcomeIcon } from './icons.js';
@@ -12,7 +13,21 @@ import { ChevronIcon, OutcomeIcon } from './icons.js';
  * visited. Keyboard: arrows, Home / End, Enter / Space; one row is tabbable
  * (roving tabindex).
  */
-export function Tree({ roots, route }: { roots: GroupNode[]; route: Route }) {
+export function Tree({
+  roots,
+  route,
+  prefix,
+  expandAll,
+  emptyMessage,
+}: {
+  roots: GroupNode[];
+  route: Route;
+  /** Folder shared by every file, left out of the tree and shown once above it. */
+  prefix: string;
+  /** Opens every group, whenever the roots change: a filtered tree shows its matches. */
+  expandAll: boolean;
+  emptyMessage: string;
+}) {
   const selectedKey = route.page === 'test' ? testKey(route.id, route.repeatEachIndex) : null;
   // Projects start expanded; the rest opens on demand.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set(roots.map((root) => root.key)));
@@ -50,6 +65,12 @@ export function Tree({ roots, route }: { roots: GroupNode[]; route: Route }) {
     setExpanded((previous) => (ancestors.every((key) => previous.has(key)) ? previous : new Set([...previous, ...ancestors])));
   }, [roots, selectedKey]);
 
+  useLayoutEffect(() => {
+    if (!expandAll) return;
+    const keys = groupKeys(roots);
+    setExpanded((previous) => (keys.every((key) => previous.has(key)) ? previous : new Set([...previous, ...keys])));
+  }, [roots, expandAll]);
+
   const rows = useMemo(() => visibleRows(roots, expanded), [roots, expanded]);
   const indexByKey = useMemo(() => new Map(rows.map((row, index) => [row.node.key, index])), [rows]);
   const activeKey =
@@ -77,9 +98,12 @@ export function Tree({ roots, route }: { roots: GroupNode[]; route: Route }) {
     }
   });
 
-  if (roots.length === 0) {
-    return <p class="tree-empty">No tests in this run.</p>;
-  }
+  const prefixLine = prefix !== '' && (
+    <p class="tree-prefix" title="Folder shared by every test file, left out of the tree">
+      <span class="visually-hidden">Files in </span>
+      {prefix}
+    </p>
+  );
 
   const moveFocus = (row: VisibleRow | undefined): void => {
     if (!row) return;
@@ -149,40 +173,45 @@ export function Tree({ roots, route }: { roots: GroupNode[]; route: Route }) {
           Collapse all
         </button>
       </div>
-      <ul class="tree" role="tree" aria-labelledby="tree-heading" onKeyDown={onKeyDown}>
-        {rows.map((row) => {
-          const { key } = row.node;
-          const ref = (element: HTMLLIElement | null): void => {
-            if (element) rowElements.current.set(key, element);
-            else rowElements.current.delete(key);
-          };
-          // `key` is passed explicitly below: in a spread, the automatic JSX runtime renders it as an attribute.
-          const common = {
-            ref,
-            role: 'treeitem' as const,
-            'aria-level': row.level,
-            'aria-setsize': row.siblings,
-            'aria-posinset': row.position,
-            tabIndex: key === activeKey ? 0 : -1,
-            style: { '--level': row.level },
-            onFocus: () => setFocusedKey(key),
-          };
-          return row.node.kind === 'test' ? (
-            <li key={key} {...common} class="tree-row tree-test" aria-selected={key === selectedKey}>
-              <TestRow node={row.node} />
-            </li>
-          ) : (
-            <li
-              key={key}
-              {...common}
-              class={`tree-row tree-group tree-${row.node.kind}${key === revealedKey ? ' revealed' : ''}`}
-              aria-expanded={expanded.has(key)}
-            >
-              <GroupRow node={row.node} onToggle={() => setOpen(key, !expanded.has(key))} />
-            </li>
-          );
-        })}
-      </ul>
+      {prefixLine}
+      {roots.length === 0 ? (
+        <p class="tree-empty">{emptyMessage}</p>
+      ) : (
+        <ul class="tree" role="tree" aria-labelledby="tree-heading" onKeyDown={onKeyDown}>
+          {rows.map((row) => {
+            const { key } = row.node;
+            const ref = (element: HTMLLIElement | null): void => {
+              if (element) rowElements.current.set(key, element);
+              else rowElements.current.delete(key);
+            };
+            // `key` is passed explicitly below: in a spread, the automatic JSX runtime renders it as an attribute.
+            const common = {
+              ref,
+              role: 'treeitem' as const,
+              'aria-level': row.level,
+              'aria-setsize': row.siblings,
+              'aria-posinset': row.position,
+              tabIndex: key === activeKey ? 0 : -1,
+              style: { '--level': row.level },
+              onFocus: () => setFocusedKey(key),
+            };
+            return row.node.kind === 'test' ? (
+              <li key={key} {...common} class="tree-row tree-test" aria-selected={key === selectedKey}>
+                <TestRow node={row.node} />
+              </li>
+            ) : (
+              <li
+                key={key}
+                {...common}
+                class={`tree-row tree-group tree-${row.node.kind}${key === revealedKey ? ' revealed' : ''}`}
+                aria-expanded={expanded.has(key)}
+              >
+                <GroupRow node={row.node} onToggle={() => setOpen(key, !expanded.has(key))} />
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }
@@ -197,14 +226,38 @@ function TestRow({ node }: { node: TestNode }) {
   );
 }
 
+/**
+ * A file name cut in the middle when it does not fit, never at the start, the
+ * extension kept. The full path is what assistive technologies read.
+ */
+function FileName({ name, path }: { name: string; path: string }) {
+  const [head, tail] = splitForMiddleEllipsis(name);
+  return (
+    <span class="label-part file-name">
+      <span class="name-head" aria-hidden="true">
+        {head}
+      </span>
+      {tail && (
+        <span class="name-tail" aria-hidden="true">
+          {tail}
+        </span>
+      )}
+      <span class="visually-hidden">{path}</span>
+    </span>
+  );
+}
+
 function GroupRow({ node, onToggle }: { node: GroupNode; onToggle: () => void }) {
   const { counts } = node;
   const summary = [plural(counts.total, 'test'), `${counts.failed} failed`, ...(counts.flaky > 0 ? [`${counts.flaky} flaky`] : [])].join(', ');
+  const [first = '', ...rest] = node.labels;
+  const tooltip = [node.kind === 'folder' ? `${node.path ?? first}/` : (node.path ?? first), ...rest].join(' › ');
   return (
     <div class="row-content" onClick={onToggle}>
       <ChevronIcon class="chevron" />
-      <span class="row-label" title={node.labels.join(' › ')}>
-        {node.labels.map((label, index) => (
+      <span class="row-label" title={tooltip}>
+        {node.kind === 'file' ? <FileName name={first} path={node.path ?? first} /> : <span class="label-part">{first}</span>}
+        {rest.map((label, index) => (
           <span key={index} class="label-part">
             {label}
           </span>

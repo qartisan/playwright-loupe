@@ -1,6 +1,7 @@
 import { render } from 'preact';
 import { App } from './components/App.js';
 import { parseReport, parseSettings } from './data.js';
+import { initFilters } from './filters/store.js';
 import { initTheme } from './theme.js';
 import './styles.css';
 
@@ -10,6 +11,7 @@ initTheme(settings.theme);
 
 const result = parseReport(document.getElementById('loupe-data')?.textContent);
 const root = document.getElementById('app') ?? document.body;
+if (result.ok) initFilters(result.report);
 
 render(
   result.ok ? (

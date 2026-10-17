@@ -62,7 +62,7 @@ Presentation choices (title, theme, default screenshot view) are **renderer sett
 
 ### Layout
 
-A collapsible sidebar holds the navigation: search, filters and a tree of projects → files → describe blocks → tests, with a status icon per test and counters per node. A level with a single child describe block is merged with it (`login.spec.ts › login`); projects always stay visible. The main area shows the dashboard or the selected item at full width.
+A collapsible sidebar holds the navigation: search, filters and a tree of projects → folders → files → describe blocks → tests (the folder prefix shared by every file is left out), with a status icon per test and counters per node. A level with a single child describe block is merged with it (`login.spec.ts › login`); projects always stay visible. The main area shows the dashboard or the selected item at full width.
 
 The header carries the run summary (status, counts, duration, branch, commit, environment) and the theme switch. A partial run shows a visible banner with the reasons it was detected as partial.
 
@@ -90,7 +90,7 @@ Visual identity: QArtisan's palette adapted for a test report, as CSS custom pro
 
 ### Search and filters
 
-Full-text search and combinable filters. Filter state is synced to the URL so a view can be shared.
+Full-text search and combinable filters. Filter state is synced to the URL so a view can be shared: one state for the whole report, in the hash query (`#/tests?status=failed,flaky&dim.Layer=api`), OR within a filter, AND across filters. It reduces the sidebar and the Tests view; the overview, errors and suite health views stay summaries of the whole run. Clicked filters add a history entry (Back undoes them); typing in the search does not. The error category filter uses every category of a test's failing attempts, the same definition as the dashboard counts.
 
 ### Test detail
 

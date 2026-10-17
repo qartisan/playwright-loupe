@@ -1,18 +1,25 @@
 import type { LoupeReport, Outcome, Stats, TestCase } from '../schema/v1.js';
+import { commonDirectoryPrefix, stripPrefix, toPosix } from './paths.js';
 
 /**
- * Sidebar tree: projects → files → describe blocks → tests, built from the
- * flat test list of the report. Pure functions, no DOM: unit-tested in Node.
+ * Sidebar tree: projects → folders → files → describe blocks → tests, built
+ * from the flat test list of the report. The directory prefix shared by every
+ * file is left out. Pure functions, no DOM: unit-tested in Node.
  */
 
-export type GroupKind = 'project' | 'file' | 'suite';
+export type GroupKind = 'project' | 'folder' | 'file' | 'suite';
 
 export interface GroupNode {
   kind: GroupKind;
   /** Unique and stable across renders: used for expansion state and as the DOM key. */
   key: string;
-  /** One label, or several when single-child levels were flattened into this node. */
+  /**
+   * One label, or several when describe blocks were flattened into this node.
+   * A folder has one label, `api/users` when single-child folders were merged.
+   */
   labels: string[];
+  /** Folders and files: the full path, common prefix included (POSIX separators). */
+  path?: string;
   children: TreeNode[];
   counts: Stats;
   /** Smallest declaration line of the tests below, to keep the source order. */
@@ -37,6 +44,8 @@ export const UNNAMED_PROJECT = '(unnamed project)';
 
 const SEPARATOR = '\u0000';
 
+const KEY_LETTERS: Record<GroupKind, string> = { project: 'p', folder: 'd', file: 'f', suite: 's' };
+
 function emptyCounts(): Stats {
   return { total: 0, passed: 0, failed: 0, flaky: 0, skipped: 0 };
 }
@@ -50,8 +59,16 @@ export function projectKey(name: string): string {
   return `p${SEPARATOR}${name}`;
 }
 
-function group(kind: GroupKind, key: string, label: string): GroupNode {
-  return { kind, key, labels: [label], children: [], counts: emptyCounts(), line: Number.POSITIVE_INFINITY };
+function group(kind: GroupKind, key: string, label: string, path?: string): GroupNode {
+  const node: GroupNode = { kind, key, labels: [label], children: [], counts: emptyCounts(), line: Number.POSITIVE_INFINITY };
+  if (path !== undefined) node.path = path;
+  return node;
+}
+
+/** Projects and folders: folders first, then files, each by name. */
+function compareEntries(a: TreeNode, b: TreeNode): number {
+  if ((a.kind === 'folder') !== (b.kind === 'folder')) return a.kind === 'folder' ? -1 : 1;
+  return label(a).localeCompare(label(b));
 }
 
 function compareNodes(a: TreeNode, b: TreeNode): number {
@@ -66,7 +83,7 @@ function label(node: TreeNode): string {
   return node.kind === 'test' ? node.title : node.labels.join(' › ');
 }
 
-/** Adds counts and the first line bottom-up, sorts children; files are sorted by path. */
+/** Adds counts and the first line bottom-up, sorts children; folders and files are sorted by name. */
 function finalize(node: GroupNode): void {
   for (const child of node.children) {
     if (child.kind === 'test') {
@@ -80,8 +97,8 @@ function finalize(node: GroupNode): void {
     }
     node.line = Math.min(node.line, child.line);
   }
-  if (node.kind === 'project') {
-    node.children.sort((a, b) => label(a).localeCompare(label(b)));
+  if (node.kind === 'project' || node.kind === 'folder') {
+    node.children.sort(compareEntries);
   } else {
     node.children.sort(compareNodes);
   }
@@ -89,26 +106,43 @@ function finalize(node: GroupNode): void {
 
 /**
  * Merges a file or describe node with its only child when that child is a
- * describe block: `a.spec.ts` › `suite` becomes one node. Project nodes are
- * never merged (projects are always visible) and tests are never merged into
- * their parent, so a leaf always shows the test title alone.
+ * describe block: `a.spec.ts` › `suite` becomes one node. Likewise a folder
+ * whose only child is a folder: `api` / `users` becomes `api/users`. Project
+ * nodes are never merged (projects are always visible), files never merge
+ * into their folder, and tests are never merged into their parent, so a leaf
+ * always shows the test title alone.
  */
 function flatten(node: GroupNode): GroupNode {
   let current = node;
   for (;;) {
     const only = current.children.length === 1 ? current.children[0] : undefined;
-    if (current.kind === 'project' || only?.kind !== 'suite') break;
+    if (current.kind === 'folder' && only?.kind === 'folder') {
+      current = { ...only, key: current.key, labels: [`${current.labels.join('/')}/${only.labels.join('/')}`] };
+      continue;
+    }
+    if (current.kind === 'project' || current.kind === 'folder' || only?.kind !== 'suite') break;
     current = { ...current, labels: [...current.labels, ...only.labels], children: only.children };
   }
   return { ...current, children: current.children.map((child) => (child.kind === 'test' ? child : flatten(child))) };
 }
 
+export interface TreeOptions {
+  /**
+   * Directory prefix left out of the folders, with its trailing `/`. Defaults
+   * to the prefix shared by the files of `report.tests`; pass the one of the
+   * whole run when building the tree of a filtered list, so folders do not
+   * change with the filters.
+   */
+  prefix?: string;
+}
+
 /**
  * Builds the sidebar tree. Projects follow the report's project order and
- * projects without tests are left out; files are sorted by path; describe
- * blocks and tests follow their declaration order.
+ * projects without tests are left out; folders, then files, are sorted by
+ * name; describe blocks and tests follow their declaration order.
  */
-export function buildTree(report: Pick<LoupeReport, 'projects' | 'tests'>): GroupNode[] {
+export function buildTree(report: Pick<LoupeReport, 'projects' | 'tests'>, options: TreeOptions = {}): GroupNode[] {
+  const prefix = options.prefix ?? commonDirectoryPrefix(report.tests.map((test) => test.file));
   const projects = new Map<string, GroupNode>();
   for (const project of report.projects) {
     projects.set(project.name, group('project', projectKey(project.name), project.name || UNNAMED_PROJECT));
@@ -122,12 +156,18 @@ export function buildTree(report: Pick<LoupeReport, 'projects' | 'tests'>): Grou
       parent = group('project', projectKey(test.project), test.project || UNNAMED_PROJECT);
       projects.set(test.project, parent);
     }
-    const levels: Array<[GroupKind, string]> = [['file', test.file], ...test.suitePath.map((title): [GroupKind, string] => ['suite', title])];
-    for (const [kind, title] of levels) {
-      const key = `${parent.key}${SEPARATOR}${kind === 'file' ? 'f' : 's'}${SEPARATOR}${title}`;
+    const relative = stripPrefix(test.file, prefix).split('/');
+    const fileName = relative.pop() ?? test.file;
+    const levels: Array<[GroupKind, string, string?]> = [
+      ...relative.map((folder, index): [GroupKind, string, string] => ['folder', folder, `${prefix}${relative.slice(0, index + 1).join('/')}`]),
+      ['file', fileName, toPosix(test.file)],
+      ...test.suitePath.map((title): [GroupKind, string] => ['suite', title]),
+    ];
+    for (const [kind, title, path] of levels) {
+      const key = `${parent.key}${SEPARATOR}${KEY_LETTERS[kind]}${SEPARATOR}${title}`;
       let child = groups.get(key);
       if (!child) {
-        child = group(kind, key, title);
+        child = group(kind, key, title, path);
         groups.set(key, child);
         parent.children.push(child);
       }

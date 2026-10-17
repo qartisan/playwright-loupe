@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Before 1.0, minor versions may contain breaking changes. The JSON report has its own version (`schemaVersion`), see [`docs/schema/v1.md`](docs/schema/v1.md#versioning-policy).
 
+## [Unreleased]
+
+### Added
+
+- **Filters, synced with the URL.** One filter state for the whole report, in the hash fragment, so a filtered view can be shared, bookmarked or reloaded, from `file://` too: `#/tests?q=login&status=failed,flaky&project=chromium&tag=@smoke&dim.Layer=api&category=Network&sort=duration:desc`. Values of a filter are combined with OR, filters with AND; the search matches every word, ignoring case and accents, in the title path, file and project. Unknown parameters or values are dropped and the URL rewritten in a single canonical form. Clicked filters add a history entry, so Back undoes them; typing in the search does not. The overview, errors and suite health views stay summaries of the whole run; the sidebar follows the filters. The error category filter uses every category of a test's failing attempts, the same definition as the dashboard counts.
+- **Tests view** (`#/tests`), a new sidebar entry: every test in one flat list (status, title path, project, file, duration, error categories, attempts), sortable by column (failed, flaky, passed, skipped by default). A filter bar with one menu per facet (status, project, tag, each dimension, category), each value with the number of tests it would give; active filters as removable chips, "Clear all", an empty state with a reset button, and a result count announced to screen readers. The category column shows the test's category (first error of its last failing attempt) and `+N` when its failing attempts had others, listed in the tooltip and the accessible name. The list renders its first 500 rows after filtering and sorting (`Showing 500 of 4,200 tests`), with "Show 500 more" and "Show all"; any filter or sort change starts again from 500, which keeps interactions fast on runs of several thousand tests. Projects without a name cannot be filtered: an empty name cannot be written in the URL.
+- **Search in the sidebar**, always visible: `/` focuses it, Escape clears it. When filters are active, a line shows how many and how many tests match, with a link to the Tests view and "Clear". The tree is reduced to the matching tests and opens fully when they are few.
+- **Links to filtered tests.** Header counts (`20 failed` → `#/tests?status=failed`, replacing the current filters), overview error categories (`#/tests?category=…`, the uncategorized bucket included; they used to open the category in the Errors view, which `#/errors/category/<name>` still does) and suite health dimension values in bars, tiles and tables (`#/tests?dim.<name>=<value>`).
+- **Run start in the header**, in the viewer's time zone with the zone written out, then the duration (`16 Oct 2026, 14:58 CEST · 5.9 s`). Hover or keyboard focus shows the full date with seconds, the IANA time zone and the UTC timestamp. Hidden when `startedAt` is missing or invalid.
+
+### Changed
+
+- **Sidebar grouped by folder:** projects → folders → files → `describe` blocks → tests. The directory prefix shared by every file (`tests/e2e/`) is left out of the tree and shown once above it; a folder with a single subfolder is shown on one line (`api/users`). Long file names are cut in the middle, keeping their start and extension; the full path is in the tooltip and the accessible name.
+
 ## [0.0.3] - 2026-10-16
 
 ### Added
