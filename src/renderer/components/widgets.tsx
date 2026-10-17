@@ -192,13 +192,15 @@ export function RunErrorItem({ error, color }: { error: RunError; color: string 
 /**
  * One error group on one row: category, failed / flaky split, the first
  * affected test (and how many others), and the line that tells the error apart.
+ * `showCategory` is false where the surrounding context already names the one
+ * category of every row (a category's group list): the badge would only repeat it.
  */
-export function GroupRow({ group, colors }: { group: ErrorGroup; colors: Colors }) {
+export function GroupRow({ group, colors, showCategory = true }: { group: ErrorGroup; colors: Colors; showCategory?: boolean }) {
   const { headline, firstTest, others } = groupSummary(group);
   return (
     <a class="group-row" href={hrefTo({ page: 'group', signature: group.signature })}>
       <span class="group-row-head">
-        <CategoryBadge name={group.category} color={colors.get(group.category)} />
+        {showCategory && <CategoryBadge name={group.category} color={colors.get(group.category)} />}
         <GroupSplit group={group} />
       </span>
       {firstTest && (
@@ -212,12 +214,12 @@ export function GroupRow({ group, colors }: { group: ErrorGroup; colors: Colors 
   );
 }
 
-export function GroupList({ groups, colors }: { groups: readonly ErrorGroup[]; colors: Colors }) {
+export function GroupList({ groups, colors, showCategory = true }: { groups: readonly ErrorGroup[]; colors: Colors; showCategory?: boolean }) {
   return (
     <ol class="widget-list group-list">
       {groups.map((group) => (
         <li key={group.signature}>
-          <GroupRow group={group} colors={colors} />
+          <GroupRow group={group} colors={colors} showCategory={showCategory} />
         </li>
       ))}
     </ol>
@@ -257,7 +259,7 @@ export function CategoryDetails({ categories, colors, open }: { categories: read
               <span class="muted">{plural(category.groups.length, 'error group')}</span>
               <span class="group-count">{plural(category.tests, 'test')}</span>
             </summary>
-            <GroupList groups={category.groups} colors={colors} />
+            <GroupList groups={category.groups} colors={colors} showCategory={false} />
           </details>
         </li>
       ))}

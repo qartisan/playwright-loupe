@@ -353,6 +353,7 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     )).toBe(true);
     expect(await page.evaluate<string>("document.activeElement?.closest('[data-category]')?.dataset.category ?? ''")).toBe(name);
     expect(await target.locator('a.group-row').count()).toBeGreaterThan(0);
+    expect(await target.locator('a.group-row .category-badge').count()).toBe(0);
     expect(errors).toEqual([]);
     await page.close();
   });
@@ -410,6 +411,12 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     const category = page.locator('.widget-categories details').first();
     await category.locator('summary').click();
     expect(await category.locator('a.group-row').count()).toBeGreaterThan(0);
+    // Inside a category, its name is on the summary only, not repeated on each group.
+    expect(await category.locator('summary .category-badge').count()).toBe(1);
+    expect(await category.locator('a.group-row .category-badge').count()).toBe(0);
+    // The global list mixes categories: every group keeps its badge.
+    const groups = page.locator('.widget-groups a.group-row');
+    expect(await groups.locator('.category-badge').count()).toBe(await groups.count());
     expect(errors).toEqual([]);
     await page.close();
   });
