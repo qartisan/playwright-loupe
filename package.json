@@ -1,6 +1,6 @@
 {
   "name": "@qartisan/playwright-loupe",
-  "version": "0.0.4-dev.0",
+  "version": "0.0.4",
   "description": "HTML reporter for Playwright: dashboard, error groups by normalized signature, tests by project and suite, dimensions from tags and annotations.",
   "keywords": [
     "playwright",
