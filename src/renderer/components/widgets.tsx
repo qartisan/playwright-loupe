@@ -8,6 +8,7 @@ import {
   dimensionRepresentation,
   errorHeadline,
   formatPassRate,
+  groupAttempts,
   groupSummary,
   outcomeShares,
   passRate,
@@ -197,11 +198,15 @@ export function RunErrorItem({ error, color }: { error: RunError; color: string 
  */
 export function GroupRow({ group, colors, showCategory = true }: { group: ErrorGroup; colors: Colors; showCategory?: boolean }) {
   const { headline, firstTest, others } = groupSummary(group);
+  const attempts = groupAttempts(group);
   return (
     <a class="group-row" href={hrefTo({ page: 'group', signature: group.signature })}>
       <span class="group-row-head">
         {showCategory && <CategoryBadge name={group.category} color={colors.get(group.category)} />}
-        <GroupSplit group={group} />
+        <span class="group-row-counts">
+          <GroupSplit group={group} />
+          {attempts && <span class="group-attempts">{attempts}</span>}
+        </span>
       </span>
       {firstTest && (
         <span class="group-test">

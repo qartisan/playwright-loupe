@@ -60,7 +60,11 @@ export function stripMergeTagPrefix(text: string): string {
  * docs/schema/v1.md.
  */
 const REPLACEMENTS: ReadonlyArray<[RegExp, string]> = [
-  [/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, '<uuid>'],
+  // Not delimited by \b: `_` is a word character, so `evt_<uuid>` would not
+  // match. A UUID must not touch a hex digit, directly or through a hyphen:
+  // `evt_<uuid>`, `req-<uuid>` and `<uuid>-x` match; a UUID-like part of a
+  // longer hex run (`a<uuid>`, `abc-<uuid>`, `<uuid>-abc`) does not.
+  [/(?<![0-9a-f])(?<![0-9a-f]-)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?![0-9a-f])(?!-[0-9a-f])/gi, '<uuid>'],
   [/\b[a-z][a-z0-9+.-]*:\/\/[^\s'"`<>()[\]{}]*[^\s'"`<>()[\]{}.,;:!?]/gi, '<url>'],
   // Local part, then a domain with at least one dot and an alphabetic TLD.
   [/(?<![\w.%+-])[\w.%+-]+@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}(?![\w-])/gi, '<email>'],

@@ -103,6 +103,20 @@ export function groupSummary(group: ErrorGroup): { headline: string; firstTest: 
   return { headline: errorHeadline(group.message), firstTest: group.tests[0]?.test ?? null, others: Math.max(0, group.tests.length - 1) };
 }
 
+/**
+ * How many attempts of the affected tests failed with this error, when one of
+ * them ran more than once: `failed on 2 of 2 attempts` (a test failing the
+ * same way on its retry), `failed on 1 of 2 attempts` (the retry passed, or
+ * failed differently). Several tests add up: `failed on 5 of 7 attempts`.
+ * Null when every affected test ran once: the count would say nothing.
+ */
+export function groupAttempts(group: Pick<ErrorGroup, 'tests'>): string | null {
+  if (!group.tests.some(({ test }) => test.attempts.length > 1)) return null;
+  const failing = group.tests.reduce((sum, { attempts }) => sum + attempts.length, 0);
+  const total = group.tests.reduce((sum, { test }) => sum + test.attempts.length, 0);
+  return `failed on ${failing} of ${total} attempts`;
+}
+
 export interface CategoryCount {
   name: string;
   /** Distinct tests with an error of this category in a failing attempt. */

@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Before 1.0, minor versions may contain breaking changes. The JSON report has its own version (`schemaVersion`), see [`docs/schema/v1.md`](docs/schema/v1.md#versioning-policy).
 
+## [0.0.5] 2026-10-17
+
+### Added
+
+- **Attempts on error group rows.** When an affected test ran more than once, a group row says how many of the attempts failed with that error: `failed on 2 of 2 attempts` (same failure on the retry), `failed on 1 of 2 attempts` (the retry passed or failed differently; the test then also appears in the other group). For several tests the counts add up (`failed on 5 of 7 attempts`). Nothing is added when every test ran once.
+
+### Changed
+
+- **Error signatures: UUIDs glued to a prefix are now recognized.** A UUID used to be replaced only between word boundaries, and `_` is a word character, so in `evt_3f2b8c1e-…` it was not replaced and a test and its retry could get two signatures for the same failure. A UUID is now replaced when it does not touch a hex digit, directly or through a hyphen: `evt_<uuid>`, `req-<uuid>`, `id=<uuid>` and a bare UUID are replaced; a UUID-like part of a longer hex run (`abc-<uuid>`, and `id<uuid>`, since `d` is a hex digit) is not. Messages with such UUIDs get a new signature, so their groups differ from 0.0.4; other signatures are unchanged (none of the fixture suite's). The JSON shape is unchanged: `schemaVersion` stays `1`. See [Error signature](docs/schema/v1.md#error-signature).
+- **No repeated category badge inside a category.** In the Errors view, the error groups listed under a category (also on `#/errors/category/<name>`) no longer repeat its badge; lists that mix categories keep it.
+
 ## [0.0.4] - 2026-10-17
 
 ### Added

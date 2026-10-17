@@ -515,6 +515,8 @@ pre.message {
 .group-count { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .group-split { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .group-split-part { display: inline-flex; align-items: center; gap: 4px; }
+.group-row-counts { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-left: auto; }
+.group-attempts { color: var(--fg-secondary); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* Compact categories: one bar per category, as long as its test count; columns shared so the bars align. */
 .category-bars { display: grid; grid-template-columns: minmax(0, max-content) minmax(40px, 1fr) auto; }

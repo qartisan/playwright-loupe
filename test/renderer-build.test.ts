@@ -417,6 +417,20 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     // The global list mixes categories: every group keeps its badge.
     const groups = page.locator('.widget-groups a.group-row');
     expect(await groups.locator('.category-badge').count()).toBe(await groups.count());
+
+    // Attempts with the error, out of the attempts of the affected tests, when one of them was retried.
+    for (const row of await groups.all()) {
+      const signature = decodeURIComponent((await row.getAttribute('href'))?.replace(/^#\/group\//, '') ?? '');
+      const affected = report.tests.filter((test) => test.attempts.some((attempt) => attempt.errors.some((error) => error.signature === signature)));
+      const failing = affected.reduce(
+        (sum, test) => sum + test.attempts.filter((attempt) => attempt.status !== test.expectedStatus && attempt.status !== 'skipped' && attempt.errors.some((error) => error.signature === signature)).length,
+        0,
+      );
+      const total = affected.reduce((sum, test) => sum + test.attempts.length, 0);
+      const text = affected.some((test) => test.attempts.length > 1) ? `failed on ${failing} of ${total} attempts` : null;
+      expect(await row.locator('.group-attempts').count()).toBe(text === null ? 0 : 1);
+      if (text !== null) expect(await row.locator('.group-attempts').textContent()).toBe(text);
+    }
     expect(errors).toEqual([]);
     await page.close();
   });

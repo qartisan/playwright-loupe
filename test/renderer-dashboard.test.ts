@@ -14,6 +14,7 @@ import {
   errorHeadline,
   firstLine,
   flakyTests,
+  groupAttempts,
   groupSummary,
   outcomeShares,
   passRate,
@@ -379,6 +380,29 @@ describe('groupSummary', () => {
     const b = flaky([error('g', 'Assertion', PLAYWRIGHT.toBeVisible)], { title: 'second' });
     const [group] = errorGroups({ tests: [a, b] });
     expect(groupSummary(group!)).toEqual({ headline: "Locator: getByRole('button', { name: 'Missing' })", firstTest: a, others: 1 });
+  });
+});
+
+describe('groupAttempts', () => {
+  it('says nothing when every affected test ran once', () => {
+    const [group] = errorGroups({ tests: [failed([error('g')]), failed([error('g')])] });
+    expect(groupAttempts(group!)).toBeNull();
+  });
+
+  it('counts the attempts of a single test: every attempt, or the first run only', () => {
+    expect(groupAttempts(errorGroups({ tests: [failed([error('g')], {}, 2)] })[0]!)).toBe('failed on 2 of 2 attempts');
+    // The retry passed.
+    expect(groupAttempts(errorGroups({ tests: [flaky([error('g')])] })[0]!)).toBe('failed on 1 of 2 attempts');
+  });
+
+  it('counts the first run only when the retry failed differently: that test is in both groups', () => {
+    const test = makeTest({ outcome: 'failed', attempts: [attempt(0, 'failed', [error('first')]), attempt(1, 'failed', [error('retry')])] });
+    expect(errorGroups({ tests: [test] }).map(groupAttempts)).toEqual(['failed on 1 of 2 attempts', 'failed on 1 of 2 attempts']);
+  });
+
+  it('adds up the attempts of several tests', () => {
+    const tests = [failed([error('g')], {}, 3), flaky([error('g')]), failed([error('g')])];
+    expect(groupAttempts(errorGroups({ tests })[0]!)).toBe('failed on 5 of 6 attempts');
   });
 });
 

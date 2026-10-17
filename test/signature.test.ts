@@ -50,6 +50,35 @@ describe('normalizeErrorMessage', () => {
     expect(normalizeErrorMessage(input)).toBe(expected);
   });
 
+  describe('UUIDs', () => {
+    const UUID = 'ecee1df6-5f3d-4737-a73b-bf708e305e50';
+    it.each([
+      ['an underscore prefix', `evt_${UUID}`, 'evt_<uuid>'],
+      ['a letter prefix (not a hex digit)', `tx${UUID}`, 'tx<uuid>'],
+      ['an equals prefix', `id=${UUID}`, 'id=<uuid>'],
+      ['a req- prefix', `req-${UUID}`, 'req-<uuid>'],
+      ['an evt- prefix', `evt-${UUID}`, 'evt-<uuid>'],
+      ['nothing, with a hyphen suffix followed by a non-hex character', `${UUID}-retry`, '<uuid>-retry'],
+      ['escaped JSON', `{\\"id\\":\\"evt_${UUID}\\"}`, '{\\"id\\":\\"evt_<uuid>\\"}'],
+      ['uppercase', `EVT_${UUID.toUpperCase()}`, 'EVT_<uuid>'],
+      ['the whole string', UUID, '<uuid>'],
+      ['the start and end of the string', `${UUID} then ${UUID}`, '<uuid> then <uuid>'],
+    ])('replaces a UUID after %s', (_label, input, expected) => {
+      expect(normalizeErrorMessage(input)).toBe(expected);
+    });
+
+    it('does not take a UUID-like part of a longer hex run', () => {
+      expect(normalizeErrorMessage(`a${UUID}`)).not.toContain('<uuid>');
+      // `d` is a hex digit: `id` glued to a UUID makes a longer hex run.
+      expect(normalizeErrorMessage(`id${UUID}`)).not.toContain('<uuid>');
+      expect(normalizeErrorMessage(`${UUID}0`)).not.toContain('<uuid>');
+      // A hyphen joins the UUID to a hex run when a hex digit touches it.
+      expect(normalizeErrorMessage(`ab-${UUID}`)).not.toContain('<uuid>');
+      expect(normalizeErrorMessage(`abc-${UUID}`)).not.toContain('<uuid>');
+      expect(normalizeErrorMessage(`${UUID}-abc`)).not.toContain('<uuid>');
+    });
+  });
+
   describe('e-mail addresses', () => {
     it.each([
       ['a plain address', 'User jane.doe@example.com already exists', 'User <email> already exists'],
@@ -212,6 +241,25 @@ describe('errorSignature', () => {
   it('is the same for a run error with or without the merge-reports tag prefix', () => {
     expect(errorSignature('(@shard-a) Error: boom', { runError: true })).toBe(errorSignature('Error: boom'));
     expect(errorSignature('(@shard-a) Error: boom')).not.toBe(errorSignature('Error: boom'));
+  });
+
+  it('gives a test and its retry the same signature when only generated values differ (webhook event, anonymized)', () => {
+    // A received value dump: port, timestamps, epoch milliseconds, an event id
+    // `evt_<uuid>`, cuids, e-mails and numbered test data all differ.
+    const message = (port: number, at: string, epoch: number, eventId: string, cuids: [string, string, string], user: number, ticket: number) =>
+      [
+        'Error: expect(received).rejects.toThrowError()',
+        '',
+        'Received promise resolved instead of rejected',
+        `Resolved to value: {"headers": {"accept": "*/*", "content-type": "application/json", "host": "127.0.0.1:${port}", "x-acme-timestamp": "${at}"}, "method": "POST", ` +
+          `"rawBody": "{\\"version\\":1,\\"id\\":\\"evt_${eventId}\\",\\"type\\":\\"ticket.created\\",\\"timestamp\\":\\"${at}\\",` +
+          `\\"data\\":{\\"ticket\\":{\\"id\\":\\"${cuids[0]}\\",\\"title\\":\\"[TEST] TC-bugs_00${user} - bug_00${user}-mail@test.com - Ticket #${ticket}\\",` +
+          `\\"projectId\\":\\"${cuids[1]}\\",\\"assigneeId\\":\\"${cuids[2]}\\"}}}", "receivedAt": ${epoch}}`,
+      ].join('\n');
+    const firstRun = message(36863, '2026-10-17T15:29:31.836Z', 1792250971839, 'ecee1df6-5f3d-4737-a73b-bf708e305e50', ['cmvcjycbw011rokq5pnpkbt1g', 'cmvcjyc6h011pokq5zukoj3ix', 'cmvcjyc15011nokq5tlqrdrzu'], 3, 0);
+    const retry = message(39111, '2026-10-17T15:29:35.044Z', 1792250975046, '4cd53d33-f369-479c-aae2-ee49feba13cf', ['cmvcjyeui012wokq5jxjp4gdl', 'cmvcjydyu0128okq5ayw0jmqf', 'cmvcjydqs0126okq5kb1m4wr6'], 5, 3);
+    expect(normalizeErrorMessage(firstRun)).toContain('\\"id\\":\\"evt_<uuid>\\"');
+    expect(errorSignature(retry)).toBe(errorSignature(firstRun));
   });
 
   it('differs when the meaningful text differs', () => {
