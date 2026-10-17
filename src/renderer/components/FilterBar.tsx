@@ -7,12 +7,17 @@ import { UNNAMED_PROJECT } from '../tree.js';
 import { CategoryBadge } from './CategoryBadge.js';
 import { ChevronIcon, CloseIcon, OutcomeIcon, outcomeLabel } from './icons.js';
 
-/** Filter bar of the Tests view: one multi-select menu per facet, then the active filters as removable chips. */
+/**
+ * Filter bar of the Tests view: one multi-select menu per facet, then the
+ * active filters as removable chips, both in the order of the domain (status,
+ * error category, project, tag, dimensions).
+ */
 
 export function facetLabel(facet: FacetId): string {
   const dimension = facetDimension(facet);
   if (dimension !== null) return dimension;
-  return { status: 'Status', project: 'Project', tag: 'Tag', category: 'Category' }[facet as 'status'];
+  // The URL parameter stays `category`.
+  return { status: 'Status', project: 'Project', tag: 'Tag', category: 'Error category' }[facet as 'status'];
 }
 
 /** A value as text, for chips and accessible names. */
@@ -132,10 +137,13 @@ interface Chip {
   remove: (state: FilterState) => FilterState;
 }
 
-function chips(state: FilterState): Chip[] {
+function chips(state: FilterState, domain: FilterDomain): Chip[] {
   const list: Chip[] = [];
   if (state.q.trim() !== '') list.push({ key: 'q', label: `Search: ${state.q.trim()}`, remove: (current) => ({ ...current, q: '' }) });
-  for (const [facet, values] of activeFacets(state.facets)) {
+  // The order of the filter bar, not the URL order.
+  const rank = new Map([...domain.keys()].map((facet, index) => [facet, index]));
+  const active = activeFacets(state.facets).sort(([a], [b]) => (rank.get(a) ?? Infinity) - (rank.get(b) ?? Infinity));
+  for (const [facet, values] of active) {
     for (const value of values) {
       list.push({
         key: `${facet}\u0000${value}`,
@@ -148,8 +156,8 @@ function chips(state: FilterState): Chip[] {
 }
 
 /** The active filters as removable chips, and "Clear all". Removing a chip moves focus to its neighbour. */
-export function FilterChips({ state }: { state: FilterState }) {
-  const list = chips(state);
+export function FilterChips({ state, domain }: { state: FilterState; domain: FilterDomain }) {
+  const list = chips(state, domain);
   const container = useRef<HTMLDivElement>(null);
   const pendingFocus = useRef<number | null>(null);
 

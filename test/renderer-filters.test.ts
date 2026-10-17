@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { facetCounts, filterDomain, filterTests, foldText, matchTest, shownCategories, testCategories } from '../src/renderer/filters/match.js';
+import {
+  facetCounts,
+  facetTags,
+  filterContext,
+  filterDomain,
+  filterTests,
+  foldText,
+  matchTest,
+  shownCategories,
+  testCategories,
+} from '../src/renderer/filters/match.js';
 import { nextSort, sortTests } from '../src/renderer/filters/sort.js';
 import {
   DEFAULT_SORT,
@@ -279,6 +289,8 @@ describe('filterDomain', () => {
       ],
       tests,
     };
+    // Facets in display order: status, error category, project, tag, then dimensions in report order.
+    expect([...filterDomain(report).keys()]).toEqual(['status', 'category', 'project', 'tag', 'dim.Layer']);
     expect(Object.fromEntries([...filterDomain(report)].map(([facet, values]) => [facet, [...values]]))).toEqual({
       status: ['failed', 'passed', 'skipped'],
       project: ['chromium', 'webkit'],
@@ -314,5 +326,57 @@ describe('sortTests', () => {
     expect(nextSort(DEFAULT_SORT, 'status')).toEqual({ column: 'status', direction: 'desc' });
     expect(nextSort(DEFAULT_SORT, 'duration')).toEqual({ column: 'duration', direction: 'desc' });
     expect(nextSort(DEFAULT_SORT, 'title')).toEqual({ column: 'title', direction: 'asc' });
+  });
+});
+
+describe('tags taken by a dimension', () => {
+  const dimensions: LoupeReport['dimensions'] = [
+    { name: 'Layer', source: 'tag', key: 'layer', values: ['api'] },
+    { name: 'Bug', source: 'annotation', key: 'bug', values: null },
+  ];
+  const context = filterContext({ dimensions });
+  const ui = makeTest({ tags: ['@layer:ui', '@smoke', '@area:checkout'], dimensions: { Layer: ['ui'] } });
+  const api = makeTest({ tags: ['@layer:api'], dimensions: { Layer: ['api'], Bug: ['BUG-1'] } });
+  const report = { projects: [], categories: [], dimensions, tests: [ui, api] };
+
+  it('keeps unprefixed tags and prefixed tags without a dimension, drops those a tag dimension takes', () => {
+    expect(facetTags(ui.tags, context)).toEqual(['@smoke', '@area:checkout']);
+    expect(facetTags(api.tags, context)).toEqual([]);
+    // The raw tags are unchanged.
+    expect(ui.tags).toEqual(['@layer:ui', '@smoke', '@area:checkout']);
+  });
+
+  it('only takes prefixes of tag dimensions, not annotation types', () => {
+    expect(facetTags(['@bug:BUG-1'], context)).toEqual(['@bug:BUG-1']);
+  });
+
+  it('lists a taken tag under its dimension only, values outside the declared ones included', () => {
+    const domain = filterDomain(report);
+    expect([...(domain.get('tag') ?? [])]).toEqual(['@area:checkout', '@smoke']);
+    expect([...(domain.get('dim.Layer') ?? [])]).toEqual(['api', 'ui']);
+    expect([...(domain.get('dim.Bug') ?? [])]).toEqual(['BUG-1']);
+  });
+
+  it('hides the tag facet when every tag belongs to a dimension', () => {
+    expect(filterDomain({ ...report, tests: [api] }).has('tag')).toBe(false);
+  });
+
+  it('never matches or counts a taken tag through the tag facet', () => {
+    expect(matchTest(ui, state({ facets: { tag: ['@layer:ui'] } }), context)).toBe(false);
+    expect(matchTest(ui, state({ facets: { tag: ['@smoke'] } }), context)).toBe(true);
+    expect(filterTests([ui, api], state({ facets: { 'dim.Layer': ['ui'] } }), context)).toEqual([ui]);
+    const counts = facetCounts([ui, api], EMPTY_FILTERS, filterDomain(report), context);
+    expect(Object.fromEntries(counts.get('tag') ?? [])).toEqual({ '@area:checkout': 1, '@smoke': 1 });
+    expect(Object.fromEntries(counts.get('dim.Layer') ?? [])).toEqual({ api: 1, ui: 1 });
+  });
+
+  it('drops a taken tag from the URL, which is then written without it', () => {
+    const parsed = parseFilters('tag=%40layer%3Aui,%40smoke&dim.Layer=api', filterDomain(report));
+    expect(parsed.facets).toEqual({ tag: ['@smoke'], 'dim.Layer': ['api'] });
+    expect(serializeFilters(parsed)).toBe('tag=%40smoke&dim.Layer=api');
+  });
+
+  it('keeps every tag without dimensions', () => {
+    expect(facetTags(ui.tags, filterContext({ dimensions: [] }))).toEqual(ui.tags);
   });
 });

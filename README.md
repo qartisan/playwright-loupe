@@ -40,9 +40,9 @@ The report is a single self-contained HTML file. It works offline, straight from
 - **Overview:** verdict with pass rate, run errors first when the run broke outside its tests, error categories, project cards.
 - **Errors:** every error group, built from normalized error signatures, with the failed / flaky split and links to the affected tests.
 - **Suite health:** dimensions from tags and annotations (with hints for unknown or inconsistent values), slowest, skipped and flaky tests.
-- **Tests:** every test in one sortable list, filtered by status, project, tag, dimension and error category, with the count each filter would give. Header counts, error categories and dimension values open it pre-filtered. Large lists show their first 500 rows, with "Show 500 more" and "Show all".
+- **Tests:** every test in one sortable list, filtered by status, error category, project, tag and dimension, with the count each filter would give. Header counts, error categories and dimension values open it pre-filtered. Large lists show their first 500 rows, with "Show 500 more" and "Show all".
 - **Sidebar:** search (`/` to focus), projects, folders, files, `describe` blocks and tests, with status icons, failure counts and keyboard navigation. The folder shared by every file is not repeated.
-- **Filters in the URL:** search, filters and sort live in the link, so a filtered view can be shared or bookmarked, even from `file://`. A project without a `name` (Playwright's default project) cannot be selected in the project filter: an empty name cannot be written in the URL. Give your projects a name to filter by them.
+- **Filters in the URL:** search, filters and sort live in the link, so a filtered view can be shared or bookmarked, even from `file://`. A project without a `name` (Playwright's default project) cannot be selected in the project filter: an empty name cannot be written in the URL. Give your projects a name to filter by them. Each tag is filterable in one place only: a tag a dimension is built from (`@layer:ui` with a `layer` dimension, configured or automatic) is in that dimension's filter (Layer: `ui`), not in the tag filter, so the two can never be combined into an empty result. Unprefixed tags (`@smoke`) and prefixed tags no dimension uses stay in the tag filter.
 
 ### Coming next
 

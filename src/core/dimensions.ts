@@ -1,7 +1,6 @@
 import type { ResolvedDimension } from '../config/types.js';
 import type { Annotation, DimensionDefinition } from '../schema/v1.js';
-
-const PREFIXED_TAG = /^@([^:\s]+):(.+)$/;
+import { splitPrefixedTag } from '../shared/tags.js';
 
 /**
  * Dimensions from prefixed tags: `@layer:api` → `{ layer: ['api'] }`.
@@ -11,9 +10,9 @@ const PREFIXED_TAG = /^@([^:\s]+):(.+)$/;
 export function tagDimensions(tags: readonly string[]): Record<string, string[]> {
   const dimensions: Record<string, string[]> = {};
   for (const tag of tags) {
-    const match = PREFIXED_TAG.exec(tag);
-    if (!match) continue;
-    const [, prefix = '', value = ''] = match;
+    const parts = splitPrefixedTag(tag);
+    if (!parts) continue;
+    const { prefix, value } = parts;
     const values = (dimensions[prefix] ??= []);
     if (!values.includes(value)) values.push(value);
   }

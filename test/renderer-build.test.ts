@@ -779,6 +779,61 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     await page.close();
   });
 
+  it('filters a tag a dimension takes through the dimension only, so two facets never AND into nothing', async () => {
+    const url = writeReport('dimension-tags', report);
+    // The dogfooding case: @layer:ui in Tag and api in Layer.
+    const { page, errors } = await open(`${url}#/tests?tag=%40layer%3Aui&dim.Layer=api`);
+    await page.locator('.tests-table').waitFor();
+    // The tag is dropped and the URL normalized: the Layer filter alone remains.
+    expect(fragment(page)).toBe('#/tests?dim.Layer=api');
+    const api = report.tests.filter((test) => test.dimensions['Layer']?.includes('api')).length;
+    expect(api).toBeGreaterThan(0);
+    expect(await page.locator('.tests-table tbody tr').count()).toBe(api);
+    expect(await page.locator('.chip').allTextContents()).toEqual(['Layer: api']);
+
+    // The Tag facet offers no @layer: tag; Layer offers ui and api.
+    await page.locator('.facet[data-facet="tag"] summary').click();
+    const tags = await page.locator('.facet[data-facet="tag"] .facet-option .facet-value').allTextContents();
+    expect(tags).toContain('@smoke');
+    expect(tags.filter((tag) => tag.startsWith('@layer:') || tag.startsWith('@area:'))).toEqual([]);
+    await page.keyboard.press('Escape');
+    await page.locator('.facet[data-facet="dim.Layer"] summary').click();
+    expect(await page.locator('.facet[data-facet="dim.Layer"] .facet-value').allTextContents()).toEqual(expect.arrayContaining(['api', 'ui']));
+    expect(errors).toEqual([]);
+    await page.close();
+
+    // Without tags left once the dimension tags are out, the Tag facet is hidden.
+    const dimensionTagsOnly = { ...report, tests: report.tests.map((test) => ({ ...test, tags: test.tags.filter((tag) => tag.includes(':')) })) };
+    const second = await open(`${writeReport('dimension-tags-only', dimensionTagsOnly)}#/tests`);
+    await second.page.locator('.facets').waitFor();
+    expect(await second.page.locator('.facet[data-facet="tag"]').count()).toBe(0);
+    expect(await second.page.locator('.facet[data-facet="dim.Layer"]').count()).toBe(1);
+    expect(second.errors).toEqual([]);
+    await second.page.close();
+  });
+
+  it('orders the facets status, error category, project, tag, then dimensions, and labels categories as error categories', async () => {
+    const category = report.categories[0]?.name ?? '';
+    const { page, errors } = await open(`${writeReport('facet-order', report)}#/tests?dim.Layer=api&project=chromium-a&category=${encodeURIComponent(category)}&status=failed`);
+    await page.locator('.filter-chips').waitFor();
+    // Dimensions in config order: Layer and Bug (configured), then area (automatic).
+    expect(await page.locator('.facet-button > span:first-child').allTextContents()).toEqual(['Status', 'Error category', 'Project', 'Tag', 'Layer', 'Bug', 'area']);
+    // Chips follow the same order; the URL keeps its own canonical order and the `category` parameter.
+    expect(await page.locator('.chip').allTextContents()).toEqual(['Status: Failed', `Error category: ${category}`, 'Project: chromium-a', 'Layer: api']);
+    expect(fragment(page)).toBe(`#/tests?status=failed&project=chromium-a&dim.Layer=api&category=${encodeURIComponent(category)}`);
+    expect(await page.getByRole('button', { name: `Remove filter Error category: ${category}` }).count()).toBe(1);
+    // The checkbox group is named after the facet once its menu is open.
+    await page.locator('.facet[data-facet="category"] summary').click();
+    expect(await page.getByRole('group', { name: 'Error category' }).count()).toBe(1);
+    await page.keyboard.press('Escape');
+    // The table may be empty with these filters: the header is checked without them.
+    await page.getByRole('button', { name: 'Clear all' }).click();
+    await page.locator('.tests-table').waitFor();
+    expect(await page.getByRole('columnheader', { name: 'Error category' }).count()).toBe(1);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
   it('shows an empty state with a reset button', async () => {
     const { page, errors } = await open(`${writeReport('empty-state', report)}#/tests?q=zzz-no-such-test&sort=title:desc`);
     await page.getByText('No tests match these filters.').waitFor();

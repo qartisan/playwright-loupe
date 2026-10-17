@@ -9,7 +9,7 @@ import { projectLabel, testHref } from '../components/widgets.js';
 import { CAP_STEP, cappedLength, resultSummary } from '../filters/cap.js';
 import { facetCounts, shownCategories } from '../filters/match.js';
 import { buildSortRanks, nextSort, sortTests, titlePath } from '../filters/sort.js';
-import { domain, setFilters } from '../filters/store.js';
+import { context, domain, setFilters } from '../filters/store.js';
 import { DEFAULT_SORT, clearFilters, serializeFilters, type FilterState, type SortColumn } from '../filters/url.js';
 import { formatDuration, plural } from '../format.js';
 
@@ -19,7 +19,7 @@ const COLUMNS: ReadonlyArray<{ column: SortColumn; label: string; numeric?: bool
   { column: 'project', label: 'Project' },
   { column: 'file', label: 'File' },
   { column: 'duration', label: 'Duration', numeric: true },
-  { column: 'category', label: 'Category' },
+  { column: 'category', label: 'Error category' },
   { column: 'attempts', label: 'Attempts', numeric: true },
 ];
 
@@ -33,7 +33,7 @@ export function TestsPage({ report, state, matched }: { report: LoupeReport; sta
   const colors = useMemo(() => categoryColorMap(report.categories), [report]);
   // Not recomputed when only the sort changes.
   const filterKey = serializeFilters({ ...state, sort: DEFAULT_SORT });
-  const counts = useMemo(() => facetCounts(report.tests, state, domain.value), [report, filterKey]);
+  const counts = useMemo(() => facetCounts(report.tests, state, domain.value, context.value), [report, filterKey]);
   const ranks = useMemo(() => buildSortRanks(report.tests), [report]);
   const sorted = useMemo(() => sortTests(matched, state.sort, ranks), [matched, ranks, state.sort.column, state.sort.direction]);
   const total = report.tests.length;
@@ -68,7 +68,7 @@ export function TestsPage({ report, state, matched }: { report: LoupeReport; sta
       {total > 0 && (
         <div class="filter-bar">
           <FacetMenus state={state} domain={domain.value} counts={counts} colors={colors} />
-          <FilterChips state={state} />
+          <FilterChips state={state} domain={domain.value} />
         </div>
       )}
       <p class="result-count" aria-live="polite" aria-atomic="true">

@@ -2,7 +2,7 @@ import { computed, signal } from '@preact/signals';
 import type { LoupeReport } from '../../schema/v1.js';
 import { currentLocation, setLocation, setSearchNormalizer } from '../navigation.js';
 import { formatHash, type Route } from '../router.js';
-import { filterDomain } from './match.js';
+import { NO_FILTER_CONTEXT, filterContext, filterDomain, type FilterContext } from './match.js';
 import { parseFilters, serializeFilters, type FilterDomain, type FilterState } from './url.js';
 
 /**
@@ -12,9 +12,17 @@ import { parseFilters, serializeFilters, type FilterDomain, type FilterState } f
 
 export const domain = signal<FilterDomain>(new Map());
 
-/** Takes the facet values from the report and normalizes the current URL against them. */
+/** The tag prefixes taken by dimensions, for matching and counting. */
+export const context = signal<FilterContext>(NO_FILTER_CONTEXT);
+
+/**
+ * Takes the facet values from the report and normalizes the current URL
+ * against them: a value outside them, such as a tag a dimension takes, is
+ * dropped.
+ */
 export function initFilters(report: Pick<LoupeReport, 'projects' | 'tests' | 'dimensions' | 'categories'>): void {
   domain.value = filterDomain(report);
+  context.value = filterContext(report);
   setSearchNormalizer((search) => serializeFilters(parseFilters(search, domain.value)));
 }
 

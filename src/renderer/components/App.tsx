@@ -5,7 +5,7 @@ import { isNarrow, sidebarOpen } from '../layout.js';
 import { currentLocation } from '../navigation.js';
 import { errorGroups } from '../dashboard.js';
 import { filterTests } from '../filters/match.js';
-import { filters } from '../filters/store.js';
+import { context, filters } from '../filters/store.js';
 import { DEFAULT_SORT, serializeFilters } from '../filters/url.js';
 import { commonDirectoryPrefix } from '../paths.js';
 import { ErrorsPage } from '../pages/ErrorsPage.js';
@@ -24,7 +24,7 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
   // One filter state for the sidebar and the Tests view; the sort only matters to the Tests view.
   const state = filters.value;
   const filterKey = serializeFilters({ ...state, sort: DEFAULT_SORT });
-  const matched = useMemo(() => filterTests(report.tests, state), [report, filterKey]);
+  const matched = useMemo(() => filterTests(report.tests, state, context.value), [report, filterKey]);
   // From every file of the run, so folders do not change with the filters.
   const prefix = useMemo(() => commonDirectoryPrefix(report.tests.map((test) => test.file)), [report]);
   const tree = useMemo(() => buildTree({ projects: report.projects, tests: matched }, { prefix }), [report, matched, prefix]);
