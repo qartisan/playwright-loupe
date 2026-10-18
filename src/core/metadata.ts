@@ -37,9 +37,35 @@ function first(...values: unknown[]): string | null {
   return null;
 }
 
-/** Removes credentials from a URL-like remote (`https://user:token@host/...`). */
-export function stripCredentials(remote: string): string {
-  return remote.replace(/^([a-z][a-z0-9+.-]*:\/\/)[^/@]*@/i, '$1');
+const SCHEME = /^[a-z][a-z0-9+.-]*:\/\//i;
+/** `git@github.com:org/repo.git`: a user name without `:` cannot carry a password. */
+const SCP_LIKE = /^[^@:/]+@[^@:/]+:[^@]*$/;
+
+/**
+ * A remote safe to store: credentials (`https://user:token@host/...`), query
+ * (`?access_token=...`) and fragment removed. A URL is parsed like browsers
+ * and git do (the last `@` ends the credentials); one without anything to
+ * remove is kept as written. Without a scheme, only the scp-like form and
+ * strings without `@` (a file path) are kept. Anything else with an `@`
+ * cannot be cleaned safely: null.
+ */
+export function sanitizeRemote(remote: string): string | null {
+  if (SCHEME.test(remote)) {
+    let url: URL;
+    try {
+      url = new URL(remote);
+    } catch {
+      return remote.includes('@') ? null : remote.replace(/[?#].*$/, '');
+    }
+    if (!/[@?#]/.test(remote)) return remote;
+    url.username = '';
+    url.password = '';
+    url.search = '';
+    url.hash = '';
+    return url.href;
+  }
+  if (!remote.includes('@')) return remote;
+  return SCP_LIKE.test(remote) ? remote : null;
 }
 
 function githubBranch(env: Env): string | null {
@@ -97,7 +123,7 @@ export function detectGit(metadata: Readonly<Record<string, unknown>>, env: Env)
     env['BITBUCKET_GIT_HTTP_ORIGIN'],
     env['BUILDKITE_REPO'],
   );
-  return { commit, branch, remote: remote === null ? null : stripCredentials(remote) };
+  return { commit, branch, remote: remote === null ? null : sanitizeRemote(remote) };
 }
 
 /** `name` comes from the config (`environment` option, overridden by `LOUPE_ENV`). */

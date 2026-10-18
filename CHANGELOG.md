@@ -18,6 +18,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Dialogs: reopening one right after closing it with Escape could leave it closed, because the dialog's close event arrives after the reopening.
 
+### Security
+
+- **Credentials in `git.remote`.** Versions up to 0.0.6 could store part of a password or a token in `run.git.remote`: a password containing `@` kept what followed the first `@` (`https://user:p@ss@host/…` became `https://ss@host/…`), a password containing a raw `/` was kept whole, and query strings (`?access_token=…`) and fragments were never removed. The remote is now parsed like browsers and git do (the last `@` ends the credentials), the user name, password, query and fragment are removed, and a remote with an `@` that cannot be parsed safely is stored as `null`. Without a scheme, only the `user@host:path` form with a user name without `:` (`git@github.com:org/repo.git`) and strings without `@` are kept. Reports written by earlier versions are not rewritten: check `git.remote` in reports you have shared if your CI remote can contain credentials.
+
 ## [0.0.6] - 2026-10-18
 
 ### Added

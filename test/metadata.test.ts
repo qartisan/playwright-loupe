@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectCi, detectEnvironment, detectGit, stripCredentials } from '../src/core/metadata.js';
+import { detectCi, detectEnvironment, detectGit, sanitizeRemote } from '../src/core/metadata.js';
 
 const GITHUB = {
   GITHUB_ACTIONS: 'true',
@@ -103,10 +103,41 @@ describe('detectGit', () => {
   });
 });
 
-describe('stripCredentials', () => {
+describe('sanitizeRemote', () => {
   it('keeps remotes without credentials unchanged', () => {
-    expect(stripCredentials('https://github.com/a/b')).toBe('https://github.com/a/b');
-    expect(stripCredentials('git@github.com:a/b.git')).toBe('git@github.com:a/b.git');
+    expect(sanitizeRemote('https://github.com/a/b')).toBe('https://github.com/a/b');
+    expect(sanitizeRemote('https://host')).toBe('https://host');
+    expect(sanitizeRemote('git@github.com:a/b.git')).toBe('git@github.com:a/b.git');
+    expect(sanitizeRemote('/srv/git/repo.git')).toBe('/srv/git/repo.git');
+    expect(sanitizeRemote('file:///srv/git/repo.git')).toBe('file:///srv/git/repo.git');
+  });
+
+  it('removes credentials from URLs', () => {
+    expect(sanitizeRemote('https://user:token@github.com/o/r.git')).toBe('https://github.com/o/r.git');
+    expect(sanitizeRemote('https://x-access-token:ghp_abc@github.com/o/r')).toBe('https://github.com/o/r');
+    expect(sanitizeRemote('HTTPS://u:t@host/r')).toBe('https://host/r');
+    expect(sanitizeRemote('https://u%40mail:t%2F@host/r')).toBe('https://host/r');
+    expect(sanitizeRemote('ssh://git:pw@host:22/r')).toBe('ssh://host:22/r');
+  });
+
+  it('ends the credentials at the last @, as browsers and git do', () => {
+    // Versions up to 0.0.6 stopped at the first @ and kept `ss@`.
+    expect(sanitizeRemote('https://user:p@ss@github.com/o/r.git')).toBe('https://github.com/o/r.git');
+  });
+
+  it('removes the query and the fragment', () => {
+    expect(sanitizeRemote('https://host/r.git?access_token=secret')).toBe('https://host/r.git');
+    expect(sanitizeRemote('https://host/r.git#token=secret')).toBe('https://host/r.git');
+    expect(sanitizeRemote('https://u:t@host/r.git?private_token=x#y')).toBe('https://host/r.git');
+  });
+
+  it('drops a remote with an @ that cannot be parsed', () => {
+    // A raw `/` in the password: no URL parser agrees on where the host starts.
+    expect(sanitizeRemote('https://user:to/ken@host/r')).toBeNull();
+    // Without a scheme, only the scp-like form is kept, and only with a user name without `:`.
+    expect(sanitizeRemote('user:token@host:o/r.git')).toBeNull();
+    expect(sanitizeRemote('user:token@host/o/r.git')).toBeNull();
+    expect(sanitizeRemote('git@host:o/r@x.git')).toBeNull();
   });
 });
 
