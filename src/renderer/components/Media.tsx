@@ -1,15 +1,16 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Attachment } from '../../schema/v1.js';
-import { attemptMedia, fileHref } from '../detail/media.js';
+import { attemptMedia, fileHref, viewerItems, type ViewerItem } from '../detail/media.js';
 import { currentLocation } from '../navigation.js';
 import { isTextField } from '../shortcuts.js';
+import { ComparisonCard, ComparisonViewer } from './Comparison.js';
 import { Dialog } from './Dialog.js';
 import { AttachmentItem } from './TestDetail.js';
 
 /**
- * Attachments of an attempt, with viewers: screenshot thumbnails opening a
- * lightbox, inline videos, then the other files as links. Files stay next to
+ * Attachments of an attempt, with viewers: screenshot comparisons and
+ * thumbnails opening a lightbox, inline videos, then the other files as links. Files stay next to
  * the report (`data/`), referenced by relative links: nothing is inlined.
  */
 
@@ -30,15 +31,13 @@ export function MediaImage({
   alt = attachment.name,
   lazy = false,
   class: className,
-  onLoad,
   onClick,
 }: {
   attachment: Attachment;
   alt?: string;
   lazy?: boolean;
   class?: string;
-  onLoad?: (image: HTMLImageElement) => void;
-  onClick?: () => void;
+  onClick?: (() => void) | undefined;
 }) {
   const [failed, setFailed] = useState(false);
   if (!attachment.path || failed) return <MissingMedia attachment={attachment} />;
@@ -49,7 +48,6 @@ export function MediaImage({
       class={className}
       loading={lazy ? 'lazy' : undefined}
       decoding="async"
-      onLoad={(event) => onLoad?.(event.currentTarget)}
       onError={() => setFailed(true)}
       onClick={onClick}
     />
@@ -102,30 +100,34 @@ function useViewerKeys(active: boolean, move: (offset: number) => void): void {
 }
 
 /**
- * The screenshots of an attempt in a modal dialog, one at a time: fitted to
- * the viewport, or at actual size (scrollable) by clicking the image or the
- * "Actual size" button. Previous / next and `←` / `→`, without wrapping.
+ * The screenshots and comparisons of an attempt in a modal dialog, one at a
+ * time: fitted to the viewport, or at actual size (scrollable) by clicking
+ * the image or the "Actual size" button. Previous / next and `←` / `→`,
+ * without wrapping. A comparison keeps its modes.
  */
-function Lightbox({ screenshots, index, setIndex }: { screenshots: readonly Attachment[]; index: number | null; setIndex: (index: number | null) => void }) {
-  // The index shown at actual size: another image starts fitted.
+function Lightbox({ items, index, setIndex }: { items: readonly ViewerItem[]; index: number | null; setIndex: (index: number | null) => void }) {
+  // The index shown at actual size: another item starts fitted.
   const [actualIndex, setActualIndex] = useState<number | null>(null);
   const actualSize = index !== null && actualIndex === index;
-  const attachment = index === null ? undefined : screenshots[index];
+  const item = index === null ? undefined : items[index];
   const move = (offset: number): void => {
-    if (index !== null && screenshots[index + offset]) setIndex(index + offset);
+    if (index !== null && items[index + offset]) setIndex(index + offset);
   };
-  useViewerKeys(attachment !== undefined, move);
+  useViewerKeys(item !== undefined, move);
   const toggle = (): void => setActualIndex(actualSize ? null : index);
 
   return (
     <Dialog
-      open={attachment !== undefined}
-      onClose={() => setIndex(null)}
-      title={attachment?.name ?? ''}
+      open={item !== undefined}
+      onClose={() => {
+        setIndex(null);
+        setActualIndex(null);
+      }}
+      title={item ? (item.type === 'image' ? item.attachment.name : item.set.group) : ''}
       class={`lightbox${actualSize ? ' actual-size' : ''}`}
-      actions={attachment && <OpenOriginal attachment={attachment} />}
+      actions={item?.type === 'image' && <OpenOriginal attachment={item.attachment} />}
     >
-      {attachment && index !== null && (
+      {item && index !== null && (
         <>
           <div
             class="lightbox-stage"
@@ -133,16 +135,20 @@ function Lightbox({ screenshots, index, setIndex }: { screenshots: readonly Atta
               if (event.target === event.currentTarget) setIndex(null);
             }}
           >
-            <MediaImage key={attachment.path} attachment={attachment} class="lightbox-image" onClick={toggle} />
+            {item.type === 'image' ? (
+              <MediaImage key={item.attachment.path} attachment={item.attachment} class="lightbox-image" onClick={toggle} />
+            ) : (
+              <ComparisonViewer key={item.set.group} set={item.set} onImageClick={toggle} />
+            )}
           </div>
           <div class="lightbox-bar">
             <button type="button" class="button pager-button" disabled={index === 0} onClick={() => move(-1)}>
               ← Previous
             </button>
             <span class="lightbox-position" aria-live="polite">
-              {index + 1} of {screenshots.length}
+              {index + 1} of {items.length}
             </span>
-            <button type="button" class="button pager-button" disabled={index === screenshots.length - 1} onClick={() => move(1)}>
+            <button type="button" class="button pager-button" disabled={index === items.length - 1} onClick={() => move(1)}>
               Next →
             </button>
             <button type="button" class="button toggle-button" aria-pressed={actualSize} onClick={toggle}>
@@ -211,15 +217,16 @@ export function Attachments({ attachments }: { attachments: readonly Attachment[
   const setIndex = (index: number | null): void => setViewer(index === null ? null : { index });
   const location = currentLocation.value;
   useEffect(() => setViewer(null), [location]);
-  const comparisonImages = media.comparisons.flatMap((set) => Object.values(set.images));
   const text = media.files.filter((attachment) => attachment.kind === 'text');
   const other = media.files.filter((attachment) => attachment.kind !== 'text');
 
   return (
     <div class="attachment-groups">
-      <Section label="Screenshots" count={media.screenshots.length + comparisonImages.length}>
-        {media.screenshots.length > 0 && <Thumbnails screenshots={media.screenshots} open={setIndex} />}
-        {comparisonImages.length > 0 && <FileList attachments={comparisonImages} />}
+      <Section label="Screenshots" count={media.comparisons.length + media.screenshots.length}>
+        {media.comparisons.map((set, position) => (
+          <ComparisonCard key={set.group} set={set} open={() => setIndex(position)} />
+        ))}
+        {media.screenshots.length > 0 && <Thumbnails screenshots={media.screenshots} open={(position) => setIndex(media.comparisons.length + position)} />}
       </Section>
       <Section label="Videos" count={media.videos.length}>
         {media.videos.map((attachment, position) => (
@@ -235,7 +242,7 @@ export function Attachments({ attachments }: { attachments: readonly Attachment[
       <Section label="Other" count={other.length}>
         <FileList attachments={other} />
       </Section>
-      <Lightbox screenshots={media.screenshots} index={viewer?.index ?? null} setIndex={setIndex} />
+      <Lightbox items={viewerItems(media)} index={viewer?.index ?? null} setIndex={setIndex} />
     </div>
   );
 }

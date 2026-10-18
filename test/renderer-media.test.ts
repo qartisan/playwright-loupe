@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { attemptMedia, fileHref } from '../src/renderer/detail/media.js';
+import { attemptMedia, comparisonModes, fileHref, pickMode, viewerItems, type ComparisonSet } from '../src/renderer/detail/media.js';
 import type { Attachment, ComparisonRole } from '../src/schema/v1.js';
 
 function file(name: string, contentType: string, fields: Partial<Attachment> = {}): Attachment {
@@ -55,6 +55,41 @@ describe('attemptMedia', () => {
     const media = attemptMedia([actual, again, expected]);
     expect(media.comparisons).toEqual([{ group: 'x.png', images: { actual, expected } }]);
     expect(media.screenshots).toEqual([again]);
+  });
+});
+
+function set(...roles: ComparisonRole[]): ComparisonSet {
+  return { group: 'g.png', images: Object.fromEntries(roles.map((role) => [role, compared('g.png', role)])) };
+}
+
+describe('viewerItems', () => {
+  it('lists comparisons first, then the loose screenshots', () => {
+    const loose = file('screenshot', 'image/png');
+    const media = attemptMedia([loose, compared('a.png', 'expected'), compared('a.png', 'actual')]);
+    expect(viewerItems(media).map((item) => (item.type === 'image' ? item.attachment.name : item.set.group))).toEqual(['a.png', 'screenshot']);
+  });
+});
+
+describe('comparisonModes', () => {
+  it('offers only the modes the images allow', () => {
+    expect(comparisonModes(set('expected', 'actual', 'diff'))).toEqual(['diff', 'side', 'slider', 'overlay']);
+    expect(comparisonModes(set('expected', 'actual'))).toEqual(['side', 'slider', 'overlay']);
+    expect(comparisonModes(set('actual', 'diff'))).toEqual(['diff']);
+    expect(comparisonModes(set('expected', 'diff'))).toEqual(['diff']);
+  });
+});
+
+describe('pickMode', () => {
+  it('defaults to Diff when there is a diff image, else Side by side', () => {
+    expect(pickMode(['diff', 'side', 'slider', 'overlay'], null)).toBe('diff');
+    expect(pickMode(['side', 'slider', 'overlay'], null)).toBe('side');
+  });
+
+  it('keeps the mode chosen in the session when the images allow it', () => {
+    expect(pickMode(['diff', 'side', 'slider', 'overlay'], 'overlay')).toBe('overlay');
+    expect(pickMode(['side', 'slider', 'overlay'], 'slider')).toBe('slider');
+    expect(pickMode(['side', 'slider', 'overlay'], 'diff')).toBe('side');
+    expect(pickMode(['diff'], 'slider')).toBe('diff');
   });
 });
 

@@ -19,6 +19,13 @@ import { solidPng } from './helpers/png.js';
 
 const RENDERER = path.join(ROOT, 'dist/renderer/index.html');
 const SAMPLE = path.join(ROOT, 'src/renderer/dev/sample.json');
+
+interface DOMRectLike {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
 const DATA = 'data/media/0';
 
 function attachment(name: string, contentType: string, kind: Attachment['kind'], fileName: string | null, fields: Partial<Attachment> = {}): Attachment {
@@ -30,6 +37,18 @@ const SCREENSHOTS = [
   attachment('tall', 'image/png', 'screenshot', 'tall.png'),
   attachment('gone', 'image/png', 'screenshot', 'gone.png'),
 ];
+const compared = (group: string, role: 'expected' | 'actual' | 'diff', fileName: string): Attachment =>
+  attachment(`${group.replace('.png', '')}-${role}.png`, 'image/png', 'screenshot', fileName, { comparison: { group, role } });
+const COMPARISONS = [
+  compared('square.png', 'expected', 'square-expected.png'),
+  compared('square.png', 'actual', 'square-actual.png'),
+  compared('square.png', 'diff', 'square-diff.png'),
+  compared('nodiff.png', 'expected', 'nodiff-expected.png'),
+  compared('nodiff.png', 'actual', 'nodiff-actual.png'),
+  // A group with a single image: a normal screenshot.
+  compared('single.png', 'actual', 'single-actual.png'),
+  attachment('wide', 'image/png', 'screenshot', 'wide.png'),
+];
 const VIDEOS = [attachment('video', 'video/webm', 'video', 'video.webm'), attachment('lost video', 'video/webm', 'video', 'lost.webm')];
 
 describe('media viewers in a browser (file://)', { timeout: 30_000 }, () => {
@@ -38,9 +57,10 @@ describe('media viewers in a browser (file://)', { timeout: 30_000 }, () => {
   let url: string;
   let target: TestCase;
   let other: TestCase;
+  let comparison: TestCase;
 
-  async function open(hash: string): Promise<{ page: Page; errors: string[] }> {
-    const context = await browser.newContext({ viewport: { width: 1200, height: 800 } });
+  async function open(hash: string, colorScheme: 'light' | 'dark' = 'light'): Promise<{ page: Page; errors: string[] }> {
+    const context = await browser.newContext({ viewport: { width: 1200, height: 800 }, colorScheme });
     const page = await context.newPage();
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
@@ -63,6 +83,13 @@ describe('media viewers in a browser (file://)', { timeout: 30_000 }, () => {
     mkdirSync(data, { recursive: true });
     writeFileSync(path.join(data, 'wide.png'), solidPng(2400, 120, [200, 40, 40]));
     writeFileSync(path.join(data, 'tall.png'), solidPng(80, 240, [40, 40, 200]));
+    // Different sizes, as when a page grew: Playwright's diff takes the larger size.
+    writeFileSync(path.join(data, 'square-expected.png'), solidPng(100, 100, [220, 0, 0]));
+    writeFileSync(path.join(data, 'square-actual.png'), solidPng(160, 100, [0, 0, 220]));
+    writeFileSync(path.join(data, 'square-diff.png'), solidPng(160, 100, [255, 0, 255]));
+    writeFileSync(path.join(data, 'nodiff-expected.png'), solidPng(120, 80, [0, 160, 0]));
+    writeFileSync(path.join(data, 'nodiff-actual.png'), solidPng(120, 80, [0, 120, 0]));
+    writeFileSync(path.join(data, 'single-actual.png'), solidPng(50, 50, [90, 90, 90]));
 
     browser = await chromium.launch();
     const recording = await browser.newContext({ recordVideo: { dir: path.join(workDir, 'recording'), size: { width: 320, height: 180 } } });
@@ -76,8 +103,10 @@ describe('media viewers in a browser (file://)', { timeout: 30_000 }, () => {
     const find = (title: string): TestCase => report.tests.find((test) => test.title === title && test.project === 'chromium-a')!;
     target = find('attaches a screenshot');
     other = find('shows the heading');
+    comparison = find('differs from the screenshot baseline (intentional)');
     const [first] = target.attempts;
     target.attempts = [{ ...first!, attachments: [...SCREENSHOTS, ...VIDEOS] }];
+    comparison.attempts = [{ ...comparison.attempts[0]!, attachments: COMPARISONS }];
     const file = path.join(workDir, 'index.html');
     writeFileSync(file, injectSettings(injectData(readFileSync(RENDERER, 'utf8'), report), DEFAULT_RENDERER_SETTINGS));
     url = pathToFileURL(file).href;
@@ -204,9 +233,13 @@ describe('media viewers in a browser (file://)', { timeout: 30_000 }, () => {
     await toggle.click();
     expect(await toggle.getAttribute('aria-pressed')).toBe('false');
     expect(await width()).toBeLessThan(1200);
-    // Another image starts fitted again.
+    // Another image starts fitted again, and so does the same image opened again.
     await toggle.click();
     await page.keyboard.press('ArrowRight');
+    expect(await toggle.getAttribute('aria-pressed')).toBe('false');
+    await toggle.click();
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'tall' }).click();
     expect(await toggle.getAttribute('aria-pressed')).toBe('false');
     await page.close();
   });
@@ -234,6 +267,158 @@ describe('media viewers in a browser (file://)', { timeout: 30_000 }, () => {
     await shortcuts.waitFor();
     expect(await shortcuts.getByRole('row', { name: /Previous \/ next screenshot/ }).textContent()).toBe('← / →Previous / next screenshotScreenshot viewer');
     expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  const card = (page: Page, group: string) => page.getByRole('article', { name: `Screenshot comparison ${group}` });
+  const modes = (scope: ReturnType<Page['locator']>) => scope.getByRole('group', { name: 'Comparison mode' }).getByRole('button');
+  const pressed = (scope: ReturnType<Page['locator']>) => scope.getByRole('group', { name: 'Comparison mode' }).locator('[aria-pressed="true"]').textContent();
+
+  it('shows one comparison card per group, before the loose screenshots, with the modes its images allow', async () => {
+    const { page, errors } = await open(`#/test/${comparison.id}`);
+    const square = card(page, 'square.png');
+    const nodiff = card(page, 'nodiff.png');
+    await square.waitFor();
+    expect(await page.locator('.comparison-card h4').allTextContents()).toEqual(['square.png', 'nodiff.png']);
+    expect(await modes(square).allTextContents()).toEqual(['Diff', 'Side by side', 'Slider', 'Overlay']);
+    expect(await pressed(square)).toBe('Diff');
+    expect(await square.getByRole('img').getAttribute('alt')).toBe('Diff (square.png)');
+    // Without a diff image: no Diff mode, Side by side by default.
+    expect(await modes(nodiff).allTextContents()).toEqual(['Side by side', 'Slider', 'Overlay']);
+    expect(await pressed(nodiff)).toBe('Side by side');
+    expect(await nodiff.getByRole('img').evaluateAll((images) => images.map((image) => image.getAttribute('alt')))).toEqual(['Expected (nodiff.png)', 'Actual (nodiff.png)']);
+    // The single image of a group and the loose screenshot are thumbnails, after the cards.
+    expect(await page.locator('.thumb img').evaluateAll((images) => images.map((image) => image.getAttribute('alt')))).toEqual(['single-actual.png', 'wide']);
+    expect(await page.locator('.comparison-card, .thumbs').evaluateAll((elements) => elements.map((element) => element.className))).toEqual(['comparison-card', 'comparison-card', 'thumbs']);
+    expect(await square.getByRole('link', { name: 'Expected' }).getAttribute('href')).toBe(`${DATA}/square-expected.png`);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('shares the chosen mode between comparisons for the session, never in the URL', async () => {
+    const { page } = await open(`#/test/${comparison.id}`);
+    const square = card(page, 'square.png');
+    const nodiff = card(page, 'nodiff.png');
+    await square.getByRole('button', { name: 'Slider' }).click();
+    expect(await pressed(square)).toBe('Slider');
+    expect(await pressed(nodiff)).toBe('Slider');
+    // A mode a comparison cannot show: it keeps its default.
+    await square.getByRole('button', { name: 'Diff' }).click();
+    expect(await pressed(nodiff)).toBe('Side by side');
+    expect(hashOf(page)).toBe(`#/test/${comparison.id}`);
+    // Another test keeps it; a reload forgets it.
+    await square.getByRole('button', { name: 'Overlay' }).click();
+    await page.evaluate(`location.hash = '#/test/${target.id}'`);
+    await page.locator('.thumb').first().waitFor();
+    await page.goBack();
+    expect(await pressed(card(page, 'square.png'))).toBe('Overlay');
+    await page.reload();
+    expect(await pressed(card(page, 'square.png'))).toBe('Diff');
+    await page.close();
+  });
+
+  it('moves the slider divider and the overlay opacity with the keyboard', async () => {
+    const { page } = await open(`#/test/${comparison.id}`);
+    const square = card(page, 'square.png');
+    await square.getByRole('button', { name: 'Slider' }).click();
+    const divider = square.getByRole('slider', { name: 'Divider position' });
+    const clip = () => square.locator('.cmp-top').evaluate((element) => (element as unknown as { style: { clipPath: string } }).style.clipPath);
+    expect(await divider.inputValue()).toBe('50');
+    expect(await divider.getAttribute('aria-describedby')).toBeTruthy();
+    await divider.focus();
+    await page.keyboard.press('ArrowRight');
+    expect(await divider.inputValue()).toBe('51');
+    expect(await clip()).toBe('inset(0px 0px 0px 51%)');
+    await page.keyboard.press('End');
+    expect(await clip()).toBe('inset(0px 0px 0px 100%)');
+    await page.keyboard.press('Home');
+    expect(await divider.inputValue()).toBe('0');
+
+    await square.getByRole('button', { name: 'Overlay' }).click();
+    const opacity = square.getByRole('slider', { name: /^Actual opacity/ });
+    await opacity.focus();
+    await page.keyboard.press('ArrowLeft');
+    expect(await opacity.inputValue()).toBe('49');
+    expect(await square.locator('.cmp-top').evaluate((element) => element.ownerDocument.defaultView!.getComputedStyle(element).opacity)).toBe('0.49');
+    expect(await square.locator('.cmp-opacity output').textContent()).toBe('49%');
+    await page.close();
+  });
+
+  it.each(['light', 'dark'] as const)('aligns images of different sizes top-left, in a box the size of the larger one (%s theme)', async (colorScheme) => {
+    const { page, errors } = await open(`#/test/${comparison.id}`, colorScheme);
+    const square = card(page, 'square.png');
+    const sizes = square.locator('.cmp-sizes');
+    await expect.poll(() => sizes.textContent()).toBe('Expected 100 × 100Actual 160 × 100Diff 160 × 100Expected and actual sizes differ');
+    expect(await sizes.locator('.cmp-differ').evaluate((element) => element.ownerDocument.defaultView!.getComputedStyle(element).color)).toBe(colorScheme === 'light' ? 'rgb(179, 38, 30)' : 'rgb(242, 139, 130)');
+    await expect.poll(() => card(page, 'nodiff.png').locator('.cmp-sizes').textContent()).toBe('Expected 120 × 80Actual 120 × 80');
+
+    // Side by side keeps one scale for both images.
+    await square.getByRole('button', { name: 'Side by side' }).click();
+    expect(await square.getByRole('img').evaluateAll((images) => images.map((image) => image.getBoundingClientRect().width))).toEqual([100, 160]);
+    for (const mode of ['Slider', 'Overlay']) {
+      await square.getByRole('button', { name: mode }).click();
+      const boxes = await square.locator('.cmp-stack, .cmp-layer').evaluateAll((elements) =>
+        elements.map((element) => {
+          const { left, top, width, height } = element.getBoundingClientRect();
+          return { left, top, width, height };
+        }),
+      );
+      const [stack, expected, actual] = boxes as [DOMRectLike, DOMRectLike, DOMRectLike];
+      expect([stack.width, stack.height]).toEqual([160, 100]);
+      expect(expected).toEqual({ left: stack.left, top: stack.top, width: 100, height: 100 });
+      expect(actual).toEqual({ left: stack.left, top: stack.top, width: 160, height: 100 });
+      expect(await square.getByRole('img').evaluateAll((images) => images.map((image) => image.getAttribute('alt')))).toEqual(['Expected (square.png)', 'Actual (square.png)']);
+    }
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('opens a comparison in the lightbox with the same modes, and moves on to the screenshots', async () => {
+    const { page, errors } = await open(`#/test/${comparison.id}`);
+    const square = card(page, 'square.png');
+    await square.getByRole('button', { name: 'Overlay' }).click();
+    await square.getByRole('button', { name: 'Open in viewer' }).click();
+    const dialog = page.getByRole('dialog', { name: 'square.png' });
+    await dialog.waitFor();
+    // The dialog is named after what it shows: the position is located across items.
+    const position = page.locator('.lightbox-position');
+    expect(await position.textContent()).toBe('1 of 4');
+    expect(await modes(dialog).allTextContents()).toEqual(['Diff', 'Side by side', 'Slider', 'Overlay']);
+    expect(await pressed(dialog)).toBe('Overlay');
+
+    // Arrows on a slider move the slider, not the viewer.
+    await dialog.getByRole('button', { name: 'Slider' }).click();
+    const divider = dialog.getByRole('slider', { name: 'Divider position' });
+    await divider.focus();
+    await page.keyboard.press('ArrowRight');
+    expect(await divider.inputValue()).toBe('51');
+    expect(await position.textContent()).toBe('1 of 4');
+
+    await dialog.getByRole('button', { name: 'Next →' }).click();
+    expect(await page.getByRole('dialog').getByRole('heading').textContent()).toBe('nodiff.png');
+    expect(await pressed(page.getByRole('dialog'))).toBe('Slider');
+    await page.keyboard.press('ArrowRight');
+    expect(await page.getByRole('dialog').getByRole('heading').textContent()).toBe('single-actual.png');
+    expect(await position.textContent()).toBe('3 of 4');
+    expect(await page.getByRole('dialog').getByRole('link', { name: 'Open original' }).getAttribute('href')).toBe(`${DATA}/single-actual.png`);
+
+    // The card follows the mode chosen in the viewer; focus is back on its button.
+    await page.keyboard.press('Escape');
+    await page.getByRole('dialog').waitFor({ state: 'hidden' });
+    expect(await pressed(square)).toBe('Slider');
+    expect(await isActive(page, '.comparison-card >> nth=0 >> .comparison-head button')).toBe(true);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('shows the actual size of a comparison in the lightbox', async () => {
+    const { page } = await open(`#/test/${comparison.id}`);
+    await card(page, 'square.png').getByRole('button', { name: 'Side by side' }).click();
+    await card(page, 'square.png').getByRole('button', { name: 'Open in viewer' }).click();
+    const dialog = page.getByRole('dialog', { name: 'square.png' });
+    await dialog.getByRole('img', { name: 'Actual (square.png)' }).click();
+    expect(await dialog.getByRole('button', { name: 'Actual size' }).getAttribute('aria-pressed')).toBe('true');
+    expect(await dialog.getByRole('img').evaluateAll((images) => images.map((image) => image.getBoundingClientRect().width))).toEqual([100, 160]);
     await page.close();
   });
 

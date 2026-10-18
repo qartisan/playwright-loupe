@@ -945,6 +945,39 @@ pre.step-error { margin: 2px 0 6px 50px; font-weight: 400; }
 .lightbox-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 12px; padding-top: 8px; }
 .lightbox-position { min-width: 64px; color: var(--fg-secondary); text-align: center; font-variant-numeric: tabular-nums; }
 
+/* Screenshot comparison. --stage-h caps the height of fitted images: 70vh inline, the dialog's free height in the lightbox. */
+.comparison-card { margin-bottom: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; }
+.comparison-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.comparison-head h4 { margin: 0; font-size: 13px; font-family: var(--font-mono); font-weight: 400; overflow-wrap: anywhere; }
+.comparison { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; }
+.lightbox-stage > .comparison { align-items: center; width: 100%; }
+.actual-size .lightbox-stage > .comparison { width: max-content; }
+.cmp-modes { display: flex; flex-wrap: wrap; gap: 6px; }
+.cmp-image, .cmp-side img { display: block; max-width: 100%; max-height: var(--stage-h, 70vh); background: var(--bg-muted); cursor: zoom-in; }
+/* Side by side; scaled (both sizes known): one scale for both, the row fitted like .cmp-stack, plus the 12px gap. */
+.cmp-side { display: flex; align-items: flex-start; gap: 12px; max-width: 100%; }
+.cmp-side figure { flex: 0 1 auto; min-width: 0; margin: 0; }
+.cmp-scaled { width: min(calc(var(--w) * 1px + 12px), 100%, calc(var(--stage-h, 70vh) * var(--w) / var(--h) + 12px)); }
+.cmp-scaled figure { flex-shrink: 1; flex-basis: 0; }
+.cmp-side.cmp-scaled img { width: 100%; max-height: none; }
+.cmp-side figcaption, .cmp-opacity, .cmp-sizes, .cmp-hint { color: var(--fg-secondary); font-size: 12px; }
+.cmp-stack { position: relative; width: min(calc(var(--w) * 1px), 100%, calc(var(--stage-h, 70vh) * var(--w) / var(--h))); aspect-ratio: var(--w) / var(--h); overflow: hidden; background: var(--bg-muted); }
+.cmp-layer { position: absolute; top: 0; left: 0; display: block; height: auto; max-width: none; }
+.cmp-top { position: absolute; inset: 0; }
+.cmp-range { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: ew-resize; }
+.cmp-divider { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--fg); box-shadow: 0 0 0 1px var(--bg-card); pointer-events: none; }
+.cmp-range:focus-visible + .cmp-divider { outline: 2px solid var(--fg); outline-offset: 2px; }
+.cmp-opacity { display: flex; align-items: center; gap: 8px; }
+.cmp-opacity output { min-width: 40px; font-variant-numeric: tabular-nums; }
+.cmp-sizes { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; }
+.cmp-hint { margin: 0; }
+.cmp-differ { color: var(--status-failed); font-weight: 600; }
+.cmp-loading { width: 100%; height: 120px; border-radius: 4px; background: var(--bg-muted); }
+.actual-size .cmp-image, .actual-size .cmp-side img { max-width: none; max-height: none; cursor: zoom-out; }
+.actual-size .cmp-side { max-width: none; }
+.actual-size .cmp-scaled { width: calc(var(--w) * 1px + 12px); }
+.actual-size .cmp-stack { width: calc(var(--w) * 1px); }
+
 .output-block > summary .output-name { color: var(--fg); font-family: var(--font-mono); }
 .output-truncated { padding: 0 6px; border: 1px solid currentColor; border-radius: 4px; color: var(--status-flaky); font-size: 11px; font-weight: 600; }
 .output-notice { margin: 6px 0 0; color: var(--status-flaky); font-size: 13px; }

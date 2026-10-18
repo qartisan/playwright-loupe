@@ -41,7 +41,8 @@ The report is a single self-contained HTML file. It works offline, straight from
 - **Errors:** every error group, built from normalized error signatures, with the failed / flaky split and links to the affected tests. A group page has previous / next buttons: from a category, they stay within that category.
 - **Test detail:** title path, outcome, project, `file:line`, tags, annotations and dimensions, then one tab per attempt (the last failing attempt first; `?attempt=` in the URL): errors with Expected / Received and diffs highlighted and the code snippet, steps (`test.step` and failing steps, the failing path expanded; "Show all steps" for hooks, fixtures and API calls), attachments, stdout and stderr. Previous / next walk the Tests view's current list.
 - **Attachments**, per attempt, linked from `data/` next to the report (never inlined in the HTML), all working from `file://`:
-  - **Screenshots** as thumbnails. A click (or Enter / Space) opens them in a viewer: fitted to the window, or at actual size by clicking the image; previous / next with the buttons or `←` / `→`; "Open original" in a new tab. Escape, the close button or a click outside closes it, back on the same thumbnail. A missing file shows its name and path.
+  - **Screenshot comparisons**: a failed `toHaveScreenshot` / `toMatchSnapshot` gives one card per image name, before the other screenshots, with four modes: Diff, Side by side (expected | actual, at one scale), Slider (actual over expected, a divider to drag or move with the arrow keys) and Overlay (actual over expected, its opacity to set). Only the modes the images allow are offered; Diff is the default when there is a diff image. The chosen mode applies to every comparison until the report is closed. Each image's size is shown, with a warning when expected and actual differ: slider and overlay align them top-left. "Open in viewer" shows the same modes in the viewer below.
+  - **Screenshots** as thumbnails. A click (or Enter / Space) opens them in a viewer, after the comparisons: fitted to the window, or at actual size by clicking the image; previous / next with the buttons or `←` / `→`; "Open original" in a new tab. Escape, the close button or a click outside closes it, back on the same thumbnail. A missing file shows its name and path.
   - **Videos** play inline. A missing or unplayable file shows its path instead of an empty player.
   - Other files are listed as links; small text bodies inline, collapsed.
 - **Copy buttons:** rerun commands (this test, the failed tests of its file, the failed tests of the current list) and an AI prompt describing the failure, in English. Both are only copied to the clipboard; nothing is sent anywhere. Projects failing on the same lines share one command (`--project=a --project=b`); otherwise each project gets its own, joined with `&&`.
@@ -68,7 +69,7 @@ Single keys do nothing while typing in a field or with Ctrl, Alt or Meta held, n
 
 ### Coming next
 
-- Media viewers in the test detail: screenshot comparison (side-by-side, slider, overlay, diff), trace command.
+- Trace command in the test detail.
 
 History and flakiness tracking are planned for a later phase; the JSON model is already prepared for them.
 
