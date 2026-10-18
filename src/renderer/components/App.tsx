@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef } from 'preact/hooks';
 import type { RendererSettings } from '../../core/inject.js';
 import type { LoupeReport, TestCase } from '../../schema/v1.js';
+import { announcement } from '../clipboard.js';
 import { isNarrow, sidebarOpen } from '../layout.js';
 import { currentLocation } from '../navigation.js';
-import { errorGroups } from '../dashboard.js';
+import { errorGroups, rankGroups } from '../dashboard.js';
 import { filterTests } from '../filters/match.js';
+import { buildSortRanks, sortTests } from '../filters/sort.js';
 import { context, filters } from '../filters/store.js';
 import { DEFAULT_SORT, serializeFilters } from '../filters/url.js';
 import { commonDirectoryPrefix } from '../paths.js';
@@ -16,6 +18,7 @@ import { OverviewPage } from '../pages/OverviewPage.js';
 import { TestPage } from '../pages/TestPage.js';
 import { TestsPage } from '../pages/TestsPage.js';
 import { buildTree, testKey } from '../tree.js';
+import { CopyFallbackDialog } from './Dialog.js';
 import { Footer } from './Footer.js';
 import { Header } from './Header.js';
 import { Sidebar } from './Sidebar.js';
@@ -32,7 +35,12 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
     () => new Map<string, TestCase>(report.tests.map((test) => [testKey(test.id, test.repeatEachIndex), test])),
     [report],
   );
+  // The Tests view's order, every row: the Tests view and the test detail's previous / next.
+  const ranks = useMemo(() => buildSortRanks(report.tests), [report]);
+  const sorted = useMemo(() => sortTests(matched, state.sort, ranks), [matched, ranks, state.sort.column, state.sort.direction]);
   const groups = useMemo(() => errorGroups(report), [report]);
+  const ranked = useMemo(() => rankGroups(groups), [groups]);
+  const groupsBySignature = useMemo(() => new Map(groups.map((group) => [group.signature, group])), [groups]);
   const { route } = currentLocation.value;
   const main = useRef<HTMLElement>(null);
 
@@ -48,7 +56,7 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
   let page;
   switch (route.page) {
     case 'dashboard':
-      page = <OverviewPage report={report} groups={groups} />;
+      page = <OverviewPage report={report} groups={groups} matched={sorted} />;
       break;
     case 'errors':
       page = <ErrorsPage report={report} groups={groups} category={route.category} />;
@@ -57,13 +65,21 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
       page = <HealthPage report={report} />;
       break;
     case 'tests':
-      page = <TestsPage report={report} state={state} matched={matched} />;
+      page = <TestsPage report={report} state={state} sorted={sorted} />;
       break;
     case 'test':
-      page = <TestPage test={testsByKey.get(testKey(route.id, route.repeatEachIndex))} />;
+      page = (
+        <TestPage
+          report={report}
+          test={testsByKey.get(testKey(route.id, route.repeatEachIndex))}
+          sequence={sorted}
+          groups={groupsBySignature}
+          settings={settings}
+        />
+      );
       break;
     case 'group':
-      page = <GroupPage report={report} group={groups.find((group) => group.signature === route.signature)} />;
+      page = <GroupPage report={report} groups={ranked} group={groupsBySignature.get(route.signature)} />;
       break;
     case 'not-found':
       page = <NotFoundPage />;
@@ -80,6 +96,12 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
           <Footer version={report.generator.version} />
         </main>
       </div>
+      <CopyFallbackDialog />
+      {/* Always present, so changes are announced; a repeated message differs by a trailing no-break space. */}
+      <p class="visually-hidden" role="status" aria-live="polite">
+        {announcement.value.text}
+        {announcement.value.seq % 2 === 1 ? '\u00a0' : ''}
+      </p>
     </div>
   );
 }

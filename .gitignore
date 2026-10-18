@@ -159,3 +159,5 @@ playwright-report
 loupe-report-load-error
 loupe-report-scope
 loupe-report-sample
+# Attachments of the renderer dev sample, written by `npm run sample:update`
+src/renderer/dev/data/

@@ -242,6 +242,7 @@ export function validateConfig(value: unknown, source: string, options: { allowC
     dimensions: object({ auto: boolean(ctx), definitions: arrayOf(dimension(ctx), ctx) }, ctx),
     screenshots: object({ defaultView: oneOf(SCREENSHOT_VIEWS, ctx) }, ctx),
     theme: oneOf(THEMES, ctx),
+    aiPrompt: object({ includeStack: boolean(ctx) }, ctx),
   };
   if (options.allowConfigFile) fields['configFile'] = nonEmptyString(ctx);
   object(fields, ctx)(value, '', errors);

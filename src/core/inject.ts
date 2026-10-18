@@ -13,12 +13,15 @@ export interface RendererSettings {
   title: string;
   theme: 'system' | 'light' | 'dark';
   screenshots: { defaultView: 'side-by-side' | 'slider' | 'overlay' | 'diff' };
+  /** The copyable AI prompt of the test detail. */
+  aiPrompt: { includeStack: boolean };
 }
 
 export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
   title: 'Loupe report',
   theme: 'system',
   screenshots: { defaultView: 'side-by-side' },
+  aiPrompt: { includeStack: true },
 };
 
 const UNSAFE_CHARS: Record<string, string> = {

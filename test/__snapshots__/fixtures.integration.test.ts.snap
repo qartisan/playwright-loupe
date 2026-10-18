@@ -77,11 +77,11 @@ exports[`fixture suite with the built reporter > matches the normalized snapshot
       "name": "chromium-a",
       "retries": 1,
       "stats": {
-        "failed": 10,
+        "failed": 12,
         "flaky": 1,
         "passed": 7,
         "skipped": 2,
-        "total": 20,
+        "total": 22,
       },
       "testDir": ".",
       "timeoutMs": 30000,
@@ -90,11 +90,11 @@ exports[`fixture suite with the built reporter > matches the normalized snapshot
       "name": "chromium-b",
       "retries": 1,
       "stats": {
-        "failed": 10,
+        "failed": 12,
         "flaky": 1,
         "passed": 7,
         "skipped": 2,
-        "total": 20,
+        "total": 22,
       },
       "testDir": ".",
       "timeoutMs": 30000,
@@ -109,11 +109,11 @@ exports[`fixture suite with the built reporter > matches the normalized snapshot
     "scopeReasons": [],
     "shard": null,
     "stats": {
-      "failed": 20,
+      "failed": 24,
       "flaky": 2,
       "passed": 14,
       "skipped": 4,
-      "total": 40,
+      "total": 44,
     },
     "status": "failed",
   },
@@ -788,6 +788,60 @@ exports[`fixture suite with the built reporter > matches the normalized snapshot
       "annotations": [],
       "attempts": [
         {
+          "attachments": [],
+          "errors": true,
+          "index": 0,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 1,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": "Assertion",
+      "dimensions": {
+        "Layer": [
+          "api",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "f6073900e08ff760",
+      "location": "failures.spec.ts:82:3",
+      "outcome": "failed",
+      "project": "chromium-a",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "failures",
+      ],
+      "tags": [
+        "@layer:api",
+      ],
+      "title": "returns a different order (intentional)",
+    },
+    {
+      "annotations": [],
+      "attempts": [
+        {
           "attachments": [
             {
               "comparison": {
@@ -882,7 +936,7 @@ exports[`fixture suite with the built reporter > matches the normalized snapshot
       },
       "expectedStatus": "passed",
       "id": "f49e1c79155fa7f4",
-      "location": "failures.spec.ts:82:3",
+      "location": "failures.spec.ts:87:3",
       "outcome": "failed",
       "project": "chromium-a",
       "repeatEachIndex": 0,
@@ -1134,6 +1188,72 @@ exports[`fixture suite with the built reporter > matches the normalized snapshot
       "attempts": [
         {
           "attachments": [],
+          "errors": true,
+          "index": 0,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [
+            {
+              "open the cart": [
+                "check the total",
+              ],
+            },
+          ],
+        },
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 1,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [
+            {
+              "open the cart": [
+                "check the total",
+              ],
+            },
+          ],
+        },
+      ],
+      "category": "Assertion",
+      "dimensions": {
+        "Layer": [
+          "ui",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "b512a4f899b9c41a",
+      "location": "structure.spec.ts:19:3",
+      "outcome": "failed",
+      "project": "chromium-a",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "structure",
+      ],
+      "tags": [
+        "@layer:ui",
+      ],
+      "title": "fails inside a nested step (intentional)",
+    },
+    {
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
           "errors": false,
           "index": 0,
           "status": "passed",
@@ -1158,7 +1278,7 @@ exports[`fixture suite with the built reporter > matches the normalized snapshot
       },
       "expectedStatus": "passed",
       "id": "ceaacab5661164dc",
-      "location": "structure.spec.ts:19:3",
+      "location": "structure.spec.ts:28:3",
       "outcome": "passed",
       "project": "chromium-a",
       "repeatEachIndex": 0,
@@ -1839,6 +1959,60 @@ exports[`fixture suite with the built reporter > matches the normalized snapshot
       "annotations": [],
       "attempts": [
         {
+          "attachments": [],
+          "errors": true,
+          "index": 0,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 1,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": "Assertion",
+      "dimensions": {
+        "Layer": [
+          "api",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "db0cf76c50b4cbb3",
+      "location": "failures.spec.ts:82:3",
+      "outcome": "failed",
+      "project": "chromium-b",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "failures",
+      ],
+      "tags": [
+        "@layer:api",
+      ],
+      "title": "returns a different order (intentional)",
+    },
+    {
+      "annotations": [],
+      "attempts": [
+        {
           "attachments": [
             {
               "comparison": {
@@ -1933,7 +2107,7 @@ exports[`fixture suite with the built reporter > matches the normalized snapshot
       },
       "expectedStatus": "passed",
       "id": "d4853c41857a8970",
-      "location": "failures.spec.ts:82:3",
+      "location": "failures.spec.ts:87:3",
       "outcome": "failed",
       "project": "chromium-b",
       "repeatEachIndex": 0,
@@ -2185,6 +2359,72 @@ exports[`fixture suite with the built reporter > matches the normalized snapshot
       "attempts": [
         {
           "attachments": [],
+          "errors": true,
+          "index": 0,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [
+            {
+              "open the cart": [
+                "check the total",
+              ],
+            },
+          ],
+        },
+        {
+          "attachments": [],
+          "errors": true,
+          "index": 1,
+          "status": "failed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [
+            {
+              "open the cart": [
+                "check the total",
+              ],
+            },
+          ],
+        },
+      ],
+      "category": "Assertion",
+      "dimensions": {
+        "Layer": [
+          "ui",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "275ccfd4e43da63b",
+      "location": "structure.spec.ts:19:3",
+      "outcome": "failed",
+      "project": "chromium-b",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "structure",
+      ],
+      "tags": [
+        "@layer:ui",
+      ],
+      "title": "fails inside a nested step (intentional)",
+    },
+    {
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
           "errors": false,
           "index": 0,
           "status": "passed",
@@ -2209,7 +2449,7 @@ exports[`fixture suite with the built reporter > matches the normalized snapshot
       },
       "expectedStatus": "passed",
       "id": "4b7cc9f4781d5425",
-      "location": "structure.spec.ts:19:3",
+      "location": "structure.spec.ts:28:3",
       "outcome": "passed",
       "project": "chromium-b",
       "repeatEachIndex": 0,

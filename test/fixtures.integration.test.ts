@@ -264,6 +264,7 @@ describe('fixture suite with the built reporter', () => {
       title: 'Loupe fixture suite',
       theme: 'dark',
       screenshots: { defaultView: 'slider' },
+      aiPrompt: { includeStack: true },
     });
   });
 

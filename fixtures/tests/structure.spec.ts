@@ -16,6 +16,15 @@ test.describe('structure', () => {
     });
   });
 
+  test('fails inside a nested step (intentional)', { tag: '@layer:ui' }, async ({ page }) => {
+    await test.step('open the cart', async () => {
+      await page.setContent('<p id="total">12.00</p>');
+      await test.step('check the total', async () => {
+        await expect(page.locator('#total')).toHaveText('15.00', { timeout: 300 });
+      });
+    });
+  });
+
   test('writes to stdout and stderr', { tag: '@layer:api' }, async () => {
     console.log('Hello from the fixture suite');
     console.error('A warning from the fixture suite');

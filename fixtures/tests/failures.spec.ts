@@ -79,6 +79,11 @@ test.describe('failures', () => {
     });
   });
 
+  test('returns a different order (intentional)', { tag: '@layer:api' }, async () => {
+    // A multi-line diff: an object with a changed field and a changed array item.
+    expect({ id: 7, status: 'pending', items: ['book', 'pen'] }).toEqual({ id: 7, status: 'paid', items: ['book', 'lamp'] });
+  });
+
   test('differs from the screenshot baseline (intentional)', { tag: '@layer:ui' }, async ({ page }) => {
     // The committed baseline is a red square: this blue one never matches.
     await page.setViewportSize({ width: 200, height: 200 });

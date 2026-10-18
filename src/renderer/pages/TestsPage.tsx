@@ -5,10 +5,10 @@ import { categoryColorMap } from '../categoryColors.js';
 import { CategoryBadge } from '../components/CategoryBadge.js';
 import { FacetMenus, FilterChips } from '../components/FilterBar.js';
 import { OutcomeIcon, SortIcon } from '../components/icons.js';
-import { projectLabel, testHref } from '../components/widgets.js';
+import { RerunFailed, projectLabel, testHref } from '../components/widgets.js';
 import { CAP_STEP, cappedLength, resultSummary } from '../filters/cap.js';
 import { facetCounts, shownCategories } from '../filters/match.js';
-import { buildSortRanks, nextSort, sortTests, titlePath } from '../filters/sort.js';
+import { nextSort, titlePath } from '../filters/sort.js';
 import { context, domain, setFilters } from '../filters/store.js';
 import { DEFAULT_SORT, clearFilters, serializeFilters, type FilterState, type SortColumn } from '../filters/url.js';
 import { formatDuration, plural } from '../format.js';
@@ -29,13 +29,11 @@ const COLUMNS: ReadonlyArray<{ column: SortColumn; label: string; numeric?: bool
  * `CAP_STEP` rows of the sorted list are rendered, more on demand; any
  * filter or sort change starts again from `CAP_STEP`.
  */
-export function TestsPage({ report, state, matched }: { report: LoupeReport; state: FilterState; matched: readonly TestCase[] }) {
+export function TestsPage({ report, state, sorted }: { report: LoupeReport; state: FilterState; sorted: readonly TestCase[] }) {
   const colors = useMemo(() => categoryColorMap(report.categories), [report]);
   // Not recomputed when only the sort changes.
   const filterKey = serializeFilters({ ...state, sort: DEFAULT_SORT });
   const counts = useMemo(() => facetCounts(report.tests, state, domain.value, context.value), [report, filterKey]);
-  const ranks = useMemo(() => buildSortRanks(report.tests), [report]);
-  const sorted = useMemo(() => sortTests(matched, state.sort, ranks), [matched, ranks, state.sort.column, state.sort.direction]);
   const total = report.tests.length;
 
   // Any filter or sort change starts again from CAP_STEP, even back to a state shown in full
@@ -46,7 +44,7 @@ export function TestsPage({ report, state, matched }: { report: LoupeReport; sta
   const [, rerender] = useState(0);
   const shown = cappedLength(sorted.length, cap.current.limit);
   const rows = useMemo(() => sorted.slice(0, shown), [sorted, shown]);
-  const summary = resultSummary(shown, matched.length, total);
+  const summary = resultSummary(shown, sorted.length, total);
 
   // "Show more" moves focus to the first row it added, so keyboard users continue from there.
   const body = useRef<HTMLTableSectionElement>(null);
@@ -74,6 +72,7 @@ export function TestsPage({ report, state, matched }: { report: LoupeReport; sta
       <p class="result-count" aria-live="polite" aria-atomic="true">
         {summary}
       </p>
+      <RerunFailed tests={sorted} />
       {total === 0 ? (
         <p class="muted">No tests in this run.</p>
       ) : sorted.length === 0 ? (

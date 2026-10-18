@@ -70,6 +70,7 @@ export class LoupeReporter implements Reporter {
       title: this.loupeConfig.title,
       theme: this.loupeConfig.theme,
       screenshots: { defaultView: this.loupeConfig.screenshots.defaultView },
+      aiPrompt: { includeStack: this.loupeConfig.aiPrompt.includeStack },
     };
     const template = await readFile(TEMPLATE_URL, 'utf8');
 

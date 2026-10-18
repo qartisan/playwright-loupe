@@ -36,6 +36,7 @@ describe('validateConfig: valid configs', () => {
         },
         screenshots: { defaultView: 'slider' },
         theme: 'system',
+        aiPrompt: { includeStack: false },
       }),
     ).toEqual([]);
   });
@@ -47,7 +48,7 @@ describe('validateConfig: valid configs', () => {
   it('accepts configFile only in reporter options', () => {
     expect(validateConfig({ configFile: 'loupe.ci.ts' }, 'reporter options', { allowConfigFile: true })).toEqual([]);
     expect(validate({ configFile: 'loupe.ci.ts' })).toEqual([
-      `${SOURCE}: configFile is not a known option. Known options: outputFolder, title, environment, categories, dimensions, screenshots, theme.`,
+      `${SOURCE}: configFile is not a known option. Known options: outputFolder, title, environment, categories, dimensions, screenshots, theme, aiPrompt.`,
     ]);
   });
 });
@@ -63,6 +64,9 @@ describe('validateConfig: errors name the source, the exact path and the expecte
     [{ theme: 'blue' }, 'theme must be one of "system", "light", "dark", got "blue"'],
     [{ screenshots: { defaultView: 'grid' } }, 'screenshots.defaultView must be one of "side-by-side", "slider", "overlay", "diff", got "grid"'],
     [{ screenshots: 'slider' }, 'screenshots must be an object, got "slider"'],
+    [{ aiPrompt: { includeStack: 'no' } }, 'aiPrompt.includeStack must be a boolean, got "no"'],
+    [{ aiPrompt: true }, 'aiPrompt must be an object, got true'],
+    [{ aiPrompt: { includeStacks: false } }, 'aiPrompt.includeStacks is not a known option. Did you mean "includeStack"?'],
     [{ categories: { mode: 'merge' } }, 'categories.mode must be one of "extend", "replace", got "merge"'],
     [{ categories: { rules: {} } }, 'categories.rules must be an array, got an object'],
     [{ categories: { uncategorized: '' } }, 'categories.uncategorized must be a non-empty string, got ""'],
@@ -182,7 +186,7 @@ describe('validateConfig: unknown keys', () => {
 
   it('lists the known options when nothing is close', () => {
     expect(validate({ history: {} })).toEqual([
-      `${SOURCE}: history is not a known option. Known options: outputFolder, title, environment, categories, dimensions, screenshots, theme.`,
+      `${SOURCE}: history is not a known option. Known options: outputFolder, title, environment, categories, dimensions, screenshots, theme, aiPrompt.`,
     ]);
   });
 });

@@ -7,6 +7,7 @@ import { plural } from '../format.js';
 import { sidebarOpen } from '../layout.js';
 import { hrefTo } from '../navigation.js';
 import type { Route } from '../router.js';
+import { shortcutAllowed } from '../shortcuts.js';
 import type { GroupNode } from '../tree.js';
 import { AlertIcon, DashboardIcon, ErrorsIcon, HealthIcon, SearchIcon, TestsIcon } from './icons.js';
 import { Tree } from './Tree.js';
@@ -27,13 +28,6 @@ function NavLink({ page, route, children, class: className }: { page: ViewPage; 
       </a>
     </li>
   );
-}
-
-/** Text fields keep the `/` key for themselves. */
-function isTextField(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  if (target.isContentEditable || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return true;
-  return target instanceof HTMLInputElement && !['checkbox', 'radio', 'button', 'submit', 'reset', 'range', 'color', 'file'].includes(target.type);
 }
 
 /**
@@ -58,7 +52,7 @@ function SearchField() {
   // A layout effect: listening as soon as the page shows, not after the first paint.
   useLayoutEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey || isTextField(event.target)) return;
+      if (event.key !== '/' || !shortcutAllowed(event)) return;
       event.preventDefault();
       if (sidebarOpen.value) {
         input.current?.focus();

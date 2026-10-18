@@ -31,6 +31,7 @@ export default defineConfig({
 
   screenshots: { defaultView: 'slider' },
   theme: 'system',
+  aiPrompt: { includeStack: true },
 });
 ```
 
@@ -51,7 +52,7 @@ Four layers, each one overriding the previous:
 - **Inline options**: the second element of the reporter entry, `['@qartisan/playwright-loupe', { title: 'Nightly' }]`. They accept every option of the config file, plus `configFile`.
 - **Environment variables**: see [Environment variables](#environment-variables).
 
-Merging is done key by key for nested objects (`categories`, `dimensions`, `screenshots`): inline `{ categories: { mode: 'replace' } }` keeps the rules of the config file. **Arrays replace**: inline `categories.rules` replaces the rules of the config file entirely, it does not add to them. An option set to `undefined` is ignored, so `title: process.env.SUITE_TITLE` falls back to the lower layer when the variable is unset.
+Merging is done key by key for nested objects (`categories`, `dimensions`, `screenshots`, `aiPrompt`): inline `{ categories: { mode: 'replace' } }` keeps the rules of the config file. **Arrays replace**: inline `categories.rules` replaces the rules of the config file entirely, it does not add to them. An option set to `undefined` is ignored, so `title: process.env.SUITE_TITLE` falls back to the lower layer when the variable is unset.
 
 ## Options
 
@@ -67,6 +68,7 @@ Merging is done key by key for nested objects (`categories`, `dimensions`, `scre
 | `dimensions.definitions` | `Dimension[]` | `[]` | See [Dimensions](#dimensions). |
 | `screenshots.defaultView` | `'side-by-side' \| 'slider' \| 'overlay' \| 'diff'` | `'side-by-side'` | Default view of screenshot comparisons. [Renderer setting](#renderer-settings). |
 | `theme` | `'system' \| 'light' \| 'dark'` | `'system'` | Default theme. The viewer can switch it; their choice is remembered in the browser. [Renderer setting](#renderer-settings). |
+| `aiPrompt.includeStack` | `boolean` | `true` | Include each error's stack trace in the AI prompt the test detail copies to the clipboard. Turn it off when stacks are long or reveal paths you do not want to paste. [Renderer setting](#renderer-settings). |
 | `configFile` | `string` | none | **Inline options only.** Config file to load instead of the default lookup, relative to the Playwright config file's directory. |
 
 ### Error categories
@@ -152,7 +154,7 @@ dimensions: {
 
 ### Renderer settings
 
-`title`, `theme` and `screenshots.defaultView` are presentation choices, not data. They are written next to the report data in `index.html`, not in `report.json`, and are not part of the data contract. See [Renderer settings](schema/v1.md#renderer-settings).
+`title`, `theme`, `screenshots.defaultView` and `aiPrompt.includeStack` are presentation choices, not data. They are written next to the report data in `index.html`, not in `report.json`, and are not part of the data contract. See [Renderer settings](schema/v1.md#renderer-settings).
 
 ## Environment variables
 

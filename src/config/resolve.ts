@@ -55,7 +55,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 /**
  * Merges `layer` over `base`: nested objects (`categories`, `dimensions`,
- * `screenshots`) merge key by key; arrays and other values replace. An
+ * `screenshots`, `aiPrompt`) merge key by key; arrays and other values replace. An
  * `undefined` value leaves the base untouched.
  */
 export function mergeLayers<T extends object>(base: T, layer: object): T {
@@ -142,5 +142,6 @@ export function resolveConfig(layers: ConfigLayers): ResolvedConfig {
     dimensions: { auto: merged.dimensions?.auto ?? true, definitions: resolveDimensions(merged) },
     screenshots: { defaultView: merged.screenshots?.defaultView ?? 'side-by-side' },
     theme: merged.theme ?? 'system',
+    aiPrompt: { includeStack: merged.aiPrompt?.includeStack ?? true },
   };
 }

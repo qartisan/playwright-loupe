@@ -37,6 +37,7 @@ export function parseSettings(text: string | null | undefined): RendererSettings
       ...DEFAULT_RENDERER_SETTINGS,
       ...value,
       screenshots: { ...DEFAULT_RENDERER_SETTINGS.screenshots, ...(isObject(value['screenshots']) ? value['screenshots'] : {}) },
+      aiPrompt: { ...DEFAULT_RENDERER_SETTINGS.aiPrompt, ...(isObject(value['aiPrompt']) ? value['aiPrompt'] : {}) },
     } as RendererSettings;
   } catch {
     return DEFAULT_RENDERER_SETTINGS;

@@ -43,7 +43,7 @@ function token(theme: ThemeName, name: string): string {
 }
 
 const BACKGROUNDS = ['--bg', '--bg-card', '--bg-muted'];
-const TEXT_TOKENS = ['--fg', '--fg-secondary', '--status-passed', '--status-failed', '--status-flaky', '--status-skipped'];
+const TEXT_TOKENS = ['--fg', '--fg-secondary', '--status-passed', '--status-failed', '--status-flaky', '--status-skipped', '--diff-expected', '--diff-received'];
 
 /** CIELAB hue angle in degrees. */
 function hue(hex: string): number {
@@ -70,6 +70,8 @@ describe('design tokens', () => {
       '--status-flaky': '#6b4a05',
       '--status-flaky-bg': '#fbf0d9',
       '--status-skipped': '#666666',
+      '--diff-expected': '#1f6b3a',
+      '--diff-received': '#b3261e',
     });
     expect(TOKENS.dark).toMatchObject({
       '--bg': '#080808',
@@ -84,6 +86,8 @@ describe('design tokens', () => {
       '--status-flaky': '#f0cf8a',
       '--status-flaky-bg': '#1f1705',
       '--status-skipped': '#8a8a8a',
+      '--diff-expected': '#7fc79a',
+      '--diff-received': '#f28b82',
     });
   });
 

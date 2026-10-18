@@ -94,12 +94,16 @@ Full-text search and combinable filters. Filter state is synced to the URL so a 
 
 ### Test detail
 
-Error, steps, attachments and a copyable rerun command, organized **per attempt** so a failed retry can be compared with a passing one.
+Error, steps, attachments and a copyable rerun command, organized **per attempt** so a failed retry can be compared with a passing one. The default attempt is the last failing one (a flaky test opens on its failure, not on the passing retry); the attempt is in the URL (`?attempt=1`).
 
+- **Errors**: the model stores messages without ANSI codes, so the renderer rebuilds Playwright's colors from the text it actually prints: `Expected:` / `Received:` label lines (and their variants, `Expected substring:`, `Received string:` …), `- Expected` / `+ Received` diff blocks, and the snippet's arrow and caret lines. Anything else stays plain; Playwright's character-level highlighting inside strings is not reproduced.
+- **Steps**: `test.step` steps and failing steps by default (with the ancestors that place them), every category on demand (`?steps=all`). The failing path starts expanded.
+- **Rerun commands**: POSIX shell commands (not `cmd.exe`) to run from the Playwright root directory: one test (by identity: its project only), the failed tests of its file (when another line failed), the failed tests of the current list. Arguments sorted by file then line; projects with the same arguments share one command (repeated `--project`), different sets are split and joined with `&&`. Flaky tests are not "failed". A `file:line` is the declaration line, so a command is only valid while the file is unchanged.
+- **Navigation**: previous / next follow the Tests view's current list (filters and sort, no render cap); on an error group page, the Errors view's order, restricted to a category when the page was opened from one. Single-key shortcuts (`j`/`k`, `[`/`]`, `n`/`p`, `?`).
 - **Screenshots**: lightbox; for `toHaveScreenshot`, four comparison views (side-by-side, slider, overlay, diff). The default view is configurable and the user's choice is remembered in the browser.
 - **Videos**: played inline.
 - **Traces**: embedded Playwright trace viewer.
-- **AI prompt**: a button copies a ready-to-paste prompt to the clipboard. It includes the error, step, test source, ARIA snapshot, error category and signature, and later historical context. Loupe never calls an AI service itself.
+- **AI prompt**: a button copies a ready-to-paste prompt, in English, to the clipboard. Phase 1 includes the test, its tags and annotations, the error (message, snippet, location, stack unless `aiPrompt.includeStack` is `false`), the failing step with the steps before it, error category and attachment names. Test source, ARIA snapshot, signature and historical context come later. Loupe never calls an AI service itself.
 
 ## Dimensions
 

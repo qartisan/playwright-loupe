@@ -79,6 +79,10 @@ export interface LoupeConfig {
   };
   /** Default theme of the report. Default: `system`. */
   theme?: Theme;
+  aiPrompt?: {
+    /** Include each error's stack trace in the copyable AI prompt. Default: `true`. */
+    includeStack?: boolean;
+  };
 }
 
 /** Inline reporter options: a config, plus the path of the config file. */
@@ -112,4 +116,5 @@ export interface ResolvedConfig {
   dimensions: { auto: boolean; definitions: ResolvedDimension[] };
   screenshots: { defaultView: ScreenshotView };
   theme: Theme;
+  aiPrompt: { includeStack: boolean };
 }

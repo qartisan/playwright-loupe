@@ -48,6 +48,6 @@ describe('config loading in a real run', () => {
     const report = readReport(outputFolder, `Exit code ${result.status}.\n${result.output}`);
     expect(report.run.environment.name).toBe('env-name');
     const html = readFileSync(path.join(outputFolder, 'index.html'), 'utf8');
-    expect(html).toContain('{"title":"Title from the environment","theme":"dark","screenshots":{"defaultView":"slider"}}');
+    expect(html).toContain('{"title":"Title from the environment","theme":"dark","screenshots":{"defaultView":"slider"},"aiPrompt":{"includeStack":true}}');
   }, 120_000);
 });

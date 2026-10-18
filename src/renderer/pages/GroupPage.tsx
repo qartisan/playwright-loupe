@@ -3,9 +3,13 @@ import { categoryColorMap } from '../categoryColors.js';
 import { CategoryBadge } from '../components/CategoryBadge.js';
 import { GroupSplit } from '../components/GroupSplit.js';
 import { OutcomeIcon } from '../components/icons.js';
+import { Pager } from '../components/Pager.js';
 import type { ErrorGroup } from '../dashboard.js';
+import { groupNavigation } from '../detail/sequence.js';
+import { filters } from '../filters/store.js';
 import { plural } from '../format.js';
-import { hrefTo } from '../navigation.js';
+import { hrefTo, navigate } from '../navigation.js';
+import { useShortcuts } from '../shortcuts.js';
 import { UNNAMED_PROJECT } from '../tree.js';
 import { NotFoundPage } from './NotFoundPage.js';
 
@@ -14,13 +18,34 @@ function attemptLabel(index: number): string {
   return index === 0 ? 'first run' : `retry ${index}`;
 }
 
-/** An error group: the tests failing with one normalized error signature. */
-export function GroupPage({ report, group }: { report: LoupeReport; group: ErrorGroup | undefined }) {
-  if (!group) return <NotFoundPage message="No error group with this signature in this report." />;
+/**
+ * An error group: the tests failing with one normalized error signature.
+ * Previous / next follow the Errors view's order; with a category filter
+ * that includes this group (a link from a category), only that category's
+ * groups.
+ */
+export function GroupPage({ report, groups, group }: { report: LoupeReport; groups: readonly ErrorGroup[]; group: ErrorGroup | undefined }) {
+  const categories = filters.value.facets.category ?? [];
+  const sequence = group ? groupNavigation(groups, group, categories) : null;
+  const goTo = (target: ErrorGroup | null | undefined) => (target ? () => navigate({ page: 'group', signature: target.signature }) : null);
+  useShortcuts({ n: goTo(sequence?.next), p: goTo(sequence?.previous) });
+
+  if (!group || !sequence) return <NotFoundPage message="No error group with this signature in this report." />;
   const color = categoryColorMap(report.categories).get(group.category);
   return (
     <div class="page group-page">
-      <p class="breadcrumb">Error group</p>
+      <Pager
+        label={sequence.restricted ? `Error groups in ${categories.join(', ')}` : 'Error groups'}
+        position={sequence.position}
+        total={sequence.total}
+        outside=""
+        previous={goTo(sequence.previous)}
+        next={goTo(sequence.next)}
+        previousLabel="Previous group"
+        nextLabel="Next group"
+        keys={['p', 'n']}
+      />
+      <p class="breadcrumb">{sequence.restricted ? `Error group · ${categories.join(', ')}` : 'Error group'}</p>
       <h1>{plural(group.tests.length, 'test')} failing with this error</h1>
       <dl class="group-meta">
         <div>

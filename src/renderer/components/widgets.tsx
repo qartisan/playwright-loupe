@@ -24,13 +24,15 @@ import {
   type ProjectSummary,
   type SkippedTest,
 } from '../dashboard.js';
-import { filtersHref } from '../filters/store.js';
+import { filters, filtersHref } from '../filters/store.js';
 import { EMPTY_FILTERS, dimensionFacet, type FacetId } from '../filters/url.js';
 import { formatDuration, plural } from '../format.js';
 import { revealInSidebar } from '../layout.js';
 import { hrefTo } from '../navigation.js';
 import { UNNAMED_PROJECT, projectKey } from '../tree.js';
+import { LONG_COMMAND_TESTS, RERUN_HELP, failedTests, rerunCommand } from '../detail/rerun.js';
 import { CategoryBadge } from './CategoryBadge.js';
+import { CopyButton } from './CopyButton.js';
 import { GroupSplit } from './GroupSplit.js';
 import { AlertIcon, ChevronIcon, OutcomeIcon, outcomeLabel } from './icons.js';
 
@@ -43,6 +45,17 @@ const DIMENSIONS_DOCS = 'https://github.com/qartisan/playwright-loupe/blob/main/
 
 export function testHref(test: TestCase): string {
   return hrefTo({ page: 'test', id: test.id, repeatEachIndex: test.repeatEachIndex });
+}
+
+/**
+ * Link to an error group. `category` is the category the link is listed
+ * under: the group page then walks the groups of that category only. Without
+ * it (the global list), the link clears the category filter and the group
+ * page walks every group.
+ */
+export function groupHref(signature: string, category?: string): string {
+  const state = filters.value;
+  return filtersHref({ ...state, facets: { ...state.facets, category: category === undefined ? [] : [category] } }, { page: 'group', signature });
 }
 
 /** Link to the Tests view showing the tests with this value, replacing the current filters. */
@@ -89,7 +102,7 @@ export function Widget({
  * The run's outcome, a stacked bar of the outcomes, the pass rate and the
  * duration. The counts are in the header, so they are not repeated here.
  */
-export function Verdict({ report }: { report: LoupeReport }) {
+export function Verdict({ report, children }: { report: LoupeReport; children?: ComponentChildren }) {
   const outcome = verdict(report);
   const { stats } = report.run;
   const shares = outcomeShares(stats);
@@ -114,6 +127,7 @@ export function Verdict({ report }: { report: LoupeReport }) {
           {plural(stats.total, 'test')} in <strong>{formatDuration(report.run.durationMs)}</strong>
         </p>
       </div>
+      {children}
       {shares.length > 0 && (
         <>
           <div class="outcome-bar" role="img" aria-label={summary}>
@@ -137,6 +151,25 @@ export function Verdict({ report }: { report: LoupeReport }) {
         </>
       )}
     </section>
+  );
+}
+
+/**
+ * Copies the command rerunning the failed tests of a list (flaky tests left
+ * out), every one of them, not only the rows shown. Nothing when none failed.
+ */
+export function RerunFailed({ tests, action = 'Copy rerun command' }: { tests: readonly TestCase[]; action?: string }) {
+  const failed = failedTests(tests);
+  if (failed.length === 0) return null;
+  return (
+    <div class="rerun-failed">
+      <CopyButton label="Rerun command" help={RERUN_HELP} text={() => rerunCommand(failed)}>
+        {action} · {plural(failed.length, 'failed test')}
+      </CopyButton>
+      {failed.length > LONG_COMMAND_TESTS && (
+        <p class="rerun-note">The command lists {plural(failed.length, 'test')}: it is long, and some terminals may cut it.</p>
+      )}
+    </div>
   );
 }
 
@@ -193,16 +226,17 @@ export function RunErrorItem({ error, color }: { error: RunError; color: string 
 /**
  * One error group on one row: category, failed / flaky split, the first
  * affected test (and how many others), and the line that tells the error apart.
- * `showCategory` is false where the surrounding context already names the one
- * category of every row (a category's group list): the badge would only repeat it.
+ * In a category's group list (`inCategory`), the badge would only repeat the
+ * category every row shares: it is left out, and the link carries the
+ * category as context for the group page's previous / next.
  */
-export function GroupRow({ group, colors, showCategory = true }: { group: ErrorGroup; colors: Colors; showCategory?: boolean }) {
+export function GroupRow({ group, colors, inCategory }: { group: ErrorGroup; colors: Colors; inCategory?: string | undefined }) {
   const { headline, firstTest, others } = groupSummary(group);
   const attempts = groupAttempts(group);
   return (
-    <a class="group-row" href={hrefTo({ page: 'group', signature: group.signature })}>
+    <a class="group-row" href={groupHref(group.signature, inCategory)}>
       <span class="group-row-head">
-        {showCategory && <CategoryBadge name={group.category} color={colors.get(group.category)} />}
+        {inCategory === undefined && <CategoryBadge name={group.category} color={colors.get(group.category)} />}
         <span class="group-row-counts">
           <GroupSplit group={group} />
           {attempts && <span class="group-attempts">{attempts}</span>}
@@ -219,12 +253,12 @@ export function GroupRow({ group, colors, showCategory = true }: { group: ErrorG
   );
 }
 
-export function GroupList({ groups, colors, showCategory = true }: { groups: readonly ErrorGroup[]; colors: Colors; showCategory?: boolean }) {
+export function GroupList({ groups, colors, inCategory }: { groups: readonly ErrorGroup[]; colors: Colors; inCategory?: string | undefined }) {
   return (
     <ol class="widget-list group-list">
       {groups.map((group) => (
         <li key={group.signature}>
-          <GroupRow group={group} colors={colors} showCategory={showCategory} />
+          <GroupRow group={group} colors={colors} inCategory={inCategory} />
         </li>
       ))}
     </ol>
@@ -264,7 +298,7 @@ export function CategoryDetails({ categories, colors, open }: { categories: read
               <span class="muted">{plural(category.groups.length, 'error group')}</span>
               <span class="group-count">{plural(category.tests, 'test')}</span>
             </summary>
-            <GroupList groups={category.groups} colors={colors} showCategory={false} />
+            <GroupList groups={category.groups} colors={colors} inCategory={category.name} />
           </details>
         </li>
       ))}

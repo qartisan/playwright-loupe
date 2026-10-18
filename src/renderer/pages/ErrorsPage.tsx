@@ -21,7 +21,8 @@ export function ErrorsPage({ report, groups, category }: { report: LoupeReport; 
     target?.querySelector<HTMLElement>('summary')?.focus({ preventScroll: true });
   }, [category]);
   const ranked = useMemo(() => rankGroups(groups), [groups]);
-  const categories = useMemo(() => categoryCounts(report, groups), [report, groups]);
+  // From the ranked groups: each category lists its groups in the order its group pages walk them.
+  const categories = useMemo(() => categoryCounts(report, ranked), [report, ranked]);
   const colors = useMemo(() => categoryColorMap(report.categories), [report]);
   const { errors } = report.run;
 

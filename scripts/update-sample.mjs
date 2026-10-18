@@ -6,16 +6,20 @@
 // test), so the sample covers what the renderer must show: failed, flaky and
 // skipped tests, a partial run and a run error. The script checks that before
 // writing. Absolute paths of this machine (in stack traces) are replaced by `<root>/`.
+// The attachment files are copied to src/renderer/dev/data/ (gitignored: videos
+// and traces would bloat the repository), where the dev server serves them at
+// `data/`, so attachment links work in the dev server too.
 // Expects a built reporter (`npm run sample:update` builds first).
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const outputFolder = fileURLToPath(new URL('../loupe-report-sample/', import.meta.url));
 const source = `${outputFolder}report.json`;
 const target = new URL('../src/renderer/dev/sample.json', import.meta.url);
+const dataTarget = fileURLToPath(new URL('../src/renderer/dev/data/', import.meta.url));
 
 rmSync(outputFolder, { recursive: true, force: true });
 
@@ -46,4 +50,6 @@ if (problems.length > 0) {
 
 const json = JSON.stringify(report, null, 2).replaceAll(JSON.stringify(root).slice(1, -1), '<root>/');
 writeFileSync(target, `${json}\n`);
-console.log(`\nupdate-sample: wrote ${fileURLToPath(target)} (${report.tests.length} tests, ${report.run.errors.length} run error).`);
+rmSync(dataTarget, { recursive: true, force: true });
+if (existsSync(`${outputFolder}data`)) cpSync(`${outputFolder}data`, dataTarget, { recursive: true });
+console.log(`\nupdate-sample: wrote ${fileURLToPath(target)} (${report.tests.length} tests, ${report.run.errors.length} run error) and its attachments.`);

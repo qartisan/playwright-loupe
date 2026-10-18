@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
@@ -6,6 +6,19 @@ import { defineConfig, type Plugin } from 'vite';
 import { DEFAULT_RENDERER_SETTINGS, injectData, injectSettings } from './src/core/inject.js';
 
 const SAMPLE_JSON = fileURLToPath(new URL('./src/renderer/dev/sample.json', import.meta.url));
+/** The sample's attachment files, copied by `npm run sample:update` (gitignored). */
+const SAMPLE_DATA = fileURLToPath(new URL('./src/renderer/dev/data/', import.meta.url));
+
+const CONTENT_TYPES: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webm': 'video/webm',
+  '.zip': 'application/zip',
+  '.json': 'application/json',
+  '.md': 'text/markdown; charset=utf-8',
+  '.txt': 'text/plain; charset=utf-8',
+};
 
 /** Size budget of the built renderer, gzipped: a warning above the first, a failed build above the second. */
 const BUDGET_WARN_BYTES = 100_000;
@@ -76,6 +89,18 @@ function sampleData(): Plugin {
       return injectSettings(injectData(html, JSON.parse(readFileSync(SAMPLE_JSON, 'utf8'))), settings);
     },
     configureServer(server) {
+      // Attachment links are relative to the report folder (`data/<test>/<attempt>/<file>`): serve the sample's copy there.
+      server.middlewares.use('/data/', (request, response, next) => {
+        let file: string;
+        try {
+          file = path.resolve(SAMPLE_DATA, decodeURIComponent((request.url ?? '').split('?')[0] ?? '').replace(/^\/+/, ''));
+        } catch {
+          return next();
+        }
+        if (!file.startsWith(SAMPLE_DATA) || !existsSync(file) || !statSync(file).isFile()) return next();
+        response.setHeader('Content-Type', CONTENT_TYPES[path.extname(file).toLowerCase()] ?? 'application/octet-stream');
+        createReadStream(file).pipe(response);
+      });
       server.watcher.add(SAMPLE_JSON);
       server.watcher.on('change', (file) => {
         if (file === SAMPLE_JSON) server.ws.send({ type: 'full-reload' });

@@ -30,7 +30,12 @@ describe('resolveConfig: defaults', () => {
       dimensions: { auto: true, definitions: [] },
       screenshots: { defaultView: 'side-by-side' },
       theme: 'system',
+      aiPrompt: { includeStack: true },
     });
+  });
+
+  it('keeps aiPrompt.includeStack from the config', () => {
+    expect(resolve({ file: { aiPrompt: { includeStack: false } } }).aiPrompt).toEqual({ includeStack: false });
   });
 });
 

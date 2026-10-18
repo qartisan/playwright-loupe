@@ -7,8 +7,10 @@ import { EMPTY_FILTERS } from '../filters/url.js';
 import { formatDuration } from '../format.js';
 import { sidebarOpen, toggleSidebar } from '../layout.js';
 import { hrefTo } from '../navigation.js';
+import { useShortcuts } from '../shortcuts.js';
 import { THEME_CHOICES, setTheme, theme, type ThemeChoice } from '../theme.js';
-import { AlertIcon, MoonIcon, OutcomeIcon, SidebarIcon, SunIcon, SystemIcon, outcomeLabel } from './icons.js';
+import { ShortcutsDialog } from './Dialog.js';
+import { AlertIcon, KeyboardIcon, MoonIcon, OutcomeIcon, SidebarIcon, SunIcon, SystemIcon, outcomeLabel } from './icons.js';
 
 const RUN_STATUS_LABELS: Record<RunStatus, string> = {
   passed: 'Passed',
@@ -58,6 +60,21 @@ function ThemeSwitch() {
         );
       })}
     </div>
+  );
+}
+
+/** Opens the keyboard shortcuts dialog; `?` opens it from anywhere. */
+function ShortcutsButton() {
+  const [open, setOpen] = useState(false);
+  useShortcuts({ '?': () => setOpen(true) });
+  return (
+    <>
+      <button type="button" class="icon-button" title="Keyboard shortcuts (?)" aria-keyshortcuts="?" onClick={() => setOpen(true)}>
+        <KeyboardIcon />
+        <span class="visually-hidden">Keyboard shortcuts</span>
+      </button>
+      <ShortcutsDialog open={open} onClose={() => setOpen(false)} />
+    </>
   );
 }
 
@@ -173,7 +190,10 @@ export function Header({ report, title }: { report: LoupeReport; title: string }
             </div>
           ))}
         </dl>
-        <ThemeSwitch />
+        <div class="header-tools">
+          <ShortcutsButton />
+          <ThemeSwitch />
+        </div>
       </header>
       {run.scope === 'partial' && (
         <div class="banner banner-partial" role="note">

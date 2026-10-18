@@ -4,6 +4,32 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Before 1.0, minor versions may contain breaking changes. The JSON report has its own version (`schemaVersion`), see [`docs/schema/v1.md`](docs/schema/v1.md#versioning-policy).
 
+## [Unreleased]
+
+### Added
+
+- **Test detail** (`#/test/<id>`): title path, outcome, project, `file:line`, total duration, error category, tags, annotations and dimensions; then one tab per attempt ("Attempt 1", "Retry 1" …, each with its status and duration), hidden for a single attempt. The default attempt is the last failing one: a failed test opens on its last attempt, a flaky test on its failure, not on the passing retry. The attempt is in the URL (`?attempt=1`) next to the filters; an index the test does not have falls back to the default attempt and the URL is corrected. Per attempt:
+  - **Errors**, each with its category, `file:line:column`, a "View error group" link with the group's test count, the code snippet and the stack (collapsed). Playwright's colors are rebuilt from the text: the value of `Expected:` / `Received:` lines (and `Expected substring:`, `Received string:`, `Expected pattern:`, `Received array:` …), the `-` / `+` lines of a diff opened by the `- Expected` / `+ Received` header (only there: call log lines are never colored), and the snippet's arrow and caret. The report keeps messages without ANSI codes, so Playwright's character-level highlighting inside strings is not reproduced. Messages are rendered as text, never as HTML. Two new color tokens, `--diff-expected` and `--diff-received`, meet WCAG contrast in both themes.
+  - **Steps**: `test.step` steps and steps with an error, with the ancestors needed to place them; each step with children expands. The failing path is highlighted and expanded on load. "Show all steps" (`?steps=all`) adds hooks, fixtures, API calls and `expect` steps, each with its category. A step's error message is shown under the step it comes from.
+  - **Attachments**, listed by kind (screenshots, videos, traces, text, other) with their content type: files as relative links (they work from `file://`), small text bodies inline and collapsed, with their size. Viewers come in a later release.
+  - **stdout and stderr**, collapsed, with a notice when the report truncated them.
+- **Rerun commands**, copied to the clipboard, to paste in a POSIX shell (bash, zsh; not `cmd.exe`) from the Playwright root directory:
+  - this test only, in its project (`npx playwright test basics.spec.ts:34 --project=chromium-a`; no `--project` for an unnamed project);
+  - the failed tests of its file, shown only when another line of the file failed (the same test failing in another project does not count), labeled with the distinct `file:line` per project and the projects involved (`10 failed tests in this file, in chromium-a, chromium-b`);
+  - the failed tests of the current list, every one of them, not only the rows shown: above the Tests view's table, and as "Rerun failed tests" under the overview's verdict.
+
+  Projects with exactly the same `file:line` arguments share one command (`--project=a --project=b`); when the sets differ, each project gets its own command, joined with `&&`, because one command would run every file in every project. Arguments are sorted by file, then line, and each `file:line` is given once. Arguments with spaces or shell characters are single-quoted, an inner `'` written `'\''`. Flaky tests are left out. A `file:line` targets the line where the test is declared, and reruns every test declared there: a command is only valid while the file has not changed since the run. Above 100 tests, a note says the command is long.
+- **AI prompt**, copied to the clipboard only, in English: an instruction (most likely cause, test or application, a fix), the test, the attempt, tags and annotations, each error with its message, snippet, location and stack, the failing step with up to 5 steps before it, and the names of the attachments. New option `aiPrompt.includeStack` (default `true`) leaves the stacks out; it is a renderer setting, not part of `report.json`.
+- **Copy fallback**: when the browser refuses the Clipboard API (some do on `file://`), a dialog shows the text selected, to copy by hand. Successful copies are announced to screen readers.
+- **Previous / next**: on the test detail, through the Tests view's current list (filters and sort, every row, not only the first 500), each test on its default attempt; on an error group page, through the Errors view's order. A group opened from a category (its section in the Errors view, `#/errors/category/<name>`) carries `category=<name>` in its URL and walks that category's groups only; a group opened from the global list or from a test walks every group. No wrap-around at the ends.
+- **Keyboard shortcuts**: `j` / `k` next and previous test, `[` / `]` previous and next attempt, `n` / `p` next and previous error group, `?` the list of shortcuts (also behind a keyboard icon in the header). They never fire while typing in a field, with Ctrl, Alt or Meta held, or while a dialog is open. Documented in the README.
+- **Fixture suite**: two intentional failures, a `test.step` failing at the second level (`fails inside a nested step`) and a `toEqual` with a multi-line diff (`returns a different order`). The fixture snapshot gains these 4 tests (2 per project); tests declared after them moved down a few lines.
+
+### Changed
+
+- **Error groups inside a category** are listed in the Errors view's order (most failed tests first, then most flaky), the order their previous / next buttons follow, instead of first occurrence.
+- **Renderer dev sample**: `npm run sample:update` also copies the sample's attachment files to `src/renderer/dev/data/` (gitignored), and the dev server serves them at `data/`, so attachment links work there too.
+
 ## [0.0.5] 2026-10-17
 
 ### Added

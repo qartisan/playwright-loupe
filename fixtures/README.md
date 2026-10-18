@@ -5,14 +5,14 @@ This Playwright suite exists to feed the Loupe reporter with realistic results. 
 **Its failures are intentional and must never be fixed.** It deliberately contains:
 
 - passing tests;
-- a failing assertion (`fails on a wrong heading`);
+- a failing assertion (`fails on a wrong heading`), and a `toEqual` failure with a multi-line diff (`returns a different order`);
 - a flaky test that fails on the first attempt and passes on retry (`testInfo.retry`), with one attachment per attempt;
 - a skipped test and a `fixme`;
 - a slow test (about 3 seconds);
 - one failure per built-in error category: ambiguous locator (a strict mode violation), locator not found, rate limited and server error (a 429 through `toBeOK()` and a 500 through `failOnStatusCode`, both from a local HTTP server on 127.0.0.1), network (a refused connection), assertion and timeout;
 - two tests throwing the same error with a different UUID, URL and duration, which must share an error signature (their category is `Uncategorized`);
 - a `toHaveScreenshot` failure producing expected / actual / diff images, against the committed baseline in `tests/__screenshots__/` (a red square; the test renders a blue one);
-- nested `describe` blocks, a `test.step` with a nested step, and a test writing to stdout and stderr;
+- nested `describe` blocks, a `test.step` with a nested step, a test failing inside a nested `test.step` (second level, `fails inside a nested step`), and a test writing to stdout and stderr;
 - prefixed tags (`@layer:api`, `@layer:ui`, `@area:checkout`), an unprefixed tag (`@smoke`) and a `bug` annotation;
 - a screenshot attachment, plus the videos and traces Playwright keeps on failure.
 
@@ -41,7 +41,7 @@ Everything runs offline, through `page.setContent` and local servers on 127.0.0.
 
 ## Renderer sample
 
-`sample.config.ts` runs the same suite with a `globalTeardown` (`sample/global-teardown.ts`) that **fails on purpose**, so the report has a run error. `npm run sample:update` runs it with `--grep-invert "is slow"`, which makes the run partial (and skips the slow test), checks that the report has failed, flaky and skipped tests, a partial scope and a run error, then writes it to `src/renderer/dev/sample.json` for the renderer dev server and the renderer build tests. It is kept apart from `playwright.config.ts`, whose runs must have no run error.
+`sample.config.ts` runs the same suite with a `globalTeardown` (`sample/global-teardown.ts`) that **fails on purpose**, so the report has a run error. `npm run sample:update` runs it with `--grep-invert "is slow"`, which makes the run partial (and skips the slow test), checks that the report has failed, flaky and skipped tests, a partial scope and a run error, then writes it to `src/renderer/dev/sample.json` for the renderer dev server and the renderer build tests. Its attachment files are copied to `src/renderer/dev/data/`, gitignored (videos and traces would bloat the repository); the dev server serves them at `data/`, like a report folder. It is kept apart from `playwright.config.ts`, whose runs must have no run error.
 
 ## Scripts
 

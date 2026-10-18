@@ -1,0 +1,63 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`AI prompt > describes the attempt in English, with the stack by default 1`] = `
+"A Playwright test failed. Explain the most likely cause of the failure, say whether the problem is more likely in the test or in the application under test, and suggest a fix.
+
+## Test
+
+- Title: structure › fails inside a nested step (intentional)
+- Location: structure.spec.ts:19
+- Project: chromium-a
+- Outcome: failed
+- Attempt: 2 of 2 (retry 1), status failed
+- Error category: Assertion
+- Tags: @layer:ui
+- Annotations: issue: CART-12
+
+## Error
+
+Category: Assertion
+Location: structure.spec.ts:23:46
+
+Message:
+\`\`\`
+Error: expect(locator).toHaveText(expected) failed
+
+Locator:  locator('#total')
+Expected: "15.00"
+Received: "12.00"
+Timeout:  300ms
+
+Call log:
+  - Expect "toHaveText" locator('#total') with timeout 300ms
+  - waiting for locator('#total')
+    6 × locator resolved to <p id="total">12.00</p>
+      - unexpected value "12.00"
+\`\`\`
+
+Code:
+\`\`\`
+  21 |       await page.setContent('<p id="total">12.00</p>');
+  22 |       await test.step('check the total', async () => {
+> 23 |         await expect(page.locator('#total')).toHaveText('15.00', { timeout: 300 });
+     |                                              ^
+  24 |       });
+\`\`\`
+
+Stack:
+\`\`\`
+Error: expect(locator).toHaveText(expected) failed
+    at <root>/fixtures/tests/structure.spec.ts:23:46
+    at <root>/fixtures/tests/structure.spec.ts:22:7
+\`\`\`
+
+## Failing step
+
+open the cart › check the total › Expect "toHaveText" (locator('#total'))
+
+## Attachments (not included)
+
+- video (video/webm)
+- trace (application/zip)
+"
+`;

@@ -1,8 +1,8 @@
 import { signal } from '@preact/signals';
 import { formatHash, parseHash, redirectHash, type AppLocation, type Route } from './router.js';
 
-/** Rewrites the query to its canonical form; identity until the filters set one. */
-let normalizeSearch = (search: string): string => search;
+/** Rewrites the query to its canonical form for a route; identity until the filters set one. */
+let normalizeSearch = (search: string, _route: Route): string => search;
 
 /**
  * The location of the current fragment, after redirects and query
@@ -12,7 +12,7 @@ let normalizeSearch = (search: string): string => search;
 function readLocation(): AppLocation {
   const hash = window.location.hash;
   const parsed = parseHash(hash);
-  const location = { route: parsed.route, search: normalizeSearch(parsed.search) };
+  const location = { route: parsed.route, search: normalizeSearch(parsed.search, parsed.route) };
   if (redirectHash(hash) !== null || location.search !== parsed.search) {
     window.history.replaceState(window.history.state, '', formatHash(location));
   }
@@ -32,14 +32,27 @@ window.addEventListener('hashchange', sync);
 window.addEventListener('popstate', sync);
 
 /** Sets the query normalizer and applies it to the current URL. */
-export function setSearchNormalizer(normalize: (search: string) => string): void {
+export function setSearchNormalizer(normalize: (search: string, route: Route) => string): void {
   normalizeSearch = normalize;
   sync();
 }
 
-/** Link to a route, keeping the current query (view state such as filters). */
+/** Query parameters that point inside one page (the attempt of a test): never carried to another page. */
+const PAGE_PARAMS = new Set(['attempt']);
+
+function withoutPageParams(search: string): string {
+  return search
+    .split('&')
+    .filter((pair) => pair !== '' && !PAGE_PARAMS.has(pair.split('=')[0] ?? ''))
+    .join('&');
+}
+
+/**
+ * Link to a route, keeping the current query (view state such as filters),
+ * normalized for that route: parameters of another page are dropped.
+ */
 export function hrefTo(route: Route): string {
-  return formatHash({ route, search: currentLocation.value.search });
+  return formatHash({ route, search: normalizeSearch(withoutPageParams(currentLocation.value.search), route) });
 }
 
 export function navigate(route: Route): void {
