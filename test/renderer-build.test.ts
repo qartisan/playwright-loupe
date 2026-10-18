@@ -246,12 +246,13 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     await verdict.waitFor();
     expect(await verdict.getAttribute('data-verdict')).toBe('failed');
     expect(await verdict.textContent()).toBe('Failed');
-    // Verdict, run errors, error categories, projects: no error group list.
+    // Verdict, run errors, error categories, projects, run details: no error group list.
     expect(await page.locator('.widget h2').allTextContents()).toEqual([
       'Verdict',
       `${report.run.errors.length} error outside tests`,
       'Error categories',
       'Projects',
+      'Run details',
     ]);
     expect(await page.locator('.group-row').count()).toBe(0);
     const { stats } = report.run;
@@ -571,11 +572,11 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     await page.close();
   });
 
-  it('hides the widgets with nothing to show, but always shows the verdict', async () => {
+  it('hides the widgets with nothing to show, but always shows the verdict and the run details', async () => {
     const empty = { ...report, tests: [], projects: [], dimensions: [], run: { ...report.run, errors: [], status: 'passed', stats: { total: 0, passed: 0, failed: 0, flaky: 0, skipped: 0 } } };
     const { page, errors } = await open(writeReport('dashboard-empty', empty));
     await page.locator('.verdict-outcome').waitFor();
-    expect(await page.locator('.widget h2').allTextContents()).toEqual(['Verdict']);
+    expect(await page.locator('.widget h2').allTextContents()).toEqual(['Verdict', 'Run details']);
     expect(await page.locator('.verdict-outcome').getAttribute('data-verdict')).toBe('passed');
     expect(await page.locator('.nav-marker').count()).toBe(0);
     await page.getByRole('link', { name: /^Errors/ }).click();
@@ -593,7 +594,7 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     };
     await page.goto(writeReport('dashboard-green', green));
     await page.locator('.verdict-outcome').waitFor();
-    expect(await page.locator('.widget h2').allTextContents()).toEqual(['Verdict', 'Projects']);
+    expect(await page.locator('.widget h2').allTextContents()).toEqual(['Verdict', 'Projects', 'Run details']);
     await page.getByRole('link', { name: /^Suite health/ }).click();
     await page.locator('.widget-slowest').waitFor();
     expect(await page.locator('.widget h2').allTextContents()).toEqual(['Slowest tests']);

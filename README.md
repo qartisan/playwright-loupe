@@ -37,7 +37,8 @@ A run that broke outside its tests (a spec file that fails to import, a failing 
 
 The report is a single self-contained HTML file. It works offline, straight from `file://`, in light and dark themes.
 
-- **Overview:** verdict with pass rate, run errors first when the run broke outside its tests, error categories, project cards.
+- **Header:** the run's verdict and status counts, its start, duration and environment; the shortcuts and theme controls stay top-right at every width.
+- **Overview:** verdict with pass rate, run errors first when the run broke outside its tests, error categories, project cards, and the run details in three groups: Run (scope, CI, workers, shard), Code (commit, short with a copy button; branch; repository) and Environment (Playwright, Loupe, Node, OS). Empty values are left out.
 - **Errors:** every error group, built from normalized error signatures, with the failed / flaky split and links to the affected tests. A group page has previous / next buttons: from a category, they stay within that category.
 - **Test detail:** title path, outcome, project, `file:line`, tags, annotations and dimensions, then one tab per attempt (the last failing attempt first; `?attempt=` in the URL): errors with Expected / Received and diffs highlighted and the code snippet, steps (`test.step` and failing steps, the failing path expanded; "Show all steps" for hooks, fixtures and API calls), attachments, stdout and stderr. Previous / next walk the Tests view's current list.
 - **Attachments**, per attempt, linked from `data/` next to the report (never inlined in the HTML), all working from `file://`:

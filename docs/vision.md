@@ -64,7 +64,7 @@ Presentation choices (title, theme, default screenshot view) are **renderer sett
 
 A collapsible sidebar holds the navigation: search, filters and a tree of projects → folders → files → describe blocks → tests (the folder prefix shared by every file is left out), with a status icon per test and counters per node. A level with a single child describe block is merged with it (`login.spec.ts › login`); projects always stay visible. The main area shows the dashboard or the selected item at full width.
 
-The header carries the run summary (status, counts, duration, branch, commit, environment) and the theme switch. A partial run shows a visible banner with the reasons it was detected as partial.
+The header carries the run summary in three groups that wrap as units (identity and verdict; status counts; start, duration and environment), with the controls (shortcuts, theme switch) always top-right. A partial run shows a visible banner with the reasons it was detected as partial. The rest of the run metadata is in the Overview's Run details card, in three groups: Run (scope, CI, workers, shard), Code (commit, branch, repository) and Environment (Playwright, Loupe, Node, OS), as plain text: no links, which would need provider-specific URL rules.
 
 ### Entry dashboard
 
@@ -72,7 +72,7 @@ The dashboard answers three questions in five seconds: *Is it green? What broke?
 
 The dashboard is a list of widgets, split into three views **by subject**, each a fixed sidebar entry with its own route:
 
-- **Overview** (`#/`): the verdict on top (outcome, a stacked bar of the outcomes with their counts, pass rate, duration), then run errors when there are any, as a prominent warning right under the verdict, then compact error categories (each opening its category in the Errors view), then project cards. A report with run errors is never presented as green.
+- **Overview** (`#/`): the verdict on top (outcome, a stacked bar of the outcomes with their counts, pass rate, duration), then run errors when there are any, as a prominent warning right under the verdict, then compact error categories (each opening its category in the Errors view), then project cards, then the run details. A report with run errors is never presented as green.
 - **Errors** (`#/errors`): run errors first, every error group (most failed tests first, then most flaky), then the categories in detail. Error groups live here only. The sidebar entry carries a warning marker and the count when the run has run errors.
 - **Suite health** (`#/health`): one widget per dimension with tag hygiene (unknown values, values differing only by case), slowest, skipped and flaky tests. A dimension adapts to its number of values: one stacked bar per value up to about 8 values, a grid of tiles colored by worst status above (problem values first, details on hover and focus); the exact table is always one click away.
 

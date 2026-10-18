@@ -13,6 +13,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Inline videos**: `<video controls preload="metadata">` with the attachment's content type, and "Open original". A missing or unplayable file shows its path instead of an empty player.
 - **Trace command.** Each trace attachment has a card with "Copy trace command" (`npx playwright show-trace <path>`, the path quoted for a POSIX shell when needed; copied with the same fallback dialog and announcement as the rerun commands) and "Download trace". Its help says to run it from the report folder (the one containing `index.html`) and that it uses the project's own Playwright, which must be at least the run's version (`run.playwrightVersion`), since an older trace viewer shows an empty screen on a newer trace; that sentence is left out when the report has no version. The report does not serve the trace viewer itself: it needs an HTTP server.
 - `←` / `→` in the keyboard shortcuts dialog and the README.
+- **Run details** on the Overview, after the projects, in three groups shown side by side when there is room and stacked on narrow screens, each a description list under its heading: **Run** (scope, "Full run" or "Partial run" with its reasons; CI, the provider or Yes / No; workers; shard, "2 of 4"), **Code** (commit, short with the full hash in the tooltip and a copy button; branch; repository) and **Environment** (Playwright, Loupe, Node, OS). Empty values are left out, and a group without any value is not shown. Plain text, no links to commits or repositories.
+
+### Changed
+
+- **Header layout.** Two columns: the run on the left, the controls (keyboard shortcuts, theme switch) always top-right on the first row, at every width. The left column has three groups that wrap as units, always in this order: identity and verdict, status counts, start date and duration with the environment. The suite name is truncated with an ellipsis, the full name in its tooltip; on very narrow screens the verdict goes under the name. No horizontal page scroll down to 320 px.
+- **Branch and commit moved from the header to the Run details card.** The header keeps the start date, duration and environment. A commit is shown with 7 characters, the full hash in the tooltip and the copy button.
 
 ### Fixed
 

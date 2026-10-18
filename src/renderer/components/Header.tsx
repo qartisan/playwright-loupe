@@ -7,6 +7,7 @@ import { EMPTY_FILTERS } from '../filters/url.js';
 import { formatDuration } from '../format.js';
 import { sidebarOpen, toggleSidebar } from '../layout.js';
 import { hrefTo } from '../navigation.js';
+import { scopeReasonLabel } from '../runDetails.js';
 import { useShortcuts } from '../shortcuts.js';
 import { THEME_CHOICES, setTheme, theme, type ThemeChoice } from '../theme.js';
 import { ShortcutsDialog } from './Dialog.js';
@@ -18,24 +19,6 @@ const RUN_STATUS_LABELS: Record<RunStatus, string> = {
   timedout: 'Timed out',
   interrupted: 'Interrupted',
 };
-
-/** Reasons a run is partial (docs/schema/v1.md, "Run scope"). Unknown reasons are shown as is. */
-const SCOPE_REASON_LABELS: Record<string, string> = {
-  env: 'LOUPE_RUN_SCOPE=partial',
-  'file-filter': 'file filter',
-  grep: 'grep filter',
-  'project-filter': 'project filter',
-  'last-failed': '--last-failed',
-  'only-changed': '--only-changed',
-  'test-list': 'test list',
-  only: 'test.only',
-  shard: 'single shard',
-  list: '--list (no test ran)',
-};
-
-function scopeReasonLabel(reason: string): string {
-  return SCOPE_REASON_LABELS[reason] ?? reason;
-}
 
 const THEME_LABELS: Record<ThemeChoice, string> = { system: 'System theme', light: 'Light theme', dark: 'Dark theme' };
 const THEME_ICONS = { system: SystemIcon, light: SunIcon, dark: MoonIcon };
@@ -145,51 +128,59 @@ function CountLink({ outcome, count }: { outcome: Outcome; count: number }) {
   );
 }
 
+/**
+ * Two columns: the run on the left, which wraps, and the controls on the
+ * right, always top-right. The left column has three groups that wrap as
+ * units, in order: identity and verdict, status counts, start and
+ * environment.
+ */
 export function Header({ report, title }: { report: LoupeReport; title: string }) {
   const { run } = report;
-  const meta: Array<[string, string, string?]> = [];
-  if (run.git.branch) meta.push(['Branch', run.git.branch]);
-  if (run.git.commit) meta.push(['Commit', run.git.commit.slice(0, 8), run.git.commit]);
-  if (run.environment.name) meta.push(['Environment', run.environment.name]);
 
   return (
     <>
       <header class="header">
-        <button
-          type="button"
-          class="icon-button"
-          aria-controls="sidebar"
-          aria-expanded={sidebarOpen.value}
-          title={sidebarOpen.value ? 'Hide sidebar' : 'Show sidebar'}
-          onClick={toggleSidebar}
-        >
-          <SidebarIcon />
-          <span class="visually-hidden">{sidebarOpen.value ? 'Hide sidebar' : 'Show sidebar'}</span>
-        </button>
-        <div class="brand">
-          <span class="wordmark">Loupe</span>
-          <a class="title" href={hrefTo({ page: 'dashboard' })}>
-            {title}
-          </a>
-        </div>
-        <span class={`run-status run-${run.status}`}>
-          <OutcomeIcon outcome={run.status === 'passed' ? 'passed' : 'failed'} decorative />
-          {RUN_STATUS_LABELS[run.status] ?? run.status}
-        </span>
-        <ul class="counts" aria-label="Test counts">
-          {OUTCOMES.map((outcome) => (
-            <CountLink key={outcome} outcome={outcome} count={run.stats[outcome]} />
-          ))}
-        </ul>
-        <dl class="run-meta">
-          <RunTime startedAt={run.startedAt} durationMs={run.durationMs} />
-          {meta.map(([label, value, tooltip]) => (
-            <div key={label} title={tooltip}>
-              <dt>{label}</dt>
-              <dd>{value}</dd>
+        <div class="header-main">
+          <div class="header-identity">
+            <div class="header-name">
+              <button
+                type="button"
+                class="icon-button"
+                aria-controls="sidebar"
+                aria-expanded={sidebarOpen.value}
+                title={sidebarOpen.value ? 'Hide sidebar' : 'Show sidebar'}
+                onClick={toggleSidebar}
+              >
+                <SidebarIcon />
+                <span class="visually-hidden">{sidebarOpen.value ? 'Hide sidebar' : 'Show sidebar'}</span>
+              </button>
+              <div class="brand">
+                <span class="wordmark">Loupe</span>
+                <a class="title" href={hrefTo({ page: 'dashboard' })} title={title}>
+                  {title}
+                </a>
+              </div>
             </div>
-          ))}
-        </dl>
+            <span class={`run-status run-${run.status}`}>
+              <OutcomeIcon outcome={run.status === 'passed' ? 'passed' : 'failed'} decorative />
+              {RUN_STATUS_LABELS[run.status] ?? run.status}
+            </span>
+          </div>
+          <ul class="counts" aria-label="Test counts">
+            {OUTCOMES.map((outcome) => (
+              <CountLink key={outcome} outcome={outcome} count={run.stats[outcome]} />
+            ))}
+          </ul>
+          <dl class="run-meta">
+            <RunTime startedAt={run.startedAt} durationMs={run.durationMs} />
+            {run.environment.name && (
+              <div>
+                <dt>Environment</dt>
+                <dd>{run.environment.name}</dd>
+              </div>
+            )}
+          </dl>
+        </div>
         <div class="header-tools">
           <ShortcutsButton />
           <ThemeSwitch />

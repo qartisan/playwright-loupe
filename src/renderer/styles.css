@@ -151,15 +151,27 @@ h1, h2, h3, strong, b { font-weight: 600; }
 .main:focus { outline: none; }
 .main > .page { flex: 1; }
 
-/* Header */
+/*
+ * Header: the run on the left (wraps), the controls on the right (always
+ * top-right). The left column's three groups wrap as units; the suite name
+ * shrinks with an ellipsis before the verdict leaves its line.
+ */
 .header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   gap: 8px 16px;
   padding: 8px 16px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-card);
+}
+.header-main { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; min-width: 0; min-height: 30px; }
+.header-identity { display: flex; align-items: center; gap: 8px 12px; min-width: 0; }
+.header-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.header-identity .run-status { flex: none; }
+/* Very narrow: the verdict goes under the name rather than squeezing it out. */
+@media (max-width: 440px) {
+  .header-identity { flex-wrap: wrap; }
 }
 .brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
 .wordmark { color: var(--status-passed); font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
@@ -187,7 +199,7 @@ h1, h2, h3, strong, b { font-weight: 600; }
 .run-passed { color: var(--status-passed); }
 .run-failed, .run-timedout, .run-interrupted { color: var(--status-failed); }
 
-.counts { display: flex; gap: 12px; padding: 0; margin: 0; list-style: none; }
+.counts { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 0; margin: 0; list-style: none; }
 .count { display: flex; align-items: center; gap: 4px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .count.zero { font-weight: 400; }
 .count.zero .outcome-icon { color: var(--fg-secondary); }
@@ -202,7 +214,7 @@ h1, h2, h3, strong, b { font-weight: 600; }
 
 /* Run start: details on hover and focus, Escape hides them. */
 .run-time { position: relative; }
-.run-time dd { overflow: visible; }
+.run-time dd { overflow: visible; white-space: normal; }
 .run-time time { border-radius: 2px; text-decoration: underline dotted var(--border-control); text-underline-offset: 3px; cursor: help; }
 .run-time-details {
   position: absolute;
@@ -227,7 +239,7 @@ h1, h2, h3, strong, b { font-weight: 600; }
 .run-time:hover .run-time-details, .run-time:focus-within .run-time-details { display: flex; }
 .run-time .run-time-details.dismissed { display: none; }
 
-.header-tools { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.header-tools { display: flex; align-items: center; gap: 8px; }
 .theme-switch { display: flex; border: 1px solid var(--border-control); border-radius: 6px; }
 .theme-switch .icon-button { border-radius: 0; }
 .theme-switch .icon-button:first-child { border-radius: 5px 0 0 5px; }
@@ -470,6 +482,15 @@ pre.message {
 .widget-list > li { border-top: 1px solid var(--border); }
 .widget-list > li:first-child { border-top: 0; }
 .widget-more { margin: 8px 0 0; }
+
+/* Run details: one column per group (Run, Code, Environment), stacked on narrow screens. */
+.run-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 16px 32px; font-size: 13px; }
+.run-details-group h3 { margin: 0 0 6px; color: var(--fg-secondary); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.run-details dl { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+.run-details dl > div { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 12px; align-items: baseline; }
+.run-details dt { color: var(--fg-secondary); }
+.run-details dd { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.run-details .copy-button { min-height: 0; padding: 1px 6px; font-size: 12px; line-height: 16px; }
 
 /* Two columns at most; an odd last widget takes the full row, so no row is half empty. */
 .widget-grid {
@@ -1015,7 +1036,6 @@ pre.step-error { margin: 2px 0 6px 50px; font-weight: 400; }
 /* Narrow screens: the sidebar overlays the main area. */
 @media (max-width: 760px) {
   .header { padding: 8px 12px; }
-  .run-meta { order: 10; width: 100%; }
   .sidebar { position: absolute; inset: 0 auto 0 0; z-index: 10; box-shadow: var(--shadow); }
   .page { padding: 16px; }
   .footer { padding: 12px 16px; }
