@@ -6,7 +6,8 @@ import { CategoryBadge } from '../components/CategoryBadge.js';
 import { CopyButton } from '../components/CopyButton.js';
 import { OutcomeIcon } from '../components/icons.js';
 import { Pager } from '../components/Pager.js';
-import { AttachmentList, ErrorCard, OutputBlock, StepTree } from '../components/TestDetail.js';
+import { Attachments } from '../components/Media.js';
+import { ErrorCard, OutputBlock, StepTree } from '../components/TestDetail.js';
 import { projectLabel } from '../components/widgets.js';
 import type { ErrorGroup } from '../dashboard.js';
 import { buildAiPrompt } from '../detail/aiPrompt.js';
@@ -164,7 +165,7 @@ function AttemptContent({ test, attempt, params, groups, colors }: {
       {attempt.attachments.length > 0 && (
         <section class="detail-section" aria-labelledby="detail-attachments">
           <h2 id="detail-attachments">Attachments</h2>
-          <AttachmentList attachments={attempt.attachments} />
+          <Attachments key={`${test.id}/${test.repeatEachIndex}/${attempt.index}`} attachments={attempt.attachments} />
         </section>
       )}
       {ownAnnotations.length > 0 && (

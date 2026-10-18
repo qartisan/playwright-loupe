@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { ConsoleMessage, Page } from '@playwright/test';
 import type { LoupeReport, Step, TestCase } from '../../src/schema/v1.js';
 
 export const ROOT = fileURLToPath(new URL('../..', import.meta.url));
@@ -53,4 +54,14 @@ export function userSteps(steps: Step[]): unknown[] {
     if (step.category !== 'test.step') return children;
     return [children.length > 0 ? { [step.title]: children } : step.title];
   });
+}
+
+/**
+ * A console error for an attachment file missing under the report's `data/`
+ * folder: expected when a test report is written without its attachment
+ * files. Any other missing file (the bundle, the report itself) is not.
+ */
+export function isMissingAttachmentFile(message: ConsoleMessage, page: Page): boolean {
+  if (message.type() !== 'error' || !message.text().includes('net::ERR_FILE_NOT_FOUND')) return false;
+  return message.location().url.startsWith(new URL('data/', page.url()).href);
 }

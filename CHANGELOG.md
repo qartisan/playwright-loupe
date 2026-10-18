@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Before 1.0, minor versions may contain breaking changes. The JSON report has its own version (`schemaVersion`), see [`docs/schema/v1.md`](docs/schema/v1.md#versioning-policy).
 
+## [Unreleased]
+
+### Added
+
+- **Screenshot thumbnails and viewer.** In the test detail, each attempt's screenshots are a grid of thumbnails (lazy-loaded, the attachment name under each). A click, or Enter / Space, opens a viewer in a modal dialog: the image fitted to the window, or at actual size (scrollable) by clicking it or with "Actual size"; previous / next with buttons or `←` / `→`, with the position ("2 of 3") and no wrap-around; "Open original" in a new tab. Escape, the close button or a click outside closes it and puts focus back on the thumbnail. Page shortcuts are inactive while it is open, and any route change (Back, another test) closes it; its state is never in the URL. A missing file shows its name and path, never a broken image.
+- **Inline videos**: `<video controls preload="metadata">` with the attachment's content type, and "Open original". A missing or unplayable file shows its path instead of an empty player.
+- `←` / `→` in the keyboard shortcuts dialog and the README.
+
+### Fixed
+
+- Dialogs: reopening one right after closing it with Escape could leave it closed, because the dialog's close event arrives after the reopening.
+
 ## [0.0.6] - 2026-10-18
 
 ### Added

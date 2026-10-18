@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DEFAULT_RENDERER_SETTINGS, injectData, injectSettings, type RendererSettings } from '../src/core/inject.js';
 import { errorGroups, rankGroups } from '../src/renderer/dashboard.js';
 import type { LoupeReport, TestCase } from '../src/schema/v1.js';
-import { ROOT, assertBuilt } from './helpers/fixtures.js';
+import { ROOT, assertBuilt, isMissingAttachmentFile } from './helpers/fixtures.js';
 
 /**
  * The test detail, the error group navigation, the copy buttons and the
@@ -55,7 +55,8 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
     page.on('console', (message) => {
-      if (message.type() === 'error') errors.push(message.text());
+      // The sample's attachment files are not next to this temporary report: its videos and images fail to load.
+      if (message.type() === 'error' && !isMissingAttachmentFile(message, page)) errors.push(message.text());
     });
     await page.goto(`${options.reportUrl ?? url}${hash}`);
     return { page, errors };
@@ -202,7 +203,8 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
         .map((kind) => expect.stringMatching(new RegExp(`^${{ screenshot: 'Screenshots', video: 'Videos', trace: 'Traces', text: 'Text', other: 'Other' }[kind]}`))),
     );
     const files = attempt.attachments.filter((attachment) => attachment.path);
-    expect(await section.locator('a.attachment-name').evaluateAll((links) => links.map((link) => link.getAttribute('href')))).toEqual(
+    // Every file is linked: as a list item, or from its viewer ("Open original").
+    expect(await section.locator('a').evaluateAll((links) => links.map((link) => link.getAttribute('href')))).toEqual(
       expect.arrayContaining(files.map((attachment) => attachment.path)),
     );
     await page.close();
@@ -410,7 +412,7 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     await page.keyboard.press('?');
     const dialog = page.getByRole('dialog', { name: 'Keyboard shortcuts' });
     await dialog.waitFor();
-    expect(await dialog.locator('tbody tr').count()).toBe(6);
+    expect(await dialog.locator('tbody tr').count()).toBe(7);
     expect(await dialog.textContent()).toContain('Next / previous error group');
     // Tab cycles within the dialog: the rest of the page is inert.
     for (let index = 0; index < 4; index++) {

@@ -16,6 +16,7 @@ export const SHORTCUTS: readonly ShortcutHelp[] = [
   { keys: ['j', 'k'], action: 'Next / previous test', where: 'Test detail' },
   { keys: ['[', ']'], action: 'Previous / next attempt', where: 'Test detail' },
   { keys: ['n', 'p'], action: 'Next / previous error group', where: 'Error group page' },
+  { keys: ['←', '→'], action: 'Previous / next screenshot', where: 'Screenshot viewer' },
   { keys: ['/'], action: 'Focus the search', where: 'Everywhere' },
   { keys: ['Escape'], action: 'Clear the search, close a dialog', where: 'Everywhere' },
   { keys: ['?'], action: 'Show keyboard shortcuts', where: 'Everywhere' },

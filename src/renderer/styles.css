@@ -920,6 +920,31 @@ pre.step-error { margin: 2px 0 6px 50px; font-weight: 400; }
 .attachment-body .attachment-name { color: var(--fg); }
 .attachment-meta { color: var(--fg-secondary); font-size: 12px; }
 
+/* Media: thumbnails, lightbox, video. Files are linked from data/, never inlined. */
+.thumbs { display: flex; flex-wrap: wrap; gap: 12px; padding: 0; margin: 0; list-style: none; }
+.thumb { display: flex; flex-direction: column; gap: 4px; width: 184px; padding: 6px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); color: var(--fg); font: inherit; font-size: 12px; cursor: zoom-in; }
+.thumb:hover { border-color: var(--border-control); }
+.thumb img { display: block; width: 100%; height: 120px; object-fit: contain; border-radius: 4px; background: var(--bg-muted); }
+.thumb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.media-missing { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-height: 120px; padding: 8px; border: 1px dashed var(--border-control); border-radius: 4px; color: var(--fg-secondary); font-size: 12px; text-align: center; overflow-wrap: anywhere; }
+.media-missing strong { color: var(--fg); }
+.open-original { font-size: 12px; white-space: nowrap; }
+.video { margin: 0 0 12px; }
+.video video { display: block; width: 100%; max-width: 960px; border-radius: 6px; background: #000; }
+.video figcaption { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; margin-top: 4px; }
+.dialog-actions { display: flex; flex: none; align-items: center; gap: 8px; }
+.dialog-head h2 { min-width: 0; overflow-wrap: anywhere; }
+.dialog.lightbox { --stage-h: calc(100vh - 150px); width: calc(100vw - 32px); max-width: none; height: calc(100vh - 32px); max-height: none; padding: 12px 16px; }
+.lightbox[open] { display: flex; flex-direction: column; }
+.lightbox .dialog-head { margin-bottom: 8px; }
+.lightbox-stage { display: flex; flex: 1; min-height: 0; overflow: auto; }
+/* margin: auto centers without clipping what overflows (actual size). */
+.lightbox-stage > * { margin: auto; }
+.lightbox-image { display: block; max-width: 100%; max-height: var(--stage-h); cursor: zoom-in; }
+.actual-size .lightbox-image { max-width: none; max-height: none; cursor: zoom-out; }
+.lightbox-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 12px; padding-top: 8px; }
+.lightbox-position { min-width: 64px; color: var(--fg-secondary); text-align: center; font-variant-numeric: tabular-nums; }
+
 .output-block > summary .output-name { color: var(--fg); font-family: var(--font-mono); }
 .output-truncated { padding: 0 6px; border: 1px solid currentColor; border-radius: 4px; color: var(--status-flaky); font-size: 11px; font-weight: 600; }
 .output-notice { margin: 6px 0 0; color: var(--status-flaky); font-size: 13px; }

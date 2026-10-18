@@ -13,7 +13,7 @@ import {
   type RendererSettings,
 } from '../src/core/inject.js';
 import type { LoupeReport } from '../src/schema/v1.js';
-import { ROOT, assertBuilt } from './helpers/fixtures.js';
+import { ROOT, assertBuilt, isMissingAttachmentFile } from './helpers/fixtures.js';
 
 const RENDERER_DIR = path.join(ROOT, 'dist/renderer');
 const SAMPLE = path.join(ROOT, 'src/renderer/dev/sample.json');
@@ -88,7 +88,8 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
     page.on('console', (message) => {
-      if (message.type() === 'error') errors.push(message.text());
+      // The sample's attachment files are not next to this temporary report: its videos and images fail to load.
+      if (message.type() === 'error' && !isMissingAttachmentFile(message, page)) errors.push(message.text());
     });
     await page.goto(url);
     return { page, errors };

@@ -1,8 +1,9 @@
 import { useState } from 'preact/hooks';
-import { ATTACHMENT_KINDS, type Attachment, type AttachmentKind, type LoupeError, type Output, type Step } from '../../schema/v1.js';
+import type { Attachment, LoupeError, Output, Step } from '../../schema/v1.js';
 import type { ErrorGroup } from '../dashboard.js';
 import { NO_CATEGORY } from '../dashboard.js';
 import { highlightMessage, highlightSnippet } from '../detail/highlight.js';
+import { fileHref } from '../detail/media.js';
 import { failingPath, stepTree, type StepMode, type StepNode } from '../detail/steps.js';
 import { formatDuration, plural } from '../format.js';
 import { CategoryBadge } from './CategoryBadge.js';
@@ -10,7 +11,7 @@ import { Highlighted } from './Highlighted.js';
 import { ChevronIcon, OutcomeIcon } from './icons.js';
 import { groupHref } from './widgets.js';
 
-/** Sections of the test detail for one attempt: errors, steps, attachments, output. */
+/** Sections of the test detail for one attempt: errors, steps, attachments (see Media.tsx), output. */
 
 function locationText(location: { file: string; line: number; column?: number } | null): string | null {
   if (!location) return null;
@@ -122,14 +123,6 @@ export function StepTree({ steps, mode }: { steps: readonly Step[]; mode: StepMo
   return <StepList nodes={nodes} mode={mode} expanded={expanded} toggle={toggle} />;
 }
 
-const KIND_LABELS: Record<AttachmentKind, string> = {
-  screenshot: 'Screenshots',
-  video: 'Videos',
-  trace: 'Traces',
-  text: 'Text',
-  other: 'Other',
-};
-
 const encoder = new TextEncoder();
 
 export function formatBytes(bytes: number): string {
@@ -138,12 +131,8 @@ export function formatBytes(bytes: number): string {
   return `${(bytes / 1_000_000).toFixed(1)} MB`;
 }
 
-/** A relative link to a file of the report folder, each segment encoded: works from file://. */
-function fileHref(path: string): string {
-  return path.split('/').map(encodeURIComponent).join('/');
-}
-
-function AttachmentItem({ attachment }: { attachment: Attachment }) {
+/** An attachment as a link to its file, or its text body inline and collapsed. */
+export function AttachmentItem({ attachment }: { attachment: Attachment }) {
   const meta = (size: string | null) => (
     <span class="attachment-meta">
       {attachment.contentType}
@@ -174,32 +163,6 @@ function AttachmentItem({ attachment }: { attachment: Attachment }) {
         </span>
       )}
       {meta(null)}
-    </div>
-  );
-}
-
-/** Attachments listed by kind; links are relative to the report folder. */
-export function AttachmentList({ attachments }: { attachments: readonly Attachment[] }) {
-  return (
-    <div class="attachment-groups">
-      {ATTACHMENT_KINDS.map((kind) => {
-        const items = attachments.filter((attachment) => attachment.kind === kind);
-        if (items.length === 0) return null;
-        return (
-          <section key={kind} class="attachment-group" aria-label={KIND_LABELS[kind]}>
-            <h3>
-              {KIND_LABELS[kind]} <span class="muted">{items.length}</span>
-            </h3>
-            <ul class="attachment-list">
-              {items.map((attachment, index) => (
-                <li key={index}>
-                  <AttachmentItem attachment={attachment} />
-                </li>
-              ))}
-            </ul>
-          </section>
-        );
-      })}
     </div>
   );
 }

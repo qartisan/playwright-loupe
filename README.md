@@ -39,7 +39,11 @@ The report is a single self-contained HTML file. It works offline, straight from
 
 - **Overview:** verdict with pass rate, run errors first when the run broke outside its tests, error categories, project cards.
 - **Errors:** every error group, built from normalized error signatures, with the failed / flaky split and links to the affected tests. A group page has previous / next buttons: from a category, they stay within that category.
-- **Test detail:** title path, outcome, project, `file:line`, tags, annotations and dimensions, then one tab per attempt (the last failing attempt first; `?attempt=` in the URL): errors with Expected / Received and diffs highlighted and the code snippet, steps (`test.step` and failing steps, the failing path expanded; "Show all steps" for hooks, fixtures and API calls), attachments listed by kind, stdout and stderr. Previous / next walk the Tests view's current list.
+- **Test detail:** title path, outcome, project, `file:line`, tags, annotations and dimensions, then one tab per attempt (the last failing attempt first; `?attempt=` in the URL): errors with Expected / Received and diffs highlighted and the code snippet, steps (`test.step` and failing steps, the failing path expanded; "Show all steps" for hooks, fixtures and API calls), attachments, stdout and stderr. Previous / next walk the Tests view's current list.
+- **Attachments**, per attempt, linked from `data/` next to the report (never inlined in the HTML), all working from `file://`:
+  - **Screenshots** as thumbnails. A click (or Enter / Space) opens them in a viewer: fitted to the window, or at actual size by clicking the image; previous / next with the buttons or `←` / `→`; "Open original" in a new tab. Escape, the close button or a click outside closes it, back on the same thumbnail. A missing file shows its name and path.
+  - **Videos** play inline. A missing or unplayable file shows its path instead of an empty player.
+  - Other files are listed as links; small text bodies inline, collapsed.
 - **Copy buttons:** rerun commands (this test, the failed tests of its file, the failed tests of the current list) and an AI prompt describing the failure, in English. Both are only copied to the clipboard; nothing is sent anywhere. Projects failing on the same lines share one command (`--project=a --project=b`); otherwise each project gets its own, joined with `&&`.
   - The commands target **POSIX shells** (bash, zsh; not `cmd.exe`) and run from the Playwright root directory: paths in the report are relative to it.
   - A `file:line` argument targets the line where the test is declared and reruns every test declared on that line. A command is only valid while the file has not changed since the run.
@@ -55,15 +59,16 @@ The report is a single self-contained HTML file. It works offline, straight from
 | `j` / `k` | Next / previous test | Test detail |
 | `[` / `]` | Previous / next attempt | Test detail |
 | `n` / `p` | Next / previous error group | Error group page |
+| `←` / `→` | Previous / next screenshot | Screenshot viewer |
 | `/` | Focus the search | Everywhere |
 | `Escape` | Clear the search, close a dialog | Everywhere |
 | `?` | Show keyboard shortcuts | Everywhere |
 
-Single keys do nothing while typing in a field or with Ctrl, Alt or Meta held. The keyboard icon in the header opens the same list.
+Single keys do nothing while typing in a field or with Ctrl, Alt or Meta held, nor while a dialog or the screenshot viewer is open. The keyboard icon in the header opens the same list.
 
 ### Coming next
 
-- Media viewers in the test detail: screenshot comparison (side-by-side, slider, overlay, diff), video player, trace viewer.
+- Media viewers in the test detail: screenshot comparison (side-by-side, slider, overlay, diff), trace command.
 
 History and flakiness tracking are planned for a later phase; the JSON model is already prepared for them.
 

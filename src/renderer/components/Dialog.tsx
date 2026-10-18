@@ -8,24 +8,28 @@ import { CloseIcon } from './icons.js';
  * A modal dialog on the native `<dialog>`: the rest of the page is inert
  * while it is open, so focus stays inside; Escape closes it; focus returns to
  * where it was when it opened. A click on the backdrop closes it too.
+ * `actions` go in the header, before the close button.
  */
 export function Dialog({
   open,
   onClose,
   title,
   class: className,
+  actions,
   children,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   class?: string;
+  actions?: ComponentChildren;
   children: ComponentChildren;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const opener = useRef<HTMLElement | null>(null);
   const id = useId();
 
+  // On every render, not only when `open` changes: the element can close (Escape) before the state that says so is rendered.
   useLayoutEffect(() => {
     const element = dialog.current;
     if (!element) return;
@@ -35,7 +39,7 @@ export function Dialog({
     } else if (!open && element.open) {
       element.close();
     }
-  }, [open]);
+  });
 
   return (
     <dialog
@@ -43,6 +47,8 @@ export function Dialog({
       class={`dialog ${className ?? ''}`}
       aria-labelledby={id}
       onClose={() => {
+        // The close event is queued: the dialog may have been opened again since (Escape, then Enter at once).
+        if (dialog.current?.open) return;
         onClose();
         // The close event comes after the dialog closed: focus returns to the opener unless something else took it since.
         const active = document.activeElement;
@@ -55,10 +61,13 @@ export function Dialog({
     >
       <div class="dialog-head">
         <h2 id={id}>{title}</h2>
-        <button type="button" class="icon-button" title="Close" onClick={() => dialog.current?.close()}>
-          <CloseIcon />
-          <span class="visually-hidden">Close</span>
-        </button>
+        <div class="dialog-actions">
+          {actions}
+          <button type="button" class="icon-button" title="Close" onClick={() => dialog.current?.close()}>
+            <CloseIcon />
+            <span class="visually-hidden">Close</span>
+          </button>
+        </div>
       </div>
       {children}
     </dialog>
