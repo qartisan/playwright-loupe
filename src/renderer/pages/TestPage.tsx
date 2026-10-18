@@ -126,9 +126,10 @@ function AttemptTabs({ test, selected, select }: { test: TestCase; selected: Att
   );
 }
 
-function AttemptContent({ test, attempt, params, groups, colors }: {
+function AttemptContent({ test, attempt, params, groups, colors, playwrightVersion }: {
   test: TestCase;
   attempt: Attempt;
+  playwrightVersion: string;
   params: DetailParams;
   groups: ReadonlyMap<string, ErrorGroup>;
   colors: ReadonlyMap<string, string>;
@@ -165,7 +166,7 @@ function AttemptContent({ test, attempt, params, groups, colors }: {
       {attempt.attachments.length > 0 && (
         <section class="detail-section" aria-labelledby="detail-attachments">
           <h2 id="detail-attachments">Attachments</h2>
-          <Attachments key={`${test.id}/${test.repeatEachIndex}/${attempt.index}`} attachments={attempt.attachments} />
+          <Attachments key={`${test.id}/${test.repeatEachIndex}/${attempt.index}`} attachments={attempt.attachments} playwrightVersion={playwrightVersion} />
         </section>
       )}
       {ownAnnotations.length > 0 && (
@@ -297,7 +298,7 @@ export function TestPage({
           role={test.attempts.length > 1 ? 'tabpanel' : undefined}
           aria-labelledby={test.attempts.length > 1 ? `attempt-tab-${attempt.index}` : undefined}
         >
-          <AttemptContent test={test} attempt={attempt} params={params} groups={groups} colors={colors} />
+          <AttemptContent test={test} attempt={attempt} params={params} groups={groups} colors={colors} playwrightVersion={report.run.playwrightVersion} />
         </div>
       )}
     </div>

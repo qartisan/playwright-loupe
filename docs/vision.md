@@ -34,7 +34,7 @@ These are non-negotiable. Any proposal that conflicts with them must be flagged 
 - The report works from `file://`, so navigation uses hash routes (`#/test/<id>`). The URL is the single source of navigation state, and later of filter state.
 - Other outputs (PR Markdown summary, notifications) will plug into the same model later.
 - The report stays compatible with `merge-reports`.
-- The Playwright trace viewer requires an HTTP server, so traces are opened through a `show` command rather than `file://`.
+- The Playwright trace viewer requires an HTTP server, so a trace cannot open from `file://`. The report gives the `npx playwright show-trace <path>` command to copy, run from the report folder with the project's own Playwright. Planned follow-up: an optional `show` command serving the report from a local server (`127.0.0.1`, through Playwright's public CLI only) so that a trace opens in one click. It is never mandatory: the report stays fully usable without it.
 
 ## Data model
 
@@ -100,9 +100,9 @@ Error, steps, attachments and a copyable rerun command, organized **per attempt*
 - **Steps**: `test.step` steps and failing steps by default (with the ancestors that place them), every category on demand (`?steps=all`). The failing path starts expanded.
 - **Rerun commands**: POSIX shell commands (not `cmd.exe`) to run from the Playwright root directory: one test (by identity: its project only), the failed tests of its file (when another line failed), the failed tests of the current list. Arguments sorted by file then line; projects with the same arguments share one command (repeated `--project`), different sets are split and joined with `&&`. Flaky tests are not "failed". A `file:line` is the declaration line, so a command is only valid while the file is unchanged.
 - **Navigation**: previous / next follow the Tests view's current list (filters and sort, no render cap). The default sort is declaration order (project, file, line), the same in the sidebar, the table and previous / next: filters, not the default order, focus on failures. On an error group page, previous / next follow the Errors view's order, restricted to a category when the page was opened from one. Single-key shortcuts (`j`/`k`, `[`/`]`, `n`/`p`, `?`).
-- **Screenshots**: lightbox; for `toHaveScreenshot`, four comparison views (side-by-side, slider, overlay, diff). The default view is configurable and the user's choice is remembered in the browser.
+- **Screenshots**: thumbnails and a lightbox (native `<dialog>`, previous / next, actual size); for `toHaveScreenshot`, one comparison per image name with four modes (diff, side-by-side, slider, overlay), only those the images allow. The default is Diff when there is a diff image, else side by side; the chosen mode is shared by all comparisons for the session, in memory only (not configurable, not in the URL). Images of different sizes are aligned top-left and their sizes shown. Files stay in `data/`, never inlined.
 - **Videos**: played inline.
-- **Traces**: embedded Playwright trace viewer.
+- **Traces**: a copyable `npx playwright show-trace` command (POSIX quoting) with the run's Playwright version as the minimum (an older trace viewer shows an empty screen on a newer trace), and a download link. Planned: one-click opening through the optional `show` command.
 - **AI prompt**: a button copies a ready-to-paste prompt, in English, to the clipboard. Phase 1 includes the test, its tags and annotations, the error (message, snippet, location, stack unless `aiPrompt.includeStack` is `false`), the failing step with the steps before it, error category and attachment names. Test source, ARIA snapshot, signature and historical context come later. Loupe never calls an AI service itself.
 
 ## Dimensions

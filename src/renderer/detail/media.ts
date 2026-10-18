@@ -1,4 +1,5 @@
 import type { Attachment, ComparisonRole } from '../../schema/v1.js';
+import { shellQuote } from './rerun.js';
 
 /**
  * The attachments of an attempt, sorted for the media viewers: screenshot
@@ -75,6 +76,26 @@ export function comparisonModes(set: ComparisonSet): ComparisonMode[] {
 export function pickMode(modes: readonly ComparisonMode[], chosen: ComparisonMode | null): ComparisonMode {
   if (chosen !== null && modes.includes(chosen)) return chosen;
   return modes.includes('diff') ? 'diff' : (modes[0] ?? 'side');
+}
+
+/**
+ * Opens a trace in Playwright's trace viewer, for a POSIX shell, from the
+ * report folder: the trace viewer needs an HTTP server, so it cannot run
+ * from file://.
+ */
+export function traceCommand(path: string): string {
+  return `npx playwright show-trace ${shellQuote(path)}`;
+}
+
+/**
+ * Help of the trace command. An older trace viewer shows an empty screen on a
+ * newer trace, without an error: the run's Playwright version is the minimum.
+ * Left out when the report has no version.
+ */
+export function traceHelp(playwrightVersion: string): string {
+  const version = playwrightVersion.trim();
+  const requires = version === '' ? '' : `Requires Playwright ${version} or later. `;
+  return `${requires}Run it from the report folder (the one containing index.html), in a POSIX shell (bash, zsh); it uses the project's own Playwright.`;
 }
 
 /** A relative link to a file of the report folder, each segment encoded: works from file://. */

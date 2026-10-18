@@ -50,6 +50,18 @@ const COMPARISONS = [
   attachment('wide', 'image/png', 'screenshot', 'wide.png'),
 ];
 const VIDEOS = [attachment('video', 'video/webm', 'video', 'video.webm'), attachment('lost video', 'video/webm', 'video', 'lost.webm')];
+const TRACES = [attachment('trace', 'application/zip', 'trace', 'trace.zip'), attachment('trace', 'application/zip', 'trace', 'my trace.zip')];
+
+/** Records copied texts instead of the real clipboard. */
+const CLIPBOARD_STUB = `
+  window.__copied = [];
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText: (text) => { window.__copied.push(text); return Promise.resolve(); } },
+  });
+`;
+/** A browser without the Clipboard API (some restrict it on file://). */
+const NO_CLIPBOARD = "Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });";
 
 describe('media viewers in a browser (file://)', { timeout: 30_000 }, () => {
   let browser: Browser;
@@ -59,8 +71,20 @@ describe('media viewers in a browser (file://)', { timeout: 30_000 }, () => {
   let other: TestCase;
   let comparison: TestCase;
 
-  async function open(hash: string, colorScheme: 'light' | 'dark' = 'light'): Promise<{ page: Page; errors: string[] }> {
+  let report: LoupeReport;
+
+  function writeReport(name: string, data: LoupeReport): string {
+    const file = path.join(workDir, `${name}.html`);
+    writeFileSync(file, injectSettings(injectData(readFileSync(RENDERER, 'utf8'), data), DEFAULT_RENDERER_SETTINGS));
+    return pathToFileURL(file).href;
+  }
+
+  async function open(
+    hash: string,
+    { colorScheme = 'light', init, reportUrl = url }: { colorScheme?: 'light' | 'dark'; init?: string; reportUrl?: string } = {},
+  ): Promise<{ page: Page; errors: string[] }> {
     const context = await browser.newContext({ viewport: { width: 1200, height: 800 }, colorScheme });
+    if (init) await context.addInitScript({ content: init });
     const page = await context.newPage();
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
@@ -68,7 +92,7 @@ describe('media viewers in a browser (file://)', { timeout: 30_000 }, () => {
       // Missing attachment files are part of the test: their load errors are expected.
       if (message.type() === 'error' && !isMissingAttachmentFile(message, page)) errors.push(message.text());
     });
-    await page.goto(`${url}${hash}`);
+    await page.goto(`${reportUrl}${hash}`);
     return { page, errors };
   }
 
@@ -99,17 +123,15 @@ describe('media viewers in a browser (file://)', { timeout: 30_000 }, () => {
     await recording.close();
     copyFileSync(await recorded.video()!.path(), path.join(data, 'video.webm'));
 
-    const report = JSON.parse(readFileSync(SAMPLE, 'utf8')) as LoupeReport;
+    report = JSON.parse(readFileSync(SAMPLE, 'utf8')) as LoupeReport;
     const find = (title: string): TestCase => report.tests.find((test) => test.title === title && test.project === 'chromium-a')!;
     target = find('attaches a screenshot');
     other = find('shows the heading');
     comparison = find('differs from the screenshot baseline (intentional)');
     const [first] = target.attempts;
-    target.attempts = [{ ...first!, attachments: [...SCREENSHOTS, ...VIDEOS] }];
+    target.attempts = [{ ...first!, attachments: [...SCREENSHOTS, ...VIDEOS, ...TRACES] }];
     comparison.attempts = [{ ...comparison.attempts[0]!, attachments: COMPARISONS }];
-    const file = path.join(workDir, 'index.html');
-    writeFileSync(file, injectSettings(injectData(readFileSync(RENDERER, 'utf8'), report), DEFAULT_RENDERER_SETTINGS));
-    url = pathToFileURL(file).href;
+    url = writeReport('index', report);
   }, 60_000);
 
   afterAll(async () => {
@@ -345,7 +367,7 @@ describe('media viewers in a browser (file://)', { timeout: 30_000 }, () => {
   });
 
   it.each(['light', 'dark'] as const)('aligns images of different sizes top-left, in a box the size of the larger one (%s theme)', async (colorScheme) => {
-    const { page, errors } = await open(`#/test/${comparison.id}`, colorScheme);
+    const { page, errors } = await open(`#/test/${comparison.id}`, { colorScheme });
     const square = card(page, 'square.png');
     const sizes = square.locator('.cmp-sizes');
     await expect.poll(() => sizes.textContent()).toBe('Expected 100 × 100Actual 160 × 100Diff 160 × 100Expected and actual sizes differ');
@@ -437,6 +459,50 @@ describe('media viewers in a browser (file://)', { timeout: 30_000 }, () => {
     await expect.poll(() => videos.nth(1).locator('video').count()).toBe(0);
     expect(await videos.nth(1).locator('.media-missing').textContent()).toBe(`lost videoCannot play this video${DATA}/lost.webm`);
     expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('copies the trace command, quoted for a POSIX shell, with its help and a download link', async () => {
+    const { page, errors } = await open(`#/test/${target.id}`, { init: CLIPBOARD_STUB });
+    const cards = page.locator('.trace-card');
+    await expect.poll(() => cards.count()).toBe(2);
+    const help = `Requires Playwright ${report.run.playwrightVersion} or later. Run it from the report folder (the one containing index.html), in a POSIX shell (bash, zsh); it uses the project's own Playwright.`;
+    expect(await cards.first().locator('.trace-help').textContent()).toBe(help);
+    const button = cards.first().getByRole('button', { name: 'Copy trace command' });
+    expect(await button.getAttribute('title')).toBe(help);
+    await button.click();
+    await cards.nth(1).getByRole('button', { name: 'Copy trace command' }).click();
+    await expect.poll(() => page.evaluate<string[]>('window.__copied')).toEqual([
+      `npx playwright show-trace ${DATA}/trace.zip`,
+      `npx playwright show-trace '${DATA}/my trace.zip'`,
+    ]);
+    await expect.poll(() => page.getByRole('status').textContent()).toContain('Trace command copied to the clipboard.');
+    const download = cards.nth(1).getByRole('link', { name: 'Download trace' });
+    expect(await download.getAttribute('href')).toBe(`${DATA}/my%20trace.zip`);
+    expect(await download.getAttribute('download')).toBe('my trace.zip');
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('falls back to a dialog with the trace command selected when the Clipboard API is missing', async () => {
+    const { page } = await open(`#/test/${target.id}`, { init: NO_CLIPBOARD });
+    const button = page.locator('.trace-card').first().getByRole('button', { name: 'Copy trace command' });
+    await button.click();
+    const dialog = page.getByRole('dialog', { name: 'Copy trace command' });
+    await dialog.waitFor();
+    expect(await dialog.getByRole('textbox').inputValue()).toBe(`npx playwright show-trace ${DATA}/trace.zip`);
+    await page.keyboard.press('Escape');
+    await dialog.waitFor({ state: 'hidden' });
+    expect(await button.evaluate((element) => element === element.ownerDocument.activeElement)).toBe(true);
+    await page.close();
+  });
+
+  it('leaves the version out of the trace help when the report has none', async () => {
+    const reportUrl = writeReport('no-version', { ...report, run: { ...report.run, playwrightVersion: '' } });
+    const { page } = await open(`#/test/${target.id}`, { reportUrl });
+    const help = page.locator('.trace-help').first();
+    await help.waitFor();
+    expect(await help.textContent()).toBe("Run it from the report folder (the one containing index.html), in a POSIX shell (bash, zsh); it uses the project's own Playwright.");
     await page.close();
   });
 });

@@ -972,6 +972,10 @@ pre.step-error { margin: 2px 0 6px 50px; font-weight: 400; }
 .cmp-sizes { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; }
 .cmp-hint { margin: 0; }
 .cmp-differ { color: var(--status-failed); font-weight: 600; }
+.trace-card { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-bottom: 12px; }
+.trace-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.trace-download { display: inline-flex; align-items: center; text-decoration: none; }
+.trace-help { margin: 0; color: var(--fg-secondary); font-size: 12px; }
 .cmp-loading { width: 100%; height: 120px; border-radius: 4px; background: var(--bg-muted); }
 .actual-size .cmp-image, .actual-size .cmp-side img { max-width: none; max-height: none; cursor: zoom-out; }
 .actual-size .cmp-side { max-width: none; }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { attemptMedia, comparisonModes, fileHref, pickMode, viewerItems, type ComparisonSet } from '../src/renderer/detail/media.js';
+import { attemptMedia, comparisonModes, fileHref, pickMode, traceCommand, traceHelp, viewerItems, type ComparisonSet } from '../src/renderer/detail/media.js';
 import type { Attachment, ComparisonRole } from '../src/schema/v1.js';
 
 function file(name: string, contentType: string, fields: Partial<Attachment> = {}): Attachment {
@@ -90,6 +90,24 @@ describe('pickMode', () => {
     expect(pickMode(['side', 'slider', 'overlay'], 'slider')).toBe('slider');
     expect(pickMode(['side', 'slider', 'overlay'], 'diff')).toBe('side');
     expect(pickMode(['diff'], 'slider')).toBe('diff');
+  });
+});
+
+describe('traceCommand', () => {
+  it('opens the trace with show-trace, the path quoted for a POSIX shell when needed', () => {
+    expect(traceCommand('data/ab12/0/trace.zip')).toBe('npx playwright show-trace data/ab12/0/trace.zip');
+    expect(traceCommand('data/ab12/0/my trace.zip')).toBe("npx playwright show-trace 'data/ab12/0/my trace.zip'");
+    expect(traceCommand("data/ab12/0/it's.zip")).toBe("npx playwright show-trace 'data/ab12/0/it'\\''s.zip'");
+  });
+});
+
+describe('traceHelp', () => {
+  it("names the run's Playwright version as the minimum, when known", () => {
+    expect(traceHelp('1.64.0')).toBe(
+      "Requires Playwright 1.64.0 or later. Run it from the report folder (the one containing index.html), in a POSIX shell (bash, zsh); it uses the project's own Playwright.",
+    );
+    expect(traceHelp('')).toBe("Run it from the report folder (the one containing index.html), in a POSIX shell (bash, zsh); it uses the project's own Playwright.");
+    expect(traceHelp('  ')).not.toContain('Requires');
   });
 });
 

@@ -6,11 +6,13 @@ import { currentLocation } from '../navigation.js';
 import { isTextField } from '../shortcuts.js';
 import { ComparisonCard, ComparisonViewer } from './Comparison.js';
 import { Dialog } from './Dialog.js';
+import { TraceCard } from './Trace.js';
 import { AttachmentItem } from './TestDetail.js';
 
 /**
  * Attachments of an attempt, with viewers: screenshot comparisons and
- * thumbnails opening a lightbox, inline videos, then the other files as links. Files stay next to
+ * thumbnails opening a lightbox, inline videos, trace commands, then the other
+ * files as links. Files stay next to
  * the report (`data/`), referenced by relative links: nothing is inlined.
  */
 
@@ -210,7 +212,7 @@ function FileList({ attachments }: { attachments: readonly Attachment[] }) {
  * lightbox also closes on any route change (Back, another test), and its
  * state is never in the URL.
  */
-export function Attachments({ attachments }: { attachments: readonly Attachment[] }) {
+export function Attachments({ attachments, playwrightVersion }: { attachments: readonly Attachment[]; playwrightVersion: string }) {
   const media = attemptMedia(attachments);
   // A new object on each opening: opening again right after Escape, before the closing rendered, still renders.
   const [viewer, setViewer] = useState<{ index: number } | null>(null);
@@ -234,7 +236,9 @@ export function Attachments({ attachments }: { attachments: readonly Attachment[
         ))}
       </Section>
       <Section label="Traces" count={media.traces.length}>
-        <FileList attachments={media.traces} />
+        {media.traces.map((attachment, position) => (
+          <TraceCard key={position} attachment={attachment} playwrightVersion={playwrightVersion} />
+        ))}
       </Section>
       <Section label="Text" count={text.length}>
         <FileList attachments={text} />
