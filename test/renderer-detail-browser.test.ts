@@ -324,7 +324,7 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
 
   it('walks the current list with Previous / Next and j / k, keeping the filters, without wrapping', async () => {
     const failed = report.tests.filter((test) => test.outcome === 'failed');
-    // The Tests view's default order among failed tests: title, then project.
+    // Read from the table: the Tests view's order is the reference.
     const { page, errors } = await open('#/tests?status=failed');
     const links = page.locator('.tests-table tbody a');
     const rows = await links.allTextContents();

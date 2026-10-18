@@ -10,7 +10,7 @@ import {
   shownCategories,
   testCategories,
 } from '../src/renderer/filters/match.js';
-import { nextSort, sortTests } from '../src/renderer/filters/sort.js';
+import { buildSortRanks, nextSort, sortTests } from '../src/renderer/filters/sort.js';
 import {
   DEFAULT_SORT,
   EMPTY_FILTERS,
@@ -108,6 +108,17 @@ describe('parseFilters / serializeFilters', () => {
     expect(query).toBe('q=login&status=failed,flaky&dim.area=checkout&dim.layer=api,ui&category=Network,Timeout');
     expect(serializeFilters(EMPTY_FILTERS)).toBe('');
     expect(serializeFilters(state({ sort: { column: 'title', direction: 'asc' } }))).toBe('sort=title:asc');
+  });
+
+  it('never writes the default sort (declaration order), and writes the status sort, which is not the default', () => {
+    expect(DEFAULT_SORT).toEqual({ column: 'declaration', direction: 'asc' });
+    expect(serializeFilters(state({ sort: DEFAULT_SORT }))).toBe('');
+    expect(serializeFilters(state({ sort: { column: 'status', direction: 'asc' } }))).toBe('sort=status:asc');
+    expect(parseFilters('sort=status:asc').sort).toEqual({ column: 'status', direction: 'asc' });
+    // The default written out is accepted and dropped; it has no descending form.
+    expect(parseFilters('sort=declaration:asc').sort).toEqual(DEFAULT_SORT);
+    expect(serializeFilters(parseFilters('sort=declaration:asc'))).toBe('');
+    expect(parseFilters('sort=declaration:desc').sort).toEqual(DEFAULT_SORT);
   });
 
   it('gives two equal states the same URL', () => {
@@ -307,11 +318,42 @@ describe('sortTests', () => {
   const c = makeTest({ title: 'c test', outcome: 'flaky', durationMs: 200, attempts: [attempt(0, 'failed', [error('Network')]), attempt(1, 'passed')] });
   const d = makeTest({ title: 'a test', outcome: 'skipped', durationMs: 0, project: 'x' });
 
-  it('sorts by status severity, then title, by default', () => {
-    expect(sortTests([a, b, c, d], DEFAULT_SORT)).toEqual([b, c, a, d]);
+  describe('default sort: declaration order, as in the sidebar', () => {
+    const at = (project: string, file: string, line: number, title: string, outcome: TestCase['outcome'] = 'passed') =>
+      makeTest({ outcome, project, file, line, title });
+    // Titles chosen so that title order differs from declaration order.
+    const tests = [
+      at('webkit', 'tests/a.spec.ts', 5, 'a'),
+      at('chromium', 'tests/b.spec.ts', 3, 'b', 'failed'),
+      at('chromium', 'tests/a.spec.ts', 12, 'c', 'skipped'),
+      at('chromium', 'tests/a.spec.ts', 9, 'd', 'flaky'),
+      at('firefox', 'tests/a.spec.ts', 1, 'e', 'failed'),
+      at('chromium', 'tests/a.spec.ts', 100, 'f'),
+    ];
+    const titles = (list: readonly TestCase[]) => list.map((test) => test.title);
+    const ranks = buildSortRanks(tests, ['chromium', 'firefox', 'webkit']);
+
+    it('orders by project in report order, then file, then line as a number, whatever the status', () => {
+      expect(titles(sortTests(tests, DEFAULT_SORT, ranks))).toEqual(['d', 'c', 'f', 'b', 'e', 'a']);
+    });
+
+    it('follows the report order of projects, not their names', () => {
+      const reversed = buildSortRanks(tests, ['webkit', 'firefox', 'chromium']);
+      expect(titles(sortTests(tests, DEFAULT_SORT, reversed))).toEqual(['a', 'e', 'd', 'c', 'f', 'b']);
+    });
+
+    it('sorts by status severity from the Status header, with declaration order as tie-break in both directions', () => {
+      expect(titles(sortTests(tests, { column: 'status', direction: 'asc' }, ranks))).toEqual(['b', 'e', 'd', 'f', 'a', 'c']);
+      expect(titles(sortTests(tests, { column: 'status', direction: 'desc' }, ranks))).toEqual(['c', 'f', 'a', 'd', 'b', 'e']);
+    });
+
+    it('keeps title ties for the other columns', () => {
+      expect(titles(sortTests(tests, { column: 'duration', direction: 'desc' }, ranks))).toEqual(['a', 'b', 'c', 'd', 'e', 'f']);
+    });
   });
 
   it('sorts by a column in both directions, ties by title', () => {
+    expect(sortTests([a, b, c, d], { column: 'status', direction: 'asc' })).toEqual([b, c, a, d]);
     expect(sortTests([a, b, c, d], { column: 'duration', direction: 'desc' })).toEqual([a, c, b, d]);
     expect(sortTests([a, b, c, d], { column: 'title', direction: 'asc' })).toEqual([d, b, a, c]);
     expect(sortTests([a, b, c, d], { column: 'attempts', direction: 'desc' })).toEqual([c, d, b, a]);
@@ -323,7 +365,8 @@ describe('sortTests', () => {
   });
 
   it('toggles the direction on the same column, starts numbers descending', () => {
-    expect(nextSort(DEFAULT_SORT, 'status')).toEqual({ column: 'status', direction: 'desc' });
+    expect(nextSort(DEFAULT_SORT, 'status')).toEqual({ column: 'status', direction: 'asc' });
+    expect(nextSort({ column: 'status', direction: 'asc' }, 'status')).toEqual({ column: 'status', direction: 'desc' });
     expect(nextSort(DEFAULT_SORT, 'duration')).toEqual({ column: 'duration', direction: 'desc' });
     expect(nextSort(DEFAULT_SORT, 'title')).toEqual({ column: 'title', direction: 'asc' });
   });

@@ -27,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- **Tests view default sort**: declaration order, exactly like the sidebar: project (report order), file, line. It used to be status severity, then title path. Filters are there to focus on failures; the default order is now the same in the sidebar, the table and the test detail's previous / next. It is not written in the URL (no `sort` parameter). The Status header still sorts by severity (failed, flaky, passed, skipped), with project, file, line as tie-breaks; other columns still break ties by title. A link with `sort=status:asc` keeps the former order.
 - **Error groups inside a category** are listed in the Errors view's order (most failed tests first, then most flaky), the order their previous / next buttons follow, instead of first occurrence.
 - **Renderer dev sample**: `npm run sample:update` also copies the sample's attachment files to `src/renderer/dev/data/` (gitignored), and the dev server serves them at `data/`, so attachment links work there too.
 

@@ -8,7 +8,7 @@ import { groupNavigation, groupSequence, neighbors, testSequence } from '../src/
 import { failingPath, failingStepContext, stepTree, type StepNode } from '../src/renderer/detail/steps.js';
 import { NO_FILTER_CONTEXT } from '../src/renderer/filters/match.js';
 import { buildSortRanks } from '../src/renderer/filters/sort.js';
-import { EMPTY_FILTERS } from '../src/renderer/filters/url.js';
+import { parseFilters } from '../src/renderer/filters/url.js';
 import type { Attempt, AttemptStatus, LoupeError, Step, TestCase } from '../src/schema/v1.js';
 
 let nextId = 1;
@@ -377,29 +377,39 @@ describe('AI prompt', () => {
 });
 
 describe('test navigation', () => {
+  // In the JSON (execution) order; titles chosen so that title order differs from declaration order.
   const tests = [
-    makeTest({ title: 'b passes', durationMs: 300 }),
-    makeTest({ title: 'a fails', outcome: 'failed', durationMs: 100 }),
-    makeTest({ title: 'c fails', outcome: 'failed', durationMs: 200 }),
-    makeTest({ title: 'd is flaky', outcome: 'flaky', durationMs: 50 }),
+    makeTest({ title: 'z passes', file: 'a.spec.ts', line: 1, durationMs: 300 }),
+    makeTest({ title: 'y fails', outcome: 'failed', file: 'b.spec.ts', line: 4, durationMs: 100 }),
+    makeTest({ title: 'x fails', outcome: 'failed', file: 'b.spec.ts', line: 20, durationMs: 200 }),
+    makeTest({ title: 'w fails', outcome: 'failed', file: 'a.spec.ts', line: 30, durationMs: 400 }),
+    makeTest({ title: 'v is flaky', outcome: 'flaky', file: 'a.spec.ts', line: 7, durationMs: 50 }),
   ];
-  const ranks = buildSortRanks(tests);
+  const ranks = buildSortRanks(tests, ['chromium']);
   const titles = (list: readonly TestCase[]) => list.map((test) => test.title);
+  const sequence = (search: string) => testSequence(tests, parseFilters(search), NO_FILTER_CONTEXT, ranks);
 
-  it("follows the Tests view's default order without filter", () => {
-    expect(titles(testSequence(tests, EMPTY_FILTERS, NO_FILTER_CONTEXT, ranks))).toEqual(['a fails', 'c fails', 'd is flaky', 'b passes']);
+  it("without a sort parameter, follows the Tests view's default sort (declaration order), not the JSON order", () => {
+    expect(titles(sequence(''))).toEqual(['z passes', 'v is flaky', 'w fails', 'y fails', 'x fails']);
+    expect(titles(sequence(''))).not.toEqual(titles(tests));
+  });
+
+  it('with a sort parameter, follows that sort', () => {
+    expect(titles(sequence('sort=duration:desc'))).toEqual(['w fails', 'z passes', 'x fails', 'y fails', 'v is flaky']);
+    expect(titles(sequence('sort=title:asc'))).toEqual(['v is flaky', 'w fails', 'x fails', 'y fails', 'z passes']);
   });
 
   it('keeps the filtered tests only, in the current sort order', () => {
-    const state = { ...EMPTY_FILTERS, facets: { status: ['failed'] }, sort: { column: 'duration', direction: 'desc' } } as const;
-    expect(titles(testSequence(tests, state, NO_FILTER_CONTEXT, ranks))).toEqual(['c fails', 'a fails']);
+    expect(titles(sequence('status=failed'))).toEqual(['w fails', 'y fails', 'x fails']);
+    expect(titles(sequence('sort=status:asc'))).toEqual(['w fails', 'y fails', 'x fails', 'v is flaky', 'z passes']);
+    expect(titles(sequence('status=failed&sort=duration:asc'))).toEqual(['y fails', 'x fails', 'w fails']);
   });
 
   it('gives the position and neighbors, without wrap-around at the ends', () => {
-    const list = testSequence(tests, EMPTY_FILTERS, NO_FILTER_CONTEXT, ranks);
-    expect(neighbors(list, list[0])).toEqual({ position: 1, total: 4, previous: null, next: list[1] });
-    expect(neighbors(list, list[3])).toEqual({ position: 4, total: 4, previous: list[2], next: null });
-    expect(neighbors(list.slice(0, 2), list[3])).toEqual({ position: null, total: 2, previous: null, next: null });
+    const list = sequence('');
+    expect(neighbors(list, list[0])).toEqual({ position: 1, total: 5, previous: null, next: list[1] });
+    expect(neighbors(list, list[4])).toEqual({ position: 5, total: 5, previous: list[3], next: null });
+    expect(neighbors(list.slice(0, 2), list[4])).toEqual({ position: null, total: 2, previous: null, next: null });
   });
 });
 

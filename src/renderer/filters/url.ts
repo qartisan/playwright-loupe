@@ -12,17 +12,25 @@
  * Pure functions, no DOM: unit-tested in Node.
  */
 
+/** Columns of the Tests view, each sortable from its header. */
 export const SORT_COLUMNS = ['status', 'title', 'project', 'file', 'duration', 'category', 'attempts'] as const;
 export type SortColumn = (typeof SORT_COLUMNS)[number];
 export type SortDirection = 'asc' | 'desc';
 
+/**
+ * What a sort orders by: a column, or `declaration`, the default order,
+ * which no header selects: project (report order), file, line, like the
+ * sidebar (see sort.ts). It only goes ascending.
+ */
+export type SortKey = SortColumn | 'declaration';
+
 export interface Sort {
-  column: SortColumn;
+  column: SortKey;
   direction: SortDirection;
 }
 
-/** Status severity (failed, flaky, passed, skipped), then title. */
-export const DEFAULT_SORT: Sort = { column: 'status', direction: 'asc' };
+/** Declaration order, like the sidebar: project, file, line. Never written in the URL. */
+export const DEFAULT_SORT: Sort = { column: 'declaration', direction: 'asc' };
 
 /** A multi-value facet: status, project, tag, category, or a dimension (`dim.<name>`). */
 export type FacetId = 'status' | 'project' | 'tag' | 'category' | `dim.${string}`;
@@ -82,7 +90,9 @@ function decode(text: string): string | null {
 
 function parseSort(value: string): Sort | null {
   const [column, direction, ...rest] = value.split(':');
-  if (rest.length > 0 || !(SORT_COLUMNS as readonly string[]).includes(column ?? '')) return null;
+  if (rest.length > 0 || direction === undefined) return null;
+  if (column === 'declaration') return direction === 'asc' ? DEFAULT_SORT : null;
+  if (!(SORT_COLUMNS as readonly string[]).includes(column ?? '')) return null;
   if (direction !== 'asc' && direction !== 'desc') return null;
   return { column: column as SortColumn, direction };
 }

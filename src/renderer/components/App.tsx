@@ -36,7 +36,7 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
     [report],
   );
   // The Tests view's order, every row: the Tests view and the test detail's previous / next.
-  const ranks = useMemo(() => buildSortRanks(report.tests), [report]);
+  const ranks = useMemo(() => buildSortRanks(report.tests, report.projects.map((project) => project.name)), [report]);
   const sorted = useMemo(() => sortTests(matched, state.sort, ranks), [matched, ranks, state.sort.column, state.sort.direction]);
   const groups = useMemo(() => errorGroups(report), [report]);
   const ranked = useMemo(() => rankGroups(groups), [groups]);
