@@ -50,6 +50,7 @@
     "test": "vitest run",
     "fixtures": "npm run build && node scripts/run-fixtures.mjs",
     "sample:update": "npm run build && node scripts/update-sample.mjs",
+    "perf:sample": "npm run build && node scripts/perf-sample.mjs",
     "prepublishOnly": "npm run typecheck && npm run build && npm test"
   },
   "peerDependencies": {

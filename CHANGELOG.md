@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Before 1.0, minor versions may contain breaking changes. The JSON report has its own version (`schemaVersion`), see [`docs/schema/v1.md`](docs/schema/v1.md#versioning-policy).
 
+## [Unreleased]
+
+### Added
+
+- **Tags and dimension values in the Tests view.** Each row shows, under the test title, what the test covers as small neutral chips: its dimension values first (dimensions in config order, annotation-based ones included, then values in the test's order; the chip shows the value, `api`, and its tooltip and accessible name the dimension, "Layer: api"), then its free tags with their `@`, sorted. As in the filters, a tag a dimension takes appears only as that dimension's value. Each chip is a link that adds its value to the filters, keeping the others and the sort; a chip whose value is already filtered is shown active (inverted, with a ×) and removes it ("Remove filter Layer: api"). Both add a history entry, so Back undoes them. A row shows up to four chips, then a "+N" button (`aria-expanded`) that shows the rest in place; that state is not in the URL. Active chips are never hidden behind "+N": they are always shown, the other slots filled in the normal order, and "+N" counts only the chips actually hidden. The chips of each test are computed once per report. No chip line for a test without tags or dimensions. Other annotations stay in the test detail.
+- `npm run perf:sample`: writes 5,000-test reports from the renderer sample (`loupe-perf/`, gitignored) and, with `-- --measure`, times the Tests view (opening, filtering, sorting, searching) in Chromium, optionally against another renderer build (`--renderer`), so performance measurements are reproducible.
+
+### Changed
+
+- **Search covers tags and dimension values.** The search (`q`, in the sidebar) now also matches every raw tag of a test, those a dimension takes included (`smoke`, `@smoke` and `layer:api` all match), and its dimension values, annotation-based ones included (`BUG-42`). Same rules as before: case- and accent-insensitive, every word must match, as substrings.
+- **Trace command: absolute path over `file://`.** When the report is opened from disk, "Copy trace command" copies the absolute path of the trace, computed from the report's own location (`npx playwright show-trace '/home/me/app/loupe-report/data/…/trace.zip'`), so the command works from any directory. Its help now says to run it from your project root, so it uses the project's own Playwright: the same rule as the rerun commands. The path is decoded (spaces, accented characters) before POSIX quoting; a Windows drive path loses the leading `/` of its URL form (commands stay POSIX-only). Over `http(s)` and for a `file://` URL with a host (a network share), the disk path is unknown: the command keeps the path relative to the report folder and the former help. The "Download trace" link is unchanged.
+
 ## [0.1.0] - 2026-10-18
 
 ### Added

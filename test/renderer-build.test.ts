@@ -748,7 +748,7 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     // More rows; focus moves to the first added one.
     await page.getByRole('button', { name: 'Show 500 more' }).click();
     await expect.poll(() => rows.count()).toBe(1000);
-    expect(await rows.nth(500).locator('a').evaluate((element) => element === element.ownerDocument.activeElement)).toBe(true);
+    expect(await rows.nth(500).locator('.cell-title > a').evaluate((element) => element === element.ownerDocument.activeElement)).toBe(true);
     expect(await page.getByRole('button', { name: 'Show 200 more' }).count()).toBe(1);
     await page.getByRole('button', { name: 'Show all' }).click();
     await expect.poll(() => rows.count()).toBe(1200);
@@ -760,7 +760,7 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     await expect.poll(() => rows.count()).toBe(500);
     const longest = Math.max(...big.tests.map((test) => test.durationMs));
     const longestTitles = big.tests.filter((test) => test.durationMs === longest).map((test) => [...test.suitePath, test.title].join(' › '));
-    expect(longestTitles).toContain(await rows.first().locator('a').textContent());
+    expect(longestTitles).toContain(await rows.first().locator('.cell-title > a').textContent());
 
     // So does a filter change, even back to a state shown in full before.
     await page.getByRole('button', { name: 'Show all' }).click();
@@ -857,6 +857,129 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     await page.close();
   });
 
+  it('shows dimension values and free tags as chips under each test title', async () => {
+    const { page, errors } = await open(`${writeReport('chips', report)}#/tests?project=chromium-a`);
+    await page.locator('.tests-table').waitFor();
+    const row = page.locator('.tests-table tbody tr', { hasText: 'runs nested steps' });
+    const chips = row.locator('.cell-title .test-chips');
+    // Under the title, next to its link and never inside it.
+    expect(await row.locator('.cell-title > a + .test-chips, .cell-title > .row-note + .test-chips').count()).toBe(1);
+    expect(await page.locator('.tests-table a a, .tests-table a button').count()).toBe(0);
+    // Dimensions in config order (Layer, Bug, area), then free tags; a tag a dimension takes is not repeated.
+    expect(await chips.locator('.test-chip').allTextContents()).toEqual(['ui', 'checkout', '@smoke']);
+    expect(await chips.getByRole('link').evaluateAll((links) => links.map((link) => [link.getAttribute('aria-label'), link.getAttribute('title')]))).toEqual([
+      ['Layer: ui', 'Layer: ui'],
+      ['area: checkout', 'area: checkout'],
+      ['Tag: @smoke', 'Tag: @smoke'],
+    ]);
+    expect(await row.getByRole('group', { name: 'Tags and dimensions' }).count()).toBe(1);
+    // An annotation-based dimension is a chip too.
+    const bug = page.locator('.tests-table tbody tr', { hasText: 'fails on a wrong heading' });
+    expect(await bug.locator('.test-chip').allTextContents()).toEqual(['ui', 'BUG-1']);
+    // No chip line for a test without tags or dimensions.
+    const bare = report.tests.find((test) => test.project === 'chromium-a' && test.tags.length === 0 && Object.values(test.dimensions).every((values) => values.length === 0));
+    if (bare) {
+      const bareRow = page.locator('.tests-table tbody tr', { has: page.getByRole('link', { name: [...bare.suitePath, bare.title].join(' › '), exact: true }) });
+      expect(await bareRow.locator('.test-chips').count()).toBe(0);
+    }
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('adds a chip value to the filter, removes it from an active chip, and undoes either with Back', async () => {
+    const { page, errors } = await open(`${writeReport('chip-links', report)}#/tests?status=passed&sort=duration:desc`);
+    await page.locator('.tests-table').waitFor();
+    const rows = page.locator('.tests-table tbody tr');
+    const ui = page.getByRole('link', { name: 'Layer: ui', exact: true }).first();
+    expect(await ui.getAttribute('href')).toBe('#/tests?status=passed&dim.Layer=ui&sort=duration:desc');
+    await ui.click();
+    await expect.poll(() => fragment(page)).toBe('#/tests?status=passed&dim.Layer=ui&sort=duration:desc');
+    const expected = report.tests.filter((test) => test.outcome === 'passed' && test.dimensions['Layer']?.includes('ui')).length;
+    await expect.poll(() => rows.count()).toBe(expected);
+    expect(await page.locator('.chip').allTextContents()).toEqual(['Status: Passed', 'Layer: ui']);
+
+    // Every ui chip is now active, and its link removes the value.
+    const active = page.getByRole('link', { name: 'Remove filter Layer: ui', exact: true });
+    expect(await active.count()).toBe(expected);
+    expect(await page.locator('.test-chip-active').count()).toBe(expected);
+    expect(await active.first().getAttribute('href')).toBe('#/tests?status=passed&sort=duration:desc');
+    await active.first().click();
+    await expect.poll(() => fragment(page)).toBe('#/tests?status=passed&sort=duration:desc');
+
+    // Back undoes the removal, then the addition.
+    await page.goBack();
+    await expect.poll(() => fragment(page)).toBe('#/tests?status=passed&dim.Layer=ui&sort=duration:desc');
+    await page.goBack();
+    await expect.poll(() => fragment(page)).toBe('#/tests?status=passed&sort=duration:desc');
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('caps the chips of a row at four, the rest behind a +N button operable with the keyboard', async () => {
+    const index = report.tests.findIndex((test) => test.title === 'runs nested steps' && test.project === 'chromium-a');
+    const original = report.tests[index] as LoupeReport['tests'][number];
+    const tagged = { ...original, tags: [...original.tags, '@regression', '@nightly', '@a11y', '@slow'] };
+    const tests = report.tests.map((test, position) => (position === index ? tagged : test));
+    const { page, errors } = await open(`${writeReport('chip-cap', { ...report, tests })}#/tests?project=chromium-a`);
+    await page.locator('.tests-table').waitFor();
+    const chips = page.locator('.tests-table tbody tr', { hasText: 'runs nested steps' }).locator('.test-chips');
+    expect(await chips.locator('.test-chip').allTextContents()).toEqual(['ui', 'checkout', '@a11y', '@nightly']);
+    const more = chips.getByRole('button', { name: '+3 more tags and dimensions' });
+    expect(await more.getAttribute('aria-expanded')).toBe('false');
+    await more.focus();
+    await page.keyboard.press('Enter');
+    expect(await chips.locator('.test-chip').allTextContents()).toEqual(['ui', 'checkout', '@a11y', '@nightly', '@regression', '@slow', '@smoke']);
+    const less = chips.getByRole('button', { name: 'Show less' });
+    expect(await less.getAttribute('aria-expanded')).toBe('true');
+    expect(await less.evaluate((element) => element === element.ownerDocument.activeElement)).toBe(true);
+    // The expanded chips are links in the tab order; Space collapses the row again.
+    await page.keyboard.press('Shift+Tab');
+    expect(await page.evaluate<string | null>("document.activeElement.getAttribute('aria-label')")).toBe('Tag: @smoke');
+    await less.focus();
+    await page.keyboard.press('Space');
+    expect(await chips.locator('.test-chip').count()).toBe(4);
+    // Not in the URL.
+    expect(fragment(page)).toBe('#/tests?project=chromium-a');
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('never hides an active chip behind +N in a collapsed row', async () => {
+    const index = report.tests.findIndex((test) => test.title === 'runs nested steps' && test.project === 'chromium-a');
+    const original = report.tests[index] as LoupeReport['tests'][number];
+    const tagged = { ...original, tags: [...original.tags, '@regression', '@nightly', '@a11y', '@slow'] };
+    const tests = report.tests.map((test, position) => (position === index ? tagged : test));
+    // @slow and @smoke are the 6th and 7th chips: both active, so both shown.
+    const { page, errors } = await open(`${writeReport('chip-active-cap', { ...report, tests })}#/tests?project=chromium-a&tag=%40slow,%40smoke`);
+    await page.locator('.tests-table').waitFor();
+    const chips = page.locator('.tests-table tbody tr', { hasText: 'runs nested steps' }).locator('.test-chips');
+    expect(await chips.locator('.test-chip').allTextContents()).toEqual(['ui', 'checkout', '@slow', '@smoke']);
+    expect(await chips.locator('.test-chip-active').allTextContents()).toEqual(['@slow', '@smoke']);
+    expect(await chips.getByRole('button', { name: '+3 more tags and dimensions' }).count()).toBe(1);
+    // Expanded, every chip in its normal order.
+    await chips.getByRole('button', { name: '+3 more tags and dimensions' }).click();
+    expect(await chips.locator('.test-chip').allTextContents()).toEqual(['ui', 'checkout', '@a11y', '@nightly', '@regression', '@slow', '@smoke']);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('finds tests by tag and by dimension value from the search', async () => {
+    const { page, errors } = await open(`${writeReport('search-tags', report)}#/tests?q=smoke`);
+    const rows = page.locator('.tests-table tbody tr');
+    await page.locator('.tests-table').waitFor();
+    const smoke = report.tests.filter((test) => test.tags.includes('@smoke')).length;
+    expect(smoke).toBeGreaterThan(0);
+    expect(await rows.count()).toBe(smoke);
+    await page.goto(`${page.url().split('#')[0]}#/tests?q=api`);
+    // `api` also matches titles and files: at least every test with the value.
+    const api = report.tests.filter((test) => test.dimensions['Layer']?.includes('api')).length;
+    await expect.poll(async () => (await rows.count()) >= api && (await rows.count()) < report.tests.length).toBe(true);
+    await page.goto(`${page.url().split('#')[0]}#/tests?q=layer%3Aapi`);
+    await expect.poll(() => rows.count()).toBe(api);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
   it('shows an empty state with a reset button', async () => {
     const { page, errors } = await open(`${writeReport('empty-state', report)}#/tests?q=zzz-no-such-test&sort=title:desc`);
     await page.getByText('No tests match these filters.').waitFor();
@@ -948,10 +1071,11 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     await broken.page.close();
   });
 
-  it('lays out the tests view without horizontal page scroll on a narrow screen', async () => {
-    const { page } = await open(`${writeReport('tests-narrow', report)}#/tests`, { viewport: { width: 700, height: 900 } });
-    await page.locator('.tests-table').waitFor();
+  it.each([700, 320])('lays out the tests view, chips included, without horizontal page scroll at %i px', async (width) => {
+    const { page } = await open(`${writeReport(`tests-narrow-${width}`, report)}#/tests`, { viewport: { width, height: 900 } });
+    await page.locator('.tests-table .test-chips').first().waitFor();
     expect(await page.evaluate<boolean>("document.querySelector('.main').scrollWidth <= document.querySelector('.main').clientWidth")).toBe(true);
+    expect(await page.evaluate<boolean>('document.documentElement.scrollWidth <= document.documentElement.clientWidth')).toBe(true);
     await page.close();
   });
 

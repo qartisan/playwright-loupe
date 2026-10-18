@@ -462,19 +462,20 @@ describe('media viewers in a browser (file://)', { timeout: 30_000 }, () => {
     await page.close();
   });
 
-  it('copies the trace command, quoted for a POSIX shell, with its help and a download link', async () => {
+  it('copies the trace command with the absolute path of the trace, quoted for a POSIX shell, with its help and a download link', async () => {
     const { page, errors } = await open(`#/test/${target.id}`, { init: CLIPBOARD_STUB });
     const cards = page.locator('.trace-card');
     await expect.poll(() => cards.count()).toBe(2);
-    const help = `Requires Playwright ${report.run.playwrightVersion} or later. Run it from the report folder (the one containing index.html), in a POSIX shell (bash, zsh); it uses the project's own Playwright.`;
+    const help = `Requires Playwright ${report.run.playwrightVersion} or later. Run it from your project root, in a POSIX shell (bash, zsh), so it uses the project's own Playwright.`;
     expect(await cards.first().locator('.trace-help').textContent()).toBe(help);
     const button = cards.first().getByRole('button', { name: 'Copy trace command' });
     expect(await button.getAttribute('title')).toBe(help);
     await button.click();
     await cards.nth(1).getByRole('button', { name: 'Copy trace command' }).click();
+    // Over file://, the path is absolute: the command works from any directory.
     await expect.poll(() => page.evaluate<string[]>('window.__copied')).toEqual([
-      `npx playwright show-trace ${DATA}/trace.zip`,
-      `npx playwright show-trace '${DATA}/my trace.zip'`,
+      `npx playwright show-trace ${workDir}/${DATA}/trace.zip`,
+      `npx playwright show-trace '${workDir}/${DATA}/my trace.zip'`,
     ]);
     await expect.poll(() => page.getByRole('status').textContent()).toContain('Trace command copied to the clipboard.');
     const download = cards.nth(1).getByRole('link', { name: 'Download trace' });
@@ -490,7 +491,7 @@ describe('media viewers in a browser (file://)', { timeout: 30_000 }, () => {
     await button.click();
     const dialog = page.getByRole('dialog', { name: 'Copy trace command' });
     await dialog.waitFor();
-    expect(await dialog.getByRole('textbox').inputValue()).toBe(`npx playwright show-trace ${DATA}/trace.zip`);
+    expect(await dialog.getByRole('textbox').inputValue()).toBe(`npx playwright show-trace ${workDir}/${DATA}/trace.zip`);
     await page.keyboard.press('Escape');
     await dialog.waitFor({ state: 'hidden' });
     expect(await button.evaluate((element) => element === element.ownerDocument.activeElement)).toBe(true);
@@ -502,7 +503,7 @@ describe('media viewers in a browser (file://)', { timeout: 30_000 }, () => {
     const { page } = await open(`#/test/${target.id}`, { reportUrl });
     const help = page.locator('.trace-help').first();
     await help.waitFor();
-    expect(await help.textContent()).toBe("Run it from the report folder (the one containing index.html), in a POSIX shell (bash, zsh); it uses the project's own Playwright.");
+    expect(await help.textContent()).toBe("Run it from your project root, in a POSIX shell (bash, zsh), so it uses the project's own Playwright.");
     await page.close();
   });
 });

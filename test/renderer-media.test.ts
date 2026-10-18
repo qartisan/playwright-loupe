@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { attemptMedia, comparisonModes, fileHref, pickMode, traceCommand, traceHelp, viewerItems, type ComparisonSet } from '../src/renderer/detail/media.js';
+import {
+  absoluteFilePath,
+  attemptMedia,
+  comparisonModes,
+  fileHref,
+  pickMode,
+  traceCommand,
+  traceHelp,
+  viewerItems,
+  type ComparisonSet,
+} from '../src/renderer/detail/media.js';
 import type { Attachment, ComparisonRole } from '../src/schema/v1.js';
 
 function file(name: string, contentType: string, fields: Partial<Attachment> = {}): Attachment {
@@ -93,21 +103,75 @@ describe('pickMode', () => {
   });
 });
 
+describe('absoluteFilePath', () => {
+  const page = 'file:///home/gilles/Dev/app/loupe-report/index.html#/test/ab12?attempt=1';
+
+  it('resolves a report file against the page location over file://', () => {
+    expect(absoluteFilePath('data/ab12/0/trace.zip', page)).toBe('/home/gilles/Dev/app/loupe-report/data/ab12/0/trace.zip');
+  });
+
+  it('decodes spaces and accented characters, percent-encoded in the page URL', () => {
+    expect(absoluteFilePath('data/ab12/0/my trace.zip', 'file:///home/gilles/Mes%20Documents/r%C3%A9sultats/index.html')).toBe(
+      '/home/gilles/Mes Documents/résultats/data/ab12/0/my trace.zip',
+    );
+  });
+
+  it('keeps a #, ? or % in a file name as part of the path', () => {
+    expect(absoluteFilePath('data/ab12/0/trace #1?.zip', page)).toBe('/home/gilles/Dev/app/loupe-report/data/ab12/0/trace #1?.zip');
+    expect(absoluteFilePath('data/ab12/0/100%.zip', page)).toBe('/home/gilles/Dev/app/loupe-report/data/ab12/0/100%.zip');
+  });
+
+  it('drops the leading slash of a Windows drive path', () => {
+    expect(absoluteFilePath('data/ab12/0/trace.zip', 'file:///C:/Users/Gilles/loupe-report/index.html')).toBe('C:/Users/Gilles/loupe-report/data/ab12/0/trace.zip');
+  });
+
+  it('is unknown for a file:// URL with a host, and over http(s)', () => {
+    expect(absoluteFilePath('data/ab12/0/trace.zip', 'file://server/share/loupe-report/index.html')).toBeNull();
+    expect(absoluteFilePath('data/ab12/0/trace.zip', 'http://localhost:5173/#/test/ab12')).toBeNull();
+    expect(absoluteFilePath('data/ab12/0/trace.zip', 'https://reports.example.com/run/index.html')).toBeNull();
+  });
+
+  it('is unknown when the page URL has a malformed escape', () => {
+    expect(absoluteFilePath('data/ab12/0/trace.zip', 'file:///home/gilles/bad%E9/index.html')).toBeNull();
+  });
+});
+
 describe('traceCommand', () => {
-  it('opens the trace with show-trace, the path quoted for a POSIX shell when needed', () => {
-    expect(traceCommand('data/ab12/0/trace.zip')).toBe('npx playwright show-trace data/ab12/0/trace.zip');
-    expect(traceCommand('data/ab12/0/my trace.zip')).toBe("npx playwright show-trace 'data/ab12/0/my trace.zip'");
-    expect(traceCommand("data/ab12/0/it's.zip")).toBe("npx playwright show-trace 'data/ab12/0/it'\\''s.zip'");
+  const page = 'file:///home/gilles/Dev/app/loupe-report/index.html';
+
+  it('opens the trace by its absolute path over file://, quoted for a POSIX shell when needed', () => {
+    expect(traceCommand('data/ab12/0/trace.zip', page)).toBe('npx playwright show-trace /home/gilles/Dev/app/loupe-report/data/ab12/0/trace.zip');
+    expect(traceCommand('data/ab12/0/trace.zip', 'file:///home/gilles/Mes%20Documents/r%C3%A9sultats/index.html')).toBe(
+      "npx playwright show-trace '/home/gilles/Mes Documents/résultats/data/ab12/0/trace.zip'",
+    );
+    expect(traceCommand('data/ab12/0/trace.zip', "file:///home/gilles/Bob's%20app/report/index.html")).toBe(
+      "npx playwright show-trace '/home/gilles/Bob'\\''s app/report/data/ab12/0/trace.zip'",
+    );
+    expect(traceCommand("data/ab12/0/it's.zip", page)).toBe("npx playwright show-trace '/home/gilles/Dev/app/loupe-report/data/ab12/0/it'\\''s.zip'");
+    expect(traceCommand('data/ab12/0/trace.zip', 'file:///C:/Users/Gilles/report/index.html')).toBe('npx playwright show-trace C:/Users/Gilles/report/data/ab12/0/trace.zip');
+  });
+
+  it('keeps the path relative to the report folder when the disk path is unknown', () => {
+    expect(traceCommand('data/ab12/0/trace.zip', 'http://localhost:5173/')).toBe('npx playwright show-trace data/ab12/0/trace.zip');
+    expect(traceCommand('data/ab12/0/my trace.zip', 'https://reports.example.com/index.html')).toBe("npx playwright show-trace 'data/ab12/0/my trace.zip'");
+    expect(traceCommand("data/ab12/0/it's.zip", 'file://server/share/index.html')).toBe("npx playwright show-trace 'data/ab12/0/it'\\''s.zip'");
   });
 });
 
 describe('traceHelp', () => {
   it("names the run's Playwright version as the minimum, when known", () => {
-    expect(traceHelp('1.64.0')).toBe(
+    expect(traceHelp('1.64.0', false)).toBe(
       "Requires Playwright 1.64.0 or later. Run it from the report folder (the one containing index.html), in a POSIX shell (bash, zsh); it uses the project's own Playwright.",
     );
-    expect(traceHelp('')).toBe("Run it from the report folder (the one containing index.html), in a POSIX shell (bash, zsh); it uses the project's own Playwright.");
-    expect(traceHelp('  ')).not.toContain('Requires');
+    expect(traceHelp('', false)).toBe("Run it from the report folder (the one containing index.html), in a POSIX shell (bash, zsh); it uses the project's own Playwright.");
+    expect(traceHelp('  ', false)).not.toContain('Requires');
+  });
+
+  it('says to run it from the project root when the path is absolute', () => {
+    expect(traceHelp('1.64.0', true)).toBe(
+      "Requires Playwright 1.64.0 or later. Run it from your project root, in a POSIX shell (bash, zsh), so it uses the project's own Playwright.",
+    );
+    expect(traceHelp('', true)).toBe("Run it from your project root, in a POSIX shell (bash, zsh), so it uses the project's own Playwright.");
   });
 });
 

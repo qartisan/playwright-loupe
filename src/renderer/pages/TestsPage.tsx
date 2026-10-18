@@ -1,15 +1,16 @@
-import { Fragment } from 'preact';
+import { Component, Fragment } from 'preact';
 import { useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { LoupeReport, TestCase } from '../../schema/v1.js';
 import { categoryColorMap } from '../categoryColors.js';
 import { CategoryBadge } from '../components/CategoryBadge.js';
 import { FacetMenus, FilterChips } from '../components/FilterBar.js';
-import { OutcomeIcon, SortIcon } from '../components/icons.js';
+import { CloseIcon, OutcomeIcon, SortIcon } from '../components/icons.js';
 import { RerunFailed, projectLabel, testHref } from '../components/widgets.js';
 import { CAP_STEP, cappedLength, resultSummary } from '../filters/cap.js';
+import { chipFilters, collapsedChips, isChipActive, reportChips, type TestChip } from '../filters/chips.js';
 import { facetCounts, shownCategories } from '../filters/match.js';
 import { nextSort, titlePath } from '../filters/sort.js';
-import { context, domain, setFilters } from '../filters/store.js';
+import { context, domain, filtersHref, setFilters } from '../filters/store.js';
 import { DEFAULT_SORT, clearFilters, serializeFilters, type FilterState, type SortColumn } from '../filters/url.js';
 import { formatDuration, plural } from '../format.js';
 
@@ -31,6 +32,7 @@ const COLUMNS: ReadonlyArray<{ column: SortColumn; label: string; numeric?: bool
  */
 export function TestsPage({ report, state, sorted }: { report: LoupeReport; state: FilterState; sorted: readonly TestCase[] }) {
   const colors = useMemo(() => categoryColorMap(report.categories), [report]);
+  const chips = reportChips(report);
   // Not recomputed when only the sort changes.
   const filterKey = serializeFilters({ ...state, sort: DEFAULT_SORT });
   const counts = useMemo(() => facetCounts(report.tests, state, domain.value, context.value), [report, filterKey]);
@@ -107,7 +109,13 @@ export function TestsPage({ report, state, sorted }: { report: LoupeReport; stat
             </thead>
             <tbody ref={body}>
               {rows.map((test) => (
-                <TestRow key={`${test.id}/${test.repeatEachIndex}`} test={test} colors={colors} />
+                <TestRow
+                  key={`${test.id}/${test.repeatEachIndex}`}
+                  test={test}
+                  chips={chips.get(test.id) ?? NO_CHIPS}
+                  state={state}
+                  colors={colors}
+                />
               ))}
             </tbody>
           </table>
@@ -169,7 +177,74 @@ function TestCategories({ test, colors }: { test: TestCase; colors: ReadonlyMap<
   );
 }
 
-function TestRow({ test, colors }: { test: TestCase; colors: ReadonlyMap<string, string> }) {
+const NO_CHIPS: readonly TestChip[] = [];
+
+/**
+ * The dimension values and free tags of a test, under its title. Each chip
+ * links to the Tests view with its value added to the filter, or removed
+ * when active. A collapsed row shows its active chips, then the others up
+ * to `CHIP_CAP` chips, and "+N" for the rest, shown in place on demand;
+ * that state is not in the URL.
+ */
+function TestChips({ chips, state }: { chips: readonly TestChip[]; state: FilterState }) {
+  const [expanded, setExpanded] = useState(false);
+  if (chips.length === 0) return null;
+  const active = (chip: TestChip): boolean => isChipActive(state, chip);
+  const collapsed = collapsedChips(chips, active);
+  const shown = expanded ? chips : collapsed.shown;
+  // One element per chip, in a named group: the row cost of a list (ul, li, span) is measurable on 500 rows.
+  return (
+    <div class="test-chips" role="group" aria-label="Tags and dimensions">
+      {shown.map((chip) => {
+        const isActive = active(chip);
+        const name = isActive ? `Remove filter ${chip.name}` : chip.name;
+        return (
+          <a
+            key={`${chip.facet}\u0000${chip.value}`}
+            class={`test-chip${isActive ? ' test-chip-active' : ''}`}
+            href={filtersHref(chipFilters(state, chip), { page: 'tests' })}
+            title={name}
+            aria-label={name}
+          >
+            {chip.label}
+            {isActive && <CloseIcon />}
+          </a>
+        );
+      })}
+      {collapsed.hidden > 0 && (
+        <button type="button" class="test-chip-more" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+          {expanded ? 'Show less' : `+${collapsed.hidden}`}
+          {!expanded && <span class="visually-hidden"> more tags and dimensions</span>}
+        </button>
+      )}
+    </div>
+  );
+}
+
+interface TestRowProps {
+  test: TestCase;
+  chips: readonly TestChip[];
+  state: FilterState;
+  colors: ReadonlyMap<string, string>;
+}
+
+/**
+ * A row, rendered again only when one of its props changes: "Show more"
+ * leaves the rows already shown untouched. A filter or sort change gives a
+ * new state, which every row's chip links depend on.
+ */
+class TestRow extends Component<TestRowProps> {
+  override shouldComponentUpdate(next: TestRowProps): boolean {
+    const { test, chips, state, colors } = this.props;
+    return next.test !== test || next.chips !== chips || next.state !== state || next.colors !== colors;
+  }
+
+  override render() {
+    return <TestRowCells {...this.props} />;
+  }
+}
+
+function TestRowCells({ test, chips, state, colors }: TestRowProps) {
   return (
     <tr>
       <td>
@@ -178,6 +253,7 @@ function TestRow({ test, colors }: { test: TestCase; colors: ReadonlyMap<string,
       <td class="cell-title">
         <a href={testHref(test)}>{titlePath(test)}</a>
         {test.repeatEachIndex > 0 && <span class="row-note"> repeat {test.repeatEachIndex}</span>}
+        <TestChips chips={chips} state={state} />
       </td>
       <td class="cell-project">{projectLabel(test.project)}</td>
       <td>

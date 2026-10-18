@@ -126,6 +126,25 @@ describe.each(THEMES)('contrast, %s theme', (theme) => {
   );
 });
 
+describe.each(THEMES)('test chips (tags and dimension values), %s theme', (theme) => {
+  it(`chip text on its background is at least ${TEXT_CONTRAST}:1, inactive and active`, () => {
+    expect(contrast(token(theme, '--chip-fg'), token(theme, '--chip-bg'))).toBeGreaterThanOrEqual(TEXT_CONTRAST);
+    expect(contrast(token(theme, '--chip-active-fg'), token(theme, '--chip-active-bg'))).toBeGreaterThanOrEqual(TEXT_CONTRAST);
+  });
+
+  it.each(BACKGROUNDS)(`an active chip stands out at least ${UI_CONTRAST}:1 on %s`, (background) => {
+    expect(contrast(token(theme, '--chip-active-bg'), token(theme, background))).toBeGreaterThanOrEqual(UI_CONTRAST);
+  });
+
+  // The brand greys are slightly warm (chroma up to about 6); sage is above 20.
+  it('are neutral: neither sage nor a category hue', () => {
+    for (const name of ['--chip-bg', '--chip-fg', '--chip-border', '--chip-active-bg', '--chip-active-fg']) {
+      const [, a, b] = toLab(token(theme, name));
+      expect(Math.hypot(a, b), name).toBeLessThan(8);
+    }
+  });
+});
+
 describe('category palette', () => {
   const MIN_DISTANCE = 15;
 

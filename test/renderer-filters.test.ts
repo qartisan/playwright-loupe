@@ -205,6 +205,30 @@ describe('matchTest', () => {
     expect(matchTest(login, state({ q: 'auth checkout' }))).toBe(false);
   });
 
+  it('matches every raw tag, with or without its @, a tag a dimension takes included', () => {
+    const tagged = makeTest({ title: 'pays', tags: ['@smoke', '@layer:api'], dimensions: { Layer: ['api'] } });
+    expect(matchTest(tagged, state({ q: 'smoke' }))).toBe(true);
+    expect(matchTest(tagged, state({ q: '@smoke' }))).toBe(true);
+    expect(matchTest(tagged, state({ q: 'layer:api' }))).toBe(true);
+    expect(matchTest(tagged, state({ q: '@layer:api pays' }))).toBe(true);
+    expect(matchTest(tagged, state({ q: 'smoke checkout' }))).toBe(false);
+    expect(matchTest(login, state({ q: 'smoke' }))).toBe(false);
+  });
+
+  it('matches dimension values, annotation-based ones included', () => {
+    const bug = makeTest({ title: 'checks out', annotations: [{ type: 'bug', description: 'BUG-42' }], dimensions: { Bug: ['BUG-42'], Layer: ['ui'] } });
+    expect(matchTest(bug, state({ q: 'bug-42' }))).toBe(true);
+    expect(matchTest(bug, state({ q: 'ui checks' }))).toBe(true);
+    expect(matchTest(bug, state({ q: 'api' }))).toBe(false);
+  });
+
+  it('ignores accents in tags and dimension values too', () => {
+    const accented = makeTest({ tags: ['@équipe:paiement'], dimensions: { Zone: ['Région Île-de-France'] } });
+    expect(matchTest(accented, state({ q: 'equipe' }))).toBe(true);
+    expect(matchTest(accented, state({ q: 'ILE-DE region' }))).toBe(true);
+    expect(matchTest(accented, state({ q: 'ÉQUIPE:PAIEMENT' }))).toBe(true);
+  });
+
   it('ignores case and accents, in the search and in the test', () => {
     expect(matchTest(login, state({ q: 'eleve' }))).toBe(true);
     expect(matchTest(login, state({ q: 'ÉLÈVE authentification' }))).toBe(true);

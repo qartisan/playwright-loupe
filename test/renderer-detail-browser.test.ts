@@ -328,11 +328,11 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     const failed = report.tests.filter((test) => test.outcome === 'failed');
     // Read from the table: the Tests view's order is the reference.
     const { page, errors } = await open('#/tests?status=failed');
-    const links = page.locator('.tests-table tbody a');
+    const links = page.locator('.tests-table tbody .cell-title > a');
     const rows = await links.allTextContents();
     expect(rows).toHaveLength(failed.length);
     const lastHref = (await links.last().getAttribute('href')) ?? '';
-    await page.locator('.tests-table tbody a').first().click();
+    await page.locator('.tests-table tbody .cell-title > a').first().click();
     const pager = page.getByRole('navigation', { name: 'Tests in the current list' });
     await expect.poll(() => pager.locator('.pager-position').textContent()).toBe(`1 of ${failed.length}`);
     expect(await pager.getByRole('button', { name: 'Previous' }).isDisabled()).toBe(true);

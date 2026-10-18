@@ -7,7 +7,9 @@ import { activeFacets, dimensionFacet, facetDimension, type FacetId, type Filter
  * Which tests match a filter state, and how many tests each facet value would
  * give. Semantics: OR between the values of one facet, AND across facets; the
  * search matches every word, as a substring, ignoring case and accents, in the
- * title path, the file path and the project name.
+ * title path, the file path, the project name, every raw tag (`@layer:api`
+ * included, though the tag facet leaves it to the Layer dimension) and the
+ * dimension values (annotation-based ones included).
  *
  * Each tag is filterable in one place only: a tag whose prefix is that of a
  * tag dimension (`@layer:ui` with a `layer` dimension) is filtered through
@@ -76,7 +78,9 @@ function derived(test: TestCase): Derived {
   let entry = derivedCache.get(test);
   if (!entry) {
     entry = {
-      haystack: foldText([[...test.suitePath, test.title].join(' › '), test.file, test.project].join('\n')),
+      haystack: foldText(
+        [[...test.suitePath, test.title].join(' › '), test.file, test.project, ...test.tags, ...Object.values(test.dimensions).flat()].join('\n'),
+      ),
       categories: testCategories(test),
     };
     derivedCache.set(test, entry);
