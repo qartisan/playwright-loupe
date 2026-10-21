@@ -259,7 +259,7 @@ describe('slowestTests', () => {
 });
 
 describe('skippedTests', () => {
-  it('lists skipped tests with the reason of their skip or fixme annotation', () => {
+  it('lists skipped tests with why they were skipped (skip.ts)', () => {
     const tests = [
       makeTest({ title: 'plain', outcome: 'skipped' }),
       makeTest({ title: 'reasoned', outcome: 'skipped', annotations: [{ type: 'skip', description: ' not on CI ' }] }),
@@ -271,8 +271,8 @@ describe('skippedTests', () => {
       makeTest({ title: 'fixme', outcome: 'skipped', annotations: [{ type: 'fixme', description: null }] }),
       makeTest({ title: 'ran' }),
     ];
-    expect(skippedTests({ tests }).map(({ test, kind, reason }) => [test.title, kind, reason])).toEqual([
-      ['plain', null, null],
+    expect(skippedTests({ tests }).map(({ test, reason }) => [test.title, reason.kind, reason.text])).toEqual([
+      ['plain', 'notRun', null],
       ['reasoned', 'skip', 'not on CI'],
       ['runtime', 'skip', 'feature flag off'],
       ['fixme', 'fixme', null],

@@ -2,6 +2,7 @@ import { OUTCOMES, type DimensionDefinition, type LoupeReport, type TestCase } f
 import { splitPrefixedTag } from '../../shared/tags.js';
 import { NO_CATEGORY, isFailingAttempt } from '../dashboard.js';
 import { failurePoints } from '../failure-points/points.js';
+import { skipReason } from '../skip.js';
 import { activeFacets, dimensionFacet, facetDimension, type FacetId, type FilterDomain, type FilterState } from './url.js';
 
 /**
@@ -10,7 +11,8 @@ import { activeFacets, dimensionFacet, facetDimension, type FacetId, type Filter
  * search matches every word, as a substring, ignoring case and accents, in the
  * title path, the file path, the project name, every raw tag (`@layer:api`
  * included, though the tag facet leaves it to the Layer dimension) and the
- * dimension values (annotation-based ones included).
+ * dimension values (annotation-based ones included), and the skip reason
+ * of a skipped test (its text only, not the "Skipped" / "Not run" label).
  *
  * Each tag is filterable in one place only: a tag whose prefix is that of a
  * tag dimension (`@layer:ui` with a `layer` dimension) is filtered through
@@ -86,7 +88,14 @@ function derived(test: TestCase): Derived {
   if (!entry) {
     entry = {
       haystack: foldText(
-        [[...test.suitePath, test.title].join(' › '), test.file, test.project, ...test.tags, ...Object.values(test.dimensions).flat()].join('\n'),
+        [
+          [...test.suitePath, test.title].join(' › '),
+          test.file,
+          test.project,
+          ...test.tags,
+          ...Object.values(test.dimensions).flat(),
+          skipReason(test)?.text ?? '',
+        ].join('\n'),
       ),
       categories: testCategories(test),
     };

@@ -753,7 +753,6 @@ span.dimension-tile { cursor: default; }
 .test-line .test-text a { overflow-wrap: anywhere; }
 .test-line .test-where { display: block; overflow: hidden; color: var(--fg-secondary); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .test-line .duration { flex: none; font-variant-numeric: tabular-nums; }
-.skip-kind { padding: 0 6px; border: 1px solid var(--border-control); border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
 .flaky-error { display: flex; align-items: center; gap: 8px; min-width: 0; margin-top: 2px; }
 .flaky-error code { overflow: hidden; color: var(--fg-secondary); text-overflow: ellipsis; white-space: nowrap; }
 
@@ -850,6 +849,8 @@ span.dimension-tile { cursor: default; }
 .tests-table tbody tr:hover { background: var(--bg-muted); }
 .tests-table .outcome-icon { white-space: nowrap; }
 .cell-title { min-width: 240px; overflow-wrap: anywhere; }
+/* One line, truncated: width 0 keeps the reason from widening the column, min-width fills the cell. */
+.skip-line { display: block; width: 0; min-width: 100%; overflow: hidden; color: var(--fg-secondary); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .cell-project { white-space: nowrap; }
 .category-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .category-more { color: var(--fg-secondary); font-size: 12px; font-weight: 600; cursor: help; }
@@ -920,6 +921,8 @@ span.dimension-tile { cursor: default; }
 .title-suite { color: var(--fg-secondary); font-weight: 400; }
 .test-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; }
 .test-summary code { overflow-wrap: anywhere; }
+.detail-skip { overflow-wrap: anywhere; }
+.skip-explanation { margin: 0; color: var(--fg-secondary); font-size: 13px; }
 .test-meta { display: flex; flex-wrap: wrap; gap: 6px 24px; margin: 0; font-size: 13px; }
 .test-meta div { display: flex; align-items: baseline; gap: 6px; }
 .test-meta dt { color: var(--fg-secondary); }

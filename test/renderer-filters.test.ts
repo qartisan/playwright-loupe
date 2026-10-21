@@ -222,6 +222,20 @@ describe('matchTest', () => {
     expect(matchTest(bug, state({ q: 'api' }))).toBe(false);
   });
 
+  it('matches the skip reason of a skipped test, never the "Skipped" or "Not run" label', () => {
+    const skipped = (fields: Partial<TestCase>): TestCase =>
+      makeTest({ outcome: 'skipped', expectedStatus: 'skipped', attempts: [attempt(0, 'skipped')], ...fields });
+    const reasoned = skipped({ title: 'exports', annotations: [{ type: 'fixme', description: 'Écran de paiement pas prêt' }] });
+    expect(matchTest(reasoned, state({ q: 'ecran PAIEMENT' }))).toBe(true);
+    expect(matchTest(reasoned, state({ q: 'exports pret' }))).toBe(true);
+    expect(matchTest(reasoned, state({ q: 'fixme' }))).toBe(false);
+    const notRun = skipped({ title: 'imports', expectedStatus: 'passed' });
+    expect(matchTest(notRun, state({ q: 'not run' }))).toBe(false);
+    expect(matchTest(skipped({ annotations: [{ type: 'skip', description: null }] }), state({ q: 'skipped' }))).toBe(false);
+    // A passing test keeps its annotations out of the search, a skip annotation included.
+    expect(matchTest(makeTest({ annotations: [{ type: 'skip', description: 'only on CI' }] }), state({ q: 'only on CI' }))).toBe(false);
+  });
+
   it('ignores accents in tags and dimension values too', () => {
     const accented = makeTest({ tags: ['@équipe:paiement'], dimensions: { Zone: ['Région Île-de-France'] } });
     expect(matchTest(accented, state({ q: 'equipe' }))).toBe(true);

@@ -18,6 +18,7 @@ import { neighbors } from '../detail/sequence.js';
 import { shownCategories } from '../filters/match.js';
 import { setDetailQuery } from '../filters/store.js';
 import { isSecondaryError } from '../secondary.js';
+import { NOT_RUN_EXPLANATION, skipLabel, skipReason } from '../skip.js';
 import { formatDuration, plural } from '../format.js';
 import { currentLocation, navigate } from '../navigation.js';
 import { useShortcuts } from '../shortcuts.js';
@@ -240,6 +241,7 @@ export function TestPage({
   if (!test) return <NotFoundPage message="No test with this id in this report." />;
 
   const { primary } = shownCategories(test);
+  const skip = skipReason(test);
   const inFile = fileRerun(report.tests, test);
   const select = (target: Attempt): void => setDetailQuery(serializeDetailParams({ ...params, attempt: target.index }));
 
@@ -269,6 +271,7 @@ export function TestPage({
         </h1>
         <div class="test-summary">
           <OutcomeIcon outcome={test.outcome} labelled />
+          {skip && <span class="skip-reason detail-skip">{skipLabel(skip)}</span>}
           <span>{projectLabel(test.project)}</span>
           <code>
             {test.file}:{test.line}
@@ -276,6 +279,7 @@ export function TestPage({
           <span>{formatDuration(test.durationMs)}</span>
           {primary !== null && <CategoryBadge name={primary} color={colors.get(primary)} />}
         </div>
+        {skip?.kind === 'notRun' && <p class="skip-explanation">{NOT_RUN_EXPLANATION}</p>}
         <TestMeta test={test} />
         <div class="test-actions">
           <CopyButton label="Rerun command" help={RERUN_HELP} text={() => rerunCommand([test])}>

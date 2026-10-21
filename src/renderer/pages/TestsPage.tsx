@@ -5,6 +5,7 @@ import { categoryColorMap } from '../categoryColors.js';
 import { CategoryBadge } from '../components/CategoryBadge.js';
 import { FacetMenus, FilterChips } from '../components/FilterBar.js';
 import { CloseIcon, OutcomeIcon, SortIcon } from '../components/icons.js';
+import { SkipReasonText } from '../components/SkipReason.js';
 import { RerunFailed, projectLabel, testHref } from '../components/widgets.js';
 import { CAP_STEP, cappedLength, resultSummary } from '../filters/cap.js';
 import { chipFilters, collapsedChips, isChipActive, reportChips, type TestChip } from '../filters/chips.js';
@@ -13,6 +14,7 @@ import { nextSort, titlePath } from '../filters/sort.js';
 import { context, domain, filtersHref, setFilters } from '../filters/store.js';
 import { DEFAULT_SORT, clearFilters, serializeFilters, type FilterState, type SortColumn } from '../filters/url.js';
 import { formatDuration, plural } from '../format.js';
+import { skipReason } from '../skip.js';
 
 const COLUMNS: ReadonlyArray<{ column: SortColumn; label: string; numeric?: boolean }> = [
   { column: 'status', label: 'Status' },
@@ -245,6 +247,7 @@ class TestRow extends Component<TestRowProps> {
 }
 
 function TestRowCells({ test, chips, state, colors }: TestRowProps) {
+  const reason = skipReason(test);
   return (
     <tr>
       <td>
@@ -253,6 +256,7 @@ function TestRowCells({ test, chips, state, colors }: TestRowProps) {
       <td class="cell-title">
         <a href={testHref(test)}>{titlePath(test)}</a>
         {test.repeatEachIndex > 0 && <span class="row-note"> repeat {test.repeatEachIndex}</span>}
+        {reason && <SkipReasonText reason={reason} class="skip-line" />}
         <TestChips chips={chips} state={state} />
       </td>
       <td class="cell-project">{projectLabel(test.project)}</td>

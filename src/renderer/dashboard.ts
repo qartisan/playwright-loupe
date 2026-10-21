@@ -1,6 +1,7 @@
 import { OUTCOMES } from '../schema/v1.js';
 import type { Attempt, DimensionDefinition, LoupeError, LoupeReport, Outcome, Project, Stats, TestCase } from '../schema/v1.js';
 import { isSecondaryError } from './secondary.js';
+import { skipReason, type SkipReason } from './skip.js';
 
 /**
  * Dashboard and error group data, computed from the report alone (no model
@@ -387,24 +388,13 @@ export function slowestTests(report: Pick<LoupeReport, 'tests'>, limit = 10): Te
 
 export interface SkippedTest {
   test: TestCase;
-  /** `skip` or `fixme` when an annotation says why; null otherwise. */
-  kind: 'skip' | 'fixme' | null;
-  reason: string | null;
+  reason: SkipReason;
 }
 
-const SKIP_TYPES = ['skip', 'fixme'] as const;
-
-/** Skipped tests, with the reason from their `skip` / `fixme` annotation (test or last attempt) when there is one. */
+/** Skipped tests, with why they were skipped (skip.ts). */
 export function skippedTests(report: Pick<LoupeReport, 'tests'>): SkippedTest[] {
-  return report.tests
-    .filter((test) => test.outcome === 'skipped')
-    .map((test) => {
-      const annotations = [...test.annotations, ...(test.attempts[test.attempts.length - 1]?.annotations ?? [])];
-      const skip = annotations.find((annotation) => (SKIP_TYPES as readonly string[]).includes(annotation.type));
-      return {
-        test,
-        kind: skip ? (skip.type as SkippedTest['kind']) : null,
-        reason: skip?.description?.trim() || null,
-      };
-    });
+  return report.tests.flatMap((test) => {
+    const reason = skipReason(test);
+    return reason ? [{ test, reason }] : [];
+  });
 }

@@ -38,6 +38,7 @@ import { LONG_COMMAND_TESTS, RERUN_HELP, failedTests, rerunCommand } from '../de
 import { CategoryBadge } from './CategoryBadge.js';
 import { CopyButton } from './CopyButton.js';
 import { GroupSplit } from './GroupSplit.js';
+import { SkipReasonText } from './SkipReason.js';
 import { AlertIcon, ChevronIcon, OutcomeIcon, outcomeLabel } from './icons.js';
 
 /** Widgets shared by the overview, errors and suite health views. */
@@ -723,12 +724,10 @@ export function SkippedWidget({ tests }: { tests: readonly SkippedTest[] }) {
   return (
     <Widget id="w-skipped" class="widget-skipped" title="Skipped tests">
       <ul class="widget-list">
-        {tests.map(({ test, kind, reason }) => (
+        {tests.map(({ test, reason }) => (
           <li key={testKey(test)}>
             <TestLine test={test}>
-              <span class="test-where">
-                {kind === 'fixme' && <span class="skip-kind">fixme</span>} {reason ?? <span class="muted">No reason given</span>}
-              </span>
+              <SkipReasonText reason={reason} class="test-where" />
             </TestLine>
           </li>
         ))}
