@@ -6,7 +6,7 @@ import { errorGroups } from '../src/renderer/dashboard.js';
 import { failurePoints } from '../src/renderer/failure-points/points.js';
 import { isSecondaryError, isTestTimeout } from '../src/renderer/secondary.js';
 import { paletteReference } from '../src/shared/palette.js';
-import type { Attachment, LoupeReport, Step } from '../src/schema/v1.js';
+import type { Annotation, Attachment, LoupeReport, Step } from '../src/schema/v1.js';
 import { FIXTURE_PASSWORD, FIXTURE_SECRET } from '../fixtures/redaction-values.js';
 import { FIXTURE_CONFIG, assertBuilt, findTest, playwright, readReport, userSteps } from './helpers/fixtures.js';
 import { schemaErrors } from './helpers/schema.js';
@@ -20,6 +20,14 @@ const PROJECTS = ['chromium-a', 'chromium-b'];
  */
 function isStableAttachment(attachment: Attachment): boolean {
   return attachment.kind !== 'video' && attachment.kind !== 'trace' && !attachment.name.includes('error-context');
+}
+
+/**
+ * Playwright adds a `serial` annotation to the tests of a serial group from 1.63
+ * only; the dedicated test below checks it on every version.
+ */
+function isStableAnnotation(annotation: Annotation): boolean {
+  return annotation.type !== 'serial';
 }
 
 /** Steps, at any depth, whose title has a redacted value: the title format differs across Playwright versions, the count does not. */
@@ -57,7 +65,7 @@ function normalize(report: LoupeReport): unknown {
       suitePath: test.suitePath,
       title: test.title,
       tags: test.tags,
-      annotations: test.annotations,
+      annotations: test.annotations.filter(isStableAnnotation),
       outcome: test.outcome,
       expectedStatus: test.expectedStatus,
       dimensions: test.dimensions,
@@ -127,6 +135,19 @@ describe('fixture suite with the built reporter', () => {
 
   it('reports every outcome', () => {
     expect(new Set(report.tests.map((test) => test.outcome))).toEqual(new Set(['passed', 'failed', 'flaky', 'skipped']));
+  });
+
+  it('keeps the serial annotation Playwright adds from 1.63, on the serial group only', () => {
+    const [major = 0, minor = 0] = report.run.playwrightVersion.split('.').map(Number);
+    const serial = report.tests.filter((test) => test.annotations.some((annotation) => annotation.type === 'serial'));
+    const group = report.tests.filter((test) => test.suitePath.includes('serial group'));
+    expect(group).toHaveLength(2 * PROJECTS.length);
+    if (major > 1 || minor >= 63) {
+      expect(serial).toEqual(group);
+      for (const test of serial) expect(test.annotations).toEqual([{ type: 'serial', description: null }]);
+    } else {
+      expect(serial).toEqual([]);
+    }
   });
 
   it('gives each test a unique id, different per project', () => {

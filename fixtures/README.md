@@ -7,7 +7,9 @@ This Playwright suite exists to feed the Loupe reporter with realistic results. 
 - passing tests;
 - a failing assertion (`fails on a wrong heading`), and a `toEqual` failure with a multi-line diff (`returns a different order`);
 - a flaky test that fails on the first attempt and passes on retry (`testInfo.retry`), with one attachment per attempt;
-- a skipped test and a `fixme`;
+- a skipped test and a `fixme`, both without a reason;
+- skip reasons (`skip reasons` in `outcomes.spec.ts`): a runtime `test.skip(condition, reason)` that skips on `chromium-b` only (it passes on `chromium-a`), a runtime `test.fixme(true, reason)`, and a `describe` skipped by a `test.skip(({ browserName }) => …, reason)` callback;
+- a serial group (`test.describe.serial`) whose first test fails on purpose, so Playwright skips the second one without any skip annotation: a test that was not run. From Playwright 1.63, every test of the group also carries Playwright's own `serial` annotation;
 - a slow test (about 3 seconds);
 - a test timing out while an action is pending (`times out`), so each of its attempts has a second error raised after the test timeout, the one error group only seen after a test timeout;
 - one failure per built-in error category: ambiguous locator (a strict mode violation), locator not found, rate limited and server error (a 429 through `toBeOK()` and a 500 through `failOnStatusCode`, both from a local HTTP server on 127.0.0.1), network (a refused connection), assertion and timeout;

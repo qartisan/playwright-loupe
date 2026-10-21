@@ -19,3 +19,28 @@ test.describe('outcomes', () => {
     await expect(page.getByText('Slow')).toBeVisible();
   });
 });
+
+test.describe('skip reasons', () => {
+  test('skips at runtime with a reason on one project', async ({}, testInfo) => {
+    test.skip(testInfo.project.name === 'chromium-b', 'Runs on chromium-a only');
+  });
+
+  test('is marked fixme at runtime with a reason', async () => {
+    test.fixme(true, 'Export button not implemented yet');
+  });
+
+  test.describe('skipped block', () => {
+    test.skip(({ browserName }) => browserName === 'chromium', 'Not supported on Chromium');
+
+    test('is skipped by its describe with a reason', async () => {});
+  });
+
+  // Playwright skips the tests after a failure in a serial group without any skip annotation: "Not run".
+  test.describe.serial('serial group', () => {
+    test('fails first in a serial group (intentional)', async () => {
+      expect(['draft'], 'fails on purpose so the next test is not run').toEqual(['draft', 'published']);
+    });
+
+    test('is not run after a failure in its serial group', async () => {});
+  });
+});

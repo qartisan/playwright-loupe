@@ -310,7 +310,8 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     // Both projects failed on the same lines: one command with both projects. Flaky tests left out.
     expect(command).not.toContain(' && ');
     expect(command).toMatch(/ --project=chromium-a --project=chromium-b$/);
-    expect(command).not.toContain(find('is flaky: fails on the first attempt, passes on retry (intentional)').file + ':');
+    const flaky = find('is flaky: fails on the first attempt, passes on retry (intentional)');
+    expect(command.split(' ')).not.toContain(`${flaky.file}:${flaky.line}`);
 
     await page.goto(`${url}#/tests?project=chromium-b`);
     const projectFailed = failed.filter((test) => test.project === 'chromium-b');
