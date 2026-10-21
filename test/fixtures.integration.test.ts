@@ -134,7 +134,16 @@ describe('fixture suite with the built reporter', () => {
 
   it('uses POSIX paths relative to the root dir', () => {
     expect(new Set(report.tests.map((test) => test.file))).toEqual(
-      new Set(['basics.spec.ts', 'failures.spec.ts', 'outcomes.spec.ts', 'redaction.spec.ts', 'structure.spec.ts']),
+      new Set([
+        'basics.spec.ts',
+        'failures.spec.ts',
+        'outcomes.spec.ts',
+        'redaction.spec.ts',
+        'resources/invoices.spec.ts',
+        'resources/orders.spec.ts',
+        'resources/profiles.spec.ts',
+        'structure.spec.ts',
+      ]),
     );
     const failing = findTest(report, 'chromium-a', 'fails on a wrong heading (intentional)');
     expect(failing.attempts[0]?.errors[0]?.location?.file).toBe('basics.spec.ts');

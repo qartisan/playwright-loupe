@@ -467,8 +467,11 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
   });
 
   it('shows a dimension with many values as tiles, problem values first, details on focus', async () => {
-    // 20 values: tiles. Every test gets one.
-    const tests = report.tests.map((test, index) => ({ ...test, dimensions: { ...test.dimensions, module: [`m${String(index % 20).padStart(2, '0')}`] } }));
+    // 20 values: tiles. Every test gets one: failed and flaky tests m00 to m09, the others m10 to m19.
+    const tests = report.tests.map((test, index) => {
+      const module = (test.outcome === 'failed' || test.outcome === 'flaky' ? 0 : 10) + (index % 10);
+      return { ...test, dimensions: { ...test.dimensions, module: [`m${String(module).padStart(2, '0')}`] } };
+    });
     const dimensions = [...report.dimensions, { name: 'module', source: 'tag', key: 'module', values: null }];
     const { page, errors } = await open(`${writeReport('tiles', { ...report, tests, dimensions })}#/health`);
     const widget = page.locator('[data-dimension="module"]');
@@ -1019,6 +1022,10 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
       'failures.spec.ts': 'tests/e2e/checkout/failures.spec.ts',
       'outcomes.spec.ts': 'tests/e2e/checkout/outcomes.spec.ts',
       'structure.spec.ts': 'tests/e2e/structure-and-organisation-of-the-describe-blocks-in-a-long-file.spec.ts',
+      'redaction.spec.ts': 'tests/e2e/checkout/redaction.spec.ts',
+      'resources/invoices.spec.ts': 'tests/e2e/resources/invoices.spec.ts',
+      'resources/orders.spec.ts': 'tests/e2e/resources/orders.spec.ts',
+      'resources/profiles.spec.ts': 'tests/e2e/resources/profiles.spec.ts',
     };
     const tests = report.tests.map((test) => ({ ...test, file: files[test.file] ?? test.file }));
     const { page, errors } = await open(writeReport('folders', { ...report, tests }), { viewport: { width: 1400, height: 900 } });

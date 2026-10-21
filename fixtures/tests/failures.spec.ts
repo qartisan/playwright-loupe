@@ -1,7 +1,7 @@
 import { randomInt, randomUUID } from 'node:crypto';
-import { createServer as createHttpServer } from 'node:http';
 import { createServer, type AddressInfo } from 'node:net';
 import { expect, test } from '@playwright/test';
+import { withStatusServer } from '../helpers/status-server.js';
 
 // Intentional failures: see fixtures/README.md. Do not "fix" these tests.
 
@@ -12,21 +12,6 @@ import { expect, test } from '@playwright/test';
 function failOrderSync(): never {
   const url = `http://localhost:${randomInt(3000, 9000)}/api/orders/${randomInt(1, 10_000)}`;
   throw new Error(`Order sync ${randomUUID()} rejected by ${url} after ${randomInt(100, 5000)}ms`);
-}
-
-/** Serves `status` on 127.0.0.1 while `use` runs: no external network. */
-async function withStatusServer(status: number, use: (url: string) => Promise<void>): Promise<void> {
-  const server = createHttpServer((_request, response) => {
-    response.statusCode = status;
-    response.end('Intentional failure');
-  }).listen(0, '127.0.0.1');
-  await new Promise((resolve) => server.once('listening', resolve));
-  const { port } = server.address() as AddressInfo;
-  try {
-    await use(`http://127.0.0.1:${port}/api/orders`);
-  } finally {
-    await new Promise((resolve) => server.close(resolve));
-  }
 }
 
 test.describe('failures', () => {
