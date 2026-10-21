@@ -617,6 +617,29 @@ pre.message {
 .category-list summary .group-count { margin-left: auto; }
 .category-list .widget-list { margin: 0 0 8px 28px; }
 
+/* Groups only seen after a test timeout: folded at the end of a group list, operable as a native disclosure. */
+.after-timeout { margin-top: 4px; border-top: 1px solid var(--border); }
+.after-timeout > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px;
+  color: var(--fg-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  list-style: none;
+}
+.after-timeout > summary::-webkit-details-marker { display: none; }
+.after-timeout > summary:hover { background: var(--bg-muted); color: var(--fg); }
+.after-timeout > summary .chevron { transition: transform 0.1s; }
+.after-timeout[open] > summary .chevron { transform: rotate(90deg); }
+.after-timeout > .widget-note { margin: 0 0 4px 28px; }
+.after-timeout > .widget-list { margin: 0 0 8px 28px; }
+.category-list .after-timeout { margin-left: 28px; }
+.group-note { margin: -4px 0 16px; color: var(--fg-secondary); }
+/* A neutral label: the error was raised after the test timeout. */
+.error-secondary { padding: 0 8px; border: 1px solid var(--border-control); border-radius: 999px; background: var(--chip-bg); color: var(--chip-fg); font-size: 12px; line-height: 20px; }
+
 /* Project cards fill each row: the last row's cards grow instead of leaving gaps. */
 .project-cards { display: flex; flex-wrap: wrap; gap: 12px; padding: 0; margin: 0; list-style: none; }
 .project-cards > li { flex: 1 1 240px; min-width: 0; }

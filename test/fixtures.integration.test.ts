@@ -2,7 +2,9 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { errorGroups } from '../src/renderer/dashboard.js';
 import { failurePoints } from '../src/renderer/failure-points/points.js';
+import { isSecondaryError, isTestTimeout } from '../src/renderer/secondary.js';
 import { paletteReference } from '../src/shared/palette.js';
 import type { Attachment, LoupeReport, Step } from '../src/schema/v1.js';
 import { FIXTURE_PASSWORD, FIXTURE_SECRET } from '../fixtures/redaction-values.js';
@@ -238,6 +240,19 @@ describe('fixture suite with the built reporter', () => {
         via: ['../helpers/resources.ts#checkResponse'],
       },
     ]);
+  });
+
+  it('raises a further error after the test timeout, recognized on this Playwright version, in a folded group', () => {
+    for (const project of PROJECTS) {
+      for (const attempt of findTest(report, project, 'times out (intentional)').attempts) {
+        expect(attempt.status).toBe('timedOut');
+        expect(isTestTimeout(attempt.errors[0]?.message ?? '')).toBe(true);
+        expect(attempt.errors.length).toBeGreaterThan(1);
+        expect(attempt.errors.map((_error, index) => isSecondaryError(attempt, index))).toEqual(attempt.errors.map((_error, index) => index > 0));
+      }
+    }
+    const folded = errorGroups(report).filter((group) => group.afterTimeout);
+    expect(folded.map((group) => group.tests.length)).toEqual([PROJECTS.length]);
   });
 
   it('exposes the screenshot comparison triplet, with files in the report folder', () => {

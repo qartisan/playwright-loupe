@@ -39,7 +39,7 @@ The report is a single self-contained HTML file. It works offline, straight from
 
 - **Header:** the run's verdict and status counts, its start, duration and environment; the shortcuts and theme controls stay top-right at every width.
 - **Overview:** verdict with pass rate, run errors first when the run broke outside its tests, [common failure points](#common-failure-points), error categories, project cards, and the run details in three groups: Run (scope, CI, workers, shard), Code (commit, short with a copy button; branch; repository) and Environment (Playwright, Loupe, Node, OS). Empty values are left out.
-- **Errors:** every error group, built from normalized error signatures, with the failed / flaky split and links to the affected tests. A group page has previous / next buttons: from a category, they stay within that category.
+- **Errors:** every error group, built from normalized error signatures, with the failed / flaky split and links to the affected tests. Groups [only seen after a test timeout](#groups-only-seen-after-a-test-timeout) are folded at the end. A group page has previous / next buttons: from a category, they stay within that category.
 - **Test detail:** title path, outcome, project, `file:line`, tags, annotations and dimensions, then one tab per attempt (the last failing attempt first; `?attempt=` in the URL): errors with Expected / Received and diffs highlighted and the code snippet, steps (`test.step` and failing steps, the failing path expanded; "Show all steps" for hooks, fixtures and API calls), attachments, stdout and stderr. Previous / next walk the Tests view's current list.
 - **Attachments**, per attempt, linked from `data/` next to the report (never inlined in the HTML), all working from `file://`:
   - **Screenshot comparisons**: a failed `toHaveScreenshot` / `toMatchSnapshot` gives one card per image name, before the other screenshots, with four modes: Diff, Side by side (expected | actual, at one scale), Slider (actual over expected, a divider to drag or move with the arrow keys) and Overlay (actual over expected, its opacity to set). Only the modes the images allow are offered; Diff is the default when there is a diff image. The chosen mode applies to every comparison until the report is closed. Each image's size is shown, with a warning when expected and actual differ: slider and overlay align them top-left. "Open in viewer" shows the same modes in the viewer below.
@@ -65,6 +65,15 @@ When one problem breaks many tests, their errors rarely share a message: the sam
 - Each point opens its tests in the Tests view (the Failure point filter). The root dir is found from the stacks (the frames of each test's own file); when no stack shows it, the card is hidden.
 
 Nothing is configured and nothing changes in your tests: the points are derived when the report opens, from the stacks Playwright records. The thresholds may change while the heuristic is tuned.
+
+### Groups only seen after a test timeout
+
+When a test times out, Playwright stops it and the action still running fails too (`Request context disposed`, `Target page, context or browser has been closed`, `locator.click: Test timeout of 30000ms exceeded`): a second error of the same attempt. Such follow-on errors can make up many error groups of a slow run.
+
+- An error is **secondary** when it is not the first error of its attempt and that first error is Playwright's test timeout: `Test timeout of <n>ms exceeded.`, also while setting up or tearing down a fixture, in a `beforeEach` / `afterEach` hook, a fixture's own timeout and a `beforeAll` / `afterAll` hook timeout.
+- A group is **folded** when every one of its errors is secondary. A group seen at least once as a first error stays visible.
+- In the Errors view, folded groups move to a collapsed "N groups only seen after a test timeout" at the end of the list and of each category. Group counts leave them out and say so (`22 error groups · 18 more only seen after a test timeout`), on the Overview too; test counts are unchanged. `n` / `p` walk the visible groups first, then the folded ones.
+- A folded group's page stays reachable, and in the test detail each secondary error keeps its place, labelled "Raised after the test timeout". The category of a test does not change: the second error is sometimes the most telling one.
 
 ### Keyboard shortcuts
 

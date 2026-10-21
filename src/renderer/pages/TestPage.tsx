@@ -17,6 +17,7 @@ import { RERUN_HELP, fileRerun, rerunCommand } from '../detail/rerun.js';
 import { neighbors } from '../detail/sequence.js';
 import { shownCategories } from '../filters/match.js';
 import { setDetailQuery } from '../filters/store.js';
+import { isSecondaryError } from '../secondary.js';
 import { formatDuration, plural } from '../format.js';
 import { currentLocation, navigate } from '../navigation.js';
 import { useShortcuts } from '../shortcuts.js';
@@ -143,7 +144,13 @@ function AttemptContent({ test, attempt, params, groups, colors, playwrightVersi
         <section class="detail-section" aria-labelledby="detail-errors">
           <h2 id="detail-errors">{attempt.errors.length === 1 ? 'Error' : plural(attempt.errors.length, 'error')}</h2>
           {attempt.errors.map((error, index) => (
-            <ErrorCard key={index} error={error} group={groups.get(error.signature)} color={error.category ? colors.get(error.category) : undefined} />
+            <ErrorCard
+              key={index}
+              error={error}
+              group={groups.get(error.signature)}
+              color={error.category ? colors.get(error.category) : undefined}
+              secondary={isSecondaryError(attempt, index)}
+            />
           ))}
         </section>
       )}

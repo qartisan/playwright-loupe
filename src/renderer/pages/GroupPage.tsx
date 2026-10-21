@@ -47,6 +47,9 @@ export function GroupPage({ report, groups, group }: { report: LoupeReport; grou
       />
       <p class="breadcrumb">{sequence.restricted ? `Error group · ${categories.join(', ')}` : 'Error group'}</p>
       <h1>{plural(group.tests.length, 'test')} failing with this error</h1>
+      {group.afterTimeout && (
+        <p class="group-note">Only seen after a test timeout: raised by the action still running when the test timed out, never as the first error of an attempt.</p>
+      )}
       <dl class="group-meta">
         <div>
           <dt>Category</dt>

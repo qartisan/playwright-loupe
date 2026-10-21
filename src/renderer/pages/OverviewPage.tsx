@@ -3,10 +3,11 @@ import type { LoupeReport, TestCase } from '../../schema/v1.js';
 import { categoryColorMap } from '../categoryColors.js';
 import { RunDetails } from '../components/RunDetails.js';
 import { CategoryBars, FailurePointsWidget, ProjectCards, RerunFailed, RunErrorsSummary, Verdict, Widget } from '../components/widgets.js';
-import { categoryCounts, projectSummaries, type ErrorGroup } from '../dashboard.js';
+import { categoryCounts, projectSummaries, splitAfterTimeout, type ErrorGroup } from '../dashboard.js';
 import { failurePoints } from '../failure-points/points.js';
 import { plural } from '../format.js';
 import { hrefTo } from '../navigation.js';
+import { foldedMention } from '../secondary.js';
 
 /**
  * Overview (`#/`): the verdict, run errors when there are any, the common
@@ -23,6 +24,7 @@ export function OverviewPage({ report, groups, matched }: { report: LoupeReport;
     [report, groups],
   );
   const colors = useMemo(() => categoryColorMap(report.categories), [report]);
+  const { visible, folded } = splitAfterTimeout(groups);
 
   return (
     <div class="page view view-overview">
@@ -39,7 +41,8 @@ export function OverviewPage({ report, groups, matched }: { report: LoupeReport;
           title="Error categories"
           note={
             <>
-              Failing tests per category. <a href={hrefTo({ page: 'errors' })}>All {plural(groups.length, 'error group')}</a>
+              Failing tests per category. <a href={hrefTo({ page: 'errors' })}>All {plural(visible.length, 'error group')}</a>
+              {folded.length > 0 && ` · ${foldedMention(folded.length)}`}
             </>
           }
         >

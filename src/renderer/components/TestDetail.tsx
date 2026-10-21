@@ -2,6 +2,7 @@ import { useState } from 'preact/hooks';
 import type { Attachment, LoupeError, Output, Step } from '../../schema/v1.js';
 import type { ErrorGroup } from '../dashboard.js';
 import { NO_CATEGORY } from '../dashboard.js';
+import { SECONDARY_LABEL } from '../secondary.js';
 import { highlightMessage, highlightSnippet } from '../detail/highlight.js';
 import { fileHref } from '../detail/media.js';
 import { failingPath, stepTree, type StepMode, type StepNode } from '../detail/steps.js';
@@ -18,13 +19,15 @@ function locationText(location: { file: string; line: number; column?: number } 
   return location.column === undefined ? `${location.file}:${location.line}` : `${location.file}:${location.line}:${location.column}`;
 }
 
-export function ErrorCard({ error, group, color }: { error: LoupeError; group: ErrorGroup | undefined; color: string | undefined }) {
+/** An error of an attempt. `secondary`: raised after the test timeout (secondary.ts), labelled as such. */
+export function ErrorCard({ error, group, color, secondary = false }: { error: LoupeError; group: ErrorGroup | undefined; color: string | undefined; secondary?: boolean }) {
   const location = locationText(error.location);
   const category = error.category ?? NO_CATEGORY;
   return (
     <article class="error-card">
       <div class="error-head">
         <CategoryBadge name={category} color={color} />
+        {secondary && <span class="error-secondary">{SECONDARY_LABEL}</span>}
         {location && <code class="error-location">{location}</code>}
         {group && (
           <a class="error-group-link" href={groupHref(group.signature)} title="Every test failing with this error">

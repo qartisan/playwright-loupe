@@ -9,6 +9,7 @@ This Playwright suite exists to feed the Loupe reporter with realistic results. 
 - a flaky test that fails on the first attempt and passes on retry (`testInfo.retry`), with one attachment per attempt;
 - a skipped test and a `fixme`;
 - a slow test (about 3 seconds);
+- a test timing out while an action is pending (`times out`), so each of its attempts has a second error raised after the test timeout, the one error group only seen after a test timeout;
 - one failure per built-in error category: ambiguous locator (a strict mode violation), locator not found, rate limited and server error (a 429 through `toBeOK()` and a 500 through `failOnStatusCode`, both from a local HTTP server on 127.0.0.1), network (a refused connection), assertion and timeout;
 - two tests throwing the same error with a different UUID, URL and duration, which must share an error signature (their category is `Uncategorized`);
 - five unrelated failures through one shared helper, outside `testDir` (`helpers/resources.ts`: `fetchResource`, which calls `checkResponse`), in three spec files under `tests/resources/`, with two statuses (404, `Uncategorized`, and 503, `Server error`), so two error groups. They are a false common failure point on purpose: the failures have nothing to do with each other, and the report must show exactly one common failure point, `../helpers/resources.ts#fetchResource` via `checkResponse`. That measures the heuristic. `helpers/status-server.ts` holds the local HTTP server shared with `failures.spec.ts`;

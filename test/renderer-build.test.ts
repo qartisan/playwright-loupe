@@ -12,6 +12,7 @@ import {
   injectSettings,
   type RendererSettings,
 } from '../src/core/inject.js';
+import { errorGroups } from '../src/renderer/dashboard.js';
 import type { LoupeReport } from '../src/schema/v1.js';
 import { ROOT, assertBuilt, isMissingAttachmentFile } from './helpers/fixtures.js';
 
@@ -403,12 +404,13 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     await page.locator('.widget-groups').waitFor();
     expect(await page.locator('.widget h2').allTextContents()).toEqual([
       `${report.run.errors.length} run error`,
-      `${new Set(report.tests.flatMap((test) => test.attempts.flatMap((attempt) => attempt.errors.map((error) => error.signature)))).size} error groups`,
+      // Groups only seen after a test timeout (the fixture's `times out` test) are folded, not counted.
+      `${errorGroups(report).filter((group) => !group.afterTimeout).length} error groups`,
       'Error categories',
     ]);
     expect(await page.locator('.run-error').count()).toBe(report.run.errors.length);
-    // Most failed tests first, then most flaky.
-    const splits = await page.locator('.widget-groups .group-row .group-split').allTextContents();
+    // Most failed tests first, then most flaky; the folded groups come after, in their own disclosure.
+    const splits = await page.locator('.widget-groups > .group-list .group-row .group-split').allTextContents();
     const failedCounts = splits.map((text) => Number(/(\d+) failed/.exec(text)?.[1] ?? 0));
     expect(failedCounts).toEqual([...failedCounts].sort((a, b) => b - a));
     const category = page.locator('.widget-categories details').first();

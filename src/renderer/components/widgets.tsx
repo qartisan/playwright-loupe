@@ -13,6 +13,7 @@ import {
   groupSummary,
   outcomeShares,
   passRate,
+  splitAfterTimeout,
   tileOrder,
   tileSummary,
   verdict,
@@ -29,6 +30,7 @@ import type { FailurePoint } from '../failure-points/points.js';
 import { filters, filtersHref } from '../filters/store.js';
 import { EMPTY_FILTERS, dimensionFacet, type FacetId } from '../filters/url.js';
 import { formatDuration, plural } from '../format.js';
+import { foldedGroupsText, groupCountText } from '../secondary.js';
 import { revealInSidebar } from '../layout.js';
 import { hrefTo } from '../navigation.js';
 import { UNNAMED_PROJECT, projectKey } from '../tree.js';
@@ -325,6 +327,25 @@ export function FailurePointsWidget({ points, colors, categories }: { points: re
   );
 }
 
+/**
+ * The groups only seen after a test timeout, at the end of a group list, in
+ * a collapsed disclosure: noise in the lists, still one click away. Their
+ * pages stay reachable, and the errors stay in each test's detail.
+ */
+export function FoldedGroups({ groups, colors, inCategory }: { groups: readonly ErrorGroup[]; colors: Colors; inCategory?: string | undefined }) {
+  if (groups.length === 0) return null;
+  return (
+    <details class="after-timeout">
+      <summary>
+        <ChevronIcon class="chevron" />
+        {foldedGroupsText(groups.length)}
+      </summary>
+      <p class="widget-note">Raised by the action still running when the test timed out: never the first error of an attempt.</p>
+      <GroupList groups={groups} colors={colors} inCategory={inCategory} />
+    </details>
+  );
+}
+
 /** Failing tests per category as bars, each linking to those tests in the Tests view. */
 export function CategoryBars({ categories, colors }: { categories: readonly CategoryCount[]; colors: Colors }) {
   const max = Math.max(...categories.map((category) => category.tests), 1);
@@ -345,23 +366,31 @@ export function CategoryBars({ categories, colors }: { categories: readonly Cate
   );
 }
 
-/** Categories with their group and test counts, each expanding to its groups; `open` starts expanded. */
+/**
+ * Categories with their group and test counts, each expanding to its groups,
+ * the groups only seen after a test timeout folded at the end (and left out
+ * of the group count, not of the test count); `open` starts expanded.
+ */
 export function CategoryDetails({ categories, colors, open }: { categories: readonly CategoryCount[]; colors: Colors; open?: string | undefined }) {
   return (
     <ul class="widget-list category-list">
-      {categories.map((category) => (
-        <li key={category.name} data-category={category.name}>
-          <details open={category.name === open}>
-            <summary>
-              <ChevronIcon class="chevron" />
-              <CategoryBadge name={category.name} color={colors.get(category.name)} />
-              <span class="muted">{plural(category.groups.length, 'error group')}</span>
-              <span class="group-count">{plural(category.tests, 'test')}</span>
-            </summary>
-            <GroupList groups={category.groups} colors={colors} inCategory={category.name} />
-          </details>
-        </li>
-      ))}
+      {categories.map((category) => {
+        const { visible, folded } = splitAfterTimeout(category.groups);
+        return (
+          <li key={category.name} data-category={category.name}>
+            <details open={category.name === open}>
+              <summary>
+                <ChevronIcon class="chevron" />
+                <CategoryBadge name={category.name} color={colors.get(category.name)} />
+                <span class="muted">{groupCountText(visible.length, folded.length)}</span>
+                <span class="group-count">{plural(category.tests, 'test')}</span>
+              </summary>
+              {visible.length > 0 && <GroupList groups={visible} colors={colors} inCategory={category.name} />}
+              <FoldedGroups groups={folded} colors={colors} inCategory={category.name} />
+            </details>
+          </li>
+        );
+      })}
     </ul>
   );
 }

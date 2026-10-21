@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useRef } from 'preact/hooks';
 import type { LoupeReport } from '../../schema/v1.js';
 import { categoryColorMap } from '../categoryColors.js';
-import { CategoryDetails, GroupList, RunErrorItem, Widget } from '../components/widgets.js';
-import { categoryCounts, rankGroups, type ErrorGroup } from '../dashboard.js';
+import { CategoryDetails, FoldedGroups, GroupList, RunErrorItem, Widget } from '../components/widgets.js';
+import { categoryCounts, rankGroups, splitAfterTimeout, type ErrorGroup } from '../dashboard.js';
 import { plural } from '../format.js';
+import { groupCountText } from '../secondary.js';
 
 /**
  * Errors (`#/errors`): run errors first, then every error group (most failed
- * tests first, then most flaky), then the categories in detail.
+ * tests first, then most flaky; the groups only seen after a test timeout
+ * folded at the end), then the categories in detail, folded the same way.
  * `#/errors/category/<name>` opens that category and scrolls to it.
  */
 export function ErrorsPage({ report, groups, category }: { report: LoupeReport; groups: readonly ErrorGroup[]; category?: string | undefined }) {
@@ -21,6 +23,7 @@ export function ErrorsPage({ report, groups, category }: { report: LoupeReport; 
     target?.querySelector<HTMLElement>('summary')?.focus({ preventScroll: true });
   }, [category]);
   const ranked = useMemo(() => rankGroups(groups), [groups]);
+  const { visible, folded } = useMemo(() => splitAfterTimeout(ranked), [ranked]);
   // From the ranked groups: each category lists its groups in the order its group pages walk them.
   const categories = useMemo(() => categoryCounts(report, ranked), [report, ranked]);
   const colors = useMemo(() => categoryColorMap(report.categories), [report]);
@@ -48,10 +51,11 @@ export function ErrorsPage({ report, groups, category }: { report: LoupeReport; 
         <Widget
           id="w-groups"
           class="widget-groups"
-          title={plural(ranked.length, 'error group')}
-          note="Errors grouped by normalized signature: most failed tests first, then most flaky tests."
+          title={plural(visible.length, 'error group')}
+          note={`Errors grouped by normalized signature: most failed tests first, then most flaky tests.${folded.length > 0 ? ` ${groupCountText(visible.length, folded.length)}.` : ''}`}
         >
-          <GroupList groups={ranked} colors={colors} />
+          {visible.length > 0 && <GroupList groups={visible} colors={colors} />}
+          <FoldedGroups groups={folded} colors={colors} />
         </Widget>
       )}
       {categories.length > 0 && (

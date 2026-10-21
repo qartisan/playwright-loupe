@@ -1,5 +1,6 @@
 import { OUTCOMES } from '../schema/v1.js';
 import type { Attempt, DimensionDefinition, LoupeError, LoupeReport, Outcome, Project, Stats, TestCase } from '../schema/v1.js';
+import { isSecondaryError } from './secondary.js';
 
 /**
  * Dashboard and error group data, computed from the report alone (no model
@@ -32,6 +33,12 @@ export interface ErrorGroup {
   failed: number;
   /** Affected tests that passed on a retry. */
   flaky: number;
+  /**
+   * Every occurrence is a secondary error (secondary.ts): raised after the
+   * test timeout, never as the first error of an attempt. Folded in the
+   * Errors view, left out of the group counts; the test counts keep it.
+   */
+  afterTimeout: boolean;
 }
 
 /**
@@ -44,12 +51,13 @@ export function errorGroups(report: Pick<LoupeReport, 'tests'>): ErrorGroup[] {
   for (const test of report.tests) {
     for (const attempt of test.attempts) {
       if (!isFailingAttempt(test, attempt)) continue;
-      for (const error of attempt.errors) {
+      for (const [index, error] of attempt.errors.entries()) {
         let group = groups.get(error.signature);
         if (!group) {
-          group = { signature: error.signature, category: error.category ?? NO_CATEGORY, message: error.message, tests: [], failed: 0, flaky: 0 };
+          group = { signature: error.signature, category: error.category ?? NO_CATEGORY, message: error.message, tests: [], failed: 0, flaky: 0, afterTimeout: true };
           groups.set(error.signature, group);
         }
+        if (!isSecondaryError(attempt, index)) group.afterTimeout = false;
         const last = group.tests[group.tests.length - 1];
         if (last?.test === test) {
           if (!last.attempts.includes(attempt.index)) last.attempts.push(attempt.index);
@@ -64,12 +72,24 @@ export function errorGroups(report: Pick<LoupeReport, 'tests'>): ErrorGroup[] {
   return [...groups.values()];
 }
 
-/** Groups by importance: most tests that finally failed, then most flaky tests, then first occurrence. The Errors view order. */
+/**
+ * Groups by importance: most tests that finally failed, then most flaky
+ * tests, then first occurrence; groups only seen after a test timeout come
+ * after all the others, in the same order. The Errors view order.
+ */
 export function rankGroups(groups: readonly ErrorGroup[]): ErrorGroup[] {
   return groups
     .map((group, index) => ({ group, index }))
-    .sort((a, b) => b.group.failed - a.group.failed || b.group.flaky - a.group.flaky || a.index - b.index)
+    .sort(
+      (a, b) =>
+        Number(a.group.afterTimeout) - Number(b.group.afterTimeout) || b.group.failed - a.group.failed || b.group.flaky - a.group.flaky || a.index - b.index,
+    )
     .map(({ group }) => group);
+}
+
+/** Groups split into those shown in the lists and those only seen after a test timeout (folded), order kept. */
+export function splitAfterTimeout(groups: readonly ErrorGroup[]): { visible: ErrorGroup[]; folded: ErrorGroup[] } {
+  return { visible: groups.filter((group) => !group.afterTimeout), folded: groups.filter((group) => group.afterTimeout) };
 }
 
 export function firstLine(text: string): string {
