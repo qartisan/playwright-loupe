@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Before 1.0, minor versions may contain breaking changes. The JSON report has its own version (`schemaVersion`), see [`docs/schema/v1.md`](docs/schema/v1.md#versioning-policy).
 
+## [Unreleased]
+
+### Security
+
+- **Secrets are redacted from the report.** Reports are shared (CI artifacts, links), but they could contain secrets in clear: the value typed by `fill` into a password field is part of Playwright's step title (`Fill "<value>"`), and the call log of a failing API call prints the request and response headers, session cookies and bearer tokens included. Loupe now replaces them with `[redacted]` in `report.json`, and therefore in `index.html`, before writing them and before computing error signatures and categories. No change to your tests.
+  - **Input steps** (on by default): the value of `fill`, `type`, `pressSequentially`, `keyboard.type` and `keyboard.insertText` steps whose target has a secret-looking name, read from the step subtitle (Playwright 1.63+) or, on every version, from the source line of the call. That fallback also covers `keyboard.*` and neutral locators when the code names the value (`fill(password)`). The same value is redacted where Playwright repeats it in that attempt's errors (`fill("[redacted]")` in call logs, assertion lines).
+  - **HTTP headers** (on by default): `cookie`, `set-cookie`, `authorization`, `proxy-authorization` and any header with a secret-looking name, in call logs (`- cookie: [redacted]`).
+  - **URL parameters** (on by default): query and fragment parameters with a secret-looking name, wherever URLs appear (navigation steps, call logs, error messages, stdout), keeping the name: `?token=[redacted]`, `#access_token=[redacted]`.
+  - **Environment values** (opt-in): the values of the variables listed in the new `redact.env` option, or added through `LOUPE_REDACT_ENV`, everywhere in the report. Values shorter than 6 characters and unset variables are skipped with a warning naming the variable.
+  - New `redact` option (`patterns`, `mode`, `env`), validated at startup; one list of secret-looking names for input steps, headers and URL parameters, with whole-word matching (`auth` matches `x-auth-token`, not `Author`). The environment can add names, never remove them.
+  - **Not redacted**: attachments (traces, screenshots and videos contain typed values: treat a report with traces as private), snippets (source code from your repository), attachment file names. See [Secret redaction](docs/config.md#secret-redaction). Reports written by earlier versions are not rewritten.
+
 ## [0.1.1] - 2026-10-18
 
 ### Added

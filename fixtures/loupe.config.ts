@@ -22,6 +22,8 @@ export default defineConfig({
       { name: 'Bug', from: 'annotation', type: 'bug' },
     ],
   },
+  // Names only: the fixture's invented value is set by redaction-values.ts.
+  redact: { env: ['LOUPE_FIXTURE_SECRET'] },
   screenshots: { defaultView: 'slider' },
   theme: 'dark',
 });

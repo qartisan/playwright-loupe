@@ -31,6 +31,7 @@ describe('resolveConfig: defaults', () => {
       screenshots: { defaultView: 'side-by-side' },
       theme: 'system',
       aiPrompt: { includeStack: true },
+      redact: { mode: 'extend', patterns: [], env: [] },
     });
   });
 
@@ -153,6 +154,40 @@ describe('resolveConfig: errors', () => {
     expect(() =>
       resolve({ file: { categories: { uncategorized: 'Other' } }, inline: { categories: { rules: [{ name: 'Other', match: /x/ }] } } }),
     ).toThrow('categories.uncategorized "Other" is also the name of a rule');
+  });
+});
+
+describe('resolveConfig: redact', () => {
+  it('keeps the configured mode and patterns, without the stateful flags', () => {
+    const { redact } = resolve({ file: { redact: { mode: 'replace', patterns: ['recovery code', /bypass/gi] } } });
+    expect(redact.mode).toBe('replace');
+    expect(redact.patterns[0]).toBe('recovery code');
+    expect(String(redact.patterns[1])).toBe('/bypass/i');
+  });
+
+  it('replaces the file list with the inline list, like every array', () => {
+    expect(resolve({ file: { redact: { env: ['A_TOKEN'] } }, inline: { redact: { env: ['B_TOKEN'] } } }).redact.env).toEqual(['B_TOKEN']);
+  });
+
+  it('adds LOUPE_REDACT_ENV names to the configured ones: the environment never removes one', () => {
+    const env = { LOUPE_REDACT_ENV: ' B_TOKEN, ,C_SECRET,A_TOKEN ' };
+    expect(resolve({ file: { redact: { env: ['A_TOKEN'] } }, env }).redact.env).toEqual(['A_TOKEN', 'B_TOKEN', 'C_SECRET']);
+    expect(resolve({ env }).redact.env).toEqual(['B_TOKEN', 'C_SECRET', 'A_TOKEN']);
+    expect(resolve({ file: { redact: { env: ['A_TOKEN'] } }, env: { LOUPE_REDACT_ENV: '' } }).redact.env).toEqual(['A_TOKEN']);
+  });
+
+  it('rejects a LOUPE_REDACT_ENV item that is not a variable name, without echoing it', () => {
+    let error: unknown;
+    try {
+      resolve({ env: { LOUPE_REDACT_ENV: 'A_TOKEN,Inv3nted=secret' } });
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toBeInstanceOf(LoupeConfigError);
+    expect((error as LoupeConfigError).problems).toEqual([
+      'LOUPE_REDACT_ENV: item 2 must be an environment variable name (letters, digits, _), got a string that is not a variable name (value not shown)',
+    ]);
+    expect((error as Error).message).not.toContain('Inv3nted');
   });
 });
 

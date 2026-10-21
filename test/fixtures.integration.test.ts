@@ -3,7 +3,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { paletteReference } from '../src/shared/palette.js';
-import type { Attachment, LoupeReport } from '../src/schema/v1.js';
+import type { Attachment, LoupeReport, Step } from '../src/schema/v1.js';
+import { FIXTURE_PASSWORD, FIXTURE_SECRET } from '../fixtures/redaction-values.js';
 import { FIXTURE_CONFIG, assertBuilt, findTest, playwright, readReport, userSteps } from './helpers/fixtures.js';
 import { schemaErrors } from './helpers/schema.js';
 
@@ -16,6 +17,11 @@ const PROJECTS = ['chromium-a', 'chromium-b'];
  */
 function isStableAttachment(attachment: Attachment): boolean {
   return attachment.kind !== 'video' && attachment.kind !== 'trace' && !attachment.name.includes('error-context');
+}
+
+/** Steps, at any depth, whose title has a redacted value: the title format differs across Playwright versions, the count does not. */
+function redactedSteps(steps: Step[]): number {
+  return steps.reduce((count, step) => count + (step.title.includes('[redacted]') ? 1 : 0) + redactedSteps(step.steps), 0);
 }
 
 /**
@@ -58,6 +64,7 @@ function normalize(report: LoupeReport): unknown {
         status: attempt.status,
         errors: attempt.errors.length > 0,
         steps: userSteps(attempt.steps),
+        ...(redactedSteps(attempt.steps) > 0 ? { redactedSteps: redactedSteps(attempt.steps) } : {}),
         attachments: attempt.attachments.filter(isStableAttachment).map((attachment) => ({
           name: attachment.name,
           kind: attachment.kind,
@@ -77,6 +84,7 @@ describe('fixture suite with the built reporter', () => {
   let exitCode: number | null;
   let report: LoupeReport;
   let html: string;
+  let json: string;
 
   beforeAll(() => {
     assertBuilt();
@@ -89,6 +97,7 @@ describe('fixture suite with the built reporter', () => {
     exitCode = result.status;
     report = readReport(outputFolder, `Exit code ${exitCode}.\n${result.output}`);
     html = readFileSync(path.join(outputFolder, 'index.html'), 'utf8');
+    json = readFileSync(path.join(outputFolder, 'report.json'), 'utf8');
   }, 240_000);
 
   afterAll(() => {
@@ -125,7 +134,7 @@ describe('fixture suite with the built reporter', () => {
 
   it('uses POSIX paths relative to the root dir', () => {
     expect(new Set(report.tests.map((test) => test.file))).toEqual(
-      new Set(['basics.spec.ts', 'failures.spec.ts', 'outcomes.spec.ts', 'structure.spec.ts']),
+      new Set(['basics.spec.ts', 'failures.spec.ts', 'outcomes.spec.ts', 'redaction.spec.ts', 'structure.spec.ts']),
     );
     const failing = findTest(report, 'chromium-a', 'fails on a wrong heading (intentional)');
     expect(failing.attempts[0]?.errors[0]?.location?.file).toBe('basics.spec.ts');
@@ -250,6 +259,21 @@ describe('fixture suite with the built reporter', () => {
     const attempt = findTest(report, 'chromium-a', 'writes to stdout and stderr').attempts[0];
     expect(attempt?.stdout).toEqual({ text: 'Hello from the fixture suite\n', truncated: false });
     expect(attempt?.stderr).toEqual({ text: 'A warning from the fixture suite\n', truncated: false });
+  });
+
+  it('redacts a value typed into a password field, and the value of a redact.env variable', () => {
+    for (const project of PROJECTS) {
+      const password = findTest(report, project, 'fills a password field');
+      expect(password.outcome).toBe('passed');
+      expect(redactedSteps(password.attempts[0]?.steps ?? [])).toBe(1);
+      const env = findTest(report, project, 'uses the value of a listed environment variable');
+      expect(env.attempts[0]?.stdout.text).toBe('notes: [redacted]\n');
+      expect(redactedSteps(env.attempts[0]?.steps ?? [])).toBe(1);
+    }
+    for (const text of [json, html]) {
+      expect(text).not.toContain(FIXTURE_PASSWORD);
+      expect(text).not.toContain(FIXTURE_SECRET);
+    }
   });
 
   it('embeds the same data and the renderer settings in index.html', () => {

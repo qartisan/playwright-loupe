@@ -1,5 +1,5 @@
 import { PALETTE_NAMES } from '../shared/palette.js';
-import { CATEGORY_MODES, CATEGORY_TARGETS, SCREENSHOT_VIEWS, THEMES } from './types.js';
+import { CATEGORY_MODES, CATEGORY_TARGETS, REDACT_MODES, SCREENSHOT_VIEWS, THEMES } from './types.js';
 
 /**
  * Hand-written validator for one config layer (config file, inline options or
@@ -20,6 +20,8 @@ interface Context {
 }
 
 const COLOR = /^#[0-9a-fA-F]{6}$/;
+/** An environment variable name, as `redact.env` and `LOUPE_REDACT_ENV` take them. */
+export const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 /** What a tag prefix cannot contain: `@layer:api` has the prefix `layer`. */
 const INVALID_PREFIX = /[@:\s]/;
 
@@ -163,6 +165,34 @@ function values(ctx: Context): Check {
   };
 }
 
+/** Secret-looking names: non-empty strings or RegExps. An empty list is valid (with `mode: 'replace'`, it turns them off). */
+function namePatterns(ctx: Context): Check {
+  return (value, path, errors) => {
+    if (!Array.isArray(value)) return fail(ctx, path, 'an array of strings or RegExps', value, errors);
+    value.forEach((item, index) => {
+      if (item instanceof RegExp) return;
+      if (typeof item !== 'string' || item.trim() === '') fail(ctx, `${path}[${index}]`, 'a non-empty string or a RegExp', item, errors);
+    });
+  };
+}
+
+/** Environment variable names. A value with other characters is most likely a secret pasted by mistake: it is not echoed. */
+function envNames(ctx: Context): Check {
+  return (value, path, errors) => {
+    if (!Array.isArray(value)) return fail(ctx, path, 'an array of environment variable names', value, errors);
+    const seen = new Set<string>();
+    value.forEach((item, index) => {
+      if (typeof item !== 'string' || !ENV_NAME.test(item)) {
+        const got = typeof item === 'string' ? 'a string that is not a variable name (value not shown)' : describe(item);
+        errors.push(`${ctx.source}: ${path}[${index}] must be an environment variable name (letters, digits, _), got ${got}`);
+        return;
+      }
+      if (seen.has(item)) errors.push(`${ctx.source}: ${path}[${index}] repeats the variable ${item}`);
+      seen.add(item);
+    });
+  };
+}
+
 function tagPrefix(ctx: Context): Check {
   return (value, path, errors) => {
     if (typeof value !== 'string' || value === '' || INVALID_PREFIX.test(value)) {
@@ -243,6 +273,7 @@ export function validateConfig(value: unknown, source: string, options: { allowC
     screenshots: object({ defaultView: oneOf(SCREENSHOT_VIEWS, ctx) }, ctx),
     theme: oneOf(THEMES, ctx),
     aiPrompt: object({ includeStack: boolean(ctx) }, ctx),
+    redact: object({ patterns: namePatterns(ctx), mode: oneOf(REDACT_MODES, ctx), env: envNames(ctx) }, ctx),
   };
   if (options.allowConfigFile) fields['configFile'] = nonEmptyString(ctx);
   object(fields, ctx)(value, '', errors);

@@ -37,8 +37,13 @@ describe('validateConfig: valid configs', () => {
         screenshots: { defaultView: 'slider' },
         theme: 'system',
         aiPrompt: { includeStack: false },
+        redact: { patterns: ['recovery code', /x-vercel-/i], mode: 'extend', env: ['API_TOKEN', 'E2E_PASSWORD'] },
       }),
     ).toEqual([]);
+  });
+
+  it('accepts an empty redact.patterns list (with replace, it turns name-based redaction off)', () => {
+    expect(validate({ redact: { mode: 'replace', patterns: [] } })).toEqual([]);
   });
 
   it('treats options set to undefined as absent', () => {
@@ -48,7 +53,7 @@ describe('validateConfig: valid configs', () => {
   it('accepts configFile only in reporter options', () => {
     expect(validateConfig({ configFile: 'loupe.ci.ts' }, 'reporter options', { allowConfigFile: true })).toEqual([]);
     expect(validate({ configFile: 'loupe.ci.ts' })).toEqual([
-      `${SOURCE}: configFile is not a known option. Known options: outputFolder, title, environment, categories, dimensions, screenshots, theme, aiPrompt.`,
+      `${SOURCE}: configFile is not a known option. Known options: outputFolder, title, environment, categories, dimensions, screenshots, theme, aiPrompt, redact.`,
     ]);
   });
 });
@@ -72,8 +77,28 @@ describe('validateConfig: errors name the source, the exact path and the expecte
     [{ categories: { uncategorized: '' } }, 'categories.uncategorized must be a non-empty string, got ""'],
     [{ dimensions: { auto: 'yes' } }, 'dimensions.auto must be a boolean, got "yes"'],
     [{ dimensions: { definitions: 'layer' } }, 'dimensions.definitions must be an array, got "layer"'],
+    [{ redact: true }, 'redact must be an object, got true'],
+    [{ redact: { mode: 'merge' } }, 'redact.mode must be one of "extend", "replace", got "merge"'],
+    [{ redact: { patterns: 'password' } }, 'redact.patterns must be an array of strings or RegExps, got "password"'],
+    [{ redact: { patterns: [/a/, ' '] } }, 'redact.patterns[1] must be a non-empty string or a RegExp, got " "'],
+    [{ redact: { env: 'API_TOKEN' } }, 'redact.env must be an array of environment variable names, got "API_TOKEN"'],
+    [{ redact: { env: [42] } }, 'redact.env[0] must be an environment variable name (letters, digits, _), got 42'],
+    [{ redact: { envs: [] } }, 'redact.envs is not a known option. Did you mean "env"?'],
   ])('%j', (config, message) => {
     expect(validate(config)).toEqual([`${SOURCE}: ${message}`]);
+  });
+
+  it('reports a redact.patterns item that is neither a string nor a RegExp, with its index', () => {
+    expect(validate({ redact: { patterns: [/a/, 'b', 3] } })).toEqual([`${SOURCE}: redact.patterns[2] must be a non-empty string or a RegExp, got 3`]);
+  });
+
+  it('rejects a redact.env item that is not a variable name without echoing it, and repeated names', () => {
+    const errors = validate({ redact: { env: ['API_TOKEN', 'Inv3nted secret!', 'API_TOKEN'] } });
+    expect(errors).toEqual([
+      `${SOURCE}: redact.env[1] must be an environment variable name (letters, digits, _), got a string that is not a variable name (value not shown)`,
+      `${SOURCE}: redact.env[2] repeats the variable API_TOKEN`,
+    ]);
+    expect(errors.join('\n')).not.toContain('Inv3nted');
   });
 
   it('reports a wrong match with its index', () => {
@@ -186,7 +211,7 @@ describe('validateConfig: unknown keys', () => {
 
   it('lists the known options when nothing is close', () => {
     expect(validate({ history: {} })).toEqual([
-      `${SOURCE}: history is not a known option. Known options: outputFolder, title, environment, categories, dimensions, screenshots, theme, aiPrompt.`,
+      `${SOURCE}: history is not a known option. Known options: outputFolder, title, environment, categories, dimensions, screenshots, theme, aiPrompt, redact.`,
     ]);
   });
 });

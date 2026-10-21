@@ -41,6 +41,7 @@ import { detectEnvironment, detectGit } from './metadata.js';
 import { collectOutput } from './output.js';
 import { esmImportLocation, isUsableLocation } from './runErrors.js';
 import { detectScopeReasons, resolveScope } from './scope.js';
+import { DEFAULT_REDACT, createRedactor, mapReportStrings, type AttemptRedactor, type RedactOptions } from './redact.js';
 import { errorSignature, stripAnsi, stripMergeTagPrefix } from './signature.js';
 
 /** Folder, inside the report folder, that holds the copied attachments. */
@@ -59,6 +60,8 @@ export interface BuildOptions {
   dimensions?: DimensionsOptions;
   /** Errors received through `onError`, with the project of the worker when Playwright gives it. */
   runErrors?: ReadonlyArray<{ error: TestError; project: string | null }>;
+  /** Secret redaction; default: the built-in names, no env values. */
+  redact?: RedactOptions;
 }
 
 const OUTCOMES: Record<ReturnType<PwTestCase['outcome']>, Outcome> = {
@@ -176,17 +179,21 @@ function isFocused(test: PwTestCase): boolean {
  * Titles of the failing steps leading to `error`, outermost first: the path to
  * the deepest step that ended with the same message. Empty when no step did.
  */
-export function failingSteps(steps: readonly TestStep[], error: TestError): string[] {
+export function failingSteps(
+  steps: readonly TestStep[],
+  error: TestError,
+  title: (step: TestStep) => string = (step) => step.title,
+): string[] {
   const message = error.message ?? error.value;
   if (message === undefined) return [];
   for (const step of [...steps].reverse()) {
     if (!step.error || (step.error.message ?? step.error.value) !== message) continue;
-    return [step.title, ...failingSteps(step.steps, error)];
+    return [title(step), ...failingSteps(step.steps, error, title)];
   }
   // A step may fail with a wrapped message while one of its children has the exact one.
   for (const step of [...steps].reverse()) {
-    const inner = failingSteps(step.steps, error);
-    if (inner.length > 0) return [step.title, ...inner];
+    const inner = failingSteps(step.steps, error, title);
+    if (inner.length > 0) return [title(step), ...inner];
   }
   return [];
 }
@@ -217,6 +224,7 @@ export async function buildReport(
   const rootDir = config.rootDir;
   const store = new AttachmentStore(options.outputFolder);
   const categorizer = createCategorizer(options.categories ?? DEFAULT_CATEGORIES);
+  const redactor = createRedactor(options.redact ?? DEFAULT_REDACT);
   const dimensionSet = createDimensions(options.dimensions ?? DEFAULT_DIMENSIONS);
   const categories = new Set<string>();
   const usedDimensions = new Set<string>();
@@ -230,15 +238,17 @@ export async function buildReport(
   /**
    * `steps`: titles of the failing steps leading to the error, outermost first.
    * `runError`: the `merge-reports` tag prefix is ignored by categories and the signature, kept in `message` and `stack`.
+   * `redact`: applied to the message and the stack before the signature and the category, so they never depend on a secret.
    */
   const toError = (
     error: TestError,
+    redact: (text: string) => string,
     steps: readonly string[] = [],
     location = error.location,
     runError = false,
   ): LoupeError => {
-    const message = stripAnsi(error.message ?? error.value ?? '');
-    const stack = error.stack ? stripAnsi(error.stack) : null;
+    const message = redact(stripAnsi(error.message ?? error.value ?? ''));
+    const stack = error.stack ? redact(stripAnsi(error.stack)) : null;
     const category = categorizer.categorize(errorText(message, stack, steps, runError));
     categories.add(category);
     return {
@@ -251,17 +261,19 @@ export async function buildReport(
     };
   };
 
-  const toStep = (step: TestStep, parents: readonly string[]): Step => {
-    const chain = [...parents, step.title];
+  const toStep = (step: TestStep, parents: readonly string[], redact: AttemptRedactor): Step => {
+    const title = redact.title(step);
+    const chain = [...parents, title];
+    // `subtitle` exists from Playwright 1.61; older versions keep the target in the title.
+    const subtitle = (step as { subtitle?: string }).subtitle;
     return {
-      title: step.title,
-      // `subtitle` exists from Playwright 1.61; older versions keep the target in the title.
-      subtitle: (step as { subtitle?: string }).subtitle ?? null,
+      title,
+      subtitle: subtitle === undefined ? null : redact.text(subtitle),
       category: step.category,
       durationMs: toMs(step.duration),
-      error: step.error ? toError(step.error, chain) : null,
+      error: step.error ? toError(step.error, redact.text, chain) : null,
       location: toLocation(step.location),
-      steps: step.steps.map((child) => toStep(child, chain)),
+      steps: step.steps.map((child) => toStep(child, chain, redact)),
     };
   };
 
@@ -270,14 +282,15 @@ export async function buildReport(
     for (const attachment of attempt.attachments) {
       attachments.push(await store.add(`${folder}/${attempt.retry}`, attachment));
     }
+    const redact = redactor.attempt(attempt.steps);
     return {
       index: attempt.retry,
       status: attempt.status,
       startedAt: attempt.startTime.toISOString(),
       durationMs: toMs(attempt.duration),
       workerIndex: attempt.workerIndex,
-      errors: attempt.errors.map((error) => toError(error, failingSteps(attempt.steps, error))),
-      steps: attempt.steps.map((step) => toStep(step, [])),
+      errors: attempt.errors.map((error) => toError(error, redact.text, failingSteps(attempt.steps, error, redact.title))),
+      steps: attempt.steps.map((step) => toStep(step, [], redact)),
       attachments,
       annotations: attempt.annotations.map(toAnnotation),
       stdout: collectOutput(attempt.stdout),
@@ -377,10 +390,10 @@ export async function buildReport(
   for (const { error, project } of options.runErrors ?? []) {
     const message = stripAnsi(error.message ?? error.value ?? '');
     const location = isUsableLocation(error.location) ? error.location : ((await esmImportLocation(message)) ?? undefined);
-    errors.push({ ...toError(error, [], location, true), project });
+    errors.push({ ...toError(error, redactor.text, [], location, true), project });
   }
 
-  return {
+  const report: LoupeReport = {
     schemaVersion: 1,
     generator: { name: 'playwright-loupe', version: options.generatorVersion },
     run: {
@@ -404,4 +417,6 @@ export async function buildReport(
     categories: categorizer.definitions(categories),
     dimensions: dimensionSet.definitions(usedDimensions),
   };
+  // URL parameters and env values (redact.env) are redacted in every other string: test titles, annotations, outputs, attachment bodies...
+  return redactor.rewritesStrings ? mapReportStrings(report, redactor.strings) : report;
 }

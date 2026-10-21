@@ -52,7 +52,7 @@ Four layers, each one overriding the previous:
 - **Inline options**: the second element of the reporter entry, `['@qartisan/playwright-loupe', { title: 'Nightly' }]`. They accept every option of the config file, plus `configFile`.
 - **Environment variables**: see [Environment variables](#environment-variables).
 
-Merging is done key by key for nested objects (`categories`, `dimensions`, `screenshots`, `aiPrompt`): inline `{ categories: { mode: 'replace' } }` keeps the rules of the config file. **Arrays replace**: inline `categories.rules` replaces the rules of the config file entirely, it does not add to them. An option set to `undefined` is ignored, so `title: process.env.SUITE_TITLE` falls back to the lower layer when the variable is unset.
+Merging is done key by key for nested objects (`categories`, `dimensions`, `screenshots`, `aiPrompt`, `redact`): inline `{ categories: { mode: 'replace' } }` keeps the rules of the config file. **Arrays replace**: inline `categories.rules` replaces the rules of the config file entirely, it does not add to them. One exception: `LOUPE_REDACT_ENV` **adds** names to `redact.env`, so the environment can extend redaction but never reduce or disable it; only the config file and inline options can. An option set to `undefined` is ignored, so `title: process.env.SUITE_TITLE` falls back to the lower layer when the variable is unset.
 
 ## Options
 
@@ -69,6 +69,9 @@ Merging is done key by key for nested objects (`categories`, `dimensions`, `scre
 | `screenshots.defaultView` | `'side-by-side' \| 'slider' \| 'overlay' \| 'diff'` | `'side-by-side'` | Default view of screenshot comparisons. [Renderer setting](#renderer-settings). |
 | `theme` | `'system' \| 'light' \| 'dark'` | `'system'` | Default theme. The viewer can switch it; their choice is remembered in the browser. [Renderer setting](#renderer-settings). |
 | `aiPrompt.includeStack` | `boolean` | `true` | Include each error's stack trace in the AI prompt the test detail copies to the clipboard. Turn it off when stacks are long or reveal paths you do not want to paste. [Renderer setting](#renderer-settings). |
+| `redact.patterns` | `(string \| RegExp)[]` | `[]` | Secret-looking names, added to the defaults. See [Secret redaction](#secret-redaction). |
+| `redact.mode` | `'extend' \| 'replace'` | `'extend'` | `replace`: only `redact.patterns`; `[]` turns name-based redaction off. |
+| `redact.env` | `string[]` | `[]` | Names of environment variables whose values are redacted everywhere. `LOUPE_REDACT_ENV` adds to it. |
 | `configFile` | `string` | none | **Inline options only.** Config file to load instead of the default lookup, relative to the Playwright config file's directory. |
 
 ### Error categories
@@ -152,6 +155,45 @@ dimensions: {
 - **Listing.** Definitions from the config are always listed in the report, in config order, even when no test uses them. Automatic dimensions follow, sorted by name, when at least one test uses them.
 - **Tag hygiene.** The Suite health view flags, within a dimension, values outside `values` as unknown and values that differ only by case (`@layer:API` and `@layer:api`) as likely duplicates. Nothing is merged: Playwright tags are case-sensitive, so `API` and `api` are counted apart until the tests are fixed. Without `values`, unknown values cannot be told from expected ones; an automatic dimension needs a definition to declare them (`{ name: 'area', from: 'tag', prefix: 'area', values: [...] }`).
 
+### Secret redaction
+
+Reports are shared (CI artifacts, links), so Loupe removes secrets from `report.json`, and therefore from `index.html`, before writing them. Each secret is replaced with `[redacted]`. Redaction runs before [error signatures](schema/v1.md#error-signature) and [categories](#error-categories) are computed, so they never depend on a secret. Nothing in your tests changes.
+
+```ts
+redact: {
+  // Added to the default names (mode: 'extend').
+  patterns: ['recovery code', /^x-vercel-/i],
+  // Variable names only, never values.
+  env: ['E2E_PASSWORD', 'API_TOKEN'],
+}
+```
+
+**Input steps (on by default).** The value typed by `fill`, `type`, `pressSequentially`, `keyboard.type` or `keyboard.insertText` is redacted in the step title when the target has a secret-looking name: `Fill "[redacted]"` with the subtitle `getByLabel('Password')`. Loupe looks at:
+
+- the step subtitle (the locator), from Playwright 1.63, and the locator Playwright 1.52 writes in `type` and `pressSequentially` titles;
+- otherwise, **the source line of the call**, read from disk, on every version. It catches `keyboard.*` (which never has a locator), the versions without a locator in the step (`fill` on 1.52 to 1.62), and neutral locators when the code names the value: `await page.locator('#field-3').fill(password)`. A line that mentions a secret-looking name redacts its value even when the field is not secret; over-redaction is the safe side. When the source file cannot be read (`merge-reports` on a machine without the code), this fallback is skipped.
+
+The same value is then redacted where Playwright repeats it in that attempt: the call log of a failing action (`- fill("[redacted]")`), `Expected` / `Received` lines of an assertion on the field, other step titles. A value shorter than 6 characters (a PIN) is only redacted in its quoted form there, so line numbers in stacks stay intact.
+
+**HTTP headers (on by default).** Playwright prints request and response headers in the call log of a failing API call. The value of every header with a secret-looking name is redacted: `- cookie: [redacted]`, `- set-cookie: [redacted]`, `- authorization: [redacted]`, `- proxy-authorization: [redacted]`, `- x-api-key: [redacted]`. A bare `Authorization: Bearer …` line in an error message is redacted the same way.
+
+**URL parameters (on by default).** Wherever a URL appears (navigation titles and subtitles, call logs, error messages, stdout), the value of every query or fragment parameter with a secret-looking name is redacted, keeping the name: `?token=[redacted]`, `&access_token=[redacted]`, `#access_token=[redacted]`, `?resetToken=[redacted]`. Only parameters after `?`, `&` or `#` count, so `token=abc` in prose is left alone. A secret in a parameter whose name does not look secret (`?sig=…`) needs a pattern (`redact.patterns: ['sig']`) or `redact.env`.
+
+**Secret-looking names.** One list serves input steps (locators, source lines), header names and URL parameter names. Defaults: `/pass(?:word|wd|phrase)/i`, `pwd`, `passcode`, `secret`, `token`, `otp`, `totp`, `pin`, `api key`, `apikey`, `private key`, `credential`, `cookie`, `session`, `authorization`, `auth`, `bearer`, `jwt`, `csrf`, `xsrf`.
+
+- A **string** matches whole words, case-insensitively. Words are split on anything but letters and digits and on camelCase boundaries, and a trailing `s` is allowed: `auth` matches `x-auth-token` and `authToken` but not `Author`; `pin` matches `PIN code` but not `spinner`; `credential` matches `credentials`. A string of several words matches consecutive words with any separator: `api key` matches `x-api-key`, `apiKey` and `API_KEY`; `mot de passe` matches `getByLabel('Mot de passe')`.
+- A **RegExp** is tested on the text as is (the `g` and `y` flags are ignored).
+- `mode: 'extend'` (default) adds `patterns` to the defaults; `mode: 'replace'` uses `patterns` alone, and `patterns: []` turns both mechanisms off.
+
+**Environment values (opt-in).** `env` lists environment variable **names**. Loupe reads their values at startup and replaces every occurrence in every text of the report: step titles and subtitles, error messages and stacks, stdout and stderr, text attachment bodies, annotation descriptions, test titles. A value shorter than 6 characters is not used (too many false matches), and a variable that is unset or empty is ignored; both print a warning naming the variable, never its value. Put names in the config, never values. `LOUPE_REDACT_ENV=E2E_PASSWORD,API_TOKEN` adds names from the environment.
+
+**What is not redacted.**
+
+- **Attachments are not altered.** Traces, screenshots and videos contain typed values and visible secrets (a trace records every action with its value and every network request). A report with traces must be treated as private.
+- **Snippets** (`snippet`, the source excerpt around an error) are source code, already in your repository: a secret written literally in a test shows there.
+- Attachment file names (`path`), test ids and signatures.
+- What does not match: a secret typed through a neutral locator on a line that does not name it, printed by your code to stdout outside a URL parameter, or passed in a URL parameter with a neutral name, is only caught by `redact.env`.
+
 ### Renderer settings
 
 `title`, `theme`, `screenshots.defaultView` and `aiPrompt.includeStack` are presentation choices, not data. They are written next to the report data in `index.html`, not in `report.json`, and are not part of the data contract. See [Renderer settings](schema/v1.md#renderer-settings).
@@ -164,6 +206,7 @@ dimensions: {
 | `LOUPE_OUTPUT_FOLDER` | Overrides `outputFolder`. | Working directory, like Playwright's own `PLAYWRIGHT_*_OUTPUT_DIR` variables |
 | `LOUPE_TITLE` | Overrides `title`. | |
 | `LOUPE_ENV` | Overrides `environment`. | |
+| `LOUPE_REDACT_ENV` | Comma-separated variable names **added** to `redact.env` (never replacing the configured ones). Names only. | |
 | `LOUPE_RUN_SCOPE` | Forces the run scope: `full` or `partial`. See [Run scope](schema/v1.md#run-scope). | |
 
 Empty values are ignored, as if the variable were unset. An invalid `LOUPE_RUN_SCOPE` stops the run.

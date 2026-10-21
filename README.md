@@ -103,6 +103,21 @@ Options can also be passed inline (`['@qartisan/playwright-loupe', { title: 'Nig
 
 Every option, the lookup rules and the environment variables are documented in [`docs/config.md`](docs/config.md).
 
+### Security
+
+Reports are meant to be shared, so Loupe removes secrets from `report.json` and `index.html` before writing them, replacing each with `[redacted]`:
+
+- **typed values** of `fill`, `type`, `pressSequentially` and `keyboard.*` steps on secret-looking fields (a password field, `getByLabel('Password')`, or a source line that names the value, `fill(password)`), and wherever Playwright repeats them in that attempt's errors;
+- **HTTP header values** printed in call logs (`cookie`, `set-cookie`, `authorization`, and any header with a secret-looking name);
+- **URL parameters** with a secret-looking name, wherever URLs appear (navigation steps, call logs, error messages): `?token=[redacted]`, `&access_token=[redacted]`;
+- the **values of the environment variables you list** in `redact.env` (names only, never values), everywhere in the report. It is also the fallback for what the names above miss: a secret in a URL parameter with a neutral name (`?sig=…`), or printed by your code.
+
+```ts
+redact: { env: ['E2E_PASSWORD', 'API_TOKEN'] },
+```
+
+**Attachments are not altered**: traces, screenshots and videos contain typed values and visible secrets, so a report with traces must be treated as private. Snippets (source excerpts around errors) are left as they are: they come from your repository. See [Secret redaction](docs/config.md#secret-redaction).
+
 ## Compatibility
 
 | | Supported | Tested in CI |

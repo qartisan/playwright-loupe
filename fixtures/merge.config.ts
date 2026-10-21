@@ -1,5 +1,7 @@
 import { defineConfig } from '@playwright/test';
 import type { LoupeConfig } from '../src/config/index.js';
+// Sets the invented LOUPE_FIXTURE_SECRET listed in redact.env (loupe.config.ts).
+import './redaction-values.js';
 
 // Config for `playwright merge-reports` on blob reports of the sharded fixture
 // suite. merge-reports rebases test paths on this config's root dir, so it uses

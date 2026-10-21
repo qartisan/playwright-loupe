@@ -6,6 +6,9 @@
 export const CATEGORY_MODES = ['extend', 'replace'] as const;
 export type CategoryMode = (typeof CATEGORY_MODES)[number];
 
+export const REDACT_MODES = ['extend', 'replace'] as const;
+export type RedactMode = (typeof REDACT_MODES)[number];
+
 export const CATEGORY_TARGETS = ['message', 'stack', 'step', 'all'] as const;
 export type CategoryTarget = (typeof CATEGORY_TARGETS)[number];
 
@@ -64,6 +67,19 @@ export interface DimensionsConfig {
   definitions?: DimensionConfig[];
 }
 
+export interface RedactConfig {
+  /**
+   * Secret-looking names, for input step targets and source lines, and for
+   * HTTP header names. A string matches whole words (`auth` matches
+   * `x-auth-token`, not `Author`); a RegExp is tested as is.
+   */
+  patterns?: Array<string | RegExp>;
+  /** `extend` (default): `patterns` add to the default names. `replace`: only `patterns`; `[]` turns name-based redaction off. */
+  mode?: RedactMode;
+  /** Names of environment variables whose values are redacted everywhere in the report. Names only, never values. */
+  env?: string[];
+}
+
 export interface LoupeConfig {
   /** Folder the report is written to, relative to the Playwright config file. Default: `loupe-report`. */
   outputFolder?: string;
@@ -83,6 +99,8 @@ export interface LoupeConfig {
     /** Include each error's stack trace in the copyable AI prompt. Default: `true`. */
     includeStack?: boolean;
   };
+  /** Secret redaction in report.json and index.html. `LOUPE_REDACT_ENV` adds variable names. */
+  redact?: RedactConfig;
 }
 
 /** Inline reporter options: a config, plus the path of the config file. */
@@ -117,4 +135,6 @@ export interface ResolvedConfig {
   screenshots: { defaultView: ScreenshotView };
   theme: Theme;
   aiPrompt: { includeStack: boolean };
+  /** RegExps without the `g` and `y` flags; `env` merged from every layer, without duplicates. */
+  redact: { mode: RedactMode; patterns: Array<string | RegExp>; env: string[] };
 }

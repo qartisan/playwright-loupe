@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 import type { LoupeConfig } from '../src/config/index.js';
+// Sets the invented LOUPE_FIXTURE_SECRET listed in redact.env (loupe.config.ts).
+import './redaction-values.js';
 
 // Fixture suite for Loupe. Its failures are intentional — see fixtures/README.md.
 

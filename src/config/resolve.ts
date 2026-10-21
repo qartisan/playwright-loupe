@@ -1,7 +1,7 @@
 import path from 'node:path';
 import type { LoupeConfig, LoupeReporterOptions, ResolvedCategoryRule, ResolvedConfig, ResolvedDimension } from './types.js';
 import { paletteReference } from '../shared/palette.js';
-import { validateConfig } from './validate.js';
+import { ENV_NAME, validateConfig } from './validate.js';
 
 type Env = Readonly<Record<string, string | undefined>>;
 
@@ -9,7 +9,7 @@ export const DEFAULT_OUTPUT_FOLDER = 'loupe-report';
 export const DEFAULT_TITLE = 'Loupe report';
 export const DEFAULT_UNCATEGORIZED = 'Uncategorized';
 
-/** Environment variables mapped onto config options. `LOUPE_CONFIG` and `LOUPE_RUN_SCOPE` are handled apart. */
+/** Environment variables mapped onto config options. `LOUPE_CONFIG`, `LOUPE_RUN_SCOPE` and `LOUPE_REDACT_ENV` are handled apart. */
 export const ENV_OPTIONS = {
   LOUPE_OUTPUT_FOLDER: 'outputFolder',
   LOUPE_TITLE: 'title',
@@ -47,6 +47,28 @@ export function envLayer(env: Env): LoupeConfig {
     if (value !== undefined) layer[option] = value;
   }
   return layer;
+}
+
+/** Comma-separated variable names added to `redact.env`. */
+export const REDACT_ENV = 'LOUPE_REDACT_ENV';
+
+/**
+ * Names from `LOUPE_REDACT_ENV`, with a problem for each invalid one (its text
+ * is not echoed: it may be a value pasted by mistake). The environment can only
+ * add names to `redact.env`, never remove or disable redaction.
+ */
+export function redactEnvNames(env: Env): { names: string[]; problems: string[] } {
+  const raw = envValue(env, REDACT_ENV);
+  if (raw === undefined) return { names: [], problems: [] };
+  const names: string[] = [];
+  const problems: string[] = [];
+  raw.split(',').forEach((part, index) => {
+    const name = part.trim();
+    if (name === '') return;
+    if (ENV_NAME.test(name)) names.push(name);
+    else problems.push(`${REDACT_ENV}: item ${index + 1} must be an environment variable name (letters, digits, _), got a string that is not a variable name (value not shown)`);
+  });
+  return { names, problems };
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -110,9 +132,11 @@ export interface ConfigLayers {
 export function resolveConfig(layers: ConfigLayers): ResolvedConfig {
   const fileSource = layers.file ? path.basename(layers.file.path) : '';
   const env = envLayer(layers.env);
+  const redactEnv = redactEnvNames(layers.env);
   const problems = [
     ...(layers.file ? validateConfig(layers.file.config, fileSource) : []),
     ...validateConfig(layers.inline, 'reporter options', { allowConfigFile: true }),
+    ...redactEnv.problems,
   ];
   if (problems.length > 0) throw new LoupeConfigError(problems);
 
@@ -143,5 +167,11 @@ export function resolveConfig(layers: ConfigLayers): ResolvedConfig {
     screenshots: { defaultView: merged.screenshots?.defaultView ?? 'side-by-side' },
     theme: merged.theme ?? 'system',
     aiPrompt: { includeStack: merged.aiPrompt?.includeStack ?? true },
+    redact: {
+      mode: merged.redact?.mode ?? 'extend',
+      patterns: (merged.redact?.patterns ?? []).map((pattern) => (pattern instanceof RegExp ? stateless(pattern) : pattern)),
+      // LOUPE_REDACT_ENV adds to the configured names: a higher layer never removes one.
+      env: [...new Set([...(merged.redact?.env ?? []), ...redactEnv.names])],
+    },
   };
 }

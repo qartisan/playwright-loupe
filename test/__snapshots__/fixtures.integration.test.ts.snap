@@ -79,9 +79,9 @@ exports[`fixture suite with the built reporter > matches the normalized snapshot
       "stats": {
         "failed": 12,
         "flaky": 1,
-        "passed": 7,
+        "passed": 9,
         "skipped": 2,
-        "total": 22,
+        "total": 24,
       },
       "testDir": ".",
       "timeoutMs": 30000,
@@ -92,9 +92,9 @@ exports[`fixture suite with the built reporter > matches the normalized snapshot
       "stats": {
         "failed": 12,
         "flaky": 1,
-        "passed": 7,
+        "passed": 9,
         "skipped": 2,
-        "total": 22,
+        "total": 24,
       },
       "testDir": ".",
       "timeoutMs": 30000,
@@ -111,9 +111,9 @@ exports[`fixture suite with the built reporter > matches the normalized snapshot
     "stats": {
       "failed": 24,
       "flaky": 2,
-      "passed": 14,
+      "passed": 18,
       "skipped": 4,
-      "total": 44,
+      "total": 48,
     },
     "status": "failed",
   },
@@ -1130,6 +1130,87 @@ exports[`fixture suite with the built reporter > matches the normalized snapshot
         "@layer:ui",
       ],
       "title": "is slow (about 3 s)",
+    },
+    {
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": false,
+          "index": 0,
+          "redactedSteps": 1,
+          "status": "passed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": null,
+      "dimensions": {
+        "Layer": [
+          "ui",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "dfe2c202879be470",
+      "location": "redaction.spec.ts:13:3",
+      "outcome": "passed",
+      "project": "chromium-a",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "redaction",
+      ],
+      "tags": [
+        "@layer:ui",
+      ],
+      "title": "fills a password field",
+    },
+    {
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": false,
+          "index": 0,
+          "redactedSteps": 1,
+          "status": "passed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "notes: [redacted]
+",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": null,
+      "dimensions": {
+        "Layer": [
+          "ui",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "2c97412184eb37f3",
+      "location": "redaction.spec.ts:19:3",
+      "outcome": "passed",
+      "project": "chromium-a",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "redaction",
+      ],
+      "tags": [
+        "@layer:ui",
+      ],
+      "title": "uses the value of a listed environment variable",
     },
     {
       "annotations": [],
@@ -2301,6 +2382,87 @@ exports[`fixture suite with the built reporter > matches the normalized snapshot
         "@layer:ui",
       ],
       "title": "is slow (about 3 s)",
+    },
+    {
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": false,
+          "index": 0,
+          "redactedSteps": 1,
+          "status": "passed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": null,
+      "dimensions": {
+        "Layer": [
+          "ui",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "3f16819e6a58dfa8",
+      "location": "redaction.spec.ts:13:3",
+      "outcome": "passed",
+      "project": "chromium-b",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "redaction",
+      ],
+      "tags": [
+        "@layer:ui",
+      ],
+      "title": "fills a password field",
+    },
+    {
+      "annotations": [],
+      "attempts": [
+        {
+          "attachments": [],
+          "errors": false,
+          "index": 0,
+          "redactedSteps": 1,
+          "status": "passed",
+          "stderr": {
+            "text": "",
+            "truncated": false,
+          },
+          "stdout": {
+            "text": "notes: [redacted]
+",
+            "truncated": false,
+          },
+          "steps": [],
+        },
+      ],
+      "category": null,
+      "dimensions": {
+        "Layer": [
+          "ui",
+        ],
+      },
+      "expectedStatus": "passed",
+      "id": "53f9762c4c6d774b",
+      "location": "redaction.spec.ts:19:3",
+      "outcome": "passed",
+      "project": "chromium-b",
+      "repeatEachIndex": 0,
+      "suitePath": [
+        "redaction",
+      ],
+      "tags": [
+        "@layer:ui",
+      ],
+      "title": "uses the value of a listed environment variable",
     },
     {
       "annotations": [],

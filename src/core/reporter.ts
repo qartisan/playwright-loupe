@@ -7,6 +7,7 @@ import type { LoupeReporterOptions, ResolvedConfig } from '../config/types.js';
 import type { RunScope } from '../schema/v1.js';
 import { buildReport } from './build.js';
 import { injectData, injectSettings, type RendererSettings } from './inject.js';
+import { secretValues } from './redact.js';
 import { SCOPE_ENV, parseScopeOverride } from './scope.js';
 import { generatorVersion } from './version.js';
 
@@ -23,6 +24,8 @@ const TEMPLATE_URL = new URL('../renderer/index.html', import.meta.url);
 
 export class LoupeReporter implements Reporter {
   private readonly loupeConfig: ResolvedConfig;
+  /** Values of the `redact.env` variables, read once at startup. */
+  private readonly secretValues: string[];
   private readonly scopeOverride: RunScope | null;
   private readonly runErrors: Array<{ error: TestError; project: string | null }> = [];
   private config: FullConfig | undefined;
@@ -34,6 +37,8 @@ export class LoupeReporter implements Reporter {
     // run with its message, which no later reporter hook can do.
     this.scopeOverride = parseScopeOverride(process.env[SCOPE_ENV]);
     this.loupeConfig = loadConfig(options as Record<string, unknown>);
+    // After the config is loaded; warnings name a variable, never its value.
+    this.secretValues = secretValues(this.loupeConfig.redact.env, process.env, (message) => console.warn(message));
   }
 
   printsToStdio(): boolean {
@@ -65,6 +70,7 @@ export class LoupeReporter implements Reporter {
       categories: this.loupeConfig.categories,
       dimensions: this.loupeConfig.dimensions,
       runErrors: this.runErrors,
+      redact: { mode: this.loupeConfig.redact.mode, patterns: this.loupeConfig.redact.patterns, values: this.secretValues },
     });
     const settings: RendererSettings = {
       title: this.loupeConfig.title,

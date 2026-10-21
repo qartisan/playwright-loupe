@@ -14,7 +14,8 @@ This Playwright suite exists to feed the Loupe reporter with realistic results. 
 - a `toHaveScreenshot` failure producing expected / actual / diff images, against the committed baseline in `tests/__screenshots__/` (a red square; the test renders a blue one);
 - nested `describe` blocks, a `test.step` with a nested step, a test failing inside a nested `test.step` (second level, `fails inside a nested step`), and a test writing to stdout and stderr;
 - prefixed tags (`@layer:api`, `@layer:ui`, `@area:checkout`), an unprefixed tag (`@smoke`) and a `bug` annotation;
-- a screenshot attachment, plus the videos and traces Playwright keeps on failure.
+- a screenshot attachment, plus the videos and traces Playwright keeps on failure;
+- two passing tests for secret redaction (`redaction.spec.ts`): one fills a field labelled "Password" with an invented value, the other writes the value of `LOUPE_FIXTURE_SECRET` to stdout and into a neutral field. The report must show `[redacted]` and never the values. `redaction-values.ts` holds the invented values and sets `LOUPE_FIXTURE_SECRET` (imported by `playwright.config.ts` and `merge.config.ts`), so a run is self-contained; a real suite takes such values from its environment.
 
 Everything runs offline, through `page.setContent` and local servers on 127.0.0.1. Two Chromium projects (`chromium-a`, `chromium-b`) run the same tests so the report has more than one project. `snapshotPathTemplate` uses one baseline for every project and platform.
 
@@ -27,6 +28,7 @@ Everything runs offline, through `page.setContent` and local servers on 127.0.0.
 - adds a `Visual regression` category rule (no color, so it gets the first palette color) that wins over the built-in `Assertion` rule for the screenshot comparison failure;
 - declares a `Bug` dimension from the `bug` annotation;
 - declares a `Layer` dimension for the `layer` tag prefix, replacing the automatic `layer` dimension, with `values: ['api', 'e2e']`: `ui` is used by the suite but missing from the list (an unknown value), and no test uses `e2e`;
+- lists `LOUPE_FIXTURE_SECRET` in `redact.env` (a name, never a value);
 - sets `title`, which the inline `title` of `playwright.config.ts` overrides, plus `environment`, `theme` and `screenshots.defaultView`.
 
 `invalid.loupe.config.ts` has a typo in a key. The integration tests load it through `LOUPE_CONFIG` to check that the run stops.
