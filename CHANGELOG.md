@@ -21,6 +21,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Error signatures keep HTTP status codes.** A status code (100–599) in an HTTP context is no longer replaced with `<n>`, so `Unable to delete the member with API with error 401` and `… with error 500` are two error groups instead of one. Other numbers are normalized as before. This changes how signatures are computed, not the JSON shape (`schemaVersion` stays 1): signatures of messages with an HTTP status change, so groups do not match across this upgrade for those errors. See [Error signature](docs/schema/v1.md#error-signature).
 - **Wider HTTP context, shared by categories and signatures.** A status code now also counts as an HTTP status after `error` (`with error 503`, `Error: 503`) and before its standard reason phrase (`401 Unauthorized`, previously only for 5xx). Categories change accordingly: an error such as `… with error 503` is now **Server error** and `… error 429` **Rate limited**, where they could be Uncategorized (or Assertion, Timeout) before. See [HTTP context](docs/schema/v1.md#http-context).
 
+### Fixed
+
+- Docs: `Step.subtitle` is provided from Playwright **1.63**, not 1.61, and before that the target of an action is not always in the title: Playwright 1.53 to 1.62 leave it out (`Click`, `Fill "<value>"`). Only 1.52 writes it there (`locator.getByRole('button').click`). The report itself is unchanged.
+
 ## [0.1.1] - 2026-10-18
 
 ### Added
