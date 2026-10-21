@@ -246,10 +246,11 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     await verdict.waitFor();
     expect(await verdict.getAttribute('data-verdict')).toBe('failed');
     expect(await verdict.textContent()).toBe('Failed');
-    // Verdict, run errors, error categories, projects, run details: no error group list.
+    // Verdict, run errors, common failure points (the fixture's shared helper), error categories, projects, run details: no error group list.
     expect(await page.locator('.widget h2').allTextContents()).toEqual([
       'Verdict',
       `${report.run.errors.length} error outside tests`,
+      'Common failure points',
       'Error categories',
       'Projects',
       'Run details',
@@ -838,12 +839,12 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     await second.page.close();
   });
 
-  it('orders the facets status, error category, project, tag, then dimensions, and labels categories as error categories', async () => {
+  it('orders the facets status, error category, failure point, project, tag, then dimensions, and labels categories as error categories', async () => {
     const category = report.categories[0]?.name ?? '';
     const { page, errors } = await open(`${writeReport('facet-order', report)}#/tests?dim.Layer=api&project=chromium-a&category=${encodeURIComponent(category)}&status=failed`);
     await page.locator('.filter-chips').waitFor();
     // Dimensions in config order: Layer and Bug (configured), then area (automatic).
-    expect(await page.locator('.facet-button > span:first-child').allTextContents()).toEqual(['Status', 'Error category', 'Project', 'Tag', 'Layer', 'Bug', 'area']);
+    expect(await page.locator('.facet-button > span:first-child').allTextContents()).toEqual(['Status', 'Error category', 'Failure point', 'Project', 'Tag', 'Layer', 'Bug', 'area']);
     // Chips follow the same order; the URL keeps its own canonical order and the `category` parameter.
     expect(await page.locator('.chip').allTextContents()).toEqual(['Status: Failed', `Error category: ${category}`, 'Project: chromium-a', 'Layer: api']);
     expect(fragment(page)).toBe(`#/tests?status=failed&project=chromium-a&dim.Layer=api&category=${encodeURIComponent(category)}`);

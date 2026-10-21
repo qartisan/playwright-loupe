@@ -1,9 +1,10 @@
 import { signal } from '@preact/signals';
 import type { ComponentChildren } from 'preact';
 import { useEffect } from 'preact/hooks';
-import type { LoupeReport, RunError, TestCase } from '../../schema/v1.js';
+import type { CategoryDefinition, LoupeReport, RunError, TestCase } from '../../schema/v1.js';
 import { categoryStyle } from '../categoryColors.js';
 import {
+  NO_CATEGORY,
   PASS_RATE_HELP,
   dimensionRepresentation,
   errorHeadline,
@@ -24,6 +25,7 @@ import {
   type ProjectSummary,
   type SkippedTest,
 } from '../dashboard.js';
+import type { FailurePoint } from '../failure-points/points.js';
 import { filters, filtersHref } from '../filters/store.js';
 import { EMPTY_FILTERS, dimensionFacet, type FacetId } from '../filters/url.js';
 import { formatDuration, plural } from '../format.js';
@@ -262,6 +264,64 @@ export function GroupList({ groups, colors, inCategory }: { groups: readonly Err
         </li>
       ))}
     </ol>
+  );
+}
+
+/** Categories in the report's order (rule order), uncategorized last. */
+function inCategoryOrder(names: readonly string[], definitions: readonly CategoryDefinition[]): string[] {
+  const order = definitions.map((definition) => definition.name);
+  const rank = (name: string): number => (name === NO_CATEGORY ? Infinity : order.includes(name) ? order.indexOf(name) : order.length);
+  return [...names].sort((a, b) => rank(a) - rank(b) || (a < b ? -1 : a > b ? 1 : 0));
+}
+
+/**
+ * Common failure points (failure-points/points.ts): functions of the user's
+ * code in the stacks of failures across files and error groups, each linking
+ * to its tests in the Tests view. Leads, never presented as a diagnosis.
+ */
+export function FailurePointsWidget({ points, colors, categories }: { points: readonly FailurePoint[]; colors: Colors; categories: readonly CategoryDefinition[] }) {
+  return (
+    <Widget
+      id="w-failure-points"
+      class="widget-failure-points"
+      title="Common failure points"
+      note="Functions from your code that appear in the stack of several failures, in different files and error groups. A lead, not a diagnosis."
+    >
+      <ol class="widget-list point-list">
+        {points.map((point) => (
+          <li key={point.key} data-point={point.key}>
+            <a class="point-row" href={facetHref('point', point.key)}>
+              <code class="point-fn">{point.fn}</code>
+              <span class="point-where">
+                <code>{point.file}</code> · {point.lines.length === 1 ? 'line' : 'lines'} {point.lines.join(', ')}
+              </span>
+              {point.via.length > 0 && (
+                <span class="point-via">
+                  via{' '}
+                  {point.via.map((inner, index) => (
+                    <span key={inner.key}>
+                      {index > 0 && ', '}
+                      <code title={inner.key}>{inner.fn}</code>
+                    </span>
+                  ))}
+                </span>
+              )}
+              <span class="point-counts">
+                <span class="group-count">
+                  {plural(point.tests, 'test')} · {plural(point.files, 'file')} · {plural(point.signatures.length, 'error group')}
+                </span>
+                {point.flaky > 0 && <GroupSplit group={point} />}
+              </span>
+              <span class="point-categories">
+                {inCategoryOrder(point.categories, categories).map((name) => (
+                  <CategoryBadge key={name} name={name} color={colors.get(name)} />
+                ))}
+              </span>
+            </a>
+          </li>
+        ))}
+      </ol>
+    </Widget>
   );
 }
 

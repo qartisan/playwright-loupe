@@ -44,7 +44,8 @@ const indexes = new WeakMap<object, ReadonlyMap<string, readonly TestChip[]>>();
 export function reportChips(report: Pick<LoupeReport, 'tests' | 'dimensions'>): ReadonlyMap<string, readonly TestChip[]> {
   let index = indexes.get(report);
   if (!index) {
-    const context = filterContext(report);
+    // Chips need the tag prefixes only, not the failure points.
+    const context = filterContext({ dimensions: report.dimensions });
     // Repeats of a test (repeatEach) share its id, its tags and its dimensions.
     index = new Map(report.tests.map((test) => [test.id, testChips(test, report.dimensions, context)]));
     indexes.set(report, index);

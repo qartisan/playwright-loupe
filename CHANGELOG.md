@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Before 1.0, minor versions may contain breaking changes. The JSON report has its own version (`schemaVersion`), see [`docs/schema/v1.md`](docs/schema/v1.md#versioning-policy).
 
+## [Unreleased]
+
+### Added
+
+- **Common failure points.** A new Overview card, after the run errors and before the error categories, lists the functions of your code that appear in the stack of several failures, in different spec files and error groups: when one broken fixture or helper fails many tests with different messages, it shows the function they share. A lead, not a diagnosis. Each point gives its function, file and the lines seen, the functions folded under it ("via …"), its tests, files and error groups, the failed / flaky split and the categories involved, and opens the matching tests. Thresholds: 5 tests (a test in several projects counts once), 3 spec files, 2 error groups; 5 points at most. Spec files, anonymous functions, `node_modules`, Node and Playwright internals are left out; helpers outside the root dir are kept, with `../` paths. See [Common failure points](README.md#common-failure-points).
+- **Failure point filter** in the Tests view and the sidebar, after the error category (`point` in the URL, `#` encoded as `%23`).
+- `npm run perf:sample` writes a third dataset, `cascade`, with realistic stacks through invented helpers (some outside the test dir) and 50 spec files, and also times the opening of the Overview.
+
 ## [0.1.2] - 2026-10-21
 
 ### Security

@@ -565,6 +565,25 @@ pre.message {
 .group-row-counts { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-left: auto; }
 .group-attempts { color: var(--fg-secondary); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
+/* A common failure point: function, where, folded functions, counts, categories. Paths wrap anywhere: no horizontal scroll. */
+.point-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 4px;
+  color: inherit;
+  text-decoration: none;
+}
+.point-row:hover { background: var(--bg-muted); }
+.point-fn { font-weight: 600; overflow-wrap: anywhere; }
+.point-row:hover .point-fn { text-decoration: underline; }
+.point-where, .point-via { color: var(--fg-secondary); font-size: 13px; overflow-wrap: anywhere; }
+.point-counts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 13px; }
+.point-counts .group-count { white-space: normal; }
+.point-categories { display: flex; flex-wrap: wrap; gap: 4px; }
+.facet-point code { font-size: 12.5px; }
+.facet-point-file { color: var(--fg-secondary); font-size: 12px; }
+
 /* Compact categories: one bar per category, as long as its test count; columns shared so the bars align. */
 .category-bars { display: grid; grid-template-columns: minmax(0, max-content) minmax(40px, 1fr) auto; }
 .category-bars > li { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; }

@@ -5,18 +5,24 @@
 //   npm run perf:sample -- --measure                      # and time them with dist/renderer
 //   npm run perf:sample -- --measure --renderer old.html  # time another renderer build
 //
-// Two datasets, both the renderer dev sample (src/renderer/dev/sample.json)
+// Three datasets, all the renderer dev sample (src/renderer/dev/sample.json)
 // replicated to 5,000 tests with unique ids and titles, as in the cap test:
 // - `sample`: the sample's own tags and dimensions (1 to 3 chips per row);
-// - `heavy`: six more tags and two `area` values per test (7 to 8 chips per row).
+// - `heavy`: six more tags and two `area` values per test (7 to 8 chips per row);
+// - `cascade`: the sample's tests spread over 50 spec files, every failing
+//   error with a realistic stack: 4 to 8 frames through invented helpers
+//   (named, `Object.` and `async` frames), some inside the synthetic testDir
+//   and some outside it (`../fixtures/…`), so the common failure points have
+//   real work to do.
 // Each is written to loupe-perf/<dataset>/ (report.json and index.html).
 //
 // --measure opens each report from file:// in Chromium, RUNS times, and prints
-// the median of: opening the Tests view until its 500th row is rendered;
-// checking the Passed status filter; sorting by Duration; and a search
-// (`q=order`, set through the URL to skip the input debounce). Each timing
-// ends after the next frame (requestAnimationFrame, then a task), so it covers
-// rendering and layout. Expects a built reporter (`npm run perf:sample` builds first).
+// the median of: opening the Overview until its last widget is rendered;
+// opening the Tests view until its 500th row is rendered; checking the Passed
+// status filter; sorting by Duration; and a search (`q=order`, set through the
+// URL to skip the input debounce). Each timing ends after the next frame
+// (requestAnimationFrame, then a task), so it covers rendering and layout.
+// Expects a built reporter (`npm run perf:sample` builds first).
 
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -36,21 +42,65 @@ const output = `${root}loupe-perf/`;
 const renderer = readFileSync(options.renderer ?? `${root}dist/renderer/index.html`, 'utf8');
 const sample = JSON.parse(readFileSync(`${root}src/renderer/dev/sample.json`, 'utf8'));
 
-function dataset(heavy) {
+/** The synthetic testDir of the `cascade` dataset: helpers live inside and outside it. */
+const CASCADE_TEST_DIR = '/ci/workspace/storefront/tests/';
+/** Invented helpers, innermost first within each chain: [frame function, path relative to the testDir]. */
+const CASCADE_HELPERS = [
+  ['ApiClient.request', '../lib/api-client.ts'],
+  ['async ApiClient.send', '../lib/api-client.ts'],
+  ['SessionService.login', '../services/session.service.ts'],
+  ['async signIn', '../fixtures/session.fixtures.ts'],
+  ['Object.customerFactory', '../fixtures/data.fixtures.ts'],
+  ['Object.orderFactory', '../fixtures/data.fixtures.ts'],
+  ['CartPage.addItem', 'support/pages/cart.page.ts'],
+  ['async CartPage.open', 'support/pages/cart.page.ts'],
+  ['CheckoutPage.pay', 'support/pages/checkout.page.ts'],
+  ['SearchPage.search', 'support/pages/search.page.ts'],
+  ['waitForIdle', 'support/wait.ts'],
+  ['async retry', 'support/retry.ts'],
+  ['expectToast', 'support/assertions.ts'],
+  ['Object.seedCatalog', '../fixtures/catalog.fixtures.ts'],
+  ['InventoryService.reserve', '../services/inventory.service.ts'],
+];
+const CASCADE_FILES = 50;
+
+function cascadePath(relative) {
+  return new URL(relative, `file://${CASCADE_TEST_DIR}`).pathname;
+}
+
+/** A stack for a failing error: 4 to 8 helper frames picked from the test index, then the test file. */
+function cascadeStack(message, file, index) {
+  const depth = 4 + (index % 5);
+  const start = (index * 7) % CASCADE_HELPERS.length;
+  const frames = Array.from({ length: depth }, (_, step) => {
+    const [fn, relative] = CASCADE_HELPERS[(start + step * 3) % CASCADE_HELPERS.length];
+    return `    at ${fn} (${cascadePath(relative)}:${10 + ((index + step) % 40)}:${3 + step})`;
+  });
+  return [message, ...frames, `    at ${CASCADE_TEST_DIR}${file}:${12 + (index % 30)}:5`].join('\n');
+}
+
+function dataset(kind) {
   const tests = Array.from({ length: COUNT }, (_, index) => {
     const test = sample.tests[index % sample.tests.length];
-    const extra = heavy ? { tags: [...new Set([...test.tags, ...HEAVY_TAGS])], dimensions: { ...test.dimensions, area: ['cart', 'checkout'] } } : {};
-    return { ...test, ...extra, id: index.toString(16).padStart(16, '0'), title: `${test.title} #${index}` };
+    const extra = kind === 'heavy' ? { tags: [...new Set([...test.tags, ...HEAVY_TAGS])], dimensions: { ...test.dimensions, area: ['cart', 'checkout'] } } : {};
+    const copy = { ...test, ...extra, id: index.toString(16).padStart(16, '0'), title: `${test.title} #${index}` };
+    if (kind !== 'cascade') return copy;
+    const file = `area-${String(index % 10).padStart(2, '0')}/feature-${Math.floor(index / 10) % (CASCADE_FILES / 10)}.spec.ts`;
+    const attempts = test.attempts.map((attempt) => ({
+      ...attempt,
+      errors: attempt.errors.map((error) => ({ ...error, stack: cascadeStack(error.message, file, index) })),
+    }));
+    return { ...copy, file, attempts };
   });
   return { ...sample, tests };
 }
 
 rmSync(output, { recursive: true, force: true });
 const urls = {};
-for (const [name, heavy] of [['sample', false], ['heavy', true]]) {
+for (const name of ['sample', 'heavy', 'cascade']) {
   const folder = `${output}${name}/`;
   mkdirSync(folder, { recursive: true });
-  const data = dataset(heavy);
+  const data = dataset(name);
   writeFileSync(`${folder}report.json`, JSON.stringify(data));
   writeFileSync(`${folder}index.html`, injectSettings(injectData(renderer, data), DEFAULT_RENDERER_SETTINGS));
   urls[name] = pathToFileURL(`${folder}index.html`).href;
@@ -75,8 +125,15 @@ if (options.measure) {
 
   const browser = await chromium.launch();
   for (const [name, url] of Object.entries(urls)) {
-    const results = { open: [], filter: [], sort: [], search: [] };
+    const results = { overview: [], open: [], filter: [], sort: [], search: [] };
     for (let run = 0; run < RUNS; run += 1) {
+      const overview = await browser.newPage({ viewport: { width: 1300, height: 900 } });
+      const opened = Date.now();
+      await overview.goto(`${url}#/`);
+      await overview.locator('.run-details').waitFor();
+      await overview.evaluate(SETTLE);
+      results.overview.push(Date.now() - opened);
+      await overview.close();
       const page = await browser.newPage({ viewport: { width: 1300, height: 900 } });
       const start = Date.now();
       await page.goto(`${url}#/tests`);

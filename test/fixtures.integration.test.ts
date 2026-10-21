@@ -2,6 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { failurePoints } from '../src/renderer/failure-points/points.js';
 import { paletteReference } from '../src/shared/palette.js';
 import type { Attachment, LoupeReport, Step } from '../src/schema/v1.js';
 import { FIXTURE_PASSWORD, FIXTURE_SECRET } from '../fixtures/redaction-values.js';
@@ -220,6 +221,22 @@ describe('fixture suite with the built reporter', () => {
       'Assertion',
       'Timeout',
       'Uncategorized',
+    ]);
+  });
+
+  it('shows exactly one common failure point: the shared helper outside testDir, its inner function folded', () => {
+    const { points } = failurePoints(report);
+    expect(points.map(({ key, tests, failed, flaky, files, signatures, categories, via }) => ({ key, tests, failed, flaky, files, groups: signatures.length, categories, via: via.map((inner) => inner.key) }))).toEqual([
+      {
+        key: '../helpers/resources.ts#fetchResource',
+        tests: 5,
+        failed: 5,
+        flaky: 0,
+        files: 3,
+        groups: 2,
+        categories: expect.arrayContaining(['Uncategorized', 'Server error']),
+        via: ['../helpers/resources.ts#checkResponse'],
+      },
     ]);
   });
 

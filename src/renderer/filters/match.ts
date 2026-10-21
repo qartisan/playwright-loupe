@@ -1,6 +1,7 @@
 import { OUTCOMES, type DimensionDefinition, type LoupeReport, type TestCase } from '../../schema/v1.js';
 import { splitPrefixedTag } from '../../shared/tags.js';
 import { NO_CATEGORY, isFailingAttempt } from '../dashboard.js';
+import { failurePoints } from '../failure-points/points.js';
 import { activeFacets, dimensionFacet, facetDimension, type FacetId, type FilterDomain, type FilterState } from './url.js';
 
 /**
@@ -19,17 +20,23 @@ import { activeFacets, dimensionFacet, facetDimension, type FacetId, type Filter
  * Pure functions, no DOM: unit-tested in Node.
  */
 
-/** What matching needs to know about the report: the tag prefixes taken by dimensions. */
+/**
+ * What matching needs to know about the report: the tag prefixes taken by
+ * dimensions, and the common failure points of each test (see
+ * failure-points/points.ts).
+ */
 export interface FilterContext {
   dimensionTagPrefixes: ReadonlySet<string>;
+  failurePoints: ReadonlyMap<TestCase, readonly string[]>;
 }
 
-/** No dimension: every tag is in the tag facet. */
-export const NO_FILTER_CONTEXT: FilterContext = { dimensionTagPrefixes: new Set() };
+/** No dimension: every tag is in the tag facet. No failure point. */
+export const NO_FILTER_CONTEXT: FilterContext = { dimensionTagPrefixes: new Set(), failurePoints: new Map() };
 
-export function filterContext(report: { dimensions: readonly DimensionDefinition[] }): FilterContext {
+export function filterContext(report: { dimensions: readonly DimensionDefinition[]; tests?: readonly TestCase[] }): FilterContext {
   return {
     dimensionTagPrefixes: new Set(report.dimensions.filter((dimension) => dimension.source === 'tag').map((dimension) => dimension.key)),
+    failurePoints: report.tests ? failurePoints({ tests: report.tests }).byTest : new Map(),
   };
 }
 
@@ -115,6 +122,8 @@ export function testFacetValues(test: TestCase, facet: FacetId, context: FilterC
       return facetTags(test.tags, context);
     case 'category':
       return categoriesOf(test);
+    case 'point':
+      return context.failurePoints.get(test) ?? [];
     default:
       return test.dimensions[facetDimension(facet) ?? ''] ?? [];
   }
@@ -188,10 +197,11 @@ export function facetCounts(
 
 /**
  * The values each facet can take in a report. Facets come in display order:
- * status, error category, project, tag, then dimensions in report order
- * (configured ones in config order, then automatic ones by name). Values come
- * in display order too: statuses by severity, categories in rule order,
- * projects in report order, tags sorted, dimension values as the dimension
+ * status, error category, failure point, project, tag, then dimensions in
+ * report order (configured ones in config order, then automatic ones by
+ * name). Values come in display order too: statuses by severity, categories
+ * in rule order, failure points as ranked on the Overview (only the shown
+ * ones), projects in report order, tags sorted, dimension values as the dimension
  * declares them, then sorted. Values
  * no test has are left out, and so are facets without values: the tag facet
  * is hidden when every tag belongs to a dimension. Projects without a name
@@ -209,6 +219,7 @@ export function filterDomain(report: Pick<LoupeReport, 'projects' | 'tests' | 'd
   };
   set('status', ordered(['failed', 'flaky', ...OUTCOMES.filter((outcome) => outcome !== 'failed' && outcome !== 'flaky')], present('status')));
   set('category', ordered(report.categories.map((category) => category.name), present('category')));
+  set('point', new Set(failurePoints(report).points.map((point) => point.key)));
   const projects = present('project');
   projects.delete('');
   set('project', ordered(report.projects.map((project) => project.name), projects));

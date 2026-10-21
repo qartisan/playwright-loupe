@@ -10,26 +10,44 @@ import { ChevronIcon, CloseIcon, OutcomeIcon, outcomeLabel } from './icons.js';
 /**
  * Filter bar of the Tests view: one multi-select menu per facet, then the
  * active filters as removable chips, both in the order of the domain (status,
- * error category, project, tag, dimensions).
+ * error category, failure point, project, tag, dimensions).
  */
 
 export function facetLabel(facet: FacetId): string {
   const dimension = facetDimension(facet);
   if (dimension !== null) return dimension;
   // The URL parameter stays `category`.
-  return { status: 'Status', project: 'Project', tag: 'Tag', category: 'Error category' }[facet as 'status'];
+  return { status: 'Status', project: 'Project', tag: 'Tag', category: 'Error category', point: 'Failure point' }[facet as 'status'];
+}
+
+/** A failure point key, `<file>#<function>`, split at its last `#`. */
+function splitPoint(key: string): { file: string; fn: string } {
+  const at = key.lastIndexOf('#');
+  return { file: key.slice(0, at), fn: key.slice(at + 1) };
 }
 
 /** A value as text, for chips and accessible names. */
 function valueText(facet: FacetId, value: string): string {
   if (facet === 'status') return outcomeLabel(value as Outcome);
   if (facet === 'project') return value || UNNAMED_PROJECT;
+  if (facet === 'point') {
+    const { file, fn } = splitPoint(value);
+    return `${fn} (${file})`;
+  }
   return value;
 }
 
 function ValueLabel({ facet, value, colors }: { facet: FacetId; value: string; colors: Colors }) {
   if (facet === 'status') return <OutcomeIcon outcome={value as Outcome} labelled />;
   if (facet === 'category') return <CategoryBadge name={value} color={colors.get(value)} />;
+  if (facet === 'point') {
+    const { file, fn } = splitPoint(value);
+    return (
+      <span class="facet-value facet-point" title={valueText(facet, value)}>
+        <code>{fn}</code> <span class="facet-point-file">{file}</span>
+      </span>
+    );
+  }
   return <span class="facet-value">{valueText(facet, value)}</span>;
 }
 

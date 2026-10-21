@@ -2,7 +2,7 @@
  * Filter state and its URL form. The state lives in the query of the hash
  * fragment (works from file://):
  *
- *   #/tests?q=login&status=failed,flaky&project=chromium&tag=@smoke&dim.Layer=api,ui&category=Network&sort=duration:desc
+ *   #/tests?q=login&status=failed,flaky&project=chromium&tag=@smoke&dim.Layer=api,ui&category=Network&point=..%2Fpages%2Flogin.ts%23login&sort=duration:desc
  *
  * Each value is encoded with encodeURIComponent, then values are joined with
  * commas: a comma inside a value is `%2C` and never splits it. The form is
@@ -32,8 +32,8 @@ export interface Sort {
 /** Declaration order, like the sidebar: project, file, line. Never written in the URL. */
 export const DEFAULT_SORT: Sort = { column: 'declaration', direction: 'asc' };
 
-/** A multi-value facet: status, project, tag, category, or a dimension (`dim.<name>`). */
-export type FacetId = 'status' | 'project' | 'tag' | 'category' | `dim.${string}`;
+/** A multi-value facet: status, project, tag, category, failure point, or a dimension (`dim.<name>`). */
+export type FacetId = 'status' | 'project' | 'tag' | 'category' | 'point' | `dim.${string}`;
 
 /** Selected values per facet. A facet without values does not filter. */
 export type FacetSelection = Readonly<Partial<Record<FacetId, readonly string[]>>>;
@@ -73,9 +73,10 @@ function compareCodePoints(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-/** Facets in URL order: status, project, tag, dimensions by name, category. */
+/** Facets in URL order: status, project, tag, dimensions by name, category, failure point. */
 export function facetOrder(facets: Iterable<FacetId>): FacetId[] {
-  const rank = (facet: FacetId): number => (facet === 'category' ? 4 : facetDimension(facet) !== null ? 3 : FIXED_FACETS.indexOf(facet as never));
+  const rank = (facet: FacetId): number =>
+    facet === 'point' ? 5 : facet === 'category' ? 4 : facetDimension(facet) !== null ? 3 : FIXED_FACETS.indexOf(facet as never);
   return [...facets].sort((a, b) => rank(a) - rank(b) || compareCodePoints(a, b));
 }
 
@@ -129,7 +130,11 @@ export function parseFilters(input: string, domain?: FilterDomain): FilterState 
       sort = parseSort(decode(raw) ?? '') ?? sort;
       continue;
     }
-    const isFacet = (FIXED_FACETS as readonly string[]).includes(key) || key === 'category' || (key.startsWith(DIMENSION_PREFIX) && key.length > DIMENSION_PREFIX.length);
+    const isFacet =
+      (FIXED_FACETS as readonly string[]).includes(key) ||
+      key === 'category' ||
+      key === 'point' ||
+      (key.startsWith(DIMENSION_PREFIX) && key.length > DIMENSION_PREFIX.length);
     if (!isFacet) continue;
     const facet = key as FacetId;
     const allowed = domain?.get(facet);
