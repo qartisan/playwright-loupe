@@ -1,6 +1,7 @@
 import type { CategoryMode, CategoryTarget, ResolvedCategoryRule } from '../config/types.js';
 import type { CategoryDefinition } from '../schema/v1.js';
 import { NEUTRAL_ENTRY, PALETTE_ENTRIES, paletteReference } from '../shared/palette.js';
+import { httpStatus } from './http.js';
 
 /**
  * Error categorization. Rules are ordered: the first rule with a pattern
@@ -30,18 +31,6 @@ const ALL_TARGETS: readonly Target[] = ['message', 'stack', 'step'];
 
 export const UNCATEGORIZED_COLOR = NEUTRAL_ENTRY.reference;
 
-/**
- * An HTTP status in context: `status 429`, `status code: 429`, `"status": 429`,
- * `statusCode=429`, `HTTP 429`, `HTTP/1.1 429`, `Response status: 429`, or
- * `← 429`, the response line of Playwright's fetch log.
- */
-function httpStatus(code: string): RegExp {
-  return new RegExp(
-    `(?:\\b(?:status(?:[ _]?code)?["']?\\s*[:=]?|HTTP(?:/\\d(?:\\.\\d)?)?:?)|\u2190)\\s*${code}(?!\\w|\\.\\d)`,
-    'i',
-  );
-}
-
 export const BUILT_IN_RULES: readonly CategoryRule[] = [
   {
     // Before "Locator not found", "Assertion" and "Timeout": a locator matching
@@ -63,7 +52,7 @@ export const BUILT_IN_RULES: readonly CategoryRule[] = [
     // Before "Network", "Assertion" and "Timeout": the status is the diagnosis,
     // whether it surfaces through `failOnStatusCode`, `toBeOK()` or a thrown
     // error. A bare 429 is not enough (`429ms`, `Received: 429`): it needs an
-    // HTTP context.
+    // HTTP context (src/core/http.ts), shared with error signatures.
     name: 'Rate limited',
     color: paletteReference('teal'),
     match: [/\bToo Many Requests\b/i, /\brate[- ]?limit/i, httpStatus('429')],
@@ -72,10 +61,8 @@ export const BUILT_IN_RULES: readonly CategoryRule[] = [
   {
     name: 'Server error',
     color: paletteReference('orange'),
-    match: [
-      httpStatus('5\\d\\d'),
-      /\b5\d\d (?:Internal Server Error|Not Implemented|Bad Gateway|Service Unavailable|Gateway Time-?out|HTTP Version Not Supported)\b/i,
-    ],
+    // In an HTTP context, reason phrase included: `500 Internal Server Error` (failOnStatusCode).
+    match: [httpStatus('5\\d\\d')],
     targets: ['message', 'stack'],
   },
   {

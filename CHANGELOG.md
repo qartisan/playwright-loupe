@@ -16,6 +16,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - New `redact` option (`patterns`, `mode`, `env`), validated at startup; one list of secret-looking names for input steps, headers and URL parameters, with whole-word matching (`auth` matches `x-auth-token`, not `Author`). The environment can add names, never remove them.
   - **Not redacted**: attachments (traces, screenshots and videos contain typed values: treat a report with traces as private), snippets (source code from your repository), attachment file names. See [Secret redaction](docs/config.md#secret-redaction). Reports written by earlier versions are not rewritten.
 
+### Changed
+
+- **Error signatures keep HTTP status codes.** A status code (100–599) in an HTTP context is no longer replaced with `<n>`, so `Unable to delete the member with API with error 401` and `… with error 500` are two error groups instead of one. Other numbers are normalized as before. This changes how signatures are computed, not the JSON shape (`schemaVersion` stays 1): signatures of messages with an HTTP status change, so groups do not match across this upgrade for those errors. See [Error signature](docs/schema/v1.md#error-signature).
+- **Wider HTTP context, shared by categories and signatures.** A status code now also counts as an HTTP status after `error` (`with error 503`, `Error: 503`) and before its standard reason phrase (`401 Unauthorized`, previously only for 5xx). Categories change accordingly: an error such as `… with error 503` is now **Server error** and `… error 429` **Rate limited**, where they could be Uncategorized (or Assertion, Timeout) before. See [HTTP context](docs/schema/v1.md#http-context).
+
 ## [0.1.1] - 2026-10-18
 
 ### Added

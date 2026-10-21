@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { STATUS_CODE, httpStatusSource } from './http.js';
 
 // Same pattern as the `ansi-regex` package (CSI and OSC sequences).
 const ANSI_PATTERN =
@@ -87,8 +88,15 @@ const REPLACEMENTS: ReadonlyArray<[RegExp, string]> = [
   [/\b\d+(?:\.\d+)?\s?(?:ms|milliseconds?|s|secs?|seconds?|m|mins?|minutes?|h|hours?)\b/gi, '<duration>'],
   // 8+ hex chars with at least one letter (pure digit runs fall through to <n>).
   [/(?<![0-9A-Za-z])(?=[0-9a-f]*[a-f])[0-9a-f]{8,}(?![0-9A-Za-z])/gi, '<hex>'],
-  [/\d+(?:\.\d+)?/g, '<n>'],
 ];
+
+/**
+ * Last replacement: remaining numbers become `<n>`, except HTTP status codes
+ * (100–599) in an HTTP context, kept with their context so `error 401` and
+ * `error 500` stay apart. Same context as the "Rate limited" and "Server
+ * error" categories (src/core/http.ts).
+ */
+const STATUS_OR_NUMBER = new RegExp(`(${httpStatusSource(STATUS_CODE)})|\\d+(?:\\.\\d+)?`, 'gi');
 
 export interface NormalizeOptions {
   /** Run errors (`onError`) also lose the `(<tags>) ` prefix added by `merge-reports`. */
@@ -110,6 +118,7 @@ export function normalizeErrorMessage(message: string, options: NormalizeOptions
   for (const [pattern, placeholder] of REPLACEMENTS) {
     text = text.replace(pattern, placeholder);
   }
+  text = text.replace(STATUS_OR_NUMBER, (_match: string, status: string | undefined) => status ?? '<n>');
   return text.replace(/\s+/g, ' ').trim();
 }
 

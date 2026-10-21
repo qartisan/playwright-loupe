@@ -392,3 +392,44 @@ describe('stable part of Playwright messages', () => {
     expect(normalizeErrorMessage(deepEqual)).toContain('"total"');
   });
 });
+
+describe('HTTP status codes', () => {
+  // Anonymized from real messages: API helpers of a consumer suite, Playwright's failOnStatusCode and fetch log.
+  it.each([
+    ['Error: [Teardown] Unable to delete the member with API with error 401', 'Error: [Teardown] Unable to delete the member with API with error 401'],
+    ['Error: [Projects] Unable to create project with API. Status: 401. Error: [object Object]', 'Error: [Projects] Unable to create project with API. Status: 401. Error: [object Object]'],
+    [
+      'Error: [Setup] Unable to create a member with API - (Status 400) {\n  "error": "This user is already a member."\n}',
+      'Error: [Setup] Unable to create a member with API - (Status 400) { "error": "This user is already a member." }',
+    ],
+    ['Error: apiRequestContext.get: 500 Internal Server Error', 'Error: apiRequestContext.get: 500 Internal Server Error'],
+    ['Error: expect(response).toBeOK() failed\n\n← 401 Unauthorized', 'Error: expect(response).toBeOK() failed ← 401 Unauthorized'],
+    ['Error: upstream answered HTTP/1.1 503', 'Error: upstream answered HTTP/1.1 503'],
+    ['Error: statusCode=502 on retry 3', 'Error: statusCode=502 on retry <n>'],
+    ['Error: {"status": 404, "id": 17}', 'Error: {"status": 404, "id": <n>}'],
+    ['Error: Request failed with status code 422', 'Error: Request failed with status code 422'],
+  ])('keeps the code of %j', (message, normalized) => {
+    expect(normalizeErrorMessage(message)).toBe(normalized);
+  });
+
+  it.each([
+    ['Error: expect(received).toBe(expected)\n\nExpected: 200\nReceived: 500', 'Error: expect(received).toBe(expected) Expected: <n> Received: <n>'],
+    ['Error: [Teardown] Unable to transition ticket -> (401) - { "error": "Invalid token" }', 'Error: [Teardown] Unable to transition ticket -> (<n>) - { "error": "Invalid token" }'],
+    ['Error: Timeout 429ms exceeded.', 'Error: Timeout <duration> exceeded.'],
+    ['Error: error 1234 in the queue', 'Error: error <n> in the queue'],
+    ['Error: error 600 and status 99', 'Error: error <n> and status <n>'],
+    ['Error: found 404 records, 200 OK lines', 'Error: found <n> records, 200 OK lines'],
+    ['TypeError: 500 is not a function', 'TypeError: <n> is not a function'],
+  ])('normalizes the other numbers of %j', (message, normalized) => {
+    expect(normalizeErrorMessage(message)).toBe(normalized);
+  });
+
+  it('gives a 401 and a 500 in an HTTP context different signatures, and the same status the same one', () => {
+    const failure = (status: number, id: string) => `Error: [Teardown] Unable to delete the member ${id} with API with error ${status}`;
+    expect(errorSignature(failure(401, 'cmvhqm1a40011noq5auos3c5p'))).not.toBe(errorSignature(failure(500, 'cmvhqm1a40011noq5auos3c5p')));
+    expect(errorSignature(failure(401, 'cmvhqm1a40011noq5auos3c5p'))).toBe(errorSignature(failure(401, 'tz4a98xxat96iws9zmbrgj3a')));
+    expect(errorSignature('Error: expect(received).toBe(expected)\n\nExpected: 200\nReceived: 401')).toBe(
+      errorSignature('Error: expect(received).toBe(expected)\n\nExpected: 200\nReceived: 500'),
+    );
+  });
+});

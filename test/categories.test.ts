@@ -147,6 +147,16 @@ describe('categorize', () => {
     expect(categorize(at('Error: element(s) not found after HTTP 500'))).toBe('Locator not found');
   });
 
+  it('reads the HTTP context shared with error signatures: `error NNN` and reason phrases', () => {
+    expect(categorize(at('Error: Unable to delete the member with API with error 503'))).toBe('Server error');
+    expect(categorize(at('Error: error: 429 from the gateway'))).toBe('Rate limited');
+    expect(categorize(at('Error: apiRequestContext.get: 502 Bad Gateway'))).toBe('Server error');
+    // Still no HTTP context: a bare number, an error class name, another code.
+    expect(categorize(at('Error: expect(received).toBe(expected)\n\nExpected: 200\nReceived: 500'))).toBe('Assertion');
+    expect(categorize(at('TypeError: 500 is not a function'))).toBe('Uncategorized');
+    expect(categorize(at('Error: Unable to delete the member with API with error 401'))).toBe('Uncategorized');
+  });
+
   it('puts unmatched errors in Uncategorized', () => {
     expect(categorize(at('Error: Order sync 42 rejected'))).toBe(UNCATEGORIZED.name);
     expect(categorize(at(''))).toBe(UNCATEGORIZED.name);
