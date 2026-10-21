@@ -433,3 +433,84 @@ describe('HTTP status codes', () => {
     );
   });
 });
+
+describe('toBeOK() response status', () => {
+  // Anonymized from Playwright 1.52 and 1.64 messages (local server, invented paths and bodies).
+  const MATCHER = { '1.52': 'Error: expect(received).toBeOK()', '1.64': 'Error: expect(response).toBeOK() failed\n\n' };
+
+  /** One request / response pair of the call log, as Playwright logs it. */
+  function hop(method: string, url: string, response: string, headers: string[] = []): string {
+    return [
+      `→ ${method} ${url}`,
+      '  user-agent: Playwright/1.64.1 (x64; linux) node/24.17',
+      '  accept: */*',
+      '  accept-encoding: gzip,deflate,br',
+      `← ${response}`,
+      ...headers,
+      '  date: Wed, 21 Oct 2026 16:39:30 GMT',
+      '  connection: keep-alive',
+      '  keep-alive: timeout=5',
+      '  transfer-encoding: chunked',
+    ].join('\n');
+  }
+
+  function toBeOK(response: string, options: { version?: '1.52' | '1.64'; url?: string; method?: string; body?: string; head?: string; redirects?: string[] } = {}): string {
+    const { version = '1.64', url = 'http://127.0.0.1:41733/api/orders', method = 'GET', body, head = MATCHER[version], redirects = [] } = options;
+    const hops = [
+      ...redirects.map((location, index) => hop(method, index === 0 ? url : redirects[index - 1] ?? url, '302 Found', [`  location: ${location}`])),
+      hop(method, redirects.at(-1) ?? url, response, body ? ['  content-type: application/json'] : []),
+    ];
+    return [head, 'Call log:', ...hops, '', ...(body ? ['Response text:', body] : [])].join('\n');
+  }
+
+  it.each(['1.52', '1.64'] as const)('gives a 429, a 404 and a 503 different signatures, Playwright %s', (version) => {
+    const signatures = ['429 Too Many Requests', '404 Not Found', '503 Service Unavailable'].map((status) => errorSignature(toBeOK(status, { version })));
+    expect(new Set(signatures).size).toBe(3);
+    expect(normalizeErrorMessage(toBeOK('503 Service Unavailable', { version }))).toBe(`${MATCHER[version].trim()} ← 503 Service Unavailable`);
+  });
+
+  it('gives the same status on different endpoints, methods and bodies one signature', () => {
+    const base = errorSignature(toBeOK('503 Service Unavailable'));
+    expect(errorSignature(toBeOK('503 Service Unavailable', { url: 'http://127.0.0.1:52011/api/invoices/42?token=[redacted]' }))).toBe(base);
+    expect(errorSignature(toBeOK('503 Service Unavailable', { method: 'POST', body: '{"error":"maintenance","requestId":"req-91c2"}' }))).toBe(base);
+    expect(errorSignature(toBeOK('503 Service Unavailable', { body: 'Upstream unavailable, retry later' }))).toBe(base);
+  });
+
+  it('keeps the last response only, after redirects', () => {
+    const redirected = toBeOK('503 Service Unavailable', { redirects: ['/api/orders/v2', '/api/orders/v3?step=2'] });
+    expect(normalizeErrorMessage(redirected)).toBe('Error: expect(response).toBeOK() failed ← 503 Service Unavailable');
+    expect(errorSignature(redirected)).toBe(errorSignature(toBeOK('503 Service Unavailable')));
+    expect(errorSignature(toBeOK('500 Internal Server Error', { redirects: ['/api/orders/v2'] }))).not.toBe(errorSignature(redirected));
+  });
+
+  it('keeps the status of not.toBeOK(), Playwright 1.52 and 1.64', () => {
+    const notOk = (version: '1.52' | '1.64', status: string) =>
+      toBeOK(status, { version, head: version === '1.52' ? 'Error: expect(received).not.toBeOK()' : 'Error: expect(response).not.toBeOK() failed\n\n' });
+    expect(normalizeErrorMessage(notOk('1.52', '200 OK'))).toBe('Error: expect(received).not.toBeOK() ← 200 OK');
+    expect(errorSignature(notOk('1.64', '200 OK'))).not.toBe(errorSignature(notOk('1.64', '204 No Content')));
+  });
+
+  it('keeps it after a custom message', () => {
+    const custom = (status: string) => toBeOK(status, { head: 'Error: orders API should answer\n\nexpect(response).toBeOK() failed\n\n' });
+    expect(normalizeErrorMessage(custom('502 Bad Gateway'))).toBe('Error: orders API should answer expect(response).toBeOK() failed ← 502 Bad Gateway');
+    expect(errorSignature(custom('502 Bad Gateway'))).not.toBe(errorSignature(custom('503 Service Unavailable')));
+  });
+
+  it('keeps a non-standard reason phrase, normalized like any text', () => {
+    expect(normalizeErrorMessage(toBeOK('503 Maintenance window 42'))).toBe('Error: expect(response).toBeOK() failed ← 503 Maintenance window <n>');
+  });
+
+  it('leaves messages that only mention toBeOK, and other call logs, unchanged', () => {
+    // A user message quoting the matcher in its own text, with a call log of its own.
+    const user = 'Error: expect(response).toBeOK() was skipped: ← 418 I am a teapot\nCall log:\n  - ← 500 Internal Server Error';
+    expect(normalizeErrorMessage(user)).toBe('Error: expect(response).toBeOK() was skipped: ← 418 I am a teapot');
+    // failOnStatusCode: the status is on the first line; its call log (`  - ← …`) stays cut.
+    const request = 'Error: apiRequestContext.get: 500 Internal Server Error\nCall log:\n  - → GET http://127.0.0.1:41733/api/orders\n  - ← 500 Internal Server Error';
+    expect(normalizeErrorMessage(request)).toBe('Error: apiRequestContext.get: 500 Internal Server Error');
+    // Another matcher with a call log.
+    const visible = "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button')\nExpected: visible\nCall log:\n  - ← 503 Service Unavailable";
+    expect(normalizeErrorMessage(visible)).toBe("Error: expect(locator).toBeVisible() failed Locator: getByRole('button') Expected: visible");
+    // A toBeOK() message without any response line keeps today's signature.
+    expect(normalizeErrorMessage('Error: expect(response).toBeOK() failed\n\nCall log:\n  - waiting')).toBe('Error: expect(response).toBeOK() failed');
+  });
+});

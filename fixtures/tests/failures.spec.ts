@@ -47,6 +47,13 @@ test.describe('failures', () => {
       });
     });
 
+    // Same matcher as "is rate limited", another status: its own error group.
+    test('is unavailable (intentional)', { tag: '@layer:api' }, async ({ request }) => {
+      await withStatusServer(503, async (url) => {
+        await expect(await request.get(url)).toBeOK();
+      });
+    });
+
     test('gets a server error (intentional)', { tag: '@layer:api' }, async ({ request }) => {
       await withStatusServer(500, async (url) => {
         await request.get(url, { failOnStatusCode: true });

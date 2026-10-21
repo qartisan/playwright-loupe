@@ -13,6 +13,32 @@ export function stripAnsi(text: string): string {
 const CALL_LOG = /^[ \t]*Call log:/m;
 
 /**
+ * Playwright's own `toBeOK()` / `not.toBeOK()` matcher line: `expect(received).toBeOK()`
+ * (1.52), `expect(response).toBeOK() failed` (1.64), with `Error: ` unless a
+ * custom message comes first. A whole line, so a user message that only
+ * mentions `toBeOK()` in its text does not match.
+ */
+const TO_BE_OK = /^[ \t]*(?:Error: )?expect\((?:received|response)\)(?:\.not)?\.toBeOK\(\)(?: failed)?[ \t]*$/m;
+
+/**
+ * The response line of `toBeOK()`'s call log: `← 503 Service Unavailable`,
+ * one per response when there are redirects. The status is nowhere else in
+ * the message.
+ */
+const RESPONSE_LINE = /^[ \t]*← [1-5]\d\d\b.*$/gm;
+
+/**
+ * For a `toBeOK()` failure, the last response line of the call log (the
+ * final response, after any redirect); null otherwise. The request line,
+ * headers and body are left out: the same status on two endpoints is one
+ * failure.
+ */
+function toBeOkResponse(head: string, callLog: string): string | null {
+  if (!TO_BE_OK.test(head)) return null;
+  return callLog.match(RESPONSE_LINE)?.at(-1)?.trim() ?? null;
+}
+
+/**
  * A strict mode violation lists the matching elements, one per line:
  * `    1) <li>Order 13</li> aka locator('li').first()`. Their positions and
  * content change when the page gains an item, so the list is dropped and the
@@ -105,7 +131,8 @@ export interface NormalizeOptions {
 
 /**
  * Normalizes an error message so the same failure produces the same text
- * across tests, retries and runs: ANSI codes and the call log are removed,
+ * across tests, retries and runs: ANSI codes and the call log are removed
+ * (except the final response status of a `toBeOK()` failure),
  * only the stable part of Playwright messages is kept, volatile values are
  * replaced with placeholders and whitespace is collapsed.
  */
@@ -113,8 +140,10 @@ export function normalizeErrorMessage(message: string, options: NormalizeOptions
   let text = stripAnsi(message);
   if (options.runError) text = stripMergeTagPrefix(text);
   const callLog = CALL_LOG.exec(text);
+  const response = callLog ? toBeOkResponse(text.slice(0, callLog.index), text.slice(callLog.index)) : null;
   if (callLog) text = text.slice(0, callLog.index);
   text = stablePart(text);
+  if (response) text = `${text}\n${response}`;
   for (const [pattern, placeholder] of REPLACEMENTS) {
     text = text.replace(pattern, placeholder);
   }

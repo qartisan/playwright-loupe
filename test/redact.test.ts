@@ -419,4 +419,15 @@ describe('redaction runs before signatures', () => {
     const env = redactor({ values: ['env-Inv3nted-1', 'env-Inv3nted-2'] });
     expect(errorSignature(env.text('Error: rejected key env-Inv3nted-1'))).toBe(errorSignature(env.text('Error: rejected key env-Inv3nted-2')));
   });
+
+  it('redacts the toBeOK() response line it keeps', () => {
+    // A server can put anything in its reason phrase: here, an env value echoed back.
+    const env = redactor({ values: ['env-Inv3nted-alpha', 'env-Inv3nted-omega'] });
+    const failure = (value: string) =>
+      `Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:41733/api/orders?apiKey=${value}\n  accept: */*\n← 503 Rejected ${value}\n  content-length: 0\n`;
+    const a = env.text(failure('env-Inv3nted-alpha'));
+    expect(a).not.toContain('env-Inv3nted-alpha');
+    expect(errorSignature(a)).toBe(errorSignature(env.text(failure('env-Inv3nted-omega'))));
+    expect(errorSignature(failure('env-Inv3nted-alpha'))).not.toBe(errorSignature(failure('env-Inv3nted-omega')));
+  });
 });

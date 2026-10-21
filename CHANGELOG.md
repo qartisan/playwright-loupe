@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- **Error signatures of `toBeOK()` keep the response status.** For `expect(response).toBeOK()` (and `not.toBeOK()`), the status is only in Playwright's call log, which signatures cut: a 429, a 404 and a 503 shared one error group, shown under the category of its first error. The signature now keeps the final response line of the call log (`← 503 Service Unavailable`, the last one after redirects), so each status gets its own group, matching its category. The same status on different endpoints still shares one group. Other messages keep their signature; `toBeOK()` failures get a new one, so their groups do not match those of earlier reports. No change to the JSON shape (`schemaVersion` stays 1). See [Error signature](docs/schema/v1.md#error-signature).
 - Suite health's skipped tests use the new wording (`Skipped: <reason>`, `Fixme (no reason given)`, `Not run`) instead of a `fixme` badge and "No reason given"; a test with several skip annotations shows the first one with a reason.
 
 ## [0.1.2] - 2026-10-21
