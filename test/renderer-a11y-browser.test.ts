@@ -294,6 +294,79 @@ describe('accessibility matrix (axe-core, file://)', { timeout: 60_000 }, () => 
     });
   });
 
+  describe('landmarks, skip link and code snippets', () => {
+    async function open(url: string, width = 1300): Promise<Page> {
+      const page = await browser.newPage({ viewport: { width, height: 700 } });
+      await page.goto(url);
+      await page.locator('.main h1').first().waitFor();
+      return page;
+    }
+
+    /** Presses Tab until `selector` has focus, at most `limit` times; false if it never does. */
+    async function tabTo(page: Page, selector: string, limit = 80): Promise<boolean> {
+      for (let index = 0; index < limit; index++) {
+        await page.keyboard.press('Tab');
+        if (await page.locator(selector).first().evaluate((element) => element === element.ownerDocument.activeElement)) return true;
+      }
+      return false;
+    }
+
+    const outlineOf = (page: Page) => page.evaluate<string>('getComputedStyle(document.activeElement).outlineStyle');
+
+    it('has one banner, one main and the sidebar navigation', async () => {
+      const page = await open(`${urls.sample}#/`);
+      expect(await page.getByRole('banner').count()).toBe(1);
+      // The header and the partial run note.
+      expect(await page.getByRole('banner').locator('.header, .banner-partial').count()).toBe(2);
+      expect(await page.getByRole('main').count()).toBe(1);
+      expect(await page.getByRole('navigation', { name: 'Report' }).count()).toBe(1);
+      await page.close();
+    });
+
+    it('keeps one main landmark on the load error page', async () => {
+      const file = path.join(workDir, 'unreadable.html');
+      writeFileSync(file, injectSettings(injectData(readFileSync(RENDERER, 'utf8'), { schemaVersion: 99 }), DEFAULT_RENDERER_SETTINGS));
+      const page = await browser.newPage();
+      await page.goto(pathToFileURL(file).href);
+      await page.getByRole('alert').waitFor();
+      expect(await page.getByRole('main').count()).toBe(1);
+      expect(await page.getByRole('main').getByRole('alert').count()).toBe(1);
+      await page.close();
+    });
+
+    it.each([1300, 360])('skips to the content from the first Tab, without changing the hash, at %ipx', async (width) => {
+      const page = await open(`${urls.sample}#/health`, width);
+      const skip = page.getByRole('button', { name: 'Skip to content' });
+      expect(await skip.boundingBox()).toMatchObject({ width: 1, height: 1 });
+      await page.keyboard.press('Tab');
+      expect(await skip.evaluate((element) => element === element.ownerDocument.activeElement)).toBe(true);
+      // Shown while focused, inside the viewport, with the focus ring.
+      const box = (await skip.boundingBox())!;
+      expect(box.width).toBeGreaterThan(24);
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.y).toBeGreaterThanOrEqual(0);
+      expect(await outlineOf(page)).toBe('solid');
+      await page.keyboard.press('Enter');
+      expect(await page.locator('.main').evaluate((element) => element === element.ownerDocument.activeElement)).toBe(true);
+      expect(new URL(page.url()).hash).toBe('#/health');
+      // From there, the keyboard scrolls the content.
+      await page.keyboard.press('PageDown');
+      await expect.poll(() => page.locator('.main').evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+      await page.close();
+    });
+
+    it('reaches a code snippet with Tab, shows the focus ring and scrolls it with the arrow keys', async () => {
+      const page = await open(`${urls.sample}#/test/${FAILING}`, 360);
+      const snippet = page.locator('.code-snippet').first();
+      expect(await snippet.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
+      expect(await tabTo(page, '.code-snippet')).toBe(true);
+      expect(await outlineOf(page)).toBe('solid');
+      for (let index = 0; index < 5; index++) await page.keyboard.press('ArrowRight');
+      await expect.poll(() => snippet.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+      await page.close();
+    });
+  });
+
   it('uses every allowlist entry', () => {
     expect(A11Y_ALLOWLIST.filter((entry) => !used.has(entry)).map(({ rule, selector }) => `${rule} on ${selector}`)).toEqual([]);
   });

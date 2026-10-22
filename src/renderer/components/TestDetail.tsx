@@ -39,7 +39,8 @@ export function ErrorCard({ error, group, color, secondary = false }: { error: L
         <Highlighted lines={highlightMessage(error.message)} />
       </pre>
       {error.snippet && (
-        <pre class="code-snippet">
+        // Focusable: the snippet keeps its columns (the caret points at one), so it scrolls sideways, also with the keyboard.
+        <pre class="code-snippet" tabIndex={0}>
           <Highlighted lines={highlightSnippet(error.snippet)} />
         </pre>
       )}

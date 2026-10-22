@@ -137,9 +137,10 @@ function CountLink({ outcome, count }: { outcome: Outcome; count: number }) {
 export function Header({ report, title }: { report: LoupeReport; title: string }) {
   const { run } = report;
 
+  // One banner landmark for the header and the partial run note, which applies to every view.
   return (
-    <>
-      <header class="header">
+    <header class="masthead">
+      <div class="header">
         <div class="header-main">
           <div class="header-identity">
             <div class="header-name">
@@ -185,7 +186,7 @@ export function Header({ report, title }: { report: LoupeReport; title: string }
           <ShortcutsButton />
           <ThemeSwitch />
         </div>
-      </header>
+      </div>
       {run.scope === 'partial' && (
         <div class="banner banner-partial" role="note">
           <AlertIcon />
@@ -200,6 +201,6 @@ export function Header({ report, title }: { report: LoupeReport; title: string }
           </p>
         </div>
       )}
-    </>
+    </header>
   );
 }

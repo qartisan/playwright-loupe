@@ -168,6 +168,10 @@ h1, h2, h3, strong, b { font-weight: 600; }
 .main:focus { outline: none; }
 .main > .page { flex: 1; }
 
+/* Skip link: visually hidden until focused, then over the header's top-left corner. */
+.skip-link { position: absolute; top: 8px; left: 8px; z-index: 30; }
+.skip-link:not(:focus) { width: 1px; height: 1px; min-height: 0; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
 /*
  * Header: the run on the left (wraps), the controls on the right (always
  * top-right). The left column's three groups wrap as units; the suite name

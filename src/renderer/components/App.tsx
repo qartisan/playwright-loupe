@@ -88,6 +88,10 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
 
   return (
     <div class={`app ${sidebarOpen.value ? 'sidebar-open' : 'sidebar-closed'}`}>
+      {/* The first focusable element, shown on focus. A button, not a link: the hash holds the route, so it moves focus without changing it. */}
+      <button type="button" class="button skip-link" onClick={() => main.current?.focus()}>
+        Skip to content
+      </button>
       <Header report={report} title={settings.title} />
       <div class="layout">
         <Sidebar report={report} tree={tree} prefix={prefix} matched={matched.length} route={route} open={sidebarOpen.value} />

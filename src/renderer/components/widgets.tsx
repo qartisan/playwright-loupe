@@ -217,7 +217,12 @@ export function RunErrorItem({ error, color }: { error: RunError; color: string 
         {location && <code>{location}</code>}
       </div>
       <pre class="message error-message">{error.message}</pre>
-      {error.snippet && <pre class="code-snippet">{error.snippet}</pre>}
+      {error.snippet && (
+        // Focusable, so it scrolls sideways with the keyboard.
+        <pre class="code-snippet" tabIndex={0}>
+          {error.snippet}
+        </pre>
+      )}
       {error.stack && error.stack !== error.message && (
         <details>
           <summary>Stack trace</summary>

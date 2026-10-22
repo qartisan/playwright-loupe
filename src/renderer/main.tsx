@@ -17,10 +17,12 @@ render(
   result.ok ? (
     <App report={result.report} settings={settings} />
   ) : (
-    <div class="load-error" role="alert">
-      <h1>Loupe could not open this report</h1>
-      <p>{result.message}</p>
-    </div>
+    <main class="load-error">
+      <div role="alert">
+        <h1>Loupe could not open this report</h1>
+        <p>{result.message}</p>
+      </div>
+    </main>
   ),
   root,
 );
