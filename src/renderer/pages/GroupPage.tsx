@@ -28,7 +28,8 @@ export function GroupPage({ report, groups, group }: { report: LoupeReport; grou
   const categories = filters.value.facets.category ?? [];
   const sequence = group ? groupNavigation(groups, group, categories) : null;
   const goTo = (target: ErrorGroup | null | undefined) => (target ? () => navigate({ page: 'group', signature: target.signature }) : null);
-  useShortcuts({ n: goTo(sequence?.next), p: goTo(sequence?.previous) });
+  // j / k, as on a test detail: the two pages never share a screen.
+  useShortcuts({ j: goTo(sequence?.next), k: goTo(sequence?.previous) });
 
   if (!group || !sequence) return <NotFoundPage message="No error group with this signature in this report." />;
   const color = categoryColorMap(report.categories).get(group.category);
@@ -43,7 +44,7 @@ export function GroupPage({ report, groups, group }: { report: LoupeReport; grou
         next={goTo(sequence.next)}
         previousLabel="Previous group"
         nextLabel="Next group"
-        keys={['p', 'n']}
+        keys={['k', 'j']}
       />
       <p class="breadcrumb">{sequence.restricted ? `Error group · ${categories.join(', ')}` : 'Error group'}</p>
       <h1>{plural(group.tests.length, 'test')} failing with this error</h1>

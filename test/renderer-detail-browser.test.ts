@@ -97,13 +97,12 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     await expect.poll(() => hashOf(page)).toBe(`${testHash(flaky)}?attempt=0`);
     expect(await page.evaluate<string | null>('document.activeElement?.getAttribute("data-attempt")')).toBe('0');
 
-    // `]` and `[` select the next and previous attempt, without wrapping.
+    // `[` and `]` are no shortcut (removed: AltGr on AZERTY keyboards).
     await page.locator('body').focus();
     await page.keyboard.press(']');
-    await expect.poll(() => hashOf(page)).toBe(`${testHash(flaky)}?attempt=1`);
-    await page.keyboard.press(']');
     await page.keyboard.press('[');
-    await expect.poll(() => hashOf(page)).toBe(`${testHash(flaky)}?attempt=0`);
+    await page.evaluate('new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+    expect(hashOf(page)).toBe(`${testHash(flaky)}?attempt=0`);
 
     await page.goto(`${url}${testHash(flaky)}?attempt=1`);
     await expect.poll(() => page.getByRole('tab', { selected: true }).textContent()).toMatch(/^Retry 1/);
@@ -373,7 +372,7 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     await page.close();
   });
 
-  it('walks every error group from the global list, and a category from a category section, with n / p', async () => {
+  it('walks every error group from the global list, and a category from a category section, with j / k', async () => {
     const ranked = rankGroups(errorGroups(report));
     const { page, errors } = await open('#/errors');
     await page.locator('.widget-groups a.group-row').first().click();
@@ -381,10 +380,14 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     await expect.poll(() => pager.locator('.pager-position').textContent()).toBe(`1 of ${ranked.length}`);
     expect(hashOf(page)).toBe(`#/group/${ranked[0]!.signature}`);
     expect(await pager.getByRole('button', { name: 'Previous group' }).isDisabled()).toBe(true);
-    await page.keyboard.press('n');
+    await page.keyboard.press('j');
     await expect.poll(() => hashOf(page)).toBe(`#/group/${ranked[1]!.signature}`);
-    await page.keyboard.press('p');
+    await page.keyboard.press('k');
     await expect.poll(() => hashOf(page)).toBe(`#/group/${ranked[0]!.signature}`);
+    // n / p are gone.
+    await page.keyboard.press('n');
+    await page.evaluate('new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+    expect(hashOf(page)).toBe(`#/group/${ranked[0]!.signature}`);
 
     // From a category: the sequence stays within it.
     const category = 'Assertion';
@@ -396,11 +399,11 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     await expect.poll(() => restricted.locator('.pager-position').textContent()).toBe(`1 of ${inCategory.length}`);
     expect(hashOf(page)).toBe(`#/group/${inCategory[0]!.signature}?category=${category}`);
     for (const group of inCategory.slice(1)) {
-      await page.keyboard.press('n');
+      await page.keyboard.press('j');
       await expect.poll(() => hashOf(page)).toBe(`#/group/${group.signature}?category=${category}`);
     }
     expect(await restricted.getByRole('button', { name: 'Next group' }).isDisabled()).toBe(true);
-    await page.keyboard.press('n');
+    await page.keyboard.press('j');
     expect(hashOf(page)).toBe(`#/group/${inCategory[inCategory.length - 1]!.signature}?category=${category}`);
     expect(errors).toEqual([]);
     await page.close();
@@ -413,8 +416,8 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     await page.keyboard.press('?');
     const dialog = page.getByRole('dialog', { name: 'Keyboard shortcuts' });
     await dialog.waitFor();
-    expect(await dialog.locator('tbody tr').count()).toBe(7);
-    expect(await dialog.textContent()).toContain('Next / previous error group');
+    expect(await dialog.locator('tbody tr').count()).toBe(10);
+    expect(await dialog.textContent()).toContain('Next / previous test, or error group');
     // Tab cycles within the dialog: the rest of the page is inert.
     for (let index = 0; index < 4; index++) {
       await page.keyboard.press('Tab');

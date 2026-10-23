@@ -272,7 +272,7 @@ describe('media viewers in a browser (file://)', { timeout: 30_000 }, () => {
     await page.getByRole('button', { name: 'wide' }).click();
     const dialog = page.getByRole('dialog');
     await dialog.waitFor();
-    for (const key of ['j', 'k', ']', '?', '/']) await page.keyboard.press(key);
+    for (const key of ['j', 'k', 'o', '?', '/']) await page.keyboard.press(key);
     expect(hashOf(page)).toBe(`#/test/${target.id}`);
     expect(await page.getByRole('dialog').count()).toBe(1);
     expect(await dialog.getByRole('heading').textContent()).toBe('wide');

@@ -82,22 +82,21 @@ When a test times out, Playwright stops it and the action still running fails to
 
 - An error is **secondary** when it is not the first error of its attempt and that first error is Playwright's test timeout: `Test timeout of <n>ms exceeded.`, also while setting up or tearing down a fixture, in a `beforeEach` / `afterEach` hook, a fixture's own timeout and a `beforeAll` / `afterAll` hook timeout.
 - A group is **folded** when every one of its errors is secondary. A group seen at least once as a first error stays visible.
-- In the Errors view, folded groups move to a collapsed "N groups only seen after a test timeout" at the end of the list and of each category. Group counts leave them out and say so (`22 error groups · 18 more only seen after a test timeout`), on the Overview too; test counts are unchanged. `n` / `p` walk the visible groups first, then the folded ones.
+- In the Errors view, folded groups move to a collapsed "N groups only seen after a test timeout" at the end of the list and of each category. Group counts leave them out and say so (`22 error groups · 18 more only seen after a test timeout`), on the Overview too; test counts are unchanged. On an error group page, `j` / `k` walk the visible groups first, then the folded ones.
 - A folded group's page stays reachable, and in the test detail each secondary error keeps its place, labelled "Raised after the test timeout". The category of a test does not change: the second error is sometimes the most telling one.
 
 ### Keyboard shortcuts
 
 | Key | Action | Where |
 | --- | --- | --- |
-| `j` / `k` | Next / previous test | Test detail |
-| `[` / `]` | Previous / next attempt | Test detail |
-| `n` / `p` | Next / previous error group | Error group page |
-| `←` / `→` | Previous / next screenshot | Screenshot viewer |
+| `j` / `k` | Next / previous test, or error group | Test detail, error group page |
+| `o` / `e` / `h` / `t` | Overview, Errors, Suite health, Tests | Everywhere |
 | `/` | Focus the search | Everywhere |
-| `Escape` | Clear the search, close a dialog | Everywhere |
 | `?` | Show keyboard shortcuts | Everywhere |
+| `←` / `→` | Previous / next screenshot | Screenshot viewer |
+| `Escape` | Clear the search, close a dialog | Everywhere |
 
-Single keys do nothing while typing in a field or with Ctrl, Alt or Meta held, nor while a dialog or the screenshot viewer is open. The keyboard icon in the header opens the same list.
+Single keys do nothing while typing in a field or with Ctrl, Alt or Meta held, nor while a dialog or the screenshot viewer is open; letters work with Caps Lock on. The keyboard icon in the header opens the same list, with a **Single-key shortcuts** switch: turn them off if they get in the way of your keyboard or assistive technology (WCAG 2.1.4). The choice is remembered in this browser. Escape and the arrow keys keep working. A view shortcut moves focus to the page's heading, like `j` / `k`. Attempts of a test are tabs: Tab to them, then the arrow keys.
 
 In the sidebar, the view links and the test tree are one tab stop each: the arrow keys and Home / End move inside them, Enter or Space opens the page, focus stays in the sidebar, and Tab moves on. In the tree, Right and Left also expand and collapse groups.
 
@@ -158,7 +157,7 @@ Checked automatically on every test run:
 
 - **axe-core** on every view and its main states (Overview, Errors, Suite health, Tests, test detail, error group page, comparison viewer, screenshot viewer, dialogs), in the light and dark themes and a few under forced colours, at desktop width, at 360 px and at 320 × 180 and 320 × 256 (400 % zoom). A serious or critical WCAG violation fails the build.
 - **Contrast** of every colour token and of the category colours, those derived from your own colours included, in both themes: 4.5:1 for text, 3:1 for borders and icons.
-- **Keyboard and focus**: controls reached and operated with the keyboard, a visible focus ring, focus returned after every dialog, a skip link, a page title per view. When the view changes from the content, a shortcut or Back / Forward, focus moves to the new heading; from the sidebar, focus stays there and the page name is announced. The focused row of the sidebar tree stays visible.
+- **Keyboard and focus**: controls reached and operated with the keyboard, a visible focus ring, focus returned after every dialog, a skip link, a page title per view, single-key shortcuts that can be turned off. When the view changes from the content, a shortcut or Back / Forward, focus moves to the new heading; from the sidebar, focus stays there and the page name is announced. The focused row of the sidebar tree stays visible.
 - **Layout**: no horizontal scroll down to 320 px; on short viewports (high zoom) the page scrolls and the content stays reachable; hit areas of chips and small buttons at least 24 × 24 px.
 - **Forced colours and reduced motion**: pressed and selected states, bars and focus rings in forced colours; no transition or smooth scrolling when reduced motion is requested.
 

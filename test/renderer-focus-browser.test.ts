@@ -128,12 +128,12 @@ describe('focus and title on view changes (file://)', { timeout: 30_000 }, () =>
     await page.close();
   });
 
-  it('focuses the heading of the next and previous error group with n and p', async () => {
+  it('focuses the heading of the next and previous error group with j and k', async () => {
     const { page } = await open(`${urls.cascade}#/group/a1c0de000001`);
-    await page.keyboard.press('n');
+    await page.keyboard.press('j');
     await expect.poll(() => page.url()).not.toContain('a1c0de000001');
     await expect.poll(() => headingFocused(page)).toBe(true);
-    await page.keyboard.press('p');
+    await page.keyboard.press('k');
     await expect.poll(() => page.url()).toContain('a1c0de000001');
     await expect.poll(() => headingFocused(page)).toBe(true);
     await page.close();
@@ -238,9 +238,13 @@ describe('focus and title on view changes (file://)', { timeout: 30_000 }, () =>
       await page.close();
     });
 
-    it('has no tab stop among them but Overview on a test detail', async () => {
+    it('makes Tests the tab stop on a test detail, and Errors on an error group page, without marking them current', async () => {
       const { page } = await open(`${urls.sample}#/test/${FAILING}`);
-      expect(await tabStops(page)).toEqual(['Overview']);
+      expect(await tabStops(page)).toEqual(['Tests']);
+      expect(await page.locator('.nav-link[aria-current]').count()).toBe(0);
+      await page.goto(`${urls.cascade}#/group/a1c0de000001`);
+      await expect.poll(() => tabStops(page)).toEqual(['Errors']);
+      expect(await page.locator('.nav-link[aria-current]').count()).toBe(0);
       await page.close();
     });
 
@@ -432,7 +436,7 @@ describe('focus and title on view changes (file://)', { timeout: 30_000 }, () =>
       await page.close();
     });
 
-    it('on an attempt change, with the tabs or [ and ]', async () => {
+    it('on an attempt change with the tabs', async () => {
       const { page } = await open(`${urls.sample}#/test/${FLAKY}`);
       const selected = page.locator('[role="tab"][aria-selected="true"]');
       await selected.focus();
@@ -441,13 +445,6 @@ describe('focus and title on view changes (file://)', { timeout: 30_000 }, () =>
       await expect.poll(() => page.url()).toContain('attempt=1');
       await settle(page);
       expect(await hasFocus(page.locator('[role="tab"][aria-selected="true"]'))).toBe(true);
-
-      const copy = page.locator('.copy-button').first();
-      await copy.focus();
-      await page.keyboard.press('[');
-      await expect.poll(() => page.url()).toContain('attempt=0');
-      await settle(page);
-      expect(await hasFocus(copy)).toBe(true);
       await page.close();
     });
 

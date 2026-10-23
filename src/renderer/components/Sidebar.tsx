@@ -7,7 +7,8 @@ import { plural } from '../format.js';
 import { sidebarOpen } from '../layout.js';
 import { hrefTo, markSidebarActivation } from '../navigation.js';
 import type { Route } from '../router.js';
-import { shortcutAllowed } from '../shortcuts.js';
+import { shortcutKey } from '../shortcutKeys.js';
+import { shortcutAllowed, singleKeyHint } from '../shortcuts.js';
 import type { GroupNode } from '../tree.js';
 import { AlertIcon, DashboardIcon, ErrorsIcon, HealthIcon, SearchIcon, TestsIcon } from './icons.js';
 import { Tree } from './Tree.js';
@@ -21,6 +22,17 @@ const SEARCH_DEBOUNCE_MS = 200;
 const AUTO_EXPAND_MAX = 300;
 
 const VIEW_PAGES: readonly ViewPage[] = ['dashboard', 'errors', 'health', 'tests'];
+
+/** The single-key shortcut of each view (App.tsx). */
+export const VIEW_SHORTCUTS: Readonly<Record<ViewPage, string>> = { dashboard: 'o', errors: 'e', health: 'h', tests: 't' };
+
+/** The view a page belongs to: a test to Tests, an error group to Errors. */
+function viewOf(page: Route['page']): ViewPage | null {
+  if (isViewPage(page)) return page;
+  if (page === 'test') return 'tests';
+  if (page === 'group') return 'errors';
+  return null;
+}
 
 function isViewPage(page: Route['page']): page is ViewPage {
   return (VIEW_PAGES as readonly string[]).includes(page);
@@ -38,15 +50,15 @@ function viewLinkMove(key: string, index: number): number | null {
  * `aria-current="page"`, and one tab stop for the group, like the tree. Up /
  * Down and Home / End move between them; Enter or Space opens one, and
  * focus stays on it (viewChange.ts). The tab stop is the link last focused,
- * else the current view's, else Overview; a page change resets it to the
- * current view.
+ * else the view of the page (Tests on a test, Errors on an error group),
+ * else Overview; a change of view resets it.
  */
 function ViewLinks({ route, runErrors }: { route: Route; runErrors: number }) {
   const list = useRef<HTMLUListElement>(null);
   const [focused, setFocused] = useState<ViewPage | null>(null);
   const current = isViewPage(route.page) ? route.page : null;
   useLayoutEffect(() => setFocused(null), [route.page]);
-  const stop = focused ?? current ?? 'dashboard';
+  const stop = focused ?? viewOf(route.page) ?? 'dashboard';
   const links = (): HTMLAnchorElement[] => [...(list.current?.querySelectorAll<HTMLAnchorElement>('.nav-link') ?? [])];
 
   const link = (page: ViewPage, children: ComponentChildren, className?: string) => (
@@ -55,6 +67,7 @@ function ViewLinks({ route, runErrors }: { route: Route; runErrors: number }) {
         class={`nav-link ${className ?? ''}`}
         href={hrefTo({ page })}
         aria-current={page === current ? 'page' : undefined}
+        aria-keyshortcuts={singleKeyHint(VIEW_SHORTCUTS[page])}
         tabIndex={page === stop ? 0 : -1}
         onFocus={() => setFocused(page)}
       >
@@ -145,7 +158,7 @@ function SearchField() {
   // A layout effect: listening as soon as the page shows, not after the first paint.
   useLayoutEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key !== '/' || !shortcutAllowed(event)) return;
+      if (shortcutKey(event) !== '/' || !shortcutAllowed(event)) return;
       event.preventDefault();
       if (sidebarOpen.value) {
         input.current?.focus();
@@ -177,7 +190,7 @@ function SearchField() {
         placeholder="Search tests"
         autoComplete="off"
         spellcheck={false}
-        aria-keyshortcuts="/"
+        aria-keyshortcuts={singleKeyHint('/')}
         value={value}
         onInput={(event) => {
           const text = event.currentTarget.value;
@@ -193,9 +206,11 @@ function SearchField() {
           commit('');
         }}
       />
-      <kbd class="search-key" aria-hidden="true">
-        /
-      </kbd>
+      {singleKeyHint('/') && (
+        <kbd class="search-key" aria-hidden="true">
+          /
+        </kbd>
+      )}
     </div>
   );
 }

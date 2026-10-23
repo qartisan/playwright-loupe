@@ -1138,6 +1138,9 @@ pre.step-error { margin: 2px 0 6px 50px; font-weight: 400; }
 .dialog-note { margin: 12px 0 0; color: var(--fg-secondary); font-size: 13px; }
 .copy-dialog .dialog-note { margin: 0 0 8px; }
 .copy-text { width: 100%; padding: 8px; border: 1px solid var(--border-control); border-radius: 6px; background: var(--bg-muted); color: var(--fg); font-family: var(--font-mono); font-size: 12.5px; resize: vertical; }
+/* The single-key shortcuts switch: the whole line is the target. */
+.shortcut-switch { display: flex; align-items: center; gap: 8px; min-height: 32px; font-weight: 600; cursor: pointer; }
+.shortcut-switch input { flex: none; width: 16px; height: 16px; margin: 0; accent-color: var(--fg); }
 .shortcuts-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .shortcuts-table th, .shortcuts-table td { padding: 6px 8px; border-top: 1px solid var(--border); text-align: left; vertical-align: top; }
 .shortcuts-table thead th { border-top: 0; color: var(--fg-secondary); font-size: 12px; font-weight: 600; }

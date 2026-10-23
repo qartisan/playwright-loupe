@@ -231,12 +231,7 @@ export function TestPage({
 
   const position = test ? neighbors(sequence, test) : null;
   const goTo = (target: TestCase | null | undefined) => (target ? () => navigate(testRoute(target)) : null);
-  const selectIndex = (offset: number) => {
-    if (!test || !attempt) return null;
-    const target = test.attempts[test.attempts.indexOf(attempt) + offset];
-    return target ? () => setDetailQuery(serializeDetailParams({ ...params, attempt: target.index })) : null;
-  };
-  useShortcuts({ j: goTo(position?.next), k: goTo(position?.previous), '[': selectIndex(-1), ']': selectIndex(1) });
+  useShortcuts({ j: goTo(position?.next), k: goTo(position?.previous) });
 
   if (!test) return <NotFoundPage message="No test with this id in this report." />;
 

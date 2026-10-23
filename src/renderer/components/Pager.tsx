@@ -1,3 +1,4 @@
+import { singleKeyHint } from '../shortcuts.js';
 import { ChevronIcon } from './icons.js';
 
 /**
@@ -30,12 +31,12 @@ export function Pager({
 }) {
   return (
     <nav class="pager" aria-label={label}>
-      <button type="button" class="button pager-button" disabled={!previous} aria-keyshortcuts={keys[0]} onClick={previous ?? undefined}>
+      <button type="button" class="button pager-button" disabled={!previous} aria-keyshortcuts={singleKeyHint(keys[0])} onClick={previous ?? undefined}>
         <ChevronIcon class="chevron-back" />
         {previousLabel}
       </button>
       <span class="pager-position">{position === null ? outside : `${position} of ${total}`}</span>
-      <button type="button" class="button pager-button" disabled={!next} aria-keyshortcuts={keys[1]} onClick={next ?? undefined}>
+      <button type="button" class="button pager-button" disabled={!next} aria-keyshortcuts={singleKeyHint(keys[1])} onClick={next ?? undefined}>
         {nextLabel}
         <ChevronIcon />
       </button>

@@ -16,7 +16,7 @@ describe('isPageChange', () => {
     ['a test from the tests view', '#/tests?status=failed', '#/test/abc?status=failed'],
     ['another test (j / k)', '#/test/abc', '#/test/def'],
     ['another repeat of the same test', '#/test/abc', '#/test/abc/repeat/1'],
-    ['another error group (n / p)', '#/group/a1', '#/group/b2'],
+    ['another error group (j / k)', '#/group/a1', '#/group/b2'],
     ['back from a test to the tests view', '#/test/abc', '#/tests'],
     ['an unknown page', '#/tests', '#/nope'],
   ])('is true for %s', (_, from, to) => {
@@ -48,7 +48,8 @@ describe('focusesHeading and announcesPage', () => {
   it.each([
     ['a link in the content', '#/', '#/tests'],
     ['j / k', '#/test/abc', '#/test/def'],
-    ['n / p', '#/group/a1', '#/group/b2'],
+    ['j / k on an error group', '#/group/a1', '#/group/b2'],
+    ['a view shortcut (o / e / h / t)', '#/test/abc', '#/tests'],
     ['Back / Forward', '#/test/abc', '#/tests'],
   ])('focuses the heading, without announcing, after %s', (_, from, to) => {
     expect(effects(from, to, other)).toEqual({ focus: true, announce: false });

@@ -17,16 +17,26 @@ Accessibility work on the report, towards WCAG 2.2 AA. See [Accessibility](READM
 - **Forced colours (Windows high contrast).** The outcome, category and dimension bars and the comparison slider divider keep their colours, outlined; pressed toggles (theme, comparison mode, all steps, actual size), the selected attempt tab, active chips, the current view and the current test use the system highlight colours; so do focus rings.
 - **Table captions.** Every data table (Tests, affected tests, dimension tables, keyboard shortcuts) has a caption for screen readers, worded like the title shown above it.
 - **Larger hit areas.** Chips, "+N", small text buttons (Expand all, Clear…), sort buttons and text disclosures (Table, the stack, output) respond to clicks and taps over at least 24 × 24 px. Nothing changes visually.
+- **View shortcuts.** `o` Overview, `e` Errors, `h` Suite health, `t` Tests, from anywhere; focus moves to the page's heading, as with `j` / `k`.
+- **Single-key shortcuts can be turned off** (WCAG 2.1.4): a "Single-key shortcuts" switch in the keyboard shortcuts dialog, on by default and remembered in the browser. Off, no single-key shortcut fires (`j`, `k`, `o`, `e`, `h`, `t`, `/`, `?`); Escape and the arrow keys keep working, and the dialog stays reachable from the header's keyboard button.
 - **Accessibility test suite.** axe-core runs on every view and its main states, in the light and dark themes and under forced colours, at desktop width, 360 px and 400 % zoom; a serious or critical WCAG violation fails the build. axe-core is a development dependency only: it is not in the report.
 
 ### Changed
 
 - **The sidebar search stays above the tree.** The search field and the filter indicator no longer scroll with the navigation and the tree, which scroll under them: the row focused with the arrow keys is never hidden under the search.
 - **At high zoom, the page scrolls as a whole.** On short viewports (480 px high or less, such as 400 % zoom of 1280 × 720 or 1280 × 1024), the header scrolls away with the content; before, the header could fill the window and leave the content 0 px tall.
+- **`j` / `k` also walk error groups**, on an error group page (same order as `n` / `p` did, restricted to a category when the page was opened from one): one pair for next / previous everywhere.
+- On a test detail, the view links' tab stop is Tests, the view the test belongs to (Errors on an error group page).
 - **Reduced motion.** When the system asks for reduced motion, transitions (the disclosure arrows) and smooth scrolling are turned off.
+
+### Removed
+
+- **`[` / `]` (previous / next attempt).** On Belgian and French AZERTY keyboards they need AltGr, which Windows reports as Ctrl+Alt, so they never worked there (nor with Option on macOS). The attempt tabs remain keyboard operable: Tab to them, then the arrow keys.
+- **`n` / `p` (next / previous error group).** Replaced by `j` / `k`, without an alias: fewer single-key shortcuts.
 
 ### Fixed
 
+- **Single-key shortcuts work with Caps Lock on.** A letter typed with Caps Lock (not with Shift) now triggers its shortcut.
 - **Landmarks.** The report had two nested `main` landmarks, and its header was not exposed as a banner: there is now one `main`, one banner (the header and the partial run note), and the sidebar navigation.
 - **Error code snippets can be scrolled with the keyboard.** A snippet wider than its card keeps its columns, so the caret still points at the failing one; it now takes focus with Tab and scrolls with the arrow keys.
 - **Focus no longer falls back to the top of the page** after opening a test from the Tests table.

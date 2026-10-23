@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useId, useLayoutEffect, useRef } from 'preact/hooks';
 import { copyFallback } from '../clipboard.js';
-import { SHORTCUTS } from '../shortcuts.js';
+import { SHORTCUTS, setSingleKeyShortcuts, singleKeyShortcuts } from '../shortcuts.js';
 import { CloseIcon } from './icons.js';
 
 /**
@@ -93,10 +93,26 @@ export function CopyFallbackDialog() {
   );
 }
 
-/** Every keyboard shortcut, as documented in the README. */
+/** The keys turned off with the single-key shortcuts: "j, k, o, e, h, t, / and ?". */
+const SINGLE_KEYS = ((keys: string[]) => `${keys.slice(0, -1).join(', ')} and ${keys[keys.length - 1]}`)(
+  SHORTCUTS.filter((shortcut) => shortcut.singleKey).flatMap((shortcut) => shortcut.keys),
+);
+
+/**
+ * Every keyboard shortcut, as documented in the README, and the switch for
+ * single-key shortcuts (WCAG 2.1.4): on by default, remembered when storage
+ * works.
+ */
 export function ShortcutsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <Dialog open={open} onClose={onClose} title="Keyboard shortcuts" class="shortcuts-dialog">
+      <label class="shortcut-switch">
+        <input type="checkbox" checked={singleKeyShortcuts.value} onChange={(event) => setSingleKeyShortcuts(event.currentTarget.checked)} />
+        Single-key shortcuts
+      </label>
+      <p class="dialog-note">
+        {SINGLE_KEYS}. Turn them off if they get in the way of your keyboard or assistive technology; Escape and the arrow keys keep working.
+      </p>
       <table class="shortcuts-table">
         <caption class="visually-hidden">Keyboard shortcuts</caption>
         <thead>

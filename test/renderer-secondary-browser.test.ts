@@ -98,13 +98,13 @@ describe('error groups only seen after a test timeout in a browser (file://)', {
     await page.context().close();
   });
 
-  it('keeps their pages reachable, walked after the visible groups with n / p', async () => {
+  it('keeps their pages reachable, walked after the visible groups with j / k', async () => {
     const { page, errors } = await open(`#/group/${CASCADE_ERRORS.contextDisposed.signature}`);
     await page.locator('.group-page').waitFor();
     expect(await page.locator('.group-note').textContent()).toMatch(/^Only seen after a test timeout/);
     // 7 visible groups, then the folded ones: this is the first of them.
     expect(await page.locator('.pager-position').textContent()).toBe('8 of 10');
-    await page.locator('body').press('p');
+    await page.locator('body').press('k');
     await expect.poll(() => page.url()).toMatch(/#\/group\/[0-9a-f]{12}/);
     expect(await page.locator('.group-note').count()).toBe(0);
     expect(errors).toEqual([]);

@@ -4,7 +4,7 @@ import type { RendererSettings } from '../../core/inject.js';
 import type { LoupeReport, TestCase } from '../../schema/v1.js';
 import { announce, announcement } from '../clipboard.js';
 import { isNarrow, pageScrolls, sidebarOpen } from '../layout.js';
-import { currentLocation, takeNavigationOrigin } from '../navigation.js';
+import { currentLocation, navigate, takeNavigationOrigin } from '../navigation.js';
 import type { Route } from '../router.js';
 import { errorGroups, rankGroups } from '../dashboard.js';
 import { filterTests } from '../filters/match.js';
@@ -13,6 +13,7 @@ import { context, filters } from '../filters/store.js';
 import { DEFAULT_SORT, serializeFilters } from '../filters/url.js';
 import { commonDirectoryPrefix } from '../paths.js';
 import { forwardScrollKeys } from '../forwardScrollKeys.js';
+import { useShortcuts } from '../shortcuts.js';
 import { ErrorsPage } from '../pages/ErrorsPage.js';
 import { GroupPage } from '../pages/GroupPage.js';
 import { HealthPage } from '../pages/HealthPage.js';
@@ -25,7 +26,7 @@ import { announcesPage, focusesHeading, pageKey, pageName, pageTitle, type Chang
 import { CopyFallbackDialog } from './Dialog.js';
 import { Footer } from './Footer.js';
 import { Header } from './Header.js';
-import { Sidebar } from './Sidebar.js';
+import { Sidebar, VIEW_SHORTCUTS } from './Sidebar.js';
 
 export function App({ report, settings }: { report: LoupeReport; settings: RendererSettings }) {
   // One filter state for the sidebar and the Tests view; the sort only matters to the Tests view.
@@ -48,6 +49,14 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
   const { route } = currentLocation.value;
   const main = useRef<HTMLElement>(null);
   const previousRoute = useRef<Route | null>(null);
+
+  // A view by its key, from anywhere: a shortcut, so focus moves to the new page's heading (viewChange.ts).
+  useShortcuts({
+    [VIEW_SHORTCUTS.dashboard]: () => navigate({ page: 'dashboard' }),
+    [VIEW_SHORTCUTS.errors]: () => navigate({ page: 'errors' }),
+    [VIEW_SHORTCUTS.health]: () => navigate({ page: 'health' }),
+    [VIEW_SHORTCUTS.tests]: () => navigate({ page: 'tests' }),
+  });
 
   // The content scrolls in <main>: scroll keys reach it even when nothing has focus (after load, after a click on text).
   // On short screens the page itself scrolls, and the browser handles the keys.

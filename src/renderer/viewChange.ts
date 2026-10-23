@@ -37,7 +37,8 @@ export function isPageChange(previous: Route | null, next: Route): boolean {
 /**
  * Where a route change started: `sidebar` for a view link, a tree row or
  * another link of the sidebar; `other` for the content, the shortcuts
- * (j / k, n / p), Back / Forward and typed URLs.
+ * (j / k on a test or an error group, o / e / h / t), Back / Forward and
+ * typed URLs.
  */
 export type NavigationOrigin = 'sidebar' | 'other';
 

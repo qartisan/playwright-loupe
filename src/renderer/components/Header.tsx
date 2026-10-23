@@ -8,7 +8,7 @@ import { formatDuration } from '../format.js';
 import { sidebarOpen, toggleSidebar } from '../layout.js';
 import { hrefTo } from '../navigation.js';
 import { scopeReasonLabel } from '../runDetails.js';
-import { useShortcuts } from '../shortcuts.js';
+import { singleKeyHint, useShortcuts } from '../shortcuts.js';
 import { THEME_CHOICES, setTheme, theme, type ThemeChoice } from '../theme.js';
 import { ShortcutsDialog } from './Dialog.js';
 import { AlertIcon, KeyboardIcon, MoonIcon, OutcomeIcon, SidebarIcon, SunIcon, SystemIcon, outcomeLabel } from './icons.js';
@@ -52,7 +52,13 @@ function ShortcutsButton() {
   useShortcuts({ '?': () => setOpen(true) });
   return (
     <>
-      <button type="button" class="icon-button" title="Keyboard shortcuts (?)" aria-keyshortcuts="?" onClick={() => setOpen(true)}>
+      <button
+        type="button"
+        class="icon-button"
+        title={singleKeyHint('?') ? 'Keyboard shortcuts (?)' : 'Keyboard shortcuts'}
+        aria-keyshortcuts={singleKeyHint('?')}
+        onClick={() => setOpen(true)}
+      >
         <KeyboardIcon />
         <span class="visually-hidden">Keyboard shortcuts</span>
       </button>
