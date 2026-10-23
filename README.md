@@ -99,6 +99,8 @@ When a test times out, Playwright stops it and the action still running fails to
 
 Single keys do nothing while typing in a field or with Ctrl, Alt or Meta held, nor while a dialog or the screenshot viewer is open. The keyboard icon in the header opens the same list.
 
+In the sidebar, the view links and the test tree are one tab stop each: the arrow keys and Home / End move inside them, Enter or Space opens the page, focus stays in the sidebar, and Tab moves on. In the tree, Right and Left also expand and collapse groups.
+
 ### Coming next
 
 History and flakiness tracking are planned for a later phase; the JSON model is already prepared for them.
@@ -156,7 +158,7 @@ Checked automatically on every test run:
 
 - **axe-core** on every view and its main states (Overview, Errors, Suite health, Tests, test detail, error group page, comparison viewer, screenshot viewer, dialogs), in the light and dark themes and a few under forced colours, at desktop width, at 360 px and at 320 × 180 and 320 × 256 (400 % zoom). A serious or critical WCAG violation fails the build.
 - **Contrast** of every colour token and of the category colours, those derived from your own colours included, in both themes: 4.5:1 for text, 3:1 for borders and icons.
-- **Keyboard and focus**: controls reached and operated with the keyboard, a visible focus ring, focus returned after every dialog, a skip link, focus moved to the heading when the view changes, a page title per view, the focused row of the sidebar tree kept visible.
+- **Keyboard and focus**: controls reached and operated with the keyboard, a visible focus ring, focus returned after every dialog, a skip link, a page title per view. When the view changes from the content, a shortcut or Back / Forward, focus moves to the new heading; from the sidebar, focus stays there and the page name is announced. The focused row of the sidebar tree stays visible.
 - **Layout**: no horizontal scroll down to 320 px; on short viewports (high zoom) the page scrolls and the content stays reachable; hit areas of chips and small buttons at least 24 × 24 px.
 - **Forced colours and reduced motion**: pressed and selected states, bars and focus rings in forced colours; no transition or smooth scrolling when reduced motion is requested.
 

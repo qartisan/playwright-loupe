@@ -5,7 +5,7 @@ import { filters, setFilters } from '../filters/store.js';
 import { activeFilterCount, clearFilters } from '../filters/url.js';
 import { plural } from '../format.js';
 import { sidebarOpen } from '../layout.js';
-import { hrefTo } from '../navigation.js';
+import { hrefTo, markSidebarActivation } from '../navigation.js';
 import type { Route } from '../router.js';
 import { shortcutAllowed } from '../shortcuts.js';
 import type { GroupNode } from '../tree.js';
@@ -20,13 +20,106 @@ const SEARCH_DEBOUNCE_MS = 200;
 /** A filtered tree with at most this many tests opens fully, so the matches show. */
 const AUTO_EXPAND_MAX = 300;
 
-function NavLink({ page, route, children, class: className }: { page: ViewPage; route: Route; children: ComponentChildren; class?: string | undefined }) {
-  return (
+const VIEW_PAGES: readonly ViewPage[] = ['dashboard', 'errors', 'health', 'tests'];
+
+function isViewPage(page: Route['page']): page is ViewPage {
+  return (VIEW_PAGES as readonly string[]).includes(page);
+}
+
+/** Up / Down, Home / End: the index of the view link to focus, or null for a key the group leaves alone. */
+function viewLinkMove(key: string, index: number): number | null {
+  const last = VIEW_PAGES.length - 1;
+  const moves: Record<string, number> = { ArrowDown: Math.min(index + 1, last), ArrowUp: Math.max(index - 1, 0), Home: 0, End: last };
+  return moves[key] ?? null;
+}
+
+/**
+ * The four view links: real links in a list, with the current view's marked
+ * `aria-current="page"`, and one tab stop for the group, like the tree. Up /
+ * Down and Home / End move between them; Enter or Space opens one, and
+ * focus stays on it (viewChange.ts). The tab stop is the link last focused,
+ * else the current view's, else Overview; a page change resets it to the
+ * current view.
+ */
+function ViewLinks({ route, runErrors }: { route: Route; runErrors: number }) {
+  const list = useRef<HTMLUListElement>(null);
+  const [focused, setFocused] = useState<ViewPage | null>(null);
+  const current = isViewPage(route.page) ? route.page : null;
+  useLayoutEffect(() => setFocused(null), [route.page]);
+  const stop = focused ?? current ?? 'dashboard';
+  const links = (): HTMLAnchorElement[] => [...(list.current?.querySelectorAll<HTMLAnchorElement>('.nav-link') ?? [])];
+
+  const link = (page: ViewPage, children: ComponentChildren, className?: string) => (
     <li>
-      <a class={`nav-link ${className ?? ''}`} href={hrefTo({ page })} aria-current={route.page === page ? 'page' : undefined}>
+      <a
+        class={`nav-link ${className ?? ''}`}
+        href={hrefTo({ page })}
+        aria-current={page === current ? 'page' : undefined}
+        tabIndex={page === stop ? 0 : -1}
+        onFocus={() => setFocused(page)}
+      >
         {children}
       </a>
     </li>
+  );
+
+  return (
+    <ul
+      class="nav-fixed"
+      ref={list}
+      onKeyDown={(event) => {
+        if (event.altKey || event.ctrlKey || event.metaKey) return;
+        const index = links().indexOf(event.target as HTMLAnchorElement);
+        if (index === -1) return;
+        if (event.key === ' ') {
+          // Links open with Enter; Space too, as in the tree.
+          event.preventDefault();
+          links()[index]?.click();
+          return;
+        }
+        const target = viewLinkMove(event.key, index);
+        if (target === null) return;
+        event.preventDefault();
+        links()[target]?.focus();
+      }}
+    >
+      {link(
+        'dashboard',
+        <>
+          <DashboardIcon />
+          <span>Overview</span>
+        </>,
+      )}
+      {link(
+        'errors',
+        <>
+          <ErrorsIcon />
+          <span>Errors</span>
+          {runErrors > 0 && (
+            <span class="nav-marker" title={plural(runErrors, 'run error')}>
+              <AlertIcon />
+              <span class="badge badge-failed">{runErrors}</span>
+              <span class="visually-hidden">, {plural(runErrors, 'run error')}</span>
+            </span>
+          )}
+        </>,
+        runErrors > 0 ? 'nav-has-run-errors' : undefined,
+      )}
+      {link(
+        'health',
+        <>
+          <HealthIcon />
+          <span>Suite health</span>
+        </>,
+      )}
+      {link(
+        'tests',
+        <>
+          <TestsIcon />
+          <span>Tests</span>
+        </>,
+      )}
+    </ul>
   );
 }
 
@@ -146,38 +239,32 @@ export function Sidebar({
   const filtered = activeFilterCount(filters.value) > 0;
   return (
     // Hidden rather than unmounted, so expansion state and scroll survive a collapse.
-    <nav id="sidebar" class="sidebar" aria-label="Report" hidden={!open}>
+    // A page change started here keeps focus in the sidebar (viewChange.ts): a link activated (click, or Enter / Space,
+    // which click), or a test row of the tree opened with Enter or Space (the tree navigates without a click). A click
+    // with a modifier opens elsewhere: not marked.
+    <nav
+      id="sidebar"
+      class="sidebar"
+      aria-label="Report"
+      hidden={!open}
+      onClickCapture={(event) => {
+        const link = event.target instanceof Element ? event.target.closest('a[href]') : null;
+        if (link && event.button === 0 && !(event.ctrlKey || event.metaKey || event.shiftKey || event.altKey)) markSidebarActivation(link.getAttribute('href') ?? '');
+      }}
+      onKeyDownCapture={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        const row = event.target instanceof Element ? event.target.closest('[role="treeitem"]') : null;
+        const link = row?.querySelector(':scope > a.row-content');
+        if (link) markSidebarActivation(link.getAttribute('href') ?? '');
+      }}
+    >
       <div class="sidebar-search" role="search">
         <SearchField />
         <FilterIndicator matched={matched} route={route} />
       </div>
       {/* Everything below the search scrolls; the search does not, so it never covers a focused row. */}
       <div class="sidebar-scroll">
-        <ul class="nav-fixed">
-          <NavLink page="dashboard" route={route}>
-            <DashboardIcon />
-            <span>Overview</span>
-          </NavLink>
-          <NavLink page="errors" route={route} class={runErrors > 0 ? 'nav-has-run-errors' : undefined}>
-            <ErrorsIcon />
-            <span>Errors</span>
-            {runErrors > 0 && (
-              <span class="nav-marker" title={plural(runErrors, 'run error')}>
-                <AlertIcon />
-                <span class="badge badge-failed">{runErrors}</span>
-                <span class="visually-hidden">, {plural(runErrors, 'run error')}</span>
-              </span>
-            )}
-          </NavLink>
-          <NavLink page="health" route={route}>
-            <HealthIcon />
-            <span>Suite health</span>
-          </NavLink>
-          <NavLink page="tests" route={route}>
-            <TestsIcon />
-            <span>Tests</span>
-          </NavLink>
-        </ul>
+        <ViewLinks route={route} runErrors={runErrors} />
         <Tree
           roots={tree}
           route={route}

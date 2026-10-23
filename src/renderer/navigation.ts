@@ -1,5 +1,6 @@
 import { signal } from '@preact/signals';
 import { formatHash, parseHash, redirectHash, type AppLocation, type Route } from './router.js';
+import { isPageChange, type NavigationOrigin } from './viewChange.js';
 
 /** Rewrites the query to its canonical form for a route; identity until the filters set one. */
 let normalizeSearch = (search: string, _route: Route): string => search;
@@ -69,4 +70,26 @@ export function setLocation(location: AppLocation, mode: 'push' | 'replace'): vo
   if (mode === 'push') window.history.pushState(null, '', hash);
   else window.history.replaceState(window.history.state, '', hash);
   currentLocation.value = location;
+}
+
+/**
+ * Whether the route change about to happen started in the sidebar. Set when a
+ * sidebar link or tree row is activated and its target is another page, so
+ * the route change that follows is certain and reads it once
+ * (viewChange.ts). An activation that changes no page (the current view's
+ * link) sets nothing, so the mark never waits for a later change, such as
+ * Back: no timer needed.
+ */
+let sidebarActivation = false;
+
+/** Marks a sidebar activation that opens `href`, when that is another page. */
+export function markSidebarActivation(href: string): void {
+  sidebarActivation = isPageChange(currentLocation.value.route, parseHash(href).route);
+}
+
+/** Where the route change being rendered started; resets the mark. */
+export function takeNavigationOrigin(): NavigationOrigin {
+  const origin = sidebarActivation ? 'sidebar' : 'other';
+  sidebarActivation = false;
+  return origin;
 }

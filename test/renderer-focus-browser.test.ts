@@ -153,15 +153,137 @@ describe('focus and title on view changes (file://)', { timeout: 30_000 }, () =>
     await page.close();
   });
 
-  it.each([1300, 360])('focuses the heading after a sidebar link, at %ipx', async (width) => {
-    const { page } = await open(`${urls.sample}#/`, width);
-    if (width === 360) await page.getByRole('button', { name: 'Show sidebar' }).click();
+  /** The text of the app's polite live region, without the no-break space that tells repeated messages apart. */
+  const announced = (page: Page): Promise<string> => page.evaluate<string>(`document.querySelector('.app > [role="status"]').textContent.replace(/\u00a0/g, '')`);
+
+  it.each([
+    ['Enter', (page: Page) => page.keyboard.press('Enter')],
+    ['a click', (page: Page) => page.locator('.nav-link', { hasText: 'Suite health' }).click()],
+  ] as const)('keeps focus on a view link after %s, announces the page, and marks the link as current', async (_, activate) => {
+    const { page, errors } = await open(`${urls.sample}#/`);
+    const link = page.locator('.nav-link', { hasText: 'Suite health' });
+    await link.focus();
+    await activate(page);
+    await expect.poll(() => page.title()).toBe(`Suite health · ${SUITE}`);
+    await settle(page);
+    expect(await hasFocus(link)).toBe(true);
+    expect(await headingFocused(page)).toBe(false);
+    expect(await announced(page)).toBe('Suite health');
+    expect(await page.locator('.nav-link[aria-current="page"]').allTextContents()).toEqual(['Suite health']);
+    // The view links are one tab stop: Tab leaves them for the tree toolbar, Shift+Tab for the search.
+    await page.keyboard.press('Tab');
+    expect(await hasFocus(page.getByRole('button', { name: 'Expand all' }))).toBe(true);
+    await page.keyboard.press('Shift+Tab');
+    expect(await hasFocus(link)).toBe(true);
+    await page.keyboard.press('Shift+Tab');
+    expect(await hasFocus(page.locator('#sidebar-search'))).toBe(true);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  describe('view links: one tab stop, arrow keys', () => {
+    const viewLink = (page: Page, name: string): Locator => page.locator('.nav-link', { hasText: name });
+    /** The labels of the view links in the tab order (the Errors link also holds a run error badge). */
+    const tabStops = (page: Page): Promise<string[]> =>
+      page.locator('.nav-link[tabindex="0"]').evaluateAll((links) => links.map((link) => link.querySelector(':scope > span')?.textContent ?? ''));
+
+    it('has one tab stop, the current view, and moves with Up / Down and Home / End without opening', async () => {
+      const { page } = await open(`${urls.sample}#/health`);
+      expect(await tabStops(page)).toEqual(['Suite health']);
+      await viewLink(page, 'Suite health').focus();
+      await page.keyboard.press('ArrowDown');
+      expect(await hasFocus(viewLink(page, 'Tests'))).toBe(true);
+      await page.keyboard.press('ArrowDown');
+      expect(await hasFocus(viewLink(page, 'Tests'))).toBe(true);
+      await page.keyboard.press('Home');
+      expect(await hasFocus(viewLink(page, 'Overview'))).toBe(true);
+      await page.keyboard.press('ArrowUp');
+      expect(await hasFocus(viewLink(page, 'Overview'))).toBe(true);
+      await page.keyboard.press('End');
+      expect(await hasFocus(viewLink(page, 'Tests'))).toBe(true);
+      await page.keyboard.press('ArrowUp');
+      expect(await hasFocus(viewLink(page, 'Suite health'))).toBe(true);
+      // Moving opens nothing and announces nothing.
+      await settle(page);
+      expect(await page.title()).toBe(`Suite health · ${SUITE}`);
+      expect(await announced(page)).toBe('');
+      // The tab stop follows focus: back to the last focused link.
+      await page.keyboard.press('ArrowDown');
+      await page.keyboard.press('Tab');
+      await page.keyboard.press('Shift+Tab');
+      expect(await hasFocus(viewLink(page, 'Tests'))).toBe(true);
+      expect(await tabStops(page)).toEqual(['Tests']);
+      await page.close();
+    });
+
+    it('opens a view with Space, keeping focus and announcing it', async () => {
+      const { page } = await open(`${urls.sample}#/`);
+      await viewLink(page, 'Overview').focus();
+      await page.keyboard.press('ArrowDown');
+      await page.keyboard.press('Space');
+      await expect.poll(() => page.title()).toBe(`Errors · ${SUITE}`);
+      await settle(page);
+      expect(await hasFocus(viewLink(page, 'Errors'))).toBe(true);
+      expect(await announced(page)).toBe('Errors');
+      expect(await page.locator('.main').evaluate((main) => main.scrollTop)).toBe(0);
+      await page.close();
+    });
+
+    it('moves the tab stop to the current view after a change from the content', async () => {
+      const { page } = await open(`${urls.sample}#/`);
+      await viewLink(page, 'Overview').focus();
+      await page.keyboard.press('End');
+      await page.evaluate("location.hash = '#/errors'");
+      await expect.poll(() => tabStops(page)).toEqual(['Errors']);
+      await page.close();
+    });
+
+    it('has no tab stop among them but Overview on a test detail', async () => {
+      const { page } = await open(`${urls.sample}#/test/${FAILING}`);
+      expect(await tabStops(page)).toEqual(['Overview']);
+      await page.close();
+    });
+
+    it('leaves no mark when the current view\'s link changes nothing: a later Back focuses the heading', async () => {
+      const { page } = await open(`${urls.sample}#/`);
+      await page.evaluate("location.hash = '#/tests'");
+      await expect.poll(() => page.title()).toBe(`Tests · ${SUITE}`);
+      await viewLink(page, 'Tests').focus();
+      await page.keyboard.press('Enter');
+      await settle(page);
+      await page.goBack();
+      await expect.poll(() => page.title()).toBe(`Overview · ${SUITE}`);
+      await expect.poll(() => headingFocused(page)).toBe(true);
+      expect(await announced(page)).toBe('');
+      await page.close();
+    });
+  });
+
+  it('marks no view link as current on a test detail', async () => {
+    const { page } = await open(`${urls.sample}#/test/${FAILING}`);
+    expect(await page.locator('.nav-link[aria-current]').count()).toBe(0);
+    await page.close();
+  });
+
+  it('focuses the heading, without announcing, after a view link of the 360px overlay, which closes', async () => {
+    const { page } = await open(`${urls.sample}#/`, 360);
+    await page.getByRole('button', { name: 'Show sidebar' }).click();
     await page.locator('.nav-link', { hasText: 'Suite health' }).focus();
     await page.keyboard.press('Enter');
     await expect.poll(() => headingFocused(page)).toBe(true);
     expect(await heading(page).textContent()).toBe('Suite health');
-    // On narrow screens the sidebar overlay closes: focus is not left in it.
-    if (width === 360) expect(await page.locator('#sidebar').isHidden()).toBe(true);
+    expect(await page.locator('#sidebar').isHidden()).toBe(true);
+    expect(await announced(page)).toBe('');
+    await page.close();
+  });
+
+  it('focuses the heading on Back after a view link, even with focus still in the sidebar', async () => {
+    const { page } = await open(`${urls.sample}#/`);
+    await page.locator('.nav-link', { hasText: 'Suite health' }).click();
+    await expect.poll(() => page.title()).toBe(`Suite health · ${SUITE}`);
+    await page.goBack();
+    await expect.poll(() => page.title()).toBe(`Overview · ${SUITE}`);
+    expect(await headingFocused(page)).toBe(true);
     await page.close();
   });
 
@@ -175,11 +297,68 @@ describe('focus and title on view changes (file://)', { timeout: 30_000 }, () =>
       await page.keyboard.press('ArrowRight');
     }
     const title = (await page.locator('[role="treeitem"]:focus .row-label').textContent())!;
+    // Arrow keys move in the tree: nothing announced.
+    expect(await announced(page)).toBe('');
     await page.keyboard.press('Enter');
     await expect.poll(() => page.title()).toBe(`${title} · ${SUITE}`);
     await settle(page);
     expect(await tree.evaluate((element) => element.contains(element.ownerDocument.activeElement))).toBe(true);
     expect(await headingFocused(page)).toBe(false);
+    expect(await announced(page)).toBe(title);
+    // And on: arrow keys again, still nothing new announced.
+    await page.keyboard.press('ArrowDown');
+    await settle(page);
+    expect(await announced(page)).toBe(title);
+    await page.close();
+  });
+
+  it('clears the highlight of a group revealed from a project card on the next page change, for good', async () => {
+    const { page } = await open(`${urls.sample}#/`);
+    const revealed = page.locator('.tree-row.revealed');
+    await page.locator('.project-card').first().click();
+    await expect.poll(() => revealed.count()).toBe(1);
+    // Still highlighted while on the page, focus elsewhere.
+    await page.locator('.main h1').click();
+    expect(await revealed.count()).toBe(1);
+    await page.locator('.nav-link', { hasText: 'Errors' }).click();
+    await expect.poll(() => revealed.count()).toBe(0);
+    // A later change of the tree (a search) neither reveals it again nor moves focus into the tree.
+    const search = page.locator('#sidebar-search');
+    await search.focus();
+    await page.keyboard.type('fails');
+    await expect.poll(() => page.url()).toContain('q=fails');
+    await settle(page);
+    expect(await revealed.count()).toBe(0);
+    expect(await hasFocus(search)).toBe(true);
+    await page.close();
+  });
+
+  it('leaves no tree row looking selected once focus has left the tree, except the current test', async () => {
+    const { page } = await open(`${urls.sample}#/`);
+    await page.getByRole('treeitem', { level: 1 }).first().focus();
+    for (let index = 0; index < 8; index++) {
+      await page.keyboard.press('ArrowRight');
+      await page.keyboard.press('ArrowDown');
+    }
+    /** Rows whose background or left bar differs from a plain row's. */
+    const highlighted = () =>
+      page.locator('[role="treeitem"]').evaluateAll((rows) => {
+        const view = rows[0]!.ownerDocument.defaultView!;
+        return rows
+          .filter((row) => {
+            const style = view.getComputedStyle(row);
+            return style.backgroundColor !== 'rgba(0, 0, 0, 0)' || style.boxShadow !== 'none';
+          })
+          .map((row) => `${row.getAttribute('aria-current') ?? 'not current'}: ${row.querySelector('.row-label')?.textContent?.trim()}`);
+      });
+    // Focus leaves the tree for the content, the pointer for the header.
+    await page.mouse.move(600, 10);
+    await page.locator('.main h1').click();
+    expect(await highlighted()).toEqual([]);
+    // On a test, only its row.
+    await page.goto(`${urls.sample}#/test/${FAILING}`);
+    await page.locator('.main h1').click();
+    expect(await highlighted()).toEqual([`page: ${testTitle(FAILING)}`]);
     await page.close();
   });
 

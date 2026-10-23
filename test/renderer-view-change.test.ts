@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseHash } from '../src/renderer/router.js';
-import { focusesHeading, isPageChange, pageTitle, type FocusContext } from '../src/renderer/viewChange.js';
+import { announcesPage, focusesHeading, isPageChange, pageName, pageTitle, type ChangeContext } from '../src/renderer/viewChange.js';
 
 const route = (hash: string) => parseHash(hash).route;
 
@@ -37,26 +37,56 @@ describe('isPageChange', () => {
   });
 });
 
-describe('focusesHeading', () => {
-  const none: FocusContext = { inTree: false, narrow: false, categoryFocused: false };
-
-  it('focuses the heading on a page change only', () => {
-    expect(focusesHeading(route('#/tests'), route('#/test/abc'), none)).toBe(true);
-    expect(focusesHeading(route('#/tests'), route('#/tests?status=failed'), none)).toBe(false);
-    expect(focusesHeading(null, route('#/tests'), none)).toBe(false);
+describe('focusesHeading and announcesPage', () => {
+  const other: ChangeContext = { origin: 'other', narrow: false, categoryFocused: false };
+  const sidebar: ChangeContext = { ...other, origin: 'sidebar' };
+  const effects = (from: string | null, to: string, context: ChangeContext) => ({
+    focus: focusesHeading(from === null ? null : route(from), route(to), context),
+    announce: announcesPage(from === null ? null : route(from), route(to), context),
   });
 
-  it('keeps focus in the sidebar tree on wide screens, where the tree stays visible', () => {
-    expect(focusesHeading(route('#/'), route('#/test/abc'), { ...none, inTree: true })).toBe(false);
+  it.each([
+    ['a link in the content', '#/', '#/tests'],
+    ['j / k', '#/test/abc', '#/test/def'],
+    ['n / p', '#/group/a1', '#/group/b2'],
+    ['Back / Forward', '#/test/abc', '#/tests'],
+  ])('focuses the heading, without announcing, after %s', (_, from, to) => {
+    expect(effects(from, to, other)).toEqual({ focus: true, announce: false });
   });
 
-  it('leaves the tree on narrow screens, where the sidebar overlay closes', () => {
-    expect(focusesHeading(route('#/'), route('#/test/abc'), { ...none, inTree: true, narrow: true })).toBe(true);
+  it.each([
+    ['a view link', '#/', '#/health'],
+    ['a tree row', '#/tests', '#/test/abc'],
+    ['another tree row', '#/test/abc', '#/test/def'],
+  ])('keeps focus in the visible sidebar and announces the page after %s', (_, from, to) => {
+    expect(effects(from, to, sidebar)).toEqual({ focus: false, announce: true });
+  });
+
+  it('focuses the heading, without announcing, when the sidebar is the narrow overlay, which closes', () => {
+    expect(effects('#/', '#/health', { ...sidebar, narrow: true })).toEqual({ focus: true, announce: false });
+  });
+
+  it('does nothing without a page change: first load, filters, attempts', () => {
+    for (const context of [other, sidebar]) {
+      expect(effects(null, '#/tests', context)).toEqual({ focus: false, announce: false });
+      expect(effects('#/tests', '#/tests?status=failed', context)).toEqual({ focus: false, announce: false });
+      expect(effects('#/test/abc', '#/test/abc?attempt=1', context)).toEqual({ focus: false, announce: false });
+    }
   });
 
   it('keeps focus on the category the errors view was opened on', () => {
-    expect(focusesHeading(route('#/'), route('#/errors/category/Timeout'), { ...none, categoryFocused: true })).toBe(false);
-    expect(focusesHeading(route('#/'), route('#/errors/category/Unknown'), none)).toBe(true);
+    expect(effects('#/', '#/errors/category/Timeout', { ...other, categoryFocused: true })).toEqual({ focus: false, announce: false });
+    expect(effects('#/', '#/errors/category/Unknown', other)).toEqual({ focus: true, announce: false });
+  });
+});
+
+describe('pageName', () => {
+  it('is the page part of the title', () => {
+    const tests = [{ id: 'abc', repeatEachIndex: 0, title: 'adds an item to the cart' }];
+    for (const hash of ['#/', '#/health', '#/test/abc', '#/errors/category/Timeout', '#/group/a1', '#/nope']) {
+      expect(pageTitle(route(hash), tests, 'Storefront')).toBe(`${pageName(route(hash), tests)} · Storefront`);
+    }
+    expect(pageName(route('#/health'), tests)).toBe('Suite health');
   });
 });
 

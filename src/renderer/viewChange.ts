@@ -34,45 +34,62 @@ export function isPageChange(previous: Route | null, next: Route): boolean {
   return previous !== null && pageKey(previous) !== pageKey(next);
 }
 
-/** Where focus is when a route change is rendered: facts read from the DOM by the caller. */
-export interface FocusContext {
-  /** Focus is in the sidebar tree: the change came from it (a row opened, or Back / Forward from there). */
-  inTree: boolean;
+/**
+ * Where a route change started: `sidebar` for a view link, a tree row or
+ * another link of the sidebar; `other` for the content, the shortcuts
+ * (j / k, n / p), Back / Forward and typed URLs.
+ */
+export type NavigationOrigin = 'sidebar' | 'other';
+
+/** Facts about a route change, gathered by the caller. */
+export interface ChangeContext {
+  origin: NavigationOrigin;
   /** The sidebar is an overlay, closed once a page is chosen. */
   narrow: boolean;
   /** The errors view, opened on a category, has focused that category. */
   categoryFocused: boolean;
 }
 
+/** A change started in the sidebar, which stays visible: focus stays where it is, in the sidebar. */
+function staysInSidebar(context: ChangeContext): boolean {
+  return context.origin === 'sidebar' && !context.narrow;
+}
+
 /**
  * Whether focus moves to the new page's heading. Only on a page change, and
- * not when focus is already where the user continues: the sidebar tree, which
- * stays visible on wide screens so its rows can be browsed with the keyboard,
- * or the category the errors view was opened on.
+ * not when focus is already where the user continues: in the sidebar, when
+ * the change started there and it stays visible (its links and tree can
+ * still be browsed), or on the category the errors view was opened on.
  */
-export function focusesHeading(previous: Route | null, next: Route, context: FocusContext): boolean {
-  if (!isPageChange(previous, next)) return false;
-  if (context.inTree && !context.narrow) return false;
+export function focusesHeading(previous: Route | null, next: Route, context: ChangeContext): boolean {
+  if (!isPageChange(previous, next) || staysInSidebar(context)) return false;
   return !context.categoryFocused;
+}
+
+/**
+ * Whether the new page's name is announced in the live region: on a page
+ * change started in the sidebar, where focus stays and nothing else tells
+ * a screen reader that the page changed. Never when focus moves.
+ */
+export function announcesPage(previous: Route | null, next: Route, context: ChangeContext): boolean {
+  return isPageChange(previous, next) && staysInSidebar(context);
 }
 
 const VIEW_NAMES = { dashboard: 'Overview', errors: 'Errors', health: 'Suite health', tests: 'Tests', group: 'Error group', 'not-found': 'Not found' } as const;
 
-/**
- * `<page> · <suite name>`: the view name, the test title on a test detail,
- * the category name on a category, "Error group" on a group page. Without a
- * suite name, `<page> · Loupe`.
- */
-export function pageTitle(route: Route, tests: readonly Pick<TestCase, 'id' | 'repeatEachIndex' | 'title'>[], suiteName: string): string {
-  const suite = suiteName.trim() || 'Loupe';
-  let page: string;
+type TitledTest = Pick<TestCase, 'id' | 'repeatEachIndex' | 'title'>;
+
+/** The name of a page: the view name, the test title on a test detail, the category name on a category, "Error group" on a group page. */
+export function pageName(route: Route, tests: readonly TitledTest[]): string {
   if (route.page === 'test') {
     const test = tests.find((candidate) => candidate.id === route.id && candidate.repeatEachIndex === route.repeatEachIndex);
-    page = test ? `${test.title}${route.repeatEachIndex > 0 ? ` (repeat ${route.repeatEachIndex})` : ''}` : VIEW_NAMES['not-found'];
-  } else if (route.page === 'errors' && route.category !== undefined) {
-    page = route.category;
-  } else {
-    page = VIEW_NAMES[route.page];
+    return test ? `${test.title}${route.repeatEachIndex > 0 ? ` (repeat ${route.repeatEachIndex})` : ''}` : VIEW_NAMES['not-found'];
   }
-  return `${page} · ${suite}`;
+  if (route.page === 'errors' && route.category !== undefined) return route.category;
+  return VIEW_NAMES[route.page];
+}
+
+/** `<page> · <suite name>`, or `<page> · Loupe` without a suite name. */
+export function pageTitle(route: Route, tests: readonly TitledTest[], suiteName: string): string {
+  return `${pageName(route, tests)} · ${suiteName.trim() || 'Loupe'}`;
 }

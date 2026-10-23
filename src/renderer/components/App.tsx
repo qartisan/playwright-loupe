@@ -2,9 +2,9 @@ import { Fragment } from 'preact';
 import { useEffect, useMemo, useRef } from 'preact/hooks';
 import type { RendererSettings } from '../../core/inject.js';
 import type { LoupeReport, TestCase } from '../../schema/v1.js';
-import { announcement } from '../clipboard.js';
+import { announce, announcement } from '../clipboard.js';
 import { isNarrow, pageScrolls, sidebarOpen } from '../layout.js';
-import { currentLocation } from '../navigation.js';
+import { currentLocation, takeNavigationOrigin } from '../navigation.js';
 import type { Route } from '../router.js';
 import { errorGroups, rankGroups } from '../dashboard.js';
 import { filterTests } from '../filters/match.js';
@@ -21,7 +21,7 @@ import { OverviewPage } from '../pages/OverviewPage.js';
 import { TestPage } from '../pages/TestPage.js';
 import { TestsPage } from '../pages/TestsPage.js';
 import { buildTree, testKey } from '../tree.js';
-import { focusesHeading, pageKey, pageTitle } from '../viewChange.js';
+import { announcesPage, focusesHeading, pageKey, pageName, pageTitle, type ChangeContext } from '../viewChange.js';
 import { CopyFallbackDialog } from './Dialog.js';
 import { Footer } from './Footer.js';
 import { Header } from './Header.js';
@@ -65,16 +65,18 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
     // On narrow screens the sidebar is an overlay: close it once a page is chosen.
     if (isNarrow()) sidebarOpen.value = false;
     document.title = pageTitle(route, report.tests, settings.title);
-    // Another page, not the first load: focus its heading, so the change is announced and the keyboard continues
-    // from there (viewChange.ts). This effect runs after the page's own: the errors view has already focused its category.
-    const active = document.activeElement;
-    const focus = focusesHeading(previousRoute.current, route, {
-      inTree: active?.closest('#sidebar [role="tree"]') != null,
+    // Another page, not the first load (viewChange.ts): started in the visible sidebar, focus stays there and the
+    // page name is announced; otherwise focus moves to the page's heading, which is announced, and the keyboard
+    // continues from there. This effect runs after the page's own: the errors view has already focused its category.
+    const context: ChangeContext = {
+      origin: takeNavigationOrigin(),
       narrow: isNarrow(),
-      categoryFocused: route.page === 'errors' && route.category !== undefined && main.current?.contains(active) === true,
-    });
+      categoryFocused: route.page === 'errors' && route.category !== undefined && main.current?.contains(document.activeElement) === true,
+    };
+    const previous = previousRoute.current;
     previousRoute.current = route;
-    if (!focus) return;
+    if (announcesPage(previous, route, context)) announce(pageName(route, report.tests));
+    if (!focusesHeading(previous, route, context)) return;
     const heading = main.current?.querySelector<HTMLElement>('h1');
     if (!heading) return;
     heading.tabIndex = -1;

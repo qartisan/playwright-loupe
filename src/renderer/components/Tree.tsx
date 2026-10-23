@@ -5,6 +5,7 @@ import { hrefTo, navigate } from '../navigation.js';
 import { splitForMiddleEllipsis } from '../paths.js';
 import type { Route } from '../router.js';
 import { ancestorKeys, groupKeys, testKey, visibleRows, type GroupNode, type TestNode, type VisibleRow } from '../tree.js';
+import { pageKey } from '../viewChange.js';
 import { ChevronIcon, OutcomeIcon } from './icons.js';
 
 /**
@@ -35,7 +36,7 @@ export function Tree({
   const rowElements = useRef(new Map<string, HTMLLIElement>());
   const focusPending = useRef(false);
   const revealPending = useRef(false);
-  // A group revealed from the dashboard stays highlighted until another one is, or a test is opened.
+  // A group revealed from the dashboard stays highlighted until another one is, or the page changes.
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   // Focused once its row is rendered (the group may only now be expanded or the sidebar shown).
   const revealFocus = useRef<string | null>(null);
@@ -49,9 +50,18 @@ export function Tree({
     setFocusedKey(request.key);
   }, [roots, request]);
 
+  // On a page change, the revealed group loses its highlight, and its request is dropped: a later change of the
+  // roots (a filter) must not reveal and focus it again.
+  const page = pageKey(route);
+  const firstPage = useRef(true);
   useLayoutEffect(() => {
-    if (selectedKey) setRevealedKey(null);
-  }, [selectedKey]);
+    if (firstPage.current) {
+      firstPage.current = false;
+      return;
+    }
+    setRevealedKey(null);
+    revealRequest.value = null;
+  }, [page]);
 
   // Opening a test (link, URL, back button) reveals it in the tree. A layout
   // effect, so it runs right after the route changes: a passive effect could
