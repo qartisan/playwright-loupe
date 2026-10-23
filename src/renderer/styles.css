@@ -166,6 +166,8 @@ h1, h2, h3, strong, b { font-weight: 600; }
 .layout { position: relative; display: flex; flex: 1; min-height: 0; }
 .main { display: flex; flex-direction: column; flex: 1; min-width: 0; overflow: auto; }
 .main:focus { outline: none; }
+/* A page's heading takes focus on a page change: it is not a control, so no focus ring. */
+.main h1:focus { outline: none; }
 .main > .page { flex: 1; }
 
 /* Skip link: visually hidden until focused, then over the header's top-left corner. */

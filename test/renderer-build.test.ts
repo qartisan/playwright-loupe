@@ -110,7 +110,7 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
 
   it('renders the header, the partial run banner and the sidebar', async () => {
     const { page, errors } = await open(writeReport('sample', report, { ...DEFAULT_RENDERER_SETTINGS, title: 'Sample run' }));
-    await expect.poll(() => page.title()).toBe('Sample run');
+    await expect.poll(() => page.title()).toBe('Overview · Sample run');
     expect(await page.locator('.header .title').textContent()).toBe('Sample run');
     expect(await page.getByRole('note').textContent()).toMatch(/Partial run.*grep filter/);
     const nav = page.locator('.nav-fixed .nav-link');

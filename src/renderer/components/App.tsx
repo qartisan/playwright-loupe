@@ -1,9 +1,11 @@
+import { Fragment } from 'preact';
 import { useEffect, useMemo, useRef } from 'preact/hooks';
 import type { RendererSettings } from '../../core/inject.js';
 import type { LoupeReport, TestCase } from '../../schema/v1.js';
 import { announcement } from '../clipboard.js';
 import { isNarrow, sidebarOpen } from '../layout.js';
 import { currentLocation } from '../navigation.js';
+import type { Route } from '../router.js';
 import { errorGroups, rankGroups } from '../dashboard.js';
 import { filterTests } from '../filters/match.js';
 import { buildSortRanks, sortTests } from '../filters/sort.js';
@@ -18,6 +20,7 @@ import { OverviewPage } from '../pages/OverviewPage.js';
 import { TestPage } from '../pages/TestPage.js';
 import { TestsPage } from '../pages/TestsPage.js';
 import { buildTree, testKey } from '../tree.js';
+import { focusesHeading, pageKey, pageTitle } from '../viewChange.js';
 import { CopyFallbackDialog } from './Dialog.js';
 import { Footer } from './Footer.js';
 import { Header } from './Header.js';
@@ -43,14 +46,30 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
   const groupsBySignature = useMemo(() => new Map(groups.map((group) => [group.signature, group])), [groups]);
   const { route } = currentLocation.value;
   const main = useRef<HTMLElement>(null);
+  const previousRoute = useRef<Route | null>(null);
 
   // A new page starts at the top, like a page load.
-  const routeKey = JSON.stringify(route);
+  const routeKey = pageKey(route);
   useEffect(() => {
     // Except a link to a category: the errors view scrolls to it.
     if (!(route.page === 'errors' && route.category !== undefined)) main.current?.scrollTo(0, 0);
     // On narrow screens the sidebar is an overlay: close it once a page is chosen.
     if (isNarrow()) sidebarOpen.value = false;
+    document.title = pageTitle(route, report.tests, settings.title);
+    // Another page, not the first load: focus its heading, so the change is announced and the keyboard continues
+    // from there (viewChange.ts). This effect runs after the page's own: the errors view has already focused its category.
+    const active = document.activeElement;
+    const focus = focusesHeading(previousRoute.current, route, {
+      inTree: active?.closest('#sidebar [role="tree"]') != null,
+      narrow: isNarrow(),
+      categoryFocused: route.page === 'errors' && route.category !== undefined && main.current?.contains(active) === true,
+    });
+    previousRoute.current = route;
+    if (!focus) return;
+    const heading = main.current?.querySelector<HTMLElement>('h1');
+    if (!heading) return;
+    heading.tabIndex = -1;
+    heading.focus({ preventScroll: true });
   }, [routeKey]);
 
   let page;
@@ -96,7 +115,8 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
       <div class="layout">
         <Sidebar report={report} tree={tree} prefix={prefix} matched={matched.length} route={route} open={sidebarOpen.value} />
         <main class="main" ref={main} tabIndex={-1}>
-          {page}
+          {/* Keyed by page: another test or group gets a new heading, so moving focus to it is announced. */}
+          <Fragment key={routeKey}>{page}</Fragment>
           <Footer version={report.generator.version} />
         </main>
       </div>
