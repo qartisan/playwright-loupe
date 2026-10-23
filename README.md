@@ -163,9 +163,10 @@ Checked automatically on every test run:
 
 Known limits:
 
-- The automated tests run in **Chromium only**. Firefox and Safari are not tested.
+- The automated tests run in **Chromium only**; Firefox was checked by hand with Orca (below), Safari not at all.
 - Forced colours are checked with **Chromium's emulation**, not on Windows high contrast itself.
-- **No testing with a screen reader** yet. Names, roles, landmarks, live regions and focus moves are checked in code and with axe-core, not by listening.
+- Checked manually with Orca 50.3 and Firefox 158 on Fedora (October 2026): page and view announcements, sidebar and tree, dialogs, copy confirmations. Not yet tested with NVDA, JAWS or VoiceOver.
+- Every row of the sidebar tree exposes its level, but Orca announces the level only when it changes from the previous row, not between rows of the same level.
 - **Videos have no captions**: Playwright records them without audio, so there is nothing to caption.
 - Some small links, inside sentences or on their own (such as "View error group" or a test title in a list), are smaller than 24 × 24 px: they rely on the inline and spacing exceptions of WCAG 2.5.8.
 

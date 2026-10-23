@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- **The report was checked with a screen reader**, Orca with Firefox: [Accessibility](README.md#accessibility) says what was checked and what was not.
+
+### Fixed
+
+- **Each copy is announced once, with its outcome.** With Orca and Firefox, a copy was announced three times, the button's "· Copied" read as if it said "not copied"; a repeated copy was not announced at all. The visible "· Copied" is now hidden from screen readers, and every message is read in full, repeated or not. When the browser refuses the copy, only the fallback dialog is announced.
+- **The fallback copy dialog keeps acronyms in its title**: "Copy AI prompt", not "Copy ai prompt".
+
 ## [0.1.4] - 2026-10-23
 
 Accessibility work on the report, towards WCAG 2.2 AA. See [Accessibility](README.md#accessibility) for what is checked and the known limits. No change to the JSON.
