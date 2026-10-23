@@ -148,6 +148,28 @@ redact: { env: ['E2E_PASSWORD', 'API_TOKEN'] },
 
 **Attachments are not altered**: traces, screenshots and videos contain typed values and visible secrets, so a report with traces must be treated as private. Snippets (source excerpts around errors) are left as they are: they come from your repository. See [Secret redaction](docs/config.md#secret-redaction).
 
+## Accessibility
+
+Loupe targets **WCAG 2.2 level AA** for the report as delivered: the HTML file opened from disk. This section says what is checked; it is not a claim of conformance.
+
+Checked automatically on every test run:
+
+- **axe-core** on every view and its main states (Overview, Errors, Suite health, Tests, test detail, error group page, comparison viewer, screenshot viewer, dialogs), in the light and dark themes and a few under forced colours, at desktop width, at 360 px and at 320 × 180 and 320 × 256 (400 % zoom). A serious or critical WCAG violation fails the build.
+- **Contrast** of every colour token and of the category colours, those derived from your own colours included, in both themes: 4.5:1 for text, 3:1 for borders and icons.
+- **Keyboard and focus**: controls reached and operated with the keyboard, a visible focus ring, focus returned after every dialog, a skip link, focus moved to the heading when the view changes, a page title per view, the focused row of the sidebar tree kept visible.
+- **Layout**: no horizontal scroll down to 320 px; on short viewports (high zoom) the page scrolls and the content stays reachable; hit areas of chips and small buttons at least 24 × 24 px.
+- **Forced colours and reduced motion**: pressed and selected states, bars and focus rings in forced colours; no transition or smooth scrolling when reduced motion is requested.
+
+Known limits:
+
+- The automated tests run in **Chromium only**. Firefox and Safari are not tested.
+- Forced colours are checked with **Chromium's emulation**, not on Windows high contrast itself.
+- **No testing with a screen reader** yet. Names, roles, landmarks, live regions and focus moves are checked in code and with axe-core, not by listening.
+- **Videos have no captions**: Playwright records them without audio, so there is nothing to caption.
+- Some small links, inside sentences or on their own (such as "View error group" or a test title in a list), are smaller than 24 × 24 px: they rely on the inline and spacing exceptions of WCAG 2.5.8.
+
+Found a barrier? [Open an issue](https://github.com/qartisan/playwright-loupe/issues) with the view, what you tried, your browser and, if you use one, your assistive technology.
+
 ## Compatibility
 
 | | Supported | Tested in CI |
@@ -172,3 +194,20 @@ Node.js 22.12 is the minimum because ES module config files are loaded with `req
 | `npm run dev:renderer` | Vite dev server for the renderer, fed with `src/renderer/dev/sample.json`, with hot reload; it serves the sample's attachments at `data/`. No Playwright run needed for UI work. |
 
 Tests that drive a browser need Chromium: `npx playwright install chromium`.
+
+### Accessibility tests
+
+The accessibility suite, [`test/renderer-a11y-browser.test.ts`](test/renderer-a11y-browser.test.ts), runs axe-core on a matrix of states of the built renderer, in the light and dark themes. axe-core is a devDependency injected into the page by the tests: it is never part of the report. `npm test` runs it with the rest; on its own:
+
+```sh
+npm run build
+npx vitest run test/renderer-a11y-browser.test.ts
+```
+
+A serious or critical WCAG violation fails the test of its state. The other findings (moderate or minor WCAG violations, best practices, results axe cannot decide) are printed after the run, one line per rule with the states concerned.
+
+**Adding a state** is one line in `MATRIX`: a name, a dataset, a hash, and options: `arrange` (what to do first: open a disclosure or a dialog, switch a mode), `reached` (a selector present once the state shows, waited for before the audit), `width`, `height`, `init` (an init script) and `forcedColors`. The datasets are the renderer sample with generated media files, the cascade of [`test/helpers/cascade.ts`](test/helpers/cascade.ts), and variants built in the test file.
+
+**Accepted findings** go in [`test/a11y-allowlist.ts`](test/a11y-allowlist.ts): each entry is one rule on the elements matching one selector, with the reason it is accepted. A whole rule is never switched off, so a new element breaking the same rule still fails. An entry that matches nothing in a full run fails the run, so a fixed finding must leave the list.
+
+Other accessibility checks: [`test/palette.test.ts`](test/palette.test.ts) (contrast of the tokens and category colours), [`test/renderer-focus-browser.test.ts`](test/renderer-focus-browser.test.ts) (focus and page title on view changes, scroll keys, the sidebar tree, short viewports) and [`test/renderer-display-modes-browser.test.ts`](test/renderer-display-modes-browser.test.ts) (forced colours, reduced motion).

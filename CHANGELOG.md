@@ -4,6 +4,33 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Before 1.0, minor versions may contain breaking changes. The JSON report has its own version (`schemaVersion`), see [`docs/schema/v1.md`](docs/schema/v1.md#versioning-policy).
 
+## [Unreleased]
+
+Accessibility work on the report, towards WCAG 2.2 AA. See [Accessibility](README.md#accessibility) for what is checked and the known limits. No change to the JSON.
+
+### Added
+
+- **Skip link.** "Skip to content", the first element Tab reaches, moves focus to the report content without changing the URL.
+- **Focus and page title follow the view.** Opening another view, test, error group or category (by link, `j` / `k`, `n` / `p`, Back or Forward) moves focus to its heading (on a category of the Errors view, to that category), so a screen reader announces it and the keyboard continues from there; the browser tab reads `<page> · <suite name>` (the test title on a test, "Error group" on a group page). Filters, search, sort, "show more", attempts, the steps toggle and dialogs never move focus, nor does the first load. Opening a test from the sidebar tree keeps focus on its row on wide screens, so the tree can still be browsed, and the row of the current test is marked as current for assistive technologies.
+- **Scroll keys work right after opening the report.** Page Up / Page Down, Space, Home / End and the arrow keys scroll the content while nothing has focus yet (after load, or after a click outside a control). Focus does not move.
+- **Forced colours (Windows high contrast).** The outcome, category and dimension bars and the comparison slider divider keep their colours, outlined; pressed toggles (theme, comparison mode, all steps, actual size), the selected attempt tab, active chips, the current view and the current test use the system highlight colours; so do focus rings.
+- **Table captions.** Every data table (Tests, affected tests, dimension tables, keyboard shortcuts) has a caption for screen readers, worded like the title shown above it.
+- **Larger hit areas.** Chips, "+N", small text buttons (Expand all, Clear…), sort buttons and text disclosures (Table, the stack, output) respond to clicks and taps over at least 24 × 24 px. Nothing changes visually.
+- **Accessibility test suite.** axe-core runs on every view and its main states, in the light and dark themes and under forced colours, at desktop width, 360 px and 400 % zoom; a serious or critical WCAG violation fails the build. axe-core is a development dependency only: it is not in the report.
+
+### Changed
+
+- **The sidebar search stays above the tree.** The search field and the filter indicator no longer scroll with the navigation and the tree, which scroll under them: the row focused with the arrow keys is never hidden under the search.
+- **At high zoom, the page scrolls as a whole.** On short viewports (480 px high or less, such as 400 % zoom of 1280 × 720 or 1280 × 1024), the header scrolls away with the content; before, the header could fill the window and leave the content 0 px tall.
+- **Reduced motion.** When the system asks for reduced motion, transitions (the disclosure arrows) and smooth scrolling are turned off.
+
+### Fixed
+
+- **Landmarks.** The report had two nested `main` landmarks, and its header was not exposed as a banner: there is now one `main`, one banner (the header and the partial run note), and the sidebar navigation.
+- **Error code snippets can be scrolled with the keyboard.** A snippet wider than its card keeps its columns, so the caret still points at the failing one; it now takes focus with Tab and scrolls with the arrow keys.
+- **Focus no longer falls back to the top of the page** after opening a test from the Tests table.
+- **Videos show a focus ring.**
+
 ## [0.1.3] - 2026-10-21
 
 ### Added

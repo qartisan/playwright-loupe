@@ -31,7 +31,7 @@ test/         # Vitest unit tests and JSON snapshots
 - `core` and `renderer` are separate entry points of a single package. No monorepo tooling for now.
 - The renderer is built into a self-contained HTML file; the reporter injects the JSON into it.
 - The report must stay compatible with `merge-reports`.
-- The Playwright trace viewer needs an HTTP server, so trace viewing goes through a `show` command, not `file://`.
+- The Playwright trace viewer needs an HTTP server and cannot run over `file://`. Today the trace card copies `npx playwright show-trace <absolute path>`, to run from the project root. An optional `show` command serving the report on 127.0.0.1 was investigated in brief 08b and is not built; if it is ever built, it must stay optional (no mandatory separate CLI).
 
 ## Data model requirements (v1)
 
@@ -68,7 +68,18 @@ Out of scope for phase 1 (prepare in the data model, do not implement): history,
 
 ## Commands
 
-To be defined when the repo is scaffolded (build, test, fixture run, renderer dev server, show).
+The npm scripts of `package.json`; the README's Development section describes each one.
+
+- `npm run build`: reporter (`dist/`) and self-contained renderer template (`dist/renderer/index.html`).
+- `npm run typecheck`: core, tests, fixtures and renderer.
+- `npm test`: builds, then runs every Vitest test (unit, browser, integration).
+- `npm run fixtures`: builds, then runs the fixture suite into `loupe-report/` (intentional failures).
+- `npm run sample:update`: rewrites the renderer sample `src/renderer/dev/sample.json` from the fixture suite.
+- `npm run perf:sample`: writes 5,000-test reports to `loupe-perf/`; `-- --measure` times the Tests view.
+- `npm run dev:renderer`: Vite dev server for the renderer, on the sample.
+- Accessibility suite alone: `npm run build && npx vitest run test/renderer-a11y-browser.test.ts`. To add a state, one line in its `MATRIX`; accepted findings in `test/a11y-allowlist.ts`, each with its reason (an unused entry fails a full run). See the README's "Accessibility tests".
+
+There is no `show` command: traces open with `npx playwright show-trace <file>`, which the report's trace card copies.
 
 ## Working agreement
 
