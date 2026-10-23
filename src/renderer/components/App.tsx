@@ -12,6 +12,7 @@ import { buildSortRanks, sortTests } from '../filters/sort.js';
 import { context, filters } from '../filters/store.js';
 import { DEFAULT_SORT, serializeFilters } from '../filters/url.js';
 import { commonDirectoryPrefix } from '../paths.js';
+import { forwardScrollKeys } from '../forwardScrollKeys.js';
 import { ErrorsPage } from '../pages/ErrorsPage.js';
 import { GroupPage } from '../pages/GroupPage.js';
 import { HealthPage } from '../pages/HealthPage.js';
@@ -47,6 +48,9 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
   const { route } = currentLocation.value;
   const main = useRef<HTMLElement>(null);
   const previousRoute = useRef<Route | null>(null);
+
+  // The content scrolls in <main>: scroll keys reach it even when nothing has focus (after load, after a click on text).
+  useEffect(() => forwardScrollKeys(() => main.current), []);
 
   // A new page starts at the top, like a page load.
   const routeKey = pageKey(route);

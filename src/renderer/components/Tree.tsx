@@ -196,7 +196,13 @@ export function Tree({
               onFocus: () => setFocusedKey(key),
             };
             return row.node.kind === 'test' ? (
-              <li key={key} {...common} class="tree-row tree-test" aria-selected={key === selectedKey}>
+              <li
+                key={key}
+                {...common}
+                class="tree-row tree-test"
+                aria-selected={key === selectedKey}
+                aria-current={key === selectedKey ? 'page' : undefined}
+              >
                 <TestRow node={row.node} />
               </li>
             ) : (

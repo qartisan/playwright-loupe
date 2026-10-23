@@ -10,7 +10,8 @@ import { cascadeReport } from './helpers/cascade.js';
 import { ROOT, assertBuilt, isMissingAttachmentFile } from './helpers/fixtures.js';
 
 /**
- * Focus and page title on view changes, in the built renderer opened from
+ * Focus and page title on view changes, scroll keys while nothing has
+ * focus, and the focused sidebar row kept visible, in the built renderer opened from
  * file://. Another page (view, test, error group, category) moves focus to
  * its heading and sets the title; the first load, and any change inside a
  * page (filters, search, sort, "show more", attempts, steps, a dialog), never
@@ -35,8 +36,8 @@ describe('focus and title on view changes (file://)', { timeout: 30_000 }, () =>
     return pathToFileURL(file).href;
   }
 
-  async function open(url: string, width = 1300): Promise<{ page: Page; errors: string[] }> {
-    const page = await browser.newPage({ viewport: { width, height: 800 } });
+  async function open(url: string, width = 1300, options: { height?: number; reducedMotion?: 'reduce' | 'no-preference' } = {}): Promise<{ page: Page; errors: string[] }> {
+    const page = await browser.newPage({ viewport: { width, height: options.height ?? 800 }, reducedMotion: options.reducedMotion ?? 'no-preference' });
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
     page.on('console', (message) => {
@@ -292,6 +293,124 @@ describe('focus and title on view changes (file://)', { timeout: 30_000 }, () =>
       await expect.poll(() => hasFocus(opener)).toBe(true);
       await settle(page);
       expect(await hasFocus(opener)).toBe(true);
+      await page.close();
+    });
+  });
+
+  describe('scroll keys while nothing has focus', () => {
+    const scrollTop = (page: Page): Promise<number> => page.locator('.main').evaluate((main) => main.scrollTop);
+
+    it('scrolls the content with Page Down, End and Home right after load, without moving focus', async () => {
+      const { page, errors } = await open(`${urls.sample}#/health`, 1300, { height: 600 });
+      expect(await activeTag(page)).toBe('BODY');
+      await page.keyboard.press('PageDown');
+      await expect.poll(() => scrollTop(page)).toBeGreaterThan(400);
+      await page.keyboard.press('End');
+      await expect.poll(() => page.locator('.main').evaluate((main) => main.scrollTop + main.clientHeight >= main.scrollHeight - 1)).toBe(true);
+      await page.keyboard.press('Home');
+      await expect.poll(() => scrollTop(page)).toBe(0);
+      await page.keyboard.press('Space');
+      await expect.poll(() => scrollTop(page)).toBeGreaterThan(400);
+      await page.keyboard.press('Shift+Space');
+      await expect.poll(() => scrollTop(page)).toBe(0);
+      await page.keyboard.press('ArrowDown');
+      await expect.poll(() => scrollTop(page)).toBeGreaterThan(0);
+      expect(await activeTag(page)).toBe('BODY');
+      expect(errors).toEqual([]);
+      await page.close();
+    });
+
+    it('scrolls at once under prefers-reduced-motion', async () => {
+      const { page } = await open(`${urls.sample}#/health`, 1300, { height: 600, reducedMotion: 'reduce' });
+      await page.keyboard.press('PageDown');
+      expect(await scrollTop(page)).toBe(Math.round(await page.locator('.main').evaluate((main) => main.clientHeight * 0.875)));
+      await page.close();
+    });
+
+    it('scrolls with Page Down after a click on text in the content', async () => {
+      const { page } = await open(`${urls.sample}#/health`, 1300, { height: 600 });
+      // A click on text focuses <main> (tabindex="-1") or leaves focus on <body>: either way, Page Down scrolls.
+      await page.locator('.main .widget-note').first().click();
+      expect(['BODY', 'MAIN']).toContain(await activeTag(page));
+      await page.keyboard.press('PageDown');
+      await expect.poll(() => scrollTop(page)).toBeGreaterThan(400);
+      await page.close();
+    });
+
+    it('leaves the keys to a focused field, the tree, an open dialog and the shortcuts', async () => {
+      const { page } = await open(`${urls.sample}#/health`, 1300, { height: 600 });
+      await page.locator('#sidebar-search').focus();
+      await page.keyboard.press('End');
+      await page.keyboard.press('PageDown');
+      await settle(page);
+      expect(await scrollTop(page)).toBe(0);
+
+      await page.getByRole('treeitem', { level: 1 }).first().focus();
+      await page.keyboard.press('ArrowDown');
+      await settle(page);
+      expect(await scrollTop(page)).toBe(0);
+      expect(await page.locator('[role="treeitem"]:focus').getAttribute('aria-level')).toBe('2');
+
+      await page.getByRole('button', { name: 'Keyboard shortcuts' }).click();
+      await page.locator('dialog.shortcuts-dialog[open]').waitFor();
+      await page.keyboard.press('PageDown');
+      await settle(page);
+      expect(await scrollTop(page)).toBe(0);
+      await page.close();
+
+      // j still opens the next test with nothing focused.
+      const { page: detail } = await open(`${urls.sample}#/test/${FAILING}`);
+      await detail.keyboard.press('j');
+      await expect.poll(() => detail.url()).not.toContain(FAILING);
+      await detail.close();
+    });
+  });
+
+  describe('sidebar tree', () => {
+    /** Expands the tree from its first row and walks down `steps` rows. */
+    async function walkDown(page: Page, steps: number): Promise<void> {
+      await page.getByRole('treeitem', { level: 1 }).first().focus();
+      for (let index = 0; index < steps; index++) {
+        await page.keyboard.press('ArrowRight');
+        await page.keyboard.press('ArrowDown');
+      }
+    }
+
+    /** Whether the focused row is fully inside the scrolling area, below the search. */
+    const rowVisible = (page: Page): Promise<boolean> =>
+      page.evaluate(`(() => {
+        const row = document.activeElement.querySelector(':scope > .row-content, :scope > *').getBoundingClientRect();
+        const area = document.querySelector('.sidebar-scroll').getBoundingClientRect();
+        const search = document.querySelector('.sidebar-search').getBoundingClientRect();
+        return row.top >= Math.max(area.top, search.bottom) - 0.5 && row.bottom <= area.bottom + 0.5;
+      })()`);
+
+    it.each([
+      [1300, 500],
+      [360, 640],
+    ])('keeps the focused row visible below the search, walking down and up with the arrow keys, at %ix%i', async (width, height) => {
+      const { page } = await open(`${urls.sample}#/`, width, { height });
+      if (width === 360) await page.getByRole('button', { name: 'Show sidebar' }).click();
+      await walkDown(page, 40);
+      const hidden: number[] = [];
+      for (let step = 0; step < 60; step++) {
+        await page.keyboard.press('ArrowUp');
+        if (!(await rowVisible(page))) hidden.push(step);
+      }
+      expect(hidden).toEqual([]);
+      await page.close();
+    });
+
+    it('marks the row of the current test with aria-current="page", and only that row', async () => {
+      const { page } = await open(`${urls.sample}#/test/${FAILING}`);
+      const current = page.locator('[role="treeitem"][aria-current="page"]');
+      await expect.poll(() => current.count()).toBe(1);
+      expect(await current.locator('.row-label').textContent()).toBe(testTitle(FAILING));
+      await page.keyboard.press('j');
+      await expect.poll(() => current.locator('.row-label').textContent()).not.toBe(testTitle(FAILING));
+      expect(await current.count()).toBe(1);
+      await page.goto(`${urls.sample}#/tests`);
+      await expect.poll(() => current.count()).toBe(0);
       await page.close();
     });
   });

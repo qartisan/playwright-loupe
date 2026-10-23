@@ -151,38 +151,41 @@ export function Sidebar({
         <SearchField />
         <FilterIndicator matched={matched} route={route} />
       </div>
-      <ul class="nav-fixed">
-        <NavLink page="dashboard" route={route}>
-          <DashboardIcon />
-          <span>Overview</span>
-        </NavLink>
-        <NavLink page="errors" route={route} class={runErrors > 0 ? 'nav-has-run-errors' : undefined}>
-          <ErrorsIcon />
-          <span>Errors</span>
-          {runErrors > 0 && (
-            <span class="nav-marker" title={plural(runErrors, 'run error')}>
-              <AlertIcon />
-              <span class="badge badge-failed">{runErrors}</span>
-              <span class="visually-hidden">, {plural(runErrors, 'run error')}</span>
-            </span>
-          )}
-        </NavLink>
-        <NavLink page="health" route={route}>
-          <HealthIcon />
-          <span>Suite health</span>
-        </NavLink>
-        <NavLink page="tests" route={route}>
-          <TestsIcon />
-          <span>Tests</span>
-        </NavLink>
-      </ul>
-      <Tree
-        roots={tree}
-        route={route}
-        prefix={prefix}
-        expandAll={filtered && matched <= AUTO_EXPAND_MAX}
-        emptyMessage={report.tests.length === 0 ? 'No tests in this run.' : 'No tests match the filters.'}
-      />
+      {/* Everything below the search scrolls; the search does not, so it never covers a focused row. */}
+      <div class="sidebar-scroll">
+        <ul class="nav-fixed">
+          <NavLink page="dashboard" route={route}>
+            <DashboardIcon />
+            <span>Overview</span>
+          </NavLink>
+          <NavLink page="errors" route={route} class={runErrors > 0 ? 'nav-has-run-errors' : undefined}>
+            <ErrorsIcon />
+            <span>Errors</span>
+            {runErrors > 0 && (
+              <span class="nav-marker" title={plural(runErrors, 'run error')}>
+                <AlertIcon />
+                <span class="badge badge-failed">{runErrors}</span>
+                <span class="visually-hidden">, {plural(runErrors, 'run error')}</span>
+              </span>
+            )}
+          </NavLink>
+          <NavLink page="health" route={route}>
+            <HealthIcon />
+            <span>Suite health</span>
+          </NavLink>
+          <NavLink page="tests" route={route}>
+            <TestsIcon />
+            <span>Tests</span>
+          </NavLink>
+        </ul>
+        <Tree
+          roots={tree}
+          route={route}
+          prefix={prefix}
+          expandAll={filtered && matched <= AUTO_EXPAND_MAX}
+          emptyMessage={report.tests.length === 0 ? 'No tests in this run.' : 'No tests match the filters.'}
+        />
+      </div>
     </nav>
   );
 }
