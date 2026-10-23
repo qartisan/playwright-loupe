@@ -81,6 +81,21 @@ The npm scripts of `package.json`; the README's Development section describes ea
 
 There is no `show` command: traces open with `npx playwright show-trace <file>`, which the report's trace card copies.
 
+## Releasing
+
+Publishing is manual and done by the maintainer:
+
+1. `main` clean and up to date; `package.json` version without a prerelease suffix.
+2. CHANGELOG: `[Unreleased]` becomes `[<version>] - <date>` above a new empty `[Unreleased]`, and the link references at the bottom are updated (`[Unreleased]` compares from the new tag, the new version from the previous tag). Commit `docs: prepare <version>`.
+3. `npm version patch|minor -m "chore: release %s"`: bumps the version, commits and creates the `v<version>` tag.
+4. `npm pack --dry-run`: only `dist/`, `licenses/`, README, LICENSE, CHANGELOG and `package.json`.
+5. `npm publish`, then check the package page on npmjs.com.
+6. `git push --follow-tags`, then `npm view @qartisan/playwright-loupe version`.
+
+Claude Code prepares steps 1 and 2 only. It never runs steps 3 to 6, nor `git tag`, `git push` or anything else that changes the version in `package.json`.
+
+To try a local build in a consumer project, give it a prerelease version first, `npm version prerelease --preid=dev --no-git-tag-version` (for example `0.1.5-dev.0`), then `npm pack` and install the tarball; restore the version afterwards, it is never committed. Never pack a tarball with an already published version number: npm treats it as installed and will not reinstall it.
+
 ## Working agreement
 
 - Implement from briefs; when a request conflicts with a non-negotiable principle, say so before writing code.

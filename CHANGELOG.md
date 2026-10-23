@@ -6,39 +6,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-10-23
+
 Accessibility work on the report, towards WCAG 2.2 AA. See [Accessibility](README.md#accessibility) for what is checked and the known limits. No change to the JSON.
 
 ### Added
 
-- **Skip link.** "Skip to content", the first element Tab reaches, moves focus to the report content without changing the URL.
-- **Focus and page title follow the view.** Opening another view, test, error group or category from the content, with `j` / `k` or `n` / `p`, or with Back or Forward moves focus to its heading (on a category of the Errors view, to that category), so a screen reader announces it and the keyboard continues from there. The browser tab reads `<page> · <suite name>` (the test title on a test, "Error group" on a group page). Filters, search, sort, "show more", attempts, the steps toggle and dialogs never move focus, nor does the first load.
-- **The sidebar is browsed with the arrow keys and left with Tab.** The four view links are now one tab stop, like the tree: Up / Down and Home / End move between them, Enter or Space opens one. A view link or a tree row opened on a wide screen keeps focus where it is, so the sidebar can still be browsed, and the new page's name is announced instead; in the narrow-screen overlay, which closes, focus moves to the heading. The current view's link and the current test's row are marked as current for assistive technologies. A group revealed from a project card loses its highlight on the next page change.
-- **Scroll keys work right after opening the report.** Page Up / Page Down, Space, Home / End and the arrow keys scroll the content while nothing has focus yet (after load, or after a click outside a control). Focus does not move.
-- **Forced colours (Windows high contrast).** The outcome, category and dimension bars and the comparison slider divider keep their colours, outlined; pressed toggles (theme, comparison mode, all steps, actual size), the selected attempt tab, active chips, the current view and the current test use the system highlight colours; so do focus rings.
-- **Table captions.** Every data table (Tests, affected tests, dimension tables, keyboard shortcuts) has a caption for screen readers, worded like the title shown above it.
-- **Larger hit areas.** Chips, "+N", small text buttons (Expand all, Clear…), sort buttons and text disclosures (Table, the stack, output) respond to clicks and taps over at least 24 × 24 px. Nothing changes visually.
-- **View shortcuts.** `o` Overview, `e` Errors, `h` Suite health, `t` Tests, from anywhere; focus moves to the page's heading, as with `j` / `k`.
-- **Single-key shortcuts can be turned off** (WCAG 2.1.4): a "Single-key shortcuts" switch in the keyboard shortcuts dialog, on by default and remembered in the browser. Off, no single-key shortcut fires (`j`, `k`, `o`, `e`, `h`, `t`, `/`, `?`); Escape and the arrow keys keep working, and the dialog stays reachable from the header's keyboard button.
-- **Accessibility test suite.** axe-core runs on every view and its main states, in the light and dark themes and under forced colours, at desktop width, 360 px and 400 % zoom; a serious or critical WCAG violation fails the build. axe-core is a development dependency only: it is not in the report.
+- **Skip link.** "Skip to content", the first element Tab reaches, moves focus to the report content.
+- **Focus and page title follow the view.** Opening another view, test or error group from the content, with a shortcut, or with Back / Forward moves focus to its heading, so a screen reader announces it; the browser tab reads `<page> · <suite name>`. Filters, search, sort, "show more", attempts and dialogs never move focus.
+- **The sidebar is browsed with the arrow keys and left with Tab.** The view links are one tab stop, like the test tree: Up / Down and Home / End move, Enter or Space opens. Opening a page from the sidebar keeps focus there and announces the page; the current view and the current test are marked as current for assistive technologies.
+- **View shortcuts:** `o` Overview, `e` Errors, `h` Suite health, `t` Tests.
+- **Single-key shortcuts can be turned off** (WCAG 2.1.4) with a switch in the keyboard shortcuts dialog, remembered in the browser; Escape and the arrow keys keep working.
+- **Scroll keys work right after opening the report**, before anything has focus: Page Up / Page Down, Space, Home / End and the arrow keys.
+- **Forced colours (Windows high contrast):** bars keep their colours; pressed buttons, the selected attempt, active chips, the current view and test, and focus rings use the system highlight colours.
+- **Table captions** for screen readers on every data table.
+- **Larger hit areas** (at least 24 × 24 px) for chips, small text buttons, sort buttons and text disclosures, with no visual change.
+- For contributors: an axe-core accessibility test suite on every view, in the light and dark themes and under forced colours; axe-core is not in the report.
 
 ### Changed
 
-- **The sidebar search stays above the tree.** The search field and the filter indicator no longer scroll with the navigation and the tree, which scroll under them: the row focused with the arrow keys is never hidden under the search.
-- **At high zoom, the page scrolls as a whole.** On short viewports (480 px high or less, such as 400 % zoom of 1280 × 720 or 1280 × 1024), the header scrolls away with the content; before, the header could fill the window and leave the content 0 px tall.
-- **`j` / `k` also walk error groups**, on an error group page (same order as `n` / `p` did, restricted to a category when the page was opened from one): one pair for next / previous everywhere.
-- On a test detail, the view links' tab stop is Tests, the view the test belongs to (Errors on an error group page).
-- **Reduced motion.** When the system asks for reduced motion, transitions (the disclosure arrows) and smooth scrolling are turned off.
+- **`j` / `k` also walk error groups** on an error group page, in the order `n` / `p` used: one pair for next / previous everywhere.
+- **The sidebar search stays above the test tree**, so the row focused with the arrow keys is never hidden under it.
+- **At high zoom, the page scrolls as a whole** on short windows (480 px high or less): before, at 400 % zoom, the header could fill the window and hide the content.
+- **Reduced motion:** when the system asks for it, transitions and smooth scrolling are turned off.
+- On a test detail, the view links' tab stop is Tests (Errors on an error group page); a group revealed from a project card loses its highlight on the next page change.
 
 ### Removed
 
-- **`[` / `]` (previous / next attempt).** On Belgian and French AZERTY keyboards they need AltGr, which Windows reports as Ctrl+Alt, so they never worked there (nor with Option on macOS). The attempt tabs remain keyboard operable: Tab to them, then the arrow keys.
-- **`n` / `p` (next / previous error group).** Replaced by `j` / `k`, without an alias: fewer single-key shortcuts.
+- **`[` / `]` (previous / next attempt):** on Belgian and French AZERTY keyboards they need AltGr, so they never worked on Windows or macOS. Attempt tabs remain keyboard operable: Tab to them, then the arrow keys.
+- **`n` / `p` (next / previous error group):** replaced by `j` / `k`.
 
 ### Fixed
 
-- **Single-key shortcuts work with Caps Lock on.** A letter typed with Caps Lock (not with Shift) now triggers its shortcut.
-- **Landmarks.** The report had two nested `main` landmarks, and its header was not exposed as a banner: there is now one `main`, one banner (the header and the partial run note), and the sidebar navigation.
-- **Error code snippets can be scrolled with the keyboard.** A snippet wider than its card keeps its columns, so the caret still points at the failing one; it now takes focus with Tab and scrolls with the arrow keys.
+- **Single-key shortcuts work with Caps Lock on.**
+- **Landmarks:** one `main` instead of two nested ones, and the header is exposed as a banner.
+- **Error code snippets can be scrolled with the keyboard**, so long lines can be read without a mouse.
 - **Focus no longer falls back to the top of the page** after opening a test from the Tests table.
 - **Videos show a focus ring.**
 
@@ -141,7 +143,7 @@ Accessibility work on the report, towards WCAG 2.2 AA. See [Accessibility](READM
 - **Error groups inside a category** are listed in the Errors view's order (most failed tests first, then most flaky), the order their previous / next buttons follow, instead of first occurrence.
 - **Renderer dev sample**: `npm run sample:update` also copies the sample's attachment files to `src/renderer/dev/data/` (gitignored), and the dev server serves them at `data/`, so attachment links work there too.
 
-## [0.0.5] 2026-10-17
+## [0.0.5] - 2026-10-17
 
 ### Added
 
@@ -232,5 +234,15 @@ First public release. Work in progress: the reporter and its JSON model are usab
 - Node.js **22.12 or later** (`engines.node`), needed to load ES module config files. CI tests the latest Node.js 22.x and 24.x.
 - `@playwright/test` **1.52 or later** (peer dependency). CI tests 1.52 (on Node.js 22) and the latest version. Playwright 1.52 hangs on recent Node.js 24 releases, independently of Loupe: see [Compatibility](README.md#compatibility).
 
-[Unreleased]: https://github.com/qartisan/playwright-loupe/compare/v0.0.1...HEAD
+[Unreleased]: https://github.com/qartisan/playwright-loupe/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/qartisan/playwright-loupe/compare/v0.1.3...v0.1.4
+[0.1.3]: https://github.com/qartisan/playwright-loupe/compare/v0.1.2...v0.1.3
+[0.1.2]: https://github.com/qartisan/playwright-loupe/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/qartisan/playwright-loupe/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/qartisan/playwright-loupe/compare/v0.0.6...v0.1.0
+[0.0.6]: https://github.com/qartisan/playwright-loupe/compare/v0.0.5...v0.0.6
+[0.0.5]: https://github.com/qartisan/playwright-loupe/compare/v0.0.4...v0.0.5
+[0.0.4]: https://github.com/qartisan/playwright-loupe/compare/v0.0.3...v0.0.4
+[0.0.3]: https://github.com/qartisan/playwright-loupe/compare/v0.0.2...v0.0.3
+[0.0.2]: https://github.com/qartisan/playwright-loupe/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/qartisan/playwright-loupe/releases/tag/v0.0.1
