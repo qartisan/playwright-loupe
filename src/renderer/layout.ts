@@ -10,6 +10,17 @@ export function isNarrow(): boolean {
   return window.matchMedia(NARROW).matches;
 }
 
+/**
+ * At most this height (400 % zoom), the page scrolls as a whole and the
+ * header scrolls away with the content; above it, the content scrolls in
+ * `<main>` under a fixed header. Same query as in styles.css.
+ */
+const SHORT = '(max-height: 480px)';
+
+export function pageScrolls(): boolean {
+  return window.matchMedia(SHORT).matches;
+}
+
 /** Sidebar visibility; remembered on wide screens only. */
 export const sidebarOpen = signal(!isNarrow() && readPreference(SIDEBAR_KEY) !== 'closed');
 

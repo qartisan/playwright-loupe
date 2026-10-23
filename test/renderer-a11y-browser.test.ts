@@ -25,7 +25,7 @@ import { solidPng } from './helpers/png.js';
  *
  * Adding a state is one line in MATRIX: name, dataset, hash, and options:
  * `arrange` (what to do before the audit), `reached` (a selector present
- * once the state is shown), `width`, `init` (an init script).
+ * once the state is shown), `width`, `height`, `init` (an init script).
  */
 
 const RENDERER = path.join(ROOT, 'dist/renderer/index.html');
@@ -49,6 +49,7 @@ interface StateOptions {
   arrange?: (page: Page) => Promise<void>;
   reached?: string;
   width?: number;
+  height?: number;
   init?: string;
 }
 
@@ -70,6 +71,12 @@ const MATRIX: State[] = [
   ['header at 1600px', 'sample', '#/', { width: 1600 }],
   ['header at 360px', 'sample', '#/', { width: 360 }],
   ['header at 360px, sidebar open', 'sample', '#/', { width: 360, arrange: click('[aria-controls="sidebar"]'), reached: '#sidebar:not([hidden])' }],
+  // 400 % zoom of 1280×720 and 1280×1024: the page scrolls as a whole.
+  ['overview at 320x180', 'sample', '#/', { width: 320, height: 180 }],
+  ['overview at 320x256', 'sample', '#/', { width: 320, height: 256 }],
+  ['sidebar open at 320x180', 'sample', '#/', { width: 320, height: 180, arrange: click('[aria-controls="sidebar"]'), reached: '#sidebar:not([hidden])' }],
+  ['tests at 320x256', 'sample', '#/tests', { width: 320, height: 256 }],
+  ['test detail at 320x180', 'sample', `#/test/${FAILING}`, { width: 320, height: 180, reached: '.code-snippet' }],
   // Errors
   ['errors: run errors, groups, categories', 'sample', '#/errors'],
   ['errors: folded groups collapsed', 'cascade', '#/errors', { reached: 'details.after-timeout:not([open])' }],
@@ -270,7 +277,7 @@ describe('accessibility matrix (axe-core, file://)', { timeout: 60_000 }, () => 
 
   describe.each(['light', 'dark'] as const)('%s theme', (theme) => {
     it.each(MATRIX)('%s', async (name, dataset, hash, options = {}) => {
-      const context = await browser.newContext({ colorScheme: theme, viewport: { width: options.width ?? 1300, height: 900 } });
+      const context = await browser.newContext({ colorScheme: theme, viewport: { width: options.width ?? 1300, height: options.height ?? 900 } });
       if (options.init) await context.addInitScript({ content: options.init });
       const page = await context.newPage();
       const errors: string[] = [];

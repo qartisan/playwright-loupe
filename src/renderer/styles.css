@@ -378,14 +378,27 @@ h1, h2, h3, strong, b { font-weight: 600; }
 /*
  * Search, always visible at the top of the sidebar, outside the scrolling
  * area: a sticky search would cover the focused tree row. On short screens
- * (400 % zoom) the whole sidebar scrolls instead, so the tree keeps room.
+ * (400 % zoom) the sidebar scrolls with the page instead.
  */
 .sidebar-search { flex: none; padding: 8px 8px 0; border-bottom: 1px solid var(--border); background: var(--bg-muted); }
 .sidebar-scroll { flex: 1; min-height: 0; overflow: auto; }
+
+/*
+ * Short screens (400 % zoom: 320×180, 320×256): the header alone can fill the
+ * viewport, so the page scrolls as a whole and the header scrolls away with
+ * the content (WCAG 1.4.10). Same query as pageScrolls() in layout.ts. The
+ * sidebar scrolls with the page too; as an overlay, it spans the content.
+ * After the shell and sidebar rules, which it overrides.
+ */
 @media (max-height: 480px) {
   .sidebar { overflow: auto; }
   .sidebar-scroll { flex: none; overflow: visible; }
+  #app, .app { height: auto; }
+  .app { min-height: 100vh; }
+  .layout { flex: none; min-height: 100vh; }
+  .main { overflow: visible; }
 }
+
 .search-field { position: relative; display: flex; align-items: center; margin-bottom: 8px; }
 .search-field > .icon { position: absolute; left: 8px; color: var(--fg-secondary); pointer-events: none; }
 .search-field input {

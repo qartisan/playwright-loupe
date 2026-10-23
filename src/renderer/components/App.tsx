@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef } from 'preact/hooks';
 import type { RendererSettings } from '../../core/inject.js';
 import type { LoupeReport, TestCase } from '../../schema/v1.js';
 import { announcement } from '../clipboard.js';
-import { isNarrow, sidebarOpen } from '../layout.js';
+import { isNarrow, pageScrolls, sidebarOpen } from '../layout.js';
 import { currentLocation } from '../navigation.js';
 import type { Route } from '../router.js';
 import { errorGroups, rankGroups } from '../dashboard.js';
@@ -50,13 +50,18 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
   const previousRoute = useRef<Route | null>(null);
 
   // The content scrolls in <main>: scroll keys reach it even when nothing has focus (after load, after a click on text).
-  useEffect(() => forwardScrollKeys(() => main.current), []);
+  // On short screens the page itself scrolls, and the browser handles the keys.
+  useEffect(() => forwardScrollKeys(() => (pageScrolls() ? null : main.current)), []);
 
   // A new page starts at the top, like a page load.
   const routeKey = pageKey(route);
   useEffect(() => {
     // Except a link to a category: the errors view scrolls to it.
-    if (!(route.page === 'errors' && route.category !== undefined)) main.current?.scrollTo(0, 0);
+    if (!(route.page === 'errors' && route.category !== undefined)) {
+      main.current?.scrollTo(0, 0);
+      // On short screens the page scrolls, not <main>.
+      if (pageScrolls()) window.scrollTo(0, 0);
+    }
     // On narrow screens the sidebar is an overlay: close it once a page is chosen.
     if (isNarrow()) sidebarOpen.value = false;
     document.title = pageTitle(route, report.tests, settings.title);
@@ -73,7 +78,8 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
     const heading = main.current?.querySelector<HTMLElement>('h1');
     if (!heading) return;
     heading.tabIndex = -1;
-    heading.focus({ preventScroll: true });
+    // On short screens the header can fill the viewport: let the heading scroll into view.
+    heading.focus({ preventScroll: !pageScrolls() });
   }, [routeKey]);
 
   let page;
@@ -112,7 +118,15 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
   return (
     <div class={`app ${sidebarOpen.value ? 'sidebar-open' : 'sidebar-closed'}`}>
       {/* The first focusable element, shown on focus. A button, not a link: the hash holds the route, so it moves focus without changing it. */}
-      <button type="button" class="button skip-link" onClick={() => main.current?.focus()}>
+      <button
+        type="button"
+        class="button skip-link"
+        onClick={() => {
+          // <main> can be taller than the viewport: its top in view, not its middle (the page scrolls on short screens).
+          main.current?.focus({ preventScroll: true });
+          if (pageScrolls()) main.current?.scrollIntoView({ block: 'start' });
+        }}
+      >
         Skip to content
       </button>
       <Header report={report} title={settings.title} />

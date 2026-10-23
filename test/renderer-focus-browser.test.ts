@@ -414,4 +414,85 @@ describe('focus and title on view changes (file://)', { timeout: 30_000 }, () =>
       await page.close();
     });
   });
+
+  describe.each([
+    [320, 180],
+    [320, 256],
+  ])('short viewport %ix%i, as at 400 percent zoom: the page scrolls', (width, height) => {
+    const scrollY = (page: Page): Promise<number> => page.evaluate<number>('window.scrollY');
+    /** Waits for the browser's smooth scroll to end: a key pressed during it can be lost. */
+    const scrollSettled = (page: Page) =>
+      expect
+        .poll(async () => {
+          const before = await scrollY(page);
+          await settle(page);
+          return before === (await scrollY(page));
+        })
+        .toBe(true);
+    /** Whether an element is fully inside the viewport. */
+    const inViewport = (locator: Locator): Promise<boolean> =>
+      locator.first().evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        return box.top >= 0 && box.bottom <= element.ownerDocument.documentElement.clientHeight;
+      });
+
+    it('reaches the content and scrolls it with the keyboard, without horizontal scroll', async () => {
+      const { page, errors } = await open(`${urls.sample}#/`, width, { height });
+      expect(await page.locator('.main').evaluate((main) => main.getBoundingClientRect().height)).toBeGreaterThan(height);
+      expect(await page.evaluate<number>('document.documentElement.scrollWidth - document.documentElement.clientWidth')).toBe(0);
+      // Nothing has focus: the browser scrolls the page, the forwarding stays out of the way.
+      await page.keyboard.press('PageDown');
+      await expect.poll(() => scrollY(page)).toBeGreaterThan(0);
+      await scrollSettled(page);
+      await page.keyboard.press('End');
+      await expect.poll(() => inViewport(page.locator('.footer'))).toBe(true);
+      await scrollSettled(page);
+      await page.keyboard.press('Home');
+      await expect.poll(() => scrollY(page)).toBe(0);
+      expect(errors).toEqual([]);
+      await page.close();
+    });
+
+    it('skips to the content: the heading scrolls into view', async () => {
+      const { page } = await open(`${urls.sample}#/health`, width, { height });
+      expect(await inViewport(heading(page))).toBe(false);
+      await page.keyboard.press('Tab');
+      await page.keyboard.press('Enter');
+      expect(await hasFocus(page.locator('.main'))).toBe(true);
+      await expect.poll(() => inViewport(heading(page))).toBe(true);
+      await page.close();
+    });
+
+    it('starts another page at the top of the content, its heading focused and in view', async () => {
+      const { page } = await open(`${urls.sample}#/tests`, width, { height });
+      const link = page.locator('.tests-table .cell-title > a').nth(3);
+      await link.focus();
+      await page.keyboard.press('Enter');
+      await expect.poll(() => headingFocused(page)).toBe(true);
+      expect(await inViewport(heading(page))).toBe(true);
+      await page.close();
+    });
+
+    it('keeps the focused tree row in view in the sidebar overlay', async () => {
+      const { page } = await open(`${urls.sample}#/`, width, { height });
+      await page.getByRole('button', { name: 'Show sidebar' }).click();
+      await page.getByRole('treeitem', { level: 1 }).first().focus();
+      for (let index = 0; index < 12; index++) {
+        await page.keyboard.press('ArrowRight');
+        await page.keyboard.press('ArrowDown');
+        expect(await inViewport(page.locator('[role="treeitem"]:focus > *'))).toBe(true);
+      }
+      await page.close();
+    });
+
+    it('brings the first added row into view after "show more"', async () => {
+      const { page } = await open(`${urls.many}#/tests`, width, { height });
+      await page.getByRole('button', { name: 'Show 100 more' }).focus();
+      await page.keyboard.press('Enter');
+      const added = page.locator('.tests-table tbody tr').nth(500).locator('a').first();
+      await expect.poll(() => hasFocus(added)).toBe(true);
+      expect(await inViewport(added)).toBe(true);
+      await page.close();
+    });
+  });
 });
