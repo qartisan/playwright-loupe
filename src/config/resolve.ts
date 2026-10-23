@@ -9,7 +9,7 @@ export const DEFAULT_OUTPUT_FOLDER = 'loupe-report';
 export const DEFAULT_TITLE = 'Loupe report';
 export const DEFAULT_UNCATEGORIZED = 'Uncategorized';
 
-/** Environment variables mapped onto config options. `LOUPE_CONFIG`, `LOUPE_RUN_SCOPE` and `LOUPE_REDACT_ENV` are handled apart. */
+/** Environment variables mapped onto config options. `LOUPE_CONFIG`, `LOUPE_RUN_SCOPE`, `LOUPE_REDACT_ENV` and `LOUPE_GIT_LOCAL` are handled apart. */
 export const ENV_OPTIONS = {
   LOUPE_OUTPUT_FOLDER: 'outputFolder',
   LOUPE_TITLE: 'title',
@@ -69,6 +69,26 @@ export function redactEnvNames(env: Env): { names: string[]; problems: string[] 
     else problems.push(`${REDACT_ENV}: item ${index + 1} must be an environment variable name (letters, digits, _), got a string that is not a variable name (value not shown)`);
   });
   return { names, problems };
+}
+
+/** `git.local` from the environment: `true`, `false`, `1` or `0`. */
+export const GIT_LOCAL_ENV = 'LOUPE_GIT_LOCAL';
+
+const BOOLEAN_VALUES: ReadonlyMap<string, boolean> = new Map([
+  ['true', true],
+  ['false', false],
+  ['1', true],
+  ['0', false],
+]);
+
+/** `git.local` from `LOUPE_GIT_LOCAL`, undefined when unset or empty, with a problem for any other value. */
+export function gitLocalEnv(env: Env): { value: boolean | undefined; problems: string[] } {
+  const raw = envValue(env, GIT_LOCAL_ENV);
+  if (raw === undefined) return { value: undefined, problems: [] };
+  const value = BOOLEAN_VALUES.get(raw);
+  if (value !== undefined) return { value, problems: [] };
+  const shown = JSON.stringify(raw.length > 40 ? `${raw.slice(0, 40)}…` : raw);
+  return { value: undefined, problems: [`${GIT_LOCAL_ENV} must be one of "true", "false", "1", "0", got ${shown}`] };
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -133,14 +153,17 @@ export function resolveConfig(layers: ConfigLayers): ResolvedConfig {
   const fileSource = layers.file ? path.basename(layers.file.path) : '';
   const env = envLayer(layers.env);
   const redactEnv = redactEnvNames(layers.env);
+  const gitLocal = gitLocalEnv(layers.env);
   const problems = [
     ...(layers.file ? validateConfig(layers.file.config, fileSource) : []),
     ...validateConfig(layers.inline, 'reporter options', { allowConfigFile: true }),
     ...redactEnv.problems,
+    ...gitLocal.problems,
   ];
   if (problems.length > 0) throw new LoupeConfigError(problems);
 
   const { configFile: _configFile, ...inline } = layers.inline as LoupeReporterOptions;
+  if (gitLocal.value !== undefined) env.git = { local: gitLocal.value };
   const merged = mergeLayers(mergeLayers((layers.file?.config ?? {}) as LoupeConfig, inline), env);
 
   const uncategorized = merged.categories?.uncategorized ?? DEFAULT_UNCATEGORIZED;
@@ -173,5 +196,6 @@ export function resolveConfig(layers: ConfigLayers): ResolvedConfig {
       // LOUPE_REDACT_ENV adds to the configured names: a higher layer never removes one.
       env: [...new Set([...(merged.redact?.env ?? []), ...redactEnv.names])],
     },
+    git: { local: merged.git?.local ?? true },
   };
 }

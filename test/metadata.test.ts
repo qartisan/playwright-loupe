@@ -103,6 +103,70 @@ describe('detectGit', () => {
   });
 });
 
+describe('detectGit: local repository', () => {
+  const HEAD = '4fe7a5e1c2d3b4a5968778695a4b3c2d1e0f9a8b';
+  const LOCAL = { commit: HEAD, branch: 'feature/local', remote: 'git@github.com:org/repo.git' };
+  const local = (merged = false, git: typeof LOCAL | { commit: null; branch: null; remote: null } = LOCAL) => ({ git, merged });
+
+  it('fills every field from the local repository when nothing else is known', () => {
+    expect(detectGit({}, {}, local())).toEqual(LOCAL);
+  });
+
+  it('keeps every CI value over the local ones', () => {
+    expect(detectGit({}, GITLAB, local())).toEqual({ commit: 'gl-sha', branch: 'develop', remote: 'https://gitlab.com/group/project' });
+  });
+
+  it("keeps Playwright's captured info over the local ones", () => {
+    const metadata = { gitCommit: { hash: HEAD, branch: 'captured' } };
+    expect(detectGit(metadata, {}, local())).toEqual({ ...LOCAL, branch: 'captured' });
+  });
+
+  it('completes a CI commit with the local branch and remote when HEAD is that commit', () => {
+    expect(detectGit({}, { GIT_COMMIT: HEAD }, local())).toEqual(LOCAL);
+  });
+
+  it('matches an abbreviated CI commit by prefix, ignoring case', () => {
+    expect(detectGit({}, { GIT_COMMIT: '4FE7A5E' }, local())).toEqual({ ...LOCAL, commit: '4FE7A5E' });
+  });
+
+  it('completes only the missing fields', () => {
+    expect(detectGit({}, { GIT_COMMIT: HEAD, GIT_BRANCH: 'ci-branch' }, local())).toEqual({ ...LOCAL, branch: 'ci-branch' });
+  });
+
+  it('takes nothing local when HEAD is another commit than the CI one', () => {
+    expect(detectGit({}, { GIT_COMMIT: 'ffffffffffffffffffffffffffffffffffffffff' }, local())).toEqual({
+      commit: 'ffffffffffffffffffffffffffffffffffffffff',
+      branch: null,
+      remote: null,
+    });
+  });
+
+  it('does not match a CI commit too short or not hexadecimal', () => {
+    expect(detectGit({}, { GIT_COMMIT: '4fe7a5' }, local()).branch).toBeNull();
+    expect(detectGit({}, { GIT_COMMIT: 'env-sha' }, local()).branch).toBeNull();
+  });
+
+  it('never takes the local commit under merge-reports', () => {
+    expect(detectGit({}, {}, local(true))).toEqual({ commit: null, branch: null, remote: null });
+  });
+
+  it('completes a merged report when HEAD is the commit of the shards', () => {
+    const metadata = { gitCommit: { hash: HEAD } };
+    expect(detectGit(metadata, {}, local(true))).toEqual(LOCAL);
+  });
+
+  it('keeps the CI values when the local read found nothing', () => {
+    const nothing = { commit: null, branch: null, remote: null };
+    expect(detectGit({}, { GIT_COMMIT: HEAD }, local(false, nothing))).toEqual({ commit: HEAD, branch: null, remote: null });
+    expect(detectGit({}, {}, local(false, nothing))).toEqual(nothing);
+  });
+
+  it('sanitizes a local remote that reaches it unsanitized', () => {
+    const git = { ...LOCAL, remote: 'https://user:token@github.com/org/repo.git' };
+    expect(detectGit({}, {}, local(false, git)).remote).toBe('https://github.com/org/repo.git');
+  });
+});
+
 describe('sanitizeRemote', () => {
   it('keeps remotes without credentials unchanged', () => {
     expect(sanitizeRemote('https://github.com/a/b')).toBe('https://github.com/a/b');

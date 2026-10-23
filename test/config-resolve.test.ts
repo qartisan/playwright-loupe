@@ -32,6 +32,7 @@ describe('resolveConfig: defaults', () => {
       theme: 'system',
       aiPrompt: { includeStack: true },
       redact: { mode: 'extend', patterns: [], env: [] },
+      git: { local: true },
     });
   });
 
@@ -188,6 +189,39 @@ describe('resolveConfig: redact', () => {
       'LOUPE_REDACT_ENV: item 2 must be an environment variable name (letters, digits, _), got a string that is not a variable name (value not shown)',
     ]);
     expect((error as Error).message).not.toContain('Inv3nted');
+  });
+});
+
+describe('resolveConfig: git', () => {
+  it('reads the local repository by default', () => {
+    expect(resolve().git).toEqual({ local: true });
+  });
+
+  it('follows the layers: defaults < config file < inline options < LOUPE_GIT_LOCAL', () => {
+    expect(resolve({ file: { git: { local: false } } }).git.local).toBe(false);
+    expect(resolve({ file: { git: { local: false } }, inline: { git: { local: true } } }).git.local).toBe(true);
+    expect(resolve({ inline: { git: { local: true } }, env: { LOUPE_GIT_LOCAL: 'false' } }).git.local).toBe(false);
+    expect(resolve({ file: { git: { local: false } }, env: { LOUPE_GIT_LOCAL: '1' } }).git.local).toBe(true);
+  });
+
+  it.each([
+    ['true', true],
+    ['false', false],
+    ['1', true],
+    ['0', false],
+    [' 0 ', false],
+  ])('reads LOUPE_GIT_LOCAL=%j', (value, expected) => {
+    expect(resolve({ env: { LOUPE_GIT_LOCAL: value } }).git.local).toBe(expected);
+  });
+
+  it('ignores an empty LOUPE_GIT_LOCAL', () => {
+    expect(resolve({ file: { git: { local: false } }, env: { LOUPE_GIT_LOCAL: ' ' } }).git.local).toBe(false);
+  });
+
+  it.each(['no', 'FALSE', 'yes', 'constructor'])('rejects LOUPE_GIT_LOCAL=%j', (value) => {
+    expect(() => resolve({ env: { LOUPE_GIT_LOCAL: value } })).toThrow(
+      new LoupeConfigError([`LOUPE_GIT_LOCAL must be one of "true", "false", "1", "0", got ${JSON.stringify(value)}`]),
+    );
   });
 });
 

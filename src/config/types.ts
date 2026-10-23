@@ -101,6 +101,14 @@ export interface LoupeConfig {
   };
   /** Secret redaction in report.json and index.html. `LOUPE_REDACT_ENV` adds variable names. */
   redact?: RedactConfig;
+  git?: {
+    /**
+     * Read commit, branch and remote from the local repository when Playwright
+     * and the CI variables do not give them. `LOUPE_GIT_LOCAL` overrides it.
+     * Default: `true`.
+     */
+    local?: boolean;
+  };
 }
 
 /** Inline reporter options: a config, plus the path of the config file. */
@@ -137,4 +145,5 @@ export interface ResolvedConfig {
   aiPrompt: { includeStack: boolean };
   /** RegExps without the `g` and `y` flags; `env` merged from every layer, without duplicates. */
   redact: { mode: RedactMode; patterns: Array<string | RegExp>; env: string[] };
+  git: { local: boolean };
 }

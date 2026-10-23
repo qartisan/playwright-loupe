@@ -38,6 +38,7 @@ describe('validateConfig: valid configs', () => {
         theme: 'system',
         aiPrompt: { includeStack: false },
         redact: { patterns: ['recovery code', /x-vercel-/i], mode: 'extend', env: ['API_TOKEN', 'E2E_PASSWORD'] },
+        git: { local: false },
       }),
     ).toEqual([]);
   });
@@ -53,7 +54,7 @@ describe('validateConfig: valid configs', () => {
   it('accepts configFile only in reporter options', () => {
     expect(validateConfig({ configFile: 'loupe.ci.ts' }, 'reporter options', { allowConfigFile: true })).toEqual([]);
     expect(validate({ configFile: 'loupe.ci.ts' })).toEqual([
-      `${SOURCE}: configFile is not a known option. Known options: outputFolder, title, environment, categories, dimensions, screenshots, theme, aiPrompt, redact.`,
+      `${SOURCE}: configFile is not a known option. Known options: outputFolder, title, environment, categories, dimensions, screenshots, theme, aiPrompt, redact, git.`,
     ]);
   });
 });
@@ -72,6 +73,9 @@ describe('validateConfig: errors name the source, the exact path and the expecte
     [{ aiPrompt: { includeStack: 'no' } }, 'aiPrompt.includeStack must be a boolean, got "no"'],
     [{ aiPrompt: true }, 'aiPrompt must be an object, got true'],
     [{ aiPrompt: { includeStacks: false } }, 'aiPrompt.includeStacks is not a known option. Did you mean "includeStack"?'],
+    [{ git: { local: 'false' } }, 'git.local must be a boolean, got "false"'],
+    [{ git: false }, 'git must be an object, got false'],
+    [{ git: { locale: false } }, 'git.locale is not a known option. Did you mean "local"?'],
     [{ categories: { mode: 'merge' } }, 'categories.mode must be one of "extend", "replace", got "merge"'],
     [{ categories: { rules: {} } }, 'categories.rules must be an array, got an object'],
     [{ categories: { uncategorized: '' } }, 'categories.uncategorized must be a non-empty string, got ""'],
@@ -211,7 +215,7 @@ describe('validateConfig: unknown keys', () => {
 
   it('lists the known options when nothing is close', () => {
     expect(validate({ history: {} })).toEqual([
-      `${SOURCE}: history is not a known option. Known options: outputFolder, title, environment, categories, dimensions, screenshots, theme, aiPrompt, redact.`,
+      `${SOURCE}: history is not a known option. Known options: outputFolder, title, environment, categories, dimensions, screenshots, theme, aiPrompt, redact, git.`,
     ]);
   });
 });

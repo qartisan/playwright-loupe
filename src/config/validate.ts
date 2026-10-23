@@ -274,6 +274,7 @@ export function validateConfig(value: unknown, source: string, options: { allowC
     theme: oneOf(THEMES, ctx),
     aiPrompt: object({ includeStack: boolean(ctx) }, ctx),
     redact: object({ patterns: namePatterns(ctx), mode: oneOf(REDACT_MODES, ctx), env: envNames(ctx) }, ctx),
+    git: object({ local: boolean(ctx) }, ctx),
   };
   if (options.allowConfigFile) fields['configFile'] = nonEmptyString(ctx);
   object(fields, ctx)(value, '', errors);

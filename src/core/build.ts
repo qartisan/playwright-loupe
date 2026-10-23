@@ -37,7 +37,7 @@ import {
 import { DEFAULT_CATEGORIES, createCategorizer, type CategoriesOptions, type ErrorText } from './categories.js';
 import { DEFAULT_DIMENSIONS, createDimensions, type DimensionsOptions } from './dimensions.js';
 import { computeTestId, relativePosix } from './identity.js';
-import { detectEnvironment, detectGit } from './metadata.js';
+import { detectEnvironment, detectGit, type LocalGitSource } from './metadata.js';
 import { collectOutput } from './output.js';
 import { esmImportLocation, isUsableLocation } from './runErrors.js';
 import { detectScopeReasons, resolveScope } from './scope.js';
@@ -62,6 +62,8 @@ export interface BuildOptions {
   runErrors?: ReadonlyArray<{ error: TestError; project: string | null }>;
   /** Secret redaction; default: the built-in names, no env values. */
   redact?: RedactOptions;
+  /** Local repository state, the last source of `run.git`; omitted when the local read is off (`git.local`). */
+  localGit?: LocalGitSource;
 }
 
 const OUTCOMES: Record<ReturnType<PwTestCase['outcome']>, Outcome> = {
@@ -408,7 +410,7 @@ export async function buildReport(
       workers: typeof actualWorkers === 'number' ? actualWorkers : config.workers,
       shard: config.shard ? { current: config.shard.current, total: config.shard.total } : null,
       environment: detectEnvironment(options.env, options.environmentName, process.platform, process.arch, process.version),
-      git: detectGit(config.metadata, options.env),
+      git: detectGit(config.metadata, options.env, options.localGit),
       excluded: null,
       notes: [],
       stats: runStats,

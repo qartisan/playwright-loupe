@@ -79,12 +79,32 @@ function githubRemote(env: Env): string | null {
   return server && repository ? `${server}/${repository}` : null;
 }
 
+/** What `readLocalGit()` found, and whether the report is written by `merge-reports`. */
+export interface LocalGitSource {
+  git: { commit: string | null; branch: string | null; remote: string | null };
+  merged: boolean;
+}
+
+/** Shortest commit prefix compared with a local hash: git's default abbreviation. */
+const MIN_COMMIT_PREFIX = 7;
+
+/** True when `commit` (full, or abbreviated as some CI variables are) names the local `HEAD`. */
+function isLocalHead(commit: string, localHead: string): boolean {
+  const prefix = commit.toLowerCase();
+  return prefix.length >= MIN_COMMIT_PREFIX && /^[0-9a-f]+$/.test(prefix) && localHead.toLowerCase().startsWith(prefix);
+}
+
 /**
  * Git info from Playwright's own metadata first (`metadata.gitCommit`, captured
  * when `captureGitInfo.commit` is on, by default in CI; `metadata.ci`), then
- * from common CI environment variables. Never shells out to git.
+ * from common CI environment variables, then from the local repository.
+ *
+ * Each field is filled independently, with two guards on local values: the
+ * local commit is only used when the run is not merged (`merge-reports` may run
+ * on another machine or checkout), and the local branch and remote only when
+ * the local `HEAD` is the commit of the report.
  */
-export function detectGit(metadata: Readonly<Record<string, unknown>>, env: Env): Run['git'] {
+export function detectGit(metadata: Readonly<Record<string, unknown>>, env: Env, local?: LocalGitSource): Run['git'] {
   const gitCommit = record(metadata['gitCommit']);
   const ciInfo = record(metadata['ci']);
   // A detached checkout reports the branch as "HEAD", which is not a branch.
@@ -123,7 +143,17 @@ export function detectGit(metadata: Readonly<Record<string, unknown>>, env: Env)
     env['BITBUCKET_GIT_HTTP_ORIGIN'],
     env['BUILDKITE_REPO'],
   );
-  return { commit, branch, remote: remote === null ? null : sanitizeRemote(remote) };
+  if (!local) return { commit, branch, remote: remote === null ? null : sanitizeRemote(remote) };
+
+  const localHead = local.git.commit;
+  const finalCommit = commit ?? (local.merged ? null : localHead);
+  const atLocalHead = finalCommit !== null && localHead !== null && isLocalHead(finalCommit, localHead);
+  const finalRemote = remote ?? (atLocalHead ? local.git.remote : null);
+  return {
+    commit: finalCommit,
+    branch: branch ?? (atLocalHead ? local.git.branch : null),
+    remote: finalRemote === null ? null : sanitizeRemote(finalRemote),
+  };
 }
 
 /** `name` comes from the config (`environment` option, overridden by `LOUPE_ENV`). */
