@@ -98,6 +98,7 @@ export function ShortcutsDialog({ open, onClose }: { open: boolean; onClose: () 
   return (
     <Dialog open={open} onClose={onClose} title="Keyboard shortcuts" class="shortcuts-dialog">
       <table class="shortcuts-table">
+        <caption class="visually-hidden">Keyboard shortcuts</caption>
         <thead>
           <tr>
             <th scope="col">Key</th>

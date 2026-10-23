@@ -645,6 +645,7 @@ export function DimensionWidget({ distribution }: { distribution: DimensionDistr
           Table
         </summary>
         <table class="data-table">
+          <caption class="visually-hidden">{definition.name}</caption>
           <thead>
             <tr>
               <th scope="col">Value</th>

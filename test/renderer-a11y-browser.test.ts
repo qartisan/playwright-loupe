@@ -342,6 +342,21 @@ describe('accessibility matrix (axe-core, file://)', { timeout: 60_000 }, () => 
       await page.close();
     });
 
+    it('names every data table by its caption, the title of its view, section, card or dialog', async () => {
+      const named = async (url: string, name: string, arrange?: (page: Page) => Promise<unknown>) => {
+        const page = await open(url);
+        await arrange?.(page);
+        const table = page.getByRole('table', { name, exact: true });
+        expect(await table.count(), name).toBe(1);
+        expect(await table.evaluate((element) => [element.getAttribute('aria-label'), element.getAttribute('aria-labelledby')])).toEqual([null, null]);
+        await page.close();
+      };
+      await named(`${urls.sample}#/tests`, 'Tests');
+      await named(`${urls.cascade}#/group/a1c0de000001`, 'Affected tests');
+      await named(`${urls.sample}#/health`, 'Layer', (page) => page.locator('[data-dimension="Layer"] details.dimension-table > summary').click());
+      await named(`${urls.sample}#/`, 'Keyboard shortcuts', (page) => page.getByRole('button', { name: 'Keyboard shortcuts' }).click());
+    });
+
     it('keeps one main landmark on the load error page', async () => {
       const file = path.join(workDir, 'unreadable.html');
       writeFileSync(file, injectSettings(injectData(readFileSync(RENDERER, 'utf8'), { schemaVersion: 99 }), DEFAULT_RENDERER_SETTINGS));
@@ -389,6 +404,83 @@ describe('accessibility matrix (axe-core, file://)', { timeout: 60_000 }, () => 
       expect(await outlineOf(page)).toBe('solid');
       for (let index = 0; index < 5; index++) await page.keyboard.press('ArrowRight');
       await expect.poll(() => snippet.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+      await page.close();
+    });
+  });
+
+  describe('hit areas of small targets (WCAG 2.5.8)', () => {
+    /**
+     * For up to `limit` visible targets matching `selector`, failures as text:
+     * - the hit area (the target's box, or its ::after box when larger) is at
+     *   least 24×24 px;
+     * - it overlaps no other interactive element nor its hit area;
+     * - points 1.5 px inside each edge of a 24×24 box centred on the target
+     *   hit it: the pseudo-element really takes the pointer beyond the
+     *   visible box. Not on the very edge: hit testing snaps to whole pixels,
+     *   and areas of neighbours 4 px apart touch exactly.
+     * - the pseudo-element is invisible.
+     */
+    const hitFailures = (page: Page, selector: string, limit = 40): Promise<string[]> =>
+      page.evaluate<string[]>(`(() => {
+        const failures = [];
+        const name = (element) => element.tagName.toLowerCase() + '.' + String(element.className).split(' ')[0] + ' "' + element.textContent.trim().slice(0, 20) + '"';
+        const hitBox = (element) => {
+          const box = element.getBoundingClientRect();
+          const after = getComputedStyle(element, '::after');
+          if (after.content === 'none' || after.position !== 'absolute') return box;
+          const left = box.left + element.clientLeft + parseFloat(after.left);
+          const top = box.top + element.clientTop + parseFloat(after.top);
+          const area = { left, top, right: left + parseFloat(after.width), bottom: top + parseFloat(after.height) };
+          return { left: Math.min(area.left, box.left), top: Math.min(area.top, box.top), right: Math.max(area.right, box.right), bottom: Math.max(area.bottom, box.bottom) };
+        };
+        // checkVisibility: the content of a closed <details> still has client rects.
+        const shown = (element) => element.checkVisibility() && !element.closest('.visually-hidden');
+        const all = [...document.querySelectorAll('a[href], button, summary, input, select, textarea, [tabindex="0"]')].filter(shown);
+        const targets = [...document.querySelectorAll(${JSON.stringify(selector)})].filter(shown).slice(0, ${limit});
+        if (targets.length === 0) return ['no target for ' + ${JSON.stringify(selector)}];
+        for (const target of targets) {
+          target.scrollIntoView({ block: 'center', inline: 'center' });
+          const area = hitBox(target);
+          const width = area.right - area.left;
+          const height = area.bottom - area.top;
+          if (width < 23.99 || height < 23.99) failures.push(name(target) + ': hit area ' + width.toFixed(2) + 'x' + height.toFixed(2));
+          for (const other of all) {
+            if (other === target || other.contains(target) || target.contains(other)) continue;
+            const box = hitBox(other);
+            const overlap = Math.min(area.right, box.right) - Math.max(area.left, box.left) > 0.01 && Math.min(area.bottom, box.bottom) - Math.max(area.top, box.top) > 0.01;
+            if (overlap) failures.push(name(target) + ': overlaps ' + name(other));
+          }
+          const box = target.getBoundingClientRect();
+          const x = box.left + box.width / 2;
+          const y = box.top + box.height / 2;
+          const dx = Math.max(box.width, 24) / 2 - 1.5;
+          const dy = Math.max(box.height, 24) / 2 - 1.5;
+          for (const [px, py] of [[x - dx, y], [x + dx, y], [x, y - dy], [x, y + dy]]) {
+            const hit = document.elementFromPoint(px, py);
+            if (!hit || !(hit === target || target.contains(hit))) failures.push(name(target) + ': ' + px.toFixed(1) + ',' + py.toFixed(1) + ' hits ' + (hit ? name(hit) : 'nothing'));
+          }
+          const after = getComputedStyle(target, '::after');
+          if (after.backgroundColor !== 'rgba(0, 0, 0, 0)' || after.borderTopStyle !== 'none' || after.content !== '""') failures.push(name(target) + ': visible hit area');
+        }
+        return failures;
+      })()`);
+
+    it.each([
+      ['tests: chips and +N, expanded', 'many', '#/tests', 1300, ['.test-chip', '.test-chip-more', '.sort-button', '.tree-toolbar .text-button']],
+      ['tests at 360px: chips and +N', 'many', '#/tests', 360, ['.test-chip', '.test-chip-more', '.sort-button']],
+      ['tests: active filters', 'sample', '#/tests?tag=%40smoke', 1300, ['.filter-chips .text-button', '.filter-indicator .text-button', '.test-chip-active']],
+      ['health: table disclosures', 'sample', '#/health', 1300, ['.dimension-table > summary']],
+      ['errors: run error stack', 'sample', '#/errors', 1300, ['.run-error summary']],
+      ['test: stack and text body', 'sample', `#/test/${FLAKY}?attempt=0`, 1300, ['.stack-details > summary', '.attachment-body > summary']],
+      ['test: output', 'sample', `#/test/${OUTPUT}`, 1300, ['.output-block > summary']],
+    ] as const)('%s', async (_, dataset, hash, width, selectors) => {
+      const page = await browser.newPage({ viewport: { width, height: 800 } });
+      await page.goto(`${urls[dataset]}${hash}`);
+      await page.locator('.main h1').first().waitFor();
+      if (dataset === 'many') await page.locator('.test-chip-more').first().click();
+      const failures: string[] = [];
+      for (const selector of selectors) failures.push(...(await hitFailures(page, selector)));
+      expect(failures).toEqual([]);
       await page.close();
     });
   });

@@ -1163,6 +1163,27 @@ pre.step-error { margin: 2px 0 6px 50px; font-weight: 400; }
 }
 
 /*
+ * Hit areas of at least 24×24 px around small chips, text buttons, sort
+ * buttons and text disclosures (WCAG 2.5.8), without changing how they look:
+ * an invisible pseudo-element, centred, as large as the target (its border
+ * included: 100% is the padding box) and at least 24 px each way. Neighbours
+ * are 4 px apart or more, so areas never overlap.
+ */
+:is(.test-chip, .test-chip-more, .text-button, .sort-button, .dimension-table > summary, .stack-details > summary, .attachment-body > summary, .output-block > summary, .run-error summary) {
+  position: relative;
+}
+:is(.test-chip, .test-chip-more, .text-button, .sort-button, .dimension-table > summary, .stack-details > summary, .attachment-body > summary, .output-block > summary, .run-error summary)::after {
+  content: '';
+  position: absolute;
+  /* Centred with insets, not a transform: a transform is snapped to whole pixels and can overlap a neighbour. */
+  top: calc(50% - max(50% + var(--hit-border, 0px), 12px));
+  left: calc(50% - max(50% + var(--hit-border, 0px), 12px));
+  width: max(calc(100% + 2 * var(--hit-border, 0px)), 24px);
+  height: max(calc(100% + 2 * var(--hit-border, 0px)), 24px);
+}
+.test-chip, .test-chip-more { --hit-border: 1px; }
+
+/*
  * Forced colours (Windows high contrast): backgrounds become the system
  * Canvas, so what only a background showed is lost. Bar segments and the
  * comparison divider keep their colours, outlined in CanvasText so

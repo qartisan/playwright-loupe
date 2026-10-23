@@ -74,6 +74,7 @@ export function GroupPage({ report, groups, group }: { report: LoupeReport; grou
       <pre class="message group-sample">{group.message}</pre>
       <h2>Affected tests</h2>
       <table class="affected-tests">
+        <caption class="visually-hidden">Affected tests</caption>
         <thead>
           <tr>
             <th scope="col">Test</th>

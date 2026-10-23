@@ -89,6 +89,7 @@ export function TestsPage({ report, state, sorted }: { report: LoupeReport; stat
       ) : (
         <div class="table-scroll">
           <table class="tests-table">
+            <caption class="visually-hidden">Tests</caption>
             <thead>
               <tr>
                 {COLUMNS.map(({ column, label, numeric }) => {
