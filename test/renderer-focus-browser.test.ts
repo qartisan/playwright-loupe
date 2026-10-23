@@ -495,4 +495,36 @@ describe('focus and title on view changes (file://)', { timeout: 30_000 }, () =>
       await page.close();
     });
   });
+
+  it('follows a zoom across the short-viewport threshold, both ways, in the same page', async () => {
+    const { page } = await open(`${urls.sample}#/health`, 1300, { height: 800 });
+    const mainScroll = (): Promise<number> => page.locator('.main').evaluate((main) => main.scrollTop);
+    const pageScroll = (): Promise<number> => page.evaluate<number>('window.scrollY');
+    // Tall: <main> scrolls, the keys are forwarded to it.
+    await page.keyboard.press('PageDown');
+    await expect.poll(mainScroll).toBeGreaterThan(0);
+    await page.keyboard.press('Home');
+    await expect.poll(mainScroll).toBe(0);
+    // Zoomed to 400 %: the page scrolls, the browser handles the keys.
+    await page.setViewportSize({ width: 320, height: 180 });
+    await page.keyboard.press('PageDown');
+    await expect.poll(pageScroll).toBeGreaterThan(0);
+    expect(await mainScroll()).toBe(0);
+    // The browser's smooth scroll must end first: a key pressed during it can be lost.
+    await expect
+      .poll(async () => {
+        const before = await pageScroll();
+        await settle(page);
+        return before === (await pageScroll());
+      })
+      .toBe(true);
+    await page.keyboard.press('Home');
+    await expect.poll(pageScroll).toBe(0);
+    // Back: <main> scrolls again.
+    await page.setViewportSize({ width: 1300, height: 800 });
+    await page.keyboard.press('PageDown');
+    await expect.poll(mainScroll).toBeGreaterThan(0);
+    expect(await pageScroll()).toBe(0);
+    await page.close();
+  });
 });

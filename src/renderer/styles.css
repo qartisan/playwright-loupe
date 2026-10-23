@@ -1064,6 +1064,8 @@ pre.step-error { margin: 2px 0 6px 50px; font-weight: 400; }
 .open-original { font-size: 12px; white-space: nowrap; }
 .video { margin: 0 0 12px; }
 .video video { display: block; width: 100%; max-width: 960px; border-radius: 6px; background: #000; }
+/* The player keeps its own controls: the ring goes on the element (Chromium draws none). */
+.video video:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
 .video figcaption { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; margin-top: 4px; }
 .dialog-actions { display: flex; flex: none; align-items: center; gap: 8px; }
 .dialog-head h2 { min-width: 0; overflow-wrap: anywhere; }
@@ -1158,4 +1160,38 @@ pre.step-error { margin: 2px 0 6px 50px; font-weight: 400; }
   .step-location { display: none; }
   pre.step-error { margin-left: 0; }
   .error-group-link { margin-left: 0; }
+}
+
+/*
+ * Forced colours (Windows high contrast): backgrounds become the system
+ * Canvas, so what only a background showed is lost. Bar segments and the
+ * comparison divider keep their colours, outlined in CanvasText so
+ * neighbours stay apart; pressed, selected and current states use the
+ * system Highlight; focus rings too.
+ */
+@media (forced-colors: active) {
+  .outcome-bar-part, .category-bar, .cmp-divider { forced-color-adjust: none; outline: 1px solid CanvasText; outline-offset: -1px; }
+  :is([aria-pressed='true'], .attempt-tab[aria-selected='true'], .test-chip-active, .nav-link[aria-current='page'], .tree-test[aria-selected='true']),
+  :is([aria-pressed='true'], .attempt-tab[aria-selected='true'], .test-chip-active, .nav-link[aria-current='page'], .tree-test[aria-selected='true']):hover {
+    /* Not adjusted: the text backplate (Canvas) would hide HighlightText. The values are system colours already. */
+    forced-color-adjust: none;
+    border-color: Highlight;
+    background: Highlight;
+    color: HighlightText;
+  }
+  /* Their text, icons and links (drawn in their own colours otherwise). */
+  :is([aria-pressed='true'], .attempt-tab[aria-selected='true'], .test-chip-active, .nav-link[aria-current='page'], .tree-test[aria-selected='true']) * { color: HighlightText; }
+  :focus-visible, .video video:focus-visible, .cmp-range:focus-visible + .cmp-divider { outline-color: Highlight; }
+}
+
+/* Reduced motion: no transition or animation anywhere, now or later, and instant scrolling (the JS checks the same query). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
 }

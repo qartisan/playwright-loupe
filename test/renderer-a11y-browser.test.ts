@@ -25,7 +25,8 @@ import { solidPng } from './helpers/png.js';
  *
  * Adding a state is one line in MATRIX: name, dataset, hash, and options:
  * `arrange` (what to do before the audit), `reached` (a selector present
- * once the state is shown), `width`, `height`, `init` (an init script).
+ * once the state is shown), `width`, `height`, `init` (an init script),
+ * `forcedColors`.
  */
 
 const RENDERER = path.join(ROOT, 'dist/renderer/index.html');
@@ -51,6 +52,8 @@ interface StateOptions {
   width?: number;
   height?: number;
   init?: string;
+  /** Chromium's emulation of Windows high contrast. */
+  forcedColors?: boolean;
 }
 
 type State = [name: string, dataset: Dataset, hash: string, options?: StateOptions];
@@ -123,6 +126,11 @@ const MATRIX: State[] = [
   ['dialog: keyboard shortcuts', 'sample', '#/', { arrange: click('[aria-keyshortcuts="?"]'), reached: 'dialog.shortcuts-dialog[open]' }],
   ['dialog: copy fallback', 'sample', `#/test/${FAILING}`, { init: NO_CLIPBOARD, arrange: clickText('button', 'Copy rerun command'), reached: 'dialog.copy-dialog[open]' }],
   ['not found', 'sample', '#/no/such/page'],
+  // Forced colours: bars kept, pressed and selected states in system colours.
+  ['forced colours: overview', 'sample', '#/', { forcedColors: true, reached: '.outcome-bar-part' }],
+  ['forced colours: tests with active chips', 'sample', '#/tests?tag=%40smoke', { forcedColors: true, reached: '.test-chip-active' }],
+  ['forced colours: flaky test, attempt tabs', 'sample', `#/test/${FLAKY}`, { forcedColors: true, reached: '[role="tab"]' }],
+  ['forced colours: comparison slider', 'sample', `#/test/${COMPARISON}`, { ...comparisonMode('Slider'), forcedColors: true, reached: '.cmp-range' }],
 ];
 
 /** A file at each attachment path of `report` that a viewer shows: PNGs and a recorded video. */
@@ -277,7 +285,11 @@ describe('accessibility matrix (axe-core, file://)', { timeout: 60_000 }, () => 
 
   describe.each(['light', 'dark'] as const)('%s theme', (theme) => {
     it.each(MATRIX)('%s', async (name, dataset, hash, options = {}) => {
-      const context = await browser.newContext({ colorScheme: theme, viewport: { width: options.width ?? 1300, height: options.height ?? 900 } });
+      const context = await browser.newContext({
+        colorScheme: theme,
+        forcedColors: options.forcedColors ? 'active' : 'none',
+        viewport: { width: options.width ?? 1300, height: options.height ?? 900 },
+      });
       if (options.init) await context.addInitScript({ content: options.init });
       const page = await context.newPage();
       const errors: string[] = [];
@@ -359,6 +371,13 @@ describe('accessibility matrix (axe-core, file://)', { timeout: 60_000 }, () => 
       // From there, the keyboard scrolls the content.
       await page.keyboard.press('PageDown');
       await expect.poll(() => page.locator('.main').evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+      await page.close();
+    });
+
+    it('reaches a video with Tab and shows the focus ring', async () => {
+      const page = await open(`${urls.sample}#/test/${COMPARISON}`);
+      expect(await tabTo(page, '.video video')).toBe(true);
+      expect(await outlineOf(page)).toBe('solid');
       await page.close();
     });
 
