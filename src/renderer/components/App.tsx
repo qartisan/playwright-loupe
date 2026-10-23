@@ -2,7 +2,7 @@ import { Fragment } from 'preact';
 import { useEffect, useMemo, useRef } from 'preact/hooks';
 import type { RendererSettings } from '../../core/inject.js';
 import type { LoupeReport, TestCase } from '../../schema/v1.js';
-import { announce, announcement } from '../clipboard.js';
+import { announce, announcement } from '../announce.js';
 import { isNarrow, pageScrolls, sidebarOpen } from '../layout.js';
 import { currentLocation, navigate, takeNavigationOrigin } from '../navigation.js';
 import type { Route } from '../router.js';
@@ -150,10 +150,9 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
         </main>
       </div>
       <CopyFallbackDialog />
-      {/* Always present, so changes are announced; a repeated message differs by a trailing no-break space. */}
+      {/* Always present, so changes are announced. */}
       <p class="visually-hidden" role="status" aria-live="polite">
-        {announcement.value.text}
-        {announcement.value.seq % 2 === 1 ? '\u00a0' : ''}
+        {announcement.value}
       </p>
     </div>
   );

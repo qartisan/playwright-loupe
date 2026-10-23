@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { chromium, type Browser, type Locator, type Page } from '@playwright/test';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DEFAULT_RENDERER_SETTINGS, injectData, injectSettings } from '../src/core/inject.js';
+import { ANNOUNCE_DELAY_MS } from '../src/renderer/announce.js';
 import type { LoupeReport } from '../src/schema/v1.js';
 import { cascadeReport } from './helpers/cascade.js';
 import { ROOT, assertBuilt, isMissingAttachmentFile } from './helpers/fixtures.js';
@@ -153,8 +154,11 @@ describe('focus and title on view changes (file://)', { timeout: 30_000 }, () =>
     await page.close();
   });
 
-  /** The text of the app's polite live region, without the no-break space that tells repeated messages apart. */
-  const announced = (page: Page): Promise<string> => page.evaluate<string>(`document.querySelector('.app > [role="status"]').textContent.replace(/\u00a0/g, '')`);
+  /** The text of the app's polite live region, once a message announced now has been written (ANNOUNCE_DELAY_MS). */
+  const announced = async (page: Page): Promise<string> => {
+    await page.waitForTimeout(ANNOUNCE_DELAY_MS + 100);
+    return page.evaluate<string>(`document.querySelector('.app > [role="status"]').textContent`);
+  };
 
   it.each([
     ['Enter', (page: Page) => page.keyboard.press('Enter')],

@@ -74,6 +74,11 @@ export function Dialog({
   );
 }
 
+/** A label inside a sentence: "Rerun command" becomes "rerun command", an acronym stays ("AI prompt"). */
+function inSentence(label: string): string {
+  return /^[A-Z]{2}/.test(label) ? label : label.charAt(0).toLowerCase() + label.slice(1);
+}
+
 /** Shown when the Clipboard API is unavailable: the text, selected, to copy by hand. */
 export function CopyFallbackDialog() {
   const current = copyFallback.value;
@@ -84,7 +89,7 @@ export function CopyFallbackDialog() {
     area.current?.select();
   }, [current]);
   return (
-    <Dialog open={current !== null} onClose={() => (copyFallback.value = null)} title={`Copy ${current?.label.toLowerCase() ?? ''}`} class="copy-dialog">
+    <Dialog open={current !== null} onClose={() => (copyFallback.value = null)} title={`Copy ${inSentence(current?.label ?? '')}`} class="copy-dialog">
       <p class="dialog-note">
         The browser did not allow copying from this page. The text is selected: press Ctrl+C (⌘C on macOS) to copy it.
       </p>

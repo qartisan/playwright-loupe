@@ -1,17 +1,11 @@
 import { signal } from '@preact/signals';
+import { announce } from './announce.js';
 
 /**
  * Copy to the clipboard, with a fallback: some browsers restrict the
  * Clipboard API on file://. When it is missing or refuses, a dialog shows the
  * text selected, for the viewer to copy by hand.
  */
-
-/** Text announced to screen readers by the app's live region; `seq` makes a repeated message distinct. */
-export const announcement = signal<{ text: string; seq: number }>({ text: '', seq: 0 });
-
-export function announce(text: string): void {
-  announcement.value = { text, seq: announcement.value.seq + 1 };
-}
 
 /** What the fallback dialog shows; null when it is closed. */
 export const copyFallback = signal<{ label: string; text: string } | null>(null);

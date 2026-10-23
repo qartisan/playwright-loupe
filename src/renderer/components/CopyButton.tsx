@@ -45,7 +45,8 @@ export function CopyButton({
       >
         {copied ? <CheckIcon /> : <CopyIcon />}
         <span>{children}</span>
-        {copied && <span class="copy-done"> · Copied</span>}
+        {/* Hidden from assistive technologies: the live region announces the copy, and a change of the focused button's name would be read too. */}
+        {copied && <span class="copy-done" aria-hidden="true"> · Copied</span>}
       </button>
       {help && (
         <span id={helpId} hidden>

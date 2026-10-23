@@ -29,6 +29,22 @@ const CLIPBOARD_STUB = `
 `;
 /** A browser without the Clipboard API (some restrict it on file://). */
 const NO_CLIPBOARD = "Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });";
+/** A browser that refuses the Clipboard API. */
+const CLIPBOARD_REFUSED = `
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText: () => Promise.reject(new DOMException('Write permission denied.', 'NotAllowedError')) },
+  });
+`;
+/** Records every text the app's live region takes, in order, in `window.__announced`. */
+const ANNOUNCEMENTS = `
+  window.__announced = [];
+  window.__region = '';
+  new MutationObserver(() => {
+    const region = document.querySelector('.app > [role="status"]');
+    if (region && region.textContent !== window.__region) window.__announced.push((window.__region = region.textContent));
+  }).observe(document, { subtree: true, childList: true, characterData: true });
+`;
 
 describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
   let browser: Browser;
@@ -245,8 +261,9 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     await button.click();
     await expect.poll(copied).toEqual([`npx playwright test ${failing.file}:${failing.line} --project=chromium-a`]);
     await expect.poll(() => page.getByRole('status').textContent()).toContain('Rerun command copied to the clipboard.');
-    // Its name now says so too: located by position.
+    // It says so on screen, its accessible name unchanged: the live region is what announces the copy.
     expect(await page.locator('.test-actions .copy-button').first().textContent()).toBe('Copy rerun command · Copied');
+    expect(await button.isVisible()).toBe(true);
 
     // Its file has no other failed line: the same test failing in the other project does not count.
     expect(await page.getByRole('button', { name: /failed tests? in this file/ }).count()).toBe(0);
@@ -257,6 +274,41 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     const prompt = (await copied())[1] ?? '';
     expect(prompt).toContain('Expected: "Wrong heading"');
     expect(prompt).toContain('Stack:');
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('announces each copy once, with its outcome, and keeps the button name', async () => {
+    const failing = find('fails on a wrong heading (intentional)');
+    const message = 'AI prompt copied to the clipboard.';
+    const { page, errors } = await open(testHash(failing), { init: CLIPBOARD_STUB + ANNOUNCEMENTS });
+    const announced = () => page.evaluate<string[]>('window.__announced');
+    const prompt = page.getByRole('button', { name: 'Copy AI prompt', exact: true });
+    await prompt.click();
+    await expect.poll(announced).toEqual([message]);
+    // "· Copied" is shown, not part of the name: a change of the focused button's name is read by screen readers.
+    expect(await page.locator('.copy-done').isVisible()).toBe(true);
+    expect(await prompt.isVisible()).toBe(true);
+    // The same copy again: the region is emptied, then the message written again.
+    await prompt.click();
+    await expect.poll(announced).toEqual([message, '', message]);
+    // Another copy: cleared first too, so its whole message is new text.
+    await page.getByRole('button', { name: 'Copy rerun command', exact: true }).click();
+    await expect.poll(announced).toEqual([message, '', message, '', 'Rerun command copied to the clipboard.']);
+    await page.waitForTimeout(300);
+    expect(await announced()).toHaveLength(5);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('announces nothing when the Clipboard API refuses: the fallback dialog opens instead', async () => {
+    const failing = find('fails on a wrong heading (intentional)');
+    const { page, errors } = await open(testHash(failing), { init: CLIPBOARD_REFUSED + ANNOUNCEMENTS });
+    await page.getByRole('button', { name: 'Copy AI prompt' }).click();
+    // The acronym keeps its case in the title.
+    await page.getByRole('dialog', { name: 'Copy AI prompt' }).waitFor();
+    await page.waitForTimeout(300);
+    expect(await page.evaluate<string[]>('window.__announced')).toEqual([]);
     expect(errors).toEqual([]);
     await page.close();
   });
