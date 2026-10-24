@@ -108,11 +108,12 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     if (workDir) rmSync(workDir, { recursive: true, force: true });
   });
 
-  it('renders the header, the partial run banner and the sidebar', async () => {
+  it('renders the header, the partial run pill and the sidebar', async () => {
     const { page, errors } = await open(writeReport('sample', report, { ...DEFAULT_RENDERER_SETTINGS, title: 'Sample run' }));
     await expect.poll(() => page.title()).toBe('Overview · Sample run');
     expect(await page.locator('.header .title').textContent()).toBe('Sample run');
-    expect(await page.getByRole('note').textContent()).toMatch(/Partial run.*grep filter/);
+    expect(await page.getByRole('link', { name: 'Partial: grep filter. Show details in Run details' }).innerText()).toBe('Partial: grep filter');
+    expect(await page.locator('.banner, [role="note"]').count()).toBe(0);
     const nav = page.locator('.nav-fixed .nav-link');
     expect(await nav.locator('span:not(.visually-hidden):not(.badge):not(.nav-marker)').allTextContents()).toEqual(['Overview', 'Errors', 'Suite health', 'Tests']);
     expect(await page.getByRole('link', { name: /Run errors/ }).count()).toBe(0);
@@ -228,7 +229,8 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     const empty = { ...report, tests: [], run: { ...report.run, scope: 'full', scopeReasons: [] } };
     const { page, errors } = await open(writeReport('empty', empty));
     await page.getByText('No tests in this run.').waitFor();
-    expect(await page.getByRole('note').count()).toBe(0);
+    // A full run: no partial run pill.
+    expect(await page.locator('.scope-pill').count()).toBe(0);
     await page.getByRole('link', { name: /^Errors/ }).click();
     await page.locator('.run-error').first().waitFor();
     expect(await page.locator('.run-error').count()).toBe(report.run.errors.length);

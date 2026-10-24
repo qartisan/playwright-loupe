@@ -56,6 +56,17 @@ export function scopeText(scope: LoupeReport['run']['scope'], reasons: readonly 
   return reasons.length > 0 ? `Partial run: ${reasons.map(scopeReasonLabel).join(', ')}` : 'Partial run';
 }
 
+/**
+ * The header pill of a partial run, from the same labels as `scopeText`: the
+ * first reason, then how many others (`Partial: grep filter +2`). `short` is
+ * what narrow headers show. The full list is in Run details.
+ */
+export function partialPillText(reasons: readonly string[]): { full: string; short: string } {
+  const [first, ...others] = reasons;
+  if (first === undefined) return { full: 'Partial', short: 'Partial' };
+  return { full: `Partial: ${scopeReasonLabel(first)}${others.length > 0 ? ` +${others.length}` : ''}`, short: 'Partial' };
+}
+
 export function ciText(ci: boolean, provider: string | null): string {
   if (!ci) return 'No';
   const id = present(provider);

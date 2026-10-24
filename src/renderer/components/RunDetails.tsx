@@ -10,9 +10,20 @@ import { Widget } from './widgets.js';
  * which would need provider-specific URL rules. The header keeps the start
  * date and the environment, so they are not repeated here.
  */
+const HEADING_ID = 'w-run-details';
+
+/** Scrolls to the Run details and focuses its heading: the target of the partial run pill (`#/run-details`). */
+export function focusRunDetails(): void {
+  const heading = document.getElementById(HEADING_ID);
+  if (!heading) return;
+  heading.tabIndex = -1;
+  heading.scrollIntoView({ block: 'start' });
+  heading.focus({ preventScroll: true });
+}
+
 export function RunDetails({ report }: { report: Pick<LoupeReport, 'run' | 'generator'> }) {
   return (
-    <Widget id="w-run-details" class="widget-run-details" title="Run details">
+    <Widget id={HEADING_ID} class="widget-run-details" title="Run details">
       <div class="run-details">
         {runDetails(report).map(({ title, rows }) => (
           <div key={title} class="run-details-group">

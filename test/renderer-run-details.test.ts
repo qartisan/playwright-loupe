@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ciText, runDetails, scopeText, shardText } from '../src/renderer/runDetails.js';
+import { SCOPE_REASONS } from '../src/core/scope.js';
+import { ciText, partialPillText, runDetails, scopeText, shardText } from '../src/renderer/runDetails.js';
 import type { LoupeReport } from '../src/schema/v1.js';
 
 type RunPart = Pick<LoupeReport, 'run' | 'generator'>;
@@ -65,6 +66,37 @@ describe('scopeText', () => {
     expect(scopeText('partial', [])).toBe('Partial run');
     expect(scopeText('partial', ['grep', 'project-filter'])).toBe('Partial run: grep filter, project filter');
     expect(scopeText('partial', ['something-new'])).toBe('Partial run: something-new');
+  });
+});
+
+describe('partialPillText', () => {
+  it.each([
+    ['env', 'Partial: LOUPE_RUN_SCOPE=partial'],
+    ['file-filter', 'Partial: file filter'],
+    ['grep', 'Partial: grep filter'],
+    ['project-filter', 'Partial: project filter'],
+    ['last-failed', 'Partial: --last-failed'],
+    ['only-changed', 'Partial: --only-changed'],
+    ['test-list', 'Partial: test list'],
+    ['only', 'Partial: test.only'],
+    ['shard', 'Partial: single shard'],
+    ['list', 'Partial: --list (no test ran)'],
+  ])('names the reason %s', (reason, text) => {
+    expect(partialPillText([reason])).toEqual({ full: text, short: 'Partial' });
+  });
+
+  it('covers every reason the core detects', () => {
+    for (const reason of SCOPE_REASONS) expect(partialPillText([reason]).full).not.toBe(`Partial: ${reason}`);
+  });
+
+  it('names the first reason and counts the others, with the labels of Run details', () => {
+    expect(partialPillText(['grep', 'project-filter', 'shard']).full).toBe('Partial: grep filter +2');
+    expect(scopeText('partial', ['grep', 'project-filter', 'shard'])).toContain('grep filter');
+  });
+
+  it('shows unknown reasons as is, and no reason as Partial alone', () => {
+    expect(partialPillText(['something-new']).full).toBe('Partial: something-new');
+    expect(partialPillText([])).toEqual({ full: 'Partial', short: 'Partial' });
   });
 });
 

@@ -67,7 +67,8 @@ const comparisonMode = (label: string): StateOptions => ({ arrange: clickText('.
 
 const MATRIX: State[] = [
   // Overview
-  ['overview: failure points card, run errors, partial run, run details', 'sample', '#/', { reached: '.widget-failure-points' }],
+  ['overview: failure points card, run errors, run details', 'sample', '#/', { reached: '.widget-failure-points' }],
+  ['overview opened on the run details, from the partial run pill', 'sample', '#/run-details', { reached: '#w-run-details:focus' }],
   ['overview: without the failure points card', 'noPoints', '#/', { arrange: async (page) => expect(await page.locator('.widget-failure-points').count()).toBe(0) }],
   ['overview: cascade', 'cascade', '#/', { reached: '.widget-failure-points' }],
   ['overview: sidebar collapsed', 'sample', '#/', { arrange: click('[aria-controls="sidebar"]'), reached: '#sidebar[hidden]' }],
@@ -335,8 +336,9 @@ describe('accessibility matrix (axe-core, file://)', { timeout: 60_000 }, () => 
     it('has one banner, one main and the sidebar navigation', async () => {
       const page = await open(`${urls.sample}#/`);
       expect(await page.getByRole('banner').count()).toBe(1);
-      // The header and the partial run note.
-      expect(await page.getByRole('banner').locator('.header, .banner-partial').count()).toBe(2);
+      // The header alone: the partial run pill is inside it, there is no banner.
+      expect(await page.getByRole('banner').locator(':scope > *').count()).toBe(1);
+      expect(await page.locator('.banner, .banner-partial, [role="note"]').count()).toBe(0);
       expect(await page.getByRole('main').count()).toBe(1);
       expect(await page.getByRole('navigation', { name: 'Report' }).count()).toBe(1);
       await page.close();
@@ -462,6 +464,28 @@ describe('accessibility matrix (axe-core, file://)', { timeout: 60_000 }, () => 
       await page.close();
     });
 
+    it('reaches the partial run pill with Tab, after the status, and moves focus to Run details', async () => {
+      const page = await open(`${urls.sample}#/tests`);
+      expect(await tabTo(page, '.scope-pill')).toBe(true);
+      expect(await outlineOf(page)).toBe('solid');
+      expect(await page.evaluate<string>('getComputedStyle(document.activeElement).textDecorationLine')).toBe('underline');
+      // Label in name (WCAG 2.5.3): the name starts with the visible text.
+      const pill = page.locator('.scope-pill');
+      const visible = await pill.innerText();
+      expect(await pill.getAttribute('aria-label')).toBe(`${visible}. Show details in Run details`);
+      await page.keyboard.press('Enter');
+      await expect.poll(() => page.evaluate<string>('document.activeElement.id')).toBe('w-run-details');
+      expect(await page.evaluate<string>('location.hash')).toBe('#/run-details');
+      // The keyboard continues from there: Shift+Tab reaches the content just before it, not the header.
+      await page.keyboard.press('Shift+Tab');
+      expect(
+        await page.evaluate<boolean>(
+          'document.querySelector("main").contains(document.activeElement) && !!(document.activeElement.compareDocumentPosition(document.getElementById("w-run-details")) & Node.DOCUMENT_POSITION_FOLLOWING)',
+        ),
+      ).toBe(true);
+      await page.close();
+    });
+
     it('reaches a video with Tab and shows the focus ring', async () => {
       const page = await open(`${urls.sample}#/test/${COMPARISON}`);
       expect(await tabTo(page, '.video video')).toBe(true);
@@ -542,6 +566,8 @@ describe('accessibility matrix (axe-core, file://)', { timeout: 60_000 }, () => 
       ['tests: chips and +N, expanded', 'many', '#/tests', 1300, ['.test-chip', '.test-chip-more', '.sort-button', '.tree-toolbar .text-button']],
       ['tests at 360px: chips and +N', 'many', '#/tests', 360, ['.test-chip', '.test-chip-more', '.sort-button']],
       ['tests: active filters', 'sample', '#/tests?tag=%40smoke', 1300, ['.filter-chips .text-button', '.filter-indicator .text-button', '.test-chip-active']],
+      ['header: partial run pill', 'sample', '#/', 1300, ['.scope-pill']],
+      ['header at 360px: partial run pill', 'sample', '#/', 360, ['.scope-pill']],
       ['health: table disclosures', 'sample', '#/health', 1300, ['.dimension-table > summary']],
       ['errors: run error stack', 'sample', '#/errors', 1300, ['.run-error summary']],
       ['test: stack and text body', 'sample', `#/test/${FLAKY}?attempt=0`, 1300, ['.stack-details > summary', '.attachment-body > summary']],

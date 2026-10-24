@@ -635,6 +635,8 @@ describe('focus and title on view changes (file://)', { timeout: 30_000 }, () =>
 
     it('skips to the content: the heading scrolls into view', async () => {
       const { page } = await open(`${urls.sample}#/health`, width, { height });
+      // Scrolled to the end, the heading out of view: the header alone no longer hides it.
+      await page.evaluate('window.scrollTo(0, document.scrollingElement.scrollHeight)');
       expect(await inViewport(heading(page))).toBe(false);
       await page.keyboard.press('Tab');
       await page.keyboard.press('Enter');

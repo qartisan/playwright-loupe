@@ -15,6 +15,10 @@ describe('parseHash', () => {
     expect(parseHash('#/errors/category/Locator%20not%20found').route).toEqual({ page: 'errors', category: 'Locator not found' });
   });
 
+  it('reads the overview scrolled to its run details', () => {
+    expect(parseHash('#/run-details').route).toEqual({ page: 'dashboard', section: 'run-details' });
+  });
+
   it('reads the former run errors path as the errors view', () => {
     expect(parseHash('#/run-errors').route).toEqual({ page: 'errors' });
   });
@@ -35,7 +39,7 @@ describe('parseHash', () => {
     expect(parseHash('#/test/a%2Fb%20c').route).toEqual({ page: 'test', id: 'a/b c', repeatEachIndex: 0 });
   });
 
-  it.each(['#/nope', '#/test', '#/test/abc/repeat', '#/test/abc/repeat/-1', '#/test/abc/repeat/01', '#/test/abc/repeat/x', '#/test/abc/extra', '#/run-errors/x', '#/errors/x', '#/errors/category', '#/errors/category/a/b', '#/constructor', '#/toString', '#/group', '#/group/abc/extra', '#/test/%E0%A4%A'])(
+  it.each(['#/nope', '#/test', '#/test/abc/repeat', '#/test/abc/repeat/-1', '#/test/abc/repeat/01', '#/test/abc/repeat/x', '#/test/abc/extra', '#/run-errors/x', '#/run-details/x', '#/errors/x', '#/errors/category', '#/errors/category/a/b', '#/constructor', '#/toString', '#/group', '#/group/abc/extra', '#/test/%E0%A4%A'])(
     'reads %j as not found',
     (hash) => {
       expect(parseHash(hash).route.page).toBe('not-found');
@@ -61,6 +65,7 @@ describe('formatHash', () => {
     expect(formatHash({ route: { page: 'errors' }, search: '' })).toBe('#/errors');
     expect(formatHash({ route: { page: 'health' }, search: '' })).toBe('#/health');
     expect(formatHash({ route: { page: 'errors', category: 'Server error' }, search: '' })).toBe('#/errors/category/Server%20error');
+    expect(formatHash({ route: { page: 'dashboard', section: 'run-details' }, search: 'status=failed' })).toBe('#/run-details?status=failed');
     expect(formatHash({ route: { page: 'test', id: 'abc', repeatEachIndex: 0 }, search: '' })).toBe('#/test/abc');
     expect(formatHash({ route: { page: 'test', id: 'abc', repeatEachIndex: 2 }, search: '' })).toBe('#/test/abc/repeat/2');
     expect(formatHash({ route: { page: 'group', signature: '3f2a9c0d1e4b' }, search: '' })).toBe('#/group/3f2a9c0d1e4b');

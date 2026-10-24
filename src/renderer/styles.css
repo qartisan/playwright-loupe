@@ -198,6 +198,8 @@ h1, h2, h3, strong, b { font-weight: 600; }
 .header-main { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; min-width: 0; min-height: 30px; }
 .header-identity { display: flex; align-items: center; gap: 8px 12px; min-width: 0; }
 .header-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
+/* The suite name shrinks, never the sidebar toggle. */
+.header-name > .icon-button { flex: none; }
 .header-identity .run-status { flex: none; }
 /* Very narrow: the verdict goes under the name rather than squeezing it out. */
 @media (max-width: 440px) {
@@ -228,6 +230,28 @@ h1, h2, h3, strong, b { font-weight: 600; }
 }
 .run-passed { color: var(--status-passed); }
 .run-failed, .run-timedout, .run-interrupted { color: var(--status-failed); }
+
+/* Partial run: informational, not a warning. A link to Run details. The transparent border shows in forced colours. */
+.scope-pill {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--bg-muted);
+  color: var(--fg-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.scope-pill:hover, .scope-pill:focus-visible { text-decoration: underline; }
+.scope-pill-short { display: none; }
+@media (max-width: 440px) {
+  .scope-pill-full { display: none; }
+  .scope-pill-short { display: inline; }
+}
 
 .counts { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 0; margin: 0; list-style: none; }
 .count { display: flex; align-items: center; gap: 4px; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -302,19 +326,6 @@ h1, h2, h3, strong, b { font-weight: 600; }
   cursor: pointer;
 }
 .text-button:hover { background: var(--bg-card); color: var(--fg); }
-
-/* Partial run banner */
-.banner {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--border);
-  background: var(--status-flaky-bg);
-  color: var(--status-flaky);
-}
-.banner .icon { margin-top: 2px; }
-.banner p { margin: 0; }
 
 /* Status icons: the shape differs per status, never the color alone. */
 .outcome-icon { display: inline-flex; align-items: center; gap: 6px; }
@@ -1185,16 +1196,16 @@ pre.step-error { margin: 2px 0 6px 50px; font-weight: 400; }
 }
 
 /*
- * Hit areas of at least 24×24 px around small chips, text buttons, sort
+ * Hit areas of at least 24×24 px around the partial run pill, small chips, text buttons, sort
  * buttons and text disclosures (WCAG 2.5.8), without changing how they look:
  * an invisible pseudo-element, centred, as large as the target (its border
  * included: 100% is the padding box) and at least 24 px each way. Neighbours
  * are 4 px apart or more, so areas never overlap.
  */
-:is(.test-chip, .test-chip-more, .text-button, .sort-button, .dimension-table > summary, .stack-details > summary, .attachment-body > summary, .output-block > summary, .run-error summary) {
+:is(.scope-pill, .test-chip, .test-chip-more, .text-button, .sort-button, .dimension-table > summary, .stack-details > summary, .attachment-body > summary, .output-block > summary, .run-error summary) {
   position: relative;
 }
-:is(.test-chip, .test-chip-more, .text-button, .sort-button, .dimension-table > summary, .stack-details > summary, .attachment-body > summary, .output-block > summary, .run-error summary)::after {
+:is(.scope-pill, .test-chip, .test-chip-more, .text-button, .sort-button, .dimension-table > summary, .stack-details > summary, .attachment-body > summary, .output-block > summary, .run-error summary)::after {
   content: '';
   position: absolute;
   /* Centred with insets, not a transform: a transform is snapped to whole pixels and can overlap a neighbour. */
@@ -1203,7 +1214,7 @@ pre.step-error { margin: 2px 0 6px 50px; font-weight: 400; }
   width: max(calc(100% + 2 * var(--hit-border, 0px)), 24px);
   height: max(calc(100% + 2 * var(--hit-border, 0px)), 24px);
 }
-.test-chip, .test-chip-more { --hit-border: 1px; }
+.scope-pill, .test-chip, .test-chip-more { --hit-border: 1px; }
 
 /*
  * Forced colours (Windows high contrast): backgrounds become the system

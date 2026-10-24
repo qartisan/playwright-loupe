@@ -6,12 +6,13 @@ import { filtersHref } from '../filters/store.js';
 import { EMPTY_FILTERS } from '../filters/url.js';
 import { formatDuration } from '../format.js';
 import { sidebarOpen, toggleSidebar } from '../layout.js';
-import { hrefTo } from '../navigation.js';
-import { scopeReasonLabel } from '../runDetails.js';
+import { currentLocation, hrefTo } from '../navigation.js';
+import { partialPillText } from '../runDetails.js';
 import { singleKeyHint, useShortcuts } from '../shortcuts.js';
 import { THEME_CHOICES, setTheme, theme, type ThemeChoice } from '../theme.js';
 import { ShortcutsDialog } from './Dialog.js';
-import { AlertIcon, KeyboardIcon, MoonIcon, OutcomeIcon, SidebarIcon, SunIcon, SystemIcon, outcomeLabel } from './icons.js';
+import { focusRunDetails } from './RunDetails.js';
+import { KeyboardIcon, MoonIcon, OutcomeIcon, SidebarIcon, SunIcon, SystemIcon, outcomeLabel } from './icons.js';
 
 const RUN_STATUS_LABELS: Record<RunStatus, string> = {
   passed: 'Passed',
@@ -135,6 +136,29 @@ function CountLink({ outcome, count }: { outcome: Outcome; count: number }) {
 }
 
 /**
+ * A partial run, next to the status: a link to the Run details of the
+ * Overview, which receives focus and holds every reason. Narrow headers show
+ * "Partial" alone. The name starts with the visible text (WCAG 2.5.3).
+ */
+function PartialPill({ reasons }: { reasons: readonly string[] }) {
+  const text = partialPillText(reasons);
+  const { route } = currentLocation.value;
+  // Already there: no route change follows, so focus moves here.
+  const here = route.page === 'dashboard' && route.section === 'run-details';
+  return (
+    <a
+      class="scope-pill"
+      href={hrefTo({ page: 'dashboard', section: 'run-details' })}
+      aria-label={`${text.full}. Show details in Run details`}
+      onClick={() => here && focusRunDetails()}
+    >
+      <span class="scope-pill-full">{text.full}</span>
+      <span class="scope-pill-short">{text.short}</span>
+    </a>
+  );
+}
+
+/**
  * Two columns: the run on the left, which wraps, and the controls on the
  * right, always top-right. The left column has three groups that wrap as
  * units, in order: identity and verdict, status counts, start and
@@ -143,7 +167,6 @@ function CountLink({ outcome, count }: { outcome: Outcome; count: number }) {
 export function Header({ report, title }: { report: LoupeReport; title: string }) {
   const { run } = report;
 
-  // One banner landmark for the header and the partial run note, which applies to every view.
   return (
     <header class="masthead">
       <div class="header">
@@ -172,6 +195,7 @@ export function Header({ report, title }: { report: LoupeReport; title: string }
               <OutcomeIcon outcome={run.status === 'passed' ? 'passed' : 'failed'} decorative />
               {RUN_STATUS_LABELS[run.status] ?? run.status}
             </span>
+            {run.scope === 'partial' && <PartialPill reasons={run.scopeReasons} />}
           </div>
           <ul class="counts" aria-label="Test counts">
             {OUTCOMES.map((outcome) => (
@@ -193,20 +217,6 @@ export function Header({ report, title }: { report: LoupeReport; title: string }
           <ThemeSwitch />
         </div>
       </div>
-      {run.scope === 'partial' && (
-        <div class="banner banner-partial" role="note">
-          <AlertIcon />
-          <p>
-            <strong>Partial run.</strong> Only part of the suite ran, so these results do not cover every test.
-            {run.scopeReasons.length > 0 && (
-              <>
-                {' '}
-                Detected from: {run.scopeReasons.map(scopeReasonLabel).join(', ')}.
-              </>
-            )}
-          </p>
-        </div>
-      )}
     </header>
   );
 }

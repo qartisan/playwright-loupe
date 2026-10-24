@@ -13,6 +13,8 @@ describe('isPageChange', () => {
     ['another view', '#/', '#/tests'],
     ['the errors view to a category', '#/errors', '#/errors/category/Timeout'],
     ['another category', '#/errors/category/Timeout', '#/errors/category/Network'],
+    ['the overview to its run details', '#/', '#/run-details'],
+    ['the run details from another view', '#/tests', '#/run-details'],
     ['a test from the tests view', '#/tests?status=failed', '#/test/abc?status=failed'],
     ['another test (j / k)', '#/test/abc', '#/test/def'],
     ['another repeat of the same test', '#/test/abc', '#/test/abc/repeat/1'],
@@ -38,7 +40,7 @@ describe('isPageChange', () => {
 });
 
 describe('focusesHeading and announcesPage', () => {
-  const other: ChangeContext = { origin: 'other', narrow: false, categoryFocused: false };
+  const other: ChangeContext = { origin: 'other', narrow: false, sectionFocused: false };
   const sidebar: ChangeContext = { ...other, origin: 'sidebar' };
   const effects = (from: string | null, to: string, context: ChangeContext) => ({
     focus: focusesHeading(from === null ? null : route(from), route(to), context),
@@ -75,9 +77,10 @@ describe('focusesHeading and announcesPage', () => {
     }
   });
 
-  it('keeps focus on the category the errors view was opened on', () => {
-    expect(effects('#/', '#/errors/category/Timeout', { ...other, categoryFocused: true })).toEqual({ focus: false, announce: false });
+  it('keeps focus on the section the page was opened on', () => {
+    expect(effects('#/', '#/errors/category/Timeout', { ...other, sectionFocused: true })).toEqual({ focus: false, announce: false });
     expect(effects('#/', '#/errors/category/Unknown', other)).toEqual({ focus: true, announce: false });
+    expect(effects('#/tests', '#/run-details', { ...other, sectionFocused: true })).toEqual({ focus: false, announce: false });
   });
 });
 
@@ -99,6 +102,7 @@ describe('pageTitle', () => {
 
   it.each([
     ['#/', 'Overview · Storefront'],
+    ['#/run-details', 'Overview · Storefront'],
     ['#/errors', 'Errors · Storefront'],
     ['#/errors/category/Locator%20not%20found', 'Locator not found · Storefront'],
     ['#/health', 'Suite health · Storefront'],

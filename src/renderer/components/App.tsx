@@ -64,9 +64,10 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
 
   // A new page starts at the top, like a page load.
   const routeKey = pageKey(route);
+  const opensSection = (route.page === 'errors' && route.category !== undefined) || (route.page === 'dashboard' && route.section !== undefined);
   useEffect(() => {
-    // Except a link to a category: the errors view scrolls to it.
-    if (!(route.page === 'errors' && route.category !== undefined)) {
+    // Except a link to a section (a category, the run details): the page scrolls to it.
+    if (!opensSection) {
       main.current?.scrollTo(0, 0);
       // On short screens the page scrolls, not <main>.
       if (pageScrolls()) window.scrollTo(0, 0);
@@ -76,11 +77,11 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
     document.title = pageTitle(route, report.tests, settings.title);
     // Another page, not the first load (viewChange.ts): started in the visible sidebar, focus stays there and the
     // page name is announced; otherwise focus moves to the page's heading, which is announced, and the keyboard
-    // continues from there. This effect runs after the page's own: the errors view has already focused its category.
+    // continues from there. This effect runs after the page's own: a page opened on a section has already focused it.
     const context: ChangeContext = {
       origin: takeNavigationOrigin(),
       narrow: isNarrow(),
-      categoryFocused: route.page === 'errors' && route.category !== undefined && main.current?.contains(document.activeElement) === true,
+      sectionFocused: opensSection && main.current?.contains(document.activeElement) === true,
     };
     const previous = previousRoute.current;
     previousRoute.current = route;
@@ -105,7 +106,7 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
   let page;
   switch (route.page) {
     case 'dashboard':
-      page = <OverviewPage report={report} groups={groups} matched={sorted} />;
+      page = <OverviewPage report={report} groups={groups} matched={sorted} section={route.section} />;
       break;
     case 'errors':
       page = <ErrorsPage report={report} groups={groups} category={route.category} />;

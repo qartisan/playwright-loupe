@@ -4,7 +4,7 @@ import type { Route } from './router.js';
 /**
  * What a route change means for focus and the page title. A page is a route
  * without its query: a view, a test, an error group, a category of the errors
- * view. The query holds state inside a page (filters, search, sort, attempt,
+ * view, the run details of the Overview. The query holds state inside a page (filters, search, sort, attempt,
  * steps), so changing it is never a page change.
  *
  * Pure functions, no DOM: unit-tested in Node.
@@ -13,6 +13,8 @@ import type { Route } from './router.js';
 /** Identity of the page a route shows. */
 export function pageKey(route: Route): string {
   switch (route.page) {
+    case 'dashboard':
+      return route.section === undefined ? 'dashboard' : `dashboard/${route.section}`;
     case 'errors':
       return route.category === undefined ? 'errors' : `errors/category/${route.category}`;
     case 'test':
@@ -47,8 +49,11 @@ export interface ChangeContext {
   origin: NavigationOrigin;
   /** The sidebar is an overlay, closed once a page is chosen. */
   narrow: boolean;
-  /** The errors view, opened on a category, has focused that category. */
-  categoryFocused: boolean;
+  /**
+   * The page, opened on a section (a category of the errors view, the run
+   * details of the Overview), has focused that section.
+   */
+  sectionFocused: boolean;
 }
 
 /** A change started in the sidebar, which stays visible: focus stays where it is, in the sidebar. */
@@ -60,11 +65,11 @@ function staysInSidebar(context: ChangeContext): boolean {
  * Whether focus moves to the new page's heading. Only on a page change, and
  * not when focus is already where the user continues: in the sidebar, when
  * the change started there and it stays visible (its links and tree can
- * still be browsed), or on the category the errors view was opened on.
+ * still be browsed), or on the section the page was opened on.
  */
 export function focusesHeading(previous: Route | null, next: Route, context: ChangeContext): boolean {
   if (!isPageChange(previous, next) || staysInSidebar(context)) return false;
-  return !context.categoryFocused;
+  return !context.sectionFocused;
 }
 
 /**

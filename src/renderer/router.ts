@@ -3,6 +3,7 @@
  * URL fragment. The fragment is the single source of navigation state:
  *
  *   #/                          overview (also an empty fragment)
+ *   #/run-details               the overview, scrolled to its run details
  *   #/errors                    errors: run errors, error groups, categories
  *   #/errors/category/<name>    the errors view, scrolled to a category
  *   #/health                    suite health: dimensions, slow, skipped and flaky tests
@@ -22,7 +23,7 @@
  */
 
 export type Route =
-  | { page: 'dashboard' }
+  | { page: 'dashboard'; section?: 'run-details' }
   | { page: 'errors'; category?: string }
   | { page: 'health' }
   | { page: 'tests' }
@@ -60,6 +61,7 @@ function parsePath(path: string): Route {
   const [first, id, third, index] = segments as string[];
 
   if (segments.length === 0) return { page: 'dashboard' };
+  if (segments.length === 1 && first === 'run-details') return { page: 'dashboard', section: 'run-details' };
   if (segments.length === 1 && (first === 'errors' || first === 'health' || first === 'tests')) return { page: first };
   if (first === 'errors' && id === 'category' && segments.length === 3 && third !== undefined) return { page: 'errors', category: third };
   if (segments.length === 1 && first !== undefined && Object.hasOwn(REDIRECTS, first)) return REDIRECTS[first] as Route;
@@ -85,7 +87,7 @@ export function parseHash(hash: string): AppLocation {
 function routePath(route: Route): string {
   switch (route.page) {
     case 'dashboard':
-      return '/';
+      return route.section === undefined ? '/' : `/${route.section}`;
     case 'errors':
       return route.category === undefined ? '/errors' : `/errors/category/${encodeURIComponent(route.category)}`;
     case 'health':
