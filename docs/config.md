@@ -52,7 +52,7 @@ Four layers, each one overriding the previous:
 - **Inline options**: the second element of the reporter entry, `['@qartisan/playwright-loupe', { title: 'Nightly' }]`. They accept every option of the config file, plus `configFile`.
 - **Environment variables**: see [Environment variables](#environment-variables).
 
-Merging is done key by key for nested objects (`categories`, `dimensions`, `screenshots`, `aiPrompt`, `redact`): inline `{ categories: { mode: 'replace' } }` keeps the rules of the config file. **Arrays replace**: inline `categories.rules` replaces the rules of the config file entirely, it does not add to them. One exception: `LOUPE_REDACT_ENV` **adds** names to `redact.env`, so the environment can extend redaction but never reduce or disable it; only the config file and inline options can. An option set to `undefined` is ignored, so `title: process.env.SUITE_TITLE` falls back to the lower layer when the variable is unset.
+Merging is done key by key for nested objects (`categories`, `dimensions`, `screenshots`, `aiPrompt`, `redact`, `git`): inline `{ categories: { mode: 'replace' } }` keeps the rules of the config file. **Arrays replace**: inline `categories.rules` replaces the rules of the config file entirely, it does not add to them. One exception: `LOUPE_REDACT_ENV` **adds** names to `redact.env`, so the environment can extend redaction but never reduce or disable it; only the config file and inline options can. An option set to `undefined` is ignored, so `title: process.env.SUITE_TITLE` falls back to the lower layer when the variable is unset.
 
 ## Options
 
@@ -72,6 +72,7 @@ Merging is done key by key for nested objects (`categories`, `dimensions`, `scre
 | `redact.patterns` | `(string \| RegExp)[]` | `[]` | Secret-looking names, added to the defaults. See [Secret redaction](#secret-redaction). |
 | `redact.mode` | `'extend' \| 'replace'` | `'extend'` | `replace`: only `redact.patterns`; `[]` turns name-based redaction off. |
 | `redact.env` | `string[]` | `[]` | Names of environment variables whose values are redacted everywhere. `LOUPE_REDACT_ENV` adds to it. |
+| `git.local` | `boolean` | `true` | Read commit, branch and remote from the local repository when Playwright's metadata and the CI variables do not give them. `LOUPE_GIT_LOCAL` overrides it. See [Git information](#git-information). |
 | `configFile` | `string` | none | **Inline options only.** Config file to load instead of the default lookup, relative to the Playwright config file's directory. |
 
 ### Error categories
@@ -194,6 +195,27 @@ The same value is then redacted where Playwright repeats it in that attempt: the
 - Attachment file names (`path`), test ids and signatures.
 - What does not match: a secret typed through a neutral locator on a line that does not name it, printed by your code to stdout outside a URL parameter, or passed in a URL parameter with a neutral name, is only caught by `redact.env`.
 
+### Git information
+
+`run.git` (commit, branch, remote) comes from three sources, in this order, each field on its own: Playwright's metadata (`captureGitInfo`), then CI variables, then the local repository, read by Loupe itself. The details, including how `merge-reports` is handled, are in [Git and CI detection](schema/v1.md#git-and-ci-detection).
+
+Loupe's own read runs three read-only git commands once per run, from the directory of the Playwright config. It never fetches, writes or takes a lock, and fails silently: outside a repository, without git, or after 2 seconds, the value stays `null`. Only the commit hash, the branch name and the `origin` remote URL, without credentials, are read; never the commit message, the author's name or e-mail.
+
+```ts
+git: { local: false },
+```
+
+**`git.local: false` turns off Loupe's own reads only.** Values Playwright already put in its metadata are still used: with [`captureGitInfo`](https://playwright.dev/docs/api/class-testconfig#test-config-capture-git-info) enabled, Playwright reads the commit and the branch itself (by default only on GitHub Actions, GitLab CI and Jenkins). To record no git information on a local run, disable it too in the Playwright config:
+
+```ts
+export default defineConfig({
+  captureGitInfo: { commit: false },
+  // ...
+});
+```
+
+On CI, the CI variables are read in any case.
+
 ### Renderer settings
 
 `title`, `theme`, `screenshots.defaultView` and `aiPrompt.includeStack` are presentation choices, not data. They are written next to the report data in `index.html`, not in `report.json`, and are not part of the data contract. See [Renderer settings](schema/v1.md#renderer-settings).
@@ -208,8 +230,9 @@ The same value is then redacted where Playwright repeats it in that attempt: the
 | `LOUPE_ENV` | Overrides `environment`. | |
 | `LOUPE_REDACT_ENV` | Comma-separated variable names **added** to `redact.env` (never replacing the configured ones). Names only. | |
 | `LOUPE_RUN_SCOPE` | Forces the run scope: `full` or `partial`. See [Run scope](schema/v1.md#run-scope). | |
+| `LOUPE_GIT_LOCAL` | Overrides `git.local`: `true` or `1` reads the local repository, `false` or `0` does not. | |
 
-Empty values are ignored, as if the variable were unset. An invalid `LOUPE_RUN_SCOPE` stops the run.
+Empty values are ignored, as if the variable were unset. An invalid `LOUPE_RUN_SCOPE` or `LOUPE_GIT_LOCAL` stops the run.
 
 ## Lookup
 

@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Before 1.0, minor versions may contain breaking changes. The JSON report has its own version (`schemaVersion`), see [`docs/schema/v1.md`](docs/schema/v1.md#versioning-policy).
 
+## [Unreleased]
+
+No change to the JSON shape: `schemaVersion` stays 1.
+
+### Added
+
+- **Git information is now read from the local repository** when Playwright's metadata and the CI variables do not provide it. `git.local` / `LOUPE_GIT_LOCAL` turn off Loupe's own reads only. Loupe runs three read-only git commands once per run, for the commit hash, the branch and the `origin` URL (credentials removed), and never reads the commit message or the author. Under `merge-reports`, the local commit is not used, and the local branch and remote only when the local `HEAD` is the report's commit. To record no git information on a local run, also set Playwright's `captureGitInfo: { commit: false }`. See [Git information](docs/config.md#git-information).
+
 ## [0.1.5] - 2026-10-23
 
 ### Changed
@@ -243,7 +251,8 @@ First public release. Work in progress: the reporter and its JSON model are usab
 - Node.js **22.12 or later** (`engines.node`), needed to load ES module config files. CI tests the latest Node.js 22.x and 24.x.
 - `@playwright/test` **1.52 or later** (peer dependency). CI tests 1.52 (on Node.js 22) and the latest version. Playwright 1.52 hangs on recent Node.js 24 releases, independently of Loupe: see [Compatibility](README.md#compatibility).
 
-[Unreleased]: https://github.com/qartisan/playwright-loupe/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/qartisan/playwright-loupe/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/qartisan/playwright-loupe/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/qartisan/playwright-loupe/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/qartisan/playwright-loupe/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/qartisan/playwright-loupe/compare/v0.1.1...v0.1.2

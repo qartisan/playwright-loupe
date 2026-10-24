@@ -354,6 +354,10 @@ describe('fixture suite with the built reporter', () => {
     });
   });
 
+  it('keeps run.git out of the snapshot: it depends on the machine and the checkout', () => {
+    expect(normalize(report)).not.toHaveProperty(['run', 'git']);
+  });
+
   it('matches the normalized snapshot', () => {
     expect(normalize(report)).toMatchSnapshot();
   });

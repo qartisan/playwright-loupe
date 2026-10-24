@@ -182,5 +182,7 @@ Each phase ships before the next one starts. Future features are prepared in the
 
 ## Open questions
 
+- **Dirty working tree.** Comparing a local run with a preview run needs to know whether the local run had uncommitted changes. Candidate field for the next planned schema bump (a new key in `run.git`, which has `additionalProperties: false`, is a shape change): `git.dirty: boolean | null`, from `git status --porcelain --untracked-files=no` with `GIT_OPTIONAL_LOCKS=0`, so untracked report and test output folders do not count.
+
 - How the VS Code extension runs tests, and whether it keeps the reporters declared in the config.
 - **One cause, many failures.** When one cause (a rate-limited or failing backend, a broken fixture) makes many tests fail, the report should lead to it rather than only list its consequences. Since 0.1.3, the Overview's common failure points give a first lead from the stacks: functions of the user's code shared by failures across spec files and error groups, derived in the renderer from existing fields (no model change), with thresholds that will be tuned. Still open: whether the computation moves to the core once history needs a stable key, and other signals such as the chronologically first error. Attempts already carry `startedAt` and `durationMs`, but errors have no time of their own and run errors none at all: decide in the data model how errors are ordered before implementing that.

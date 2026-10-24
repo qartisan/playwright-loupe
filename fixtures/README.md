@@ -46,6 +46,10 @@ Everything runs offline, through `page.setContent` and local servers on 127.0.0.
 
 `scope.config.ts` runs `scope/`, a browserless suite for run scope detection (see `test/scope.integration.test.ts`). **The `test.only` in `scope/focused.spec.ts` is intentional:** a plain run must be `partial` with the `only` reason alone, which checks that Playwright's internal `_only` flag still works. The `main` project depends on `setup`, to check `--project` and `--no-deps`. Other runs of this suite pass a file filter (`plain.spec.ts`) so the `test.only` does not apply. `scope-default.config.ts` runs the same folder without the `test.only` and adds a `nightly` project with `default: false` (Playwright 1.64+).
 
+## Git
+
+`git.config.ts` runs `git/`, a single passing browserless test, for the sources of `run.git` (see `test/git.integration.test.ts`). Playwright's own capture is off unless `LOUPE_FIXTURE_CAPTURE_GIT=commit`, even on CI; `LOUPE_FIXTURE_GIT_COMMIT` puts a commit hash in the metadata, as `metadata.gitCommit`. The test empties the CI variables, so the values come from the metadata or from this repository.
+
 ## Renderer sample
 
 `sample.config.ts` runs the same suite with a `globalTeardown` (`sample/global-teardown.ts`) that **fails on purpose**, so the report has a run error. `npm run sample:update` runs it with `--grep-invert "is slow"`, which makes the run partial (and skips the slow test), checks that the report has failed, flaky and skipped tests, a partial scope and a run error, then writes it to `src/renderer/dev/sample.json` for the renderer dev server and the renderer build tests. Its attachment files are copied to `src/renderer/dev/data/`, gitignored (videos and traces would bloat the repository); the dev server serves them at `data/`, like a report folder. It is kept apart from `playwright.config.ts`, whose runs must have no run error.

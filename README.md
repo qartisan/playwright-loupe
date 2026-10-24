@@ -134,6 +134,10 @@ Options can also be passed inline (`['@qartisan/playwright-loupe', { title: 'Nig
 
 Every option, the lookup rules and the environment variables are documented in [`docs/config.md`](docs/config.md).
 
+### Git information
+
+The report records the commit, the branch and the repository URL of the run, each from the first source that has it: Playwright's metadata ([`captureGitInfo`](https://playwright.dev/docs/api/class-testconfig#test-config-capture-git-info)), then the CI variables (GitHub Actions, GitLab, Azure Pipelines, CircleCI, Jenkins, Bitbucket, Buildkite), then the local repository, which Loupe reads with read-only git commands. `git.local: false` or `LOUPE_GIT_LOCAL=0` turns off Loupe's own reads only: what Playwright put in its metadata is still used, so to record no git information on a local run, also set `captureGitInfo: { commit: false }` in the Playwright config. Loupe never reads the commit message, the author's name or e-mail. See [Git information](docs/config.md#git-information).
+
 ### Security
 
 Reports are meant to be shared, so Loupe removes secrets from `report.json` and `index.html` before writing them, replacing each with `[redacted]`:
@@ -146,6 +150,8 @@ Reports are meant to be shared, so Loupe removes secrets from `report.json` and 
 ```ts
 redact: { env: ['E2E_PASSWORD', 'API_TOKEN'] },
 ```
+
+**Git information** is limited to the commit hash, the branch name and the repository URL with its credentials removed, whatever the source; a URL that cannot be cleaned safely is dropped.
 
 **Attachments are not altered**: traces, screenshots and videos contain typed values and visible secrets, so a report with traces must be treated as private. Snippets (source excerpts around errors) are left as they are: they come from your repository. See [Secret redaction](docs/config.md#secret-redaction).
 
