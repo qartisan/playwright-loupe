@@ -11,6 +11,12 @@ No change to the JSON shape: `schemaVersion` stays 1.
 ### Added
 
 - **Git information is now read from the local repository** when Playwright's metadata and the CI variables do not provide it. `git.local` / `LOUPE_GIT_LOCAL` turn off Loupe's own reads only. Loupe runs three read-only git commands once per run, for the commit hash, the branch and the `origin` URL (credentials removed), and never reads the commit message or the author. Under `merge-reports`, the local commit is not used, and the local branch and remote only when the local `HEAD` is the report's commit. To record no git information on a local run, also set Playwright's `captureGitInfo: { commit: false }`. See [Git information](docs/config.md#git-information).
+- **"Skip to test list"**, the second element Tab reaches, after "Skip to content": it moves focus to the sidebar tree (the current test's row, or the row last focused), opening the sidebar first when it is closed. With no row to show, focus goes to the tree's "Tests" heading.
+- **Landmarks are checked on every kind of page**: one banner, one main, the sidebar navigation named "Report", and every navigation (the sidebar, the pager of a test or an error group) named differently.
+
+### Fixed
+
+- **The page no longer scrolls past the sidebar and the content.** Visually hidden text escaped the two scrolling panes and made the page taller than the window: the mouse wheel, at the end of a pane, scrolled the whole page into empty space, with a second scrollbar. Each pane now scrolls on its own and keeps the wheel, and the page never scrolls, except on short screens (400 % zoom), where it scrolls as a whole by design.
 
 ## [0.1.5] - 2026-10-23
 

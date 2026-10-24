@@ -342,6 +342,22 @@ describe('accessibility matrix (axe-core, file://)', { timeout: 60_000 }, () => 
       await page.close();
     });
 
+    it.each([
+      ['the overview', 'sample', '#/'],
+      ['the Tests view', 'sample', '#/tests'],
+      ['a test, with its pager', 'sample', `#/test/${COMPARISON}`],
+      ['an error group, with its pager', 'cascade', '#/group/a1c0de000001'],
+    ] as const)('keeps the landmarks unique on %s: one banner, one main, every navigation named differently', async (_, dataset, hash) => {
+      const page = await open(`${urls[dataset]}${hash}`);
+      expect(await page.getByRole('banner').count()).toBe(1);
+      expect(await page.getByRole('main').count()).toBe(1);
+      expect(await page.getByRole('navigation', { name: 'Report', exact: true }).count()).toBe(1);
+      const names = await page.locator('nav').evaluateAll((navs) => navs.map((nav) => nav.getAttribute('aria-label') ?? ''));
+      expect(names.every((name) => name.trim() !== ''), names.join(' | ')).toBe(true);
+      expect(new Set(names).size, names.join(' | ')).toBe(names.length);
+      await page.close();
+    });
+
     it('names every data table by its caption, the title of its view, section, card or dialog', async () => {
       const named = async (url: string, name: string, arrange?: (page: Page) => Promise<unknown>) => {
         const page = await open(url);
@@ -386,6 +402,63 @@ describe('accessibility matrix (axe-core, file://)', { timeout: 60_000 }, () => 
       // From there, the keyboard scrolls the content.
       await page.keyboard.press('PageDown');
       await expect.poll(() => page.locator('.main').evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+      await page.close();
+    });
+
+    /** Whether the focused element is the tree's single tab stop, in the visible sidebar. */
+    const treeRowFocused = (page: Page) =>
+      page.evaluate<boolean>(`(() => {
+        const element = document.activeElement;
+        return element.matches('#sidebar [role="treeitem"][tabindex="0"]') && !document.getElementById('sidebar').hidden;
+      })()`);
+
+    it.each([1300, 360])('skips to the test list from the second Tab, opening the sidebar at %ipx', async (width) => {
+      const page = await open(`${urls.sample}#/health`, width);
+      const skip = page.getByRole('button', { name: 'Skip to test list' });
+      expect(await skip.boundingBox()).toMatchObject({ width: 1, height: 1 });
+      await page.keyboard.press('Tab');
+      expect(await page.evaluate<string>('document.activeElement.textContent')).toBe('Skip to content');
+      await page.keyboard.press('Tab');
+      expect(await skip.evaluate((element) => element === element.ownerDocument.activeElement)).toBe(true);
+      // Shown while focused, inside the viewport, with the focus ring.
+      const box = (await skip.boundingBox())!;
+      expect(box.width).toBeGreaterThan(24);
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.y).toBeGreaterThanOrEqual(0);
+      expect(await outlineOf(page)).toBe('solid');
+      // The narrow sidebar starts closed: the button opens it.
+      expect(await page.locator('#sidebar').isHidden()).toBe(width === 360);
+      await page.keyboard.press('Enter');
+      await expect.poll(() => treeRowFocused(page)).toBe(true);
+      expect(new URL(page.url()).hash).toBe('#/health');
+      // From there, the arrow keys move in the tree.
+      const before = await page.evaluate<string>('document.activeElement.textContent');
+      await page.keyboard.press('ArrowDown');
+      expect(await treeRowFocused(page)).toBe(true);
+      expect(await page.evaluate<string>('document.activeElement.textContent')).not.toBe(before);
+      await page.close();
+    });
+
+    it('skips to the row of the current test, and reopens a collapsed sidebar', async () => {
+      const page = await open(`${urls.sample}#/test/${COMPARISON}`);
+      await page.getByRole('button', { name: 'Hide sidebar' }).click();
+      expect(await page.locator('#sidebar').isHidden()).toBe(true);
+      await page.getByRole('button', { name: 'Skip to test list' }).focus();
+      await page.keyboard.press('Enter');
+      await expect.poll(() => treeRowFocused(page)).toBe(true);
+      expect(await page.evaluate<string | null>('document.activeElement.getAttribute("aria-current")')).toBe('page');
+      await page.close();
+    });
+
+    it('skips to the "Tests" heading of the sidebar when no row matches the search', async () => {
+      const page = await open(`${urls.sample}#/tests?q=no-test-has-this-title`);
+      await page.locator('.tree-empty').waitFor();
+      await page.getByRole('button', { name: 'Skip to test list' }).focus();
+      await page.keyboard.press('Enter');
+      await expect.poll(() => page.evaluate<string>('document.activeElement.id')).toBe('tree-heading');
+      // Tab continues in the sidebar, after the heading.
+      await page.keyboard.press('Tab');
+      expect(await page.evaluate<string>('document.activeElement.textContent')).toBe('Expand all');
       await page.close();
     });
 

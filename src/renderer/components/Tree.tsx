@@ -175,7 +175,10 @@ export function Tree({
   return (
     <div class="tree-section">
       <div class="tree-toolbar">
-        <h2 id="tree-heading">Tests</h2>
+        {/* Focusable from "Skip to test list" when the tree has no row. */}
+        <h2 id="tree-heading" tabIndex={-1}>
+          Tests
+        </h2>
         <button type="button" class="text-button" onClick={() => setExpanded(new Set(groupKeys(roots)))}>
           Expand all
         </button>

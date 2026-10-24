@@ -1,5 +1,5 @@
 import { Fragment } from 'preact';
-import { useEffect, useMemo, useRef } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { RendererSettings } from '../../core/inject.js';
 import type { LoupeReport, TestCase } from '../../schema/v1.js';
 import { announce, announcement } from '../announce.js';
@@ -93,6 +93,15 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
     heading.focus({ preventScroll: !pageScrolls() });
   }, [routeKey]);
 
+  // "Skip to test list": the sidebar may first have to open, so focus moves once it is rendered.
+  const [treeSkip, setTreeSkip] = useState(0);
+  useEffect(() => {
+    if (treeSkip === 0) return;
+    // The tree's single tab stop (the current or last focused row); the "Tests" heading when no row matches.
+    const target = document.querySelector<HTMLElement>('#sidebar [role="treeitem"][tabindex="0"]') ?? document.getElementById('tree-heading');
+    target?.focus();
+  }, [treeSkip]);
+
   let page;
   switch (route.page) {
     case 'dashboard':
@@ -139,6 +148,17 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
         }}
       >
         Skip to content
+      </button>
+      {/* Second: back to the tree from the top, opening the sidebar when it is closed (the narrow overlay, or collapsed). */}
+      <button
+        type="button"
+        class="button skip-link"
+        onClick={() => {
+          sidebarOpen.value = true;
+          setTreeSkip((count) => count + 1);
+        }}
+      >
+        Skip to test list
       </button>
       <Header report={report} title={settings.title} />
       <div class="layout">
