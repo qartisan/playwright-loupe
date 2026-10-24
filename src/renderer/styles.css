@@ -161,10 +161,17 @@ h1, h2, h3, strong, b { font-weight: 600; }
 
 .icon { display: block; flex: none; }
 
-/* Application shell: header on top, sidebar + main below, each scrolling on its own. */
+/*
+ * Application shell: header on top, sidebar + main below, each scrolling on its own.
+ * The panes are positioned so that they contain their absolutely positioned
+ * descendants (visually hidden text, hit areas): with `.layout` as their
+ * containing block, these escape the pane's overflow and make the document
+ * taller than the viewport. `overscroll-behavior` keeps the wheel at the end
+ * of a pane from scrolling anything else.
+ */
 .app { display: flex; flex-direction: column; height: 100%; }
 .layout { position: relative; display: flex; flex: 1; min-height: 0; }
-.main { display: flex; flex-direction: column; flex: 1; min-width: 0; overflow: auto; }
+.main { position: relative; display: flex; flex-direction: column; flex: 1; min-width: 0; overflow: auto; overscroll-behavior: contain; }
 .main:focus { outline: none; }
 /* A page's heading takes focus on a page change: it is not a control, so no focus ring. */
 .main h1:focus { outline: none; }
@@ -349,6 +356,7 @@ h1, h2, h3, strong, b { font-weight: 600; }
 
 /* Sidebar */
 .sidebar {
+  position: relative;
   display: flex;
   flex-direction: column;
   flex: none;
@@ -381,7 +389,16 @@ h1, h2, h3, strong, b { font-weight: 600; }
  * (400 % zoom) the sidebar scrolls with the page instead.
  */
 .sidebar-search { flex: none; padding: 8px 8px 0; border-bottom: 1px solid var(--border); background: var(--bg-muted); }
-.sidebar-scroll { flex: 1; min-height: 0; overflow: auto; }
+.sidebar-scroll { position: relative; flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+
+/*
+ * Above the short-screen threshold, the document never scrolls: only the
+ * panes do. Screen only, so printing is not clipped further.
+ */
+@media screen and (min-height: 481px) {
+  html, body { overflow: hidden; }
+  .app { height: 100vh; height: 100dvh; }
+}
 
 /*
  * Short screens (400 % zoom: 320×180, 320×256): the header alone can fill the
