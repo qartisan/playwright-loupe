@@ -709,4 +709,173 @@ describe('focus and title on view changes (file://)', { timeout: 30_000 }, () =>
     expect(await pageScroll()).toBe(0);
     await page.close();
   });
+
+  describe('narrow sidebar: inert content, backdrop, Escape', () => {
+    const sidebarHidden = (page: Page): Promise<boolean> => page.locator('#sidebar').isHidden();
+    const mainInert = (page: Page): Promise<boolean> => page.locator('.main').evaluate((main) => main.inert);
+    const toggle = (page: Page): Locator => page.locator('#sidebar-toggle');
+    const preference = (page: Page): Promise<string | null> => page.evaluate<string | null>("localStorage.getItem('loupe.sidebar')");
+
+    async function openSidebar(page: Page): Promise<void> {
+      await toggle(page).click();
+      await expect.poll(() => sidebarHidden(page)).toBe(false);
+    }
+
+    /** Escape, then the closed sidebar and its content no longer inert, without a backdrop. */
+    async function escapeCloses(page: Page): Promise<void> {
+      await page.keyboard.press('Escape');
+      await expect.poll(() => sidebarHidden(page)).toBe(true);
+      expect(await mainInert(page)).toBe(false);
+      expect(await page.locator('.sidebar-backdrop').count()).toBe(0);
+    }
+
+    describe.each([360, 640])('at %ipx', (width) => {
+      it('makes the content inert under a backdrop while open; Escape closes it, focus stays on the toggle, the preference untouched', async () => {
+        const { page, errors } = await open(`${urls.sample}#/`, width, { height: 720 });
+        expect(await sidebarHidden(page)).toBe(true);
+        expect(await mainInert(page)).toBe(false);
+        const before = await preference(page);
+        await openSidebar(page);
+        expect(await hasFocus(toggle(page))).toBe(true);
+        expect(await mainInert(page)).toBe(true);
+        // Focus cannot reach the content behind the sidebar.
+        expect(await page.locator('.main a').first().evaluate((link) => (link.focus(), link === link.ownerDocument.activeElement))).toBe(false);
+        // The backdrop: neither focusable nor exposed.
+        const backdrop = page.locator('.sidebar-backdrop');
+        expect(await backdrop.getAttribute('aria-hidden')).toBe('true');
+        expect(await backdrop.evaluate((element) => element.matches(':is(a, button, input, [tabindex])'))).toBe(false);
+        await escapeCloses(page);
+        expect(await hasFocus(toggle(page))).toBe(true);
+        expect(await preference(page)).toBe(before);
+        expect(errors).toEqual([]);
+        await page.close();
+      });
+
+      it('returns focus to the toggle on Escape from a tree row, after "Skip to test list"', async () => {
+        const { page } = await open(`${urls.sample}#/health`, width, { height: 720 });
+        await page.getByRole('button', { name: 'Skip to test list' }).focus();
+        await page.keyboard.press('Enter');
+        await expect.poll(() => page.evaluate<boolean>('document.activeElement.matches("#sidebar [role=treeitem]")')).toBe(true);
+        await page.keyboard.press('ArrowDown');
+        await escapeCloses(page);
+        expect(await hasFocus(toggle(page))).toBe(true);
+        expect(new URL(page.url()).hash).toBe('#/health');
+        await page.close();
+      });
+
+      it('clears the search text on the first Escape, and closes on the next', async () => {
+        const { page } = await open(`${urls.sample}#/`, width, { height: 720 });
+        await openSidebar(page);
+        const search = page.locator('#sidebar-search');
+        await search.fill('checkout');
+        await page.keyboard.press('Escape');
+        await expect.poll(() => search.inputValue()).toBe('');
+        expect(await hasFocus(search)).toBe(true);
+        await settle(page);
+        expect(await sidebarHidden(page)).toBe(false);
+        await escapeCloses(page);
+        expect(await hasFocus(toggle(page))).toBe(true);
+        await page.close();
+      });
+
+      it('closes an open dialog first, then the sidebar, leaving focus on the dialog\'s opener', async () => {
+        const { page } = await open(`${urls.sample}#/`, width, { height: 720 });
+        await openSidebar(page);
+        const opener = page.getByRole('button', { name: 'Keyboard shortcuts' });
+        await opener.click();
+        await page.getByRole('dialog').waitFor();
+        await page.keyboard.press('Escape');
+        await expect.poll(() => page.getByRole('dialog').count()).toBe(0);
+        await expect.poll(() => hasFocus(opener)).toBe(true);
+        expect(await sidebarHidden(page)).toBe(false);
+        await escapeCloses(page);
+        expect(await hasFocus(opener)).toBe(true);
+        await page.close();
+      });
+
+      it('hides a visible tooltip of the header first, then closes, leaving focus on its trigger', async () => {
+        const { page } = await open(`${urls.sample}#/`, width, { height: 720 });
+        await openSidebar(page);
+        const time = page.locator('.run-time time');
+        const tooltip = page.locator('#run-time-details');
+        await time.focus();
+        await expect.poll(() => tooltip.isVisible()).toBe(true);
+        await page.keyboard.press('Escape');
+        await expect.poll(() => tooltip.isVisible()).toBe(false);
+        expect(await sidebarHidden(page)).toBe(false);
+        await escapeCloses(page);
+        expect(await hasFocus(time)).toBe(true);
+        await page.close();
+      });
+
+      it('closes on a click on the backdrop', async () => {
+        const { page } = await open(`${urls.sample}#/`, width, { height: 720 });
+        await openSidebar(page);
+        const sidebar = (await page.locator('#sidebar').boundingBox())!;
+        const backdrop = (await page.locator('.sidebar-backdrop').boundingBox())!;
+        await page.mouse.click((sidebar.x + sidebar.width + width) / 2, backdrop.y + backdrop.height / 2);
+        await expect.poll(() => sidebarHidden(page)).toBe(true);
+        expect(await mainInert(page)).toBe(false);
+        expect(await page.locator('.sidebar-backdrop').count()).toBe(0);
+        await page.close();
+      });
+
+      it('skips to the content with the sidebar open: it closes first, and the content takes focus', async () => {
+        const { page } = await open(`${urls.sample}#/health`, width, { height: 720 });
+        await openSidebar(page);
+        await page.getByRole('button', { name: 'Skip to content' }).focus();
+        await page.keyboard.press('Enter');
+        await expect.poll(() => hasFocus(page.locator('.main'))).toBe(true);
+        expect(await sidebarHidden(page)).toBe(true);
+        expect(await mainInert(page)).toBe(false);
+        expect(new URL(page.url()).hash).toBe('#/health');
+        await page.close();
+      });
+
+      it('focuses Run details from the partial run pill with the sidebar open, also when already there', async () => {
+        const { page } = await open(`${urls.sample}#/`, width, { height: 720 });
+        const pill = page.locator('.scope-pill');
+        for (let round = 0; round < 2; round++) {
+          await openSidebar(page);
+          await pill.click();
+          await expect.poll(() => page.evaluate<string>('document.activeElement.id')).toBe('w-run-details');
+          expect(await sidebarHidden(page)).toBe(true);
+          expect(await mainInert(page)).toBe(false);
+        }
+        await page.close();
+      });
+    });
+
+    it('changes nothing on Escape when docked, open or collapsed', async () => {
+      const { page } = await open(`${urls.sample}#/`, 1300, { height: 720 });
+      expect(await mainInert(page)).toBe(false);
+      expect(await page.locator('.sidebar-backdrop').count()).toBe(0);
+      const row = page.getByRole('treeitem', { level: 1 }).first();
+      await row.focus();
+      await page.keyboard.press('Escape');
+      await settle(page);
+      expect(await sidebarHidden(page)).toBe(false);
+      expect(await hasFocus(row)).toBe(true);
+      expect(await preference(page)).toBeNull();
+      // Collapsed: Escape does not open it either, and the preference stays "closed".
+      await toggle(page).click();
+      expect(await preference(page)).toBe('closed');
+      await page.keyboard.press('Escape');
+      await settle(page);
+      expect(await sidebarHidden(page)).toBe(true);
+      expect(await preference(page)).toBe('closed');
+      await page.close();
+    });
+
+    it('stops making the content inert when the open overlay becomes docked on a wider screen', async () => {
+      const { page } = await open(`${urls.sample}#/`, 640, { height: 720 });
+      await openSidebar(page);
+      expect(await mainInert(page)).toBe(true);
+      await page.setViewportSize({ width: 1300, height: 720 });
+      await expect.poll(() => mainInert(page)).toBe(false);
+      expect(await page.locator('.sidebar-backdrop').count()).toBe(0);
+      expect(await sidebarHidden(page)).toBe(false);
+      await page.close();
+    });
+  });
 });

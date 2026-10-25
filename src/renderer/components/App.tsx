@@ -1,9 +1,9 @@
 import { Fragment } from 'preact';
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { RendererSettings } from '../../core/inject.js';
 import type { LoupeReport, TestCase } from '../../schema/v1.js';
 import { announce, announcement } from '../announce.js';
-import { isNarrow, pageScrolls, sidebarOpen } from '../layout.js';
+import { closeNarrowSidebar, closeNarrowSidebarOnEscape, isNarrow, overlayOpen, pageScrolls, sidebarOpen } from '../layout.js';
 import { currentLocation, navigate, takeNavigationOrigin } from '../navigation.js';
 import type { Route } from '../router.js';
 import { errorGroups, rankGroups } from '../dashboard.js';
@@ -62,9 +62,21 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
   // On short screens the page itself scrolls, and the browser handles the keys.
   useEffect(() => forwardScrollKeys(() => (pageScrolls() ? null : main.current)), []);
 
+  // Escape closes the narrow sidebar, after anything inside it that handles Escape itself.
+  useEffect(() => {
+    document.addEventListener('keydown', closeNarrowSidebarOnEscape);
+    return () => document.removeEventListener('keydown', closeNarrowSidebarOnEscape);
+  }, []);
+
   // A new page starts at the top, like a page load.
   const routeKey = pageKey(route);
   const opensSection = (route.page === 'errors' && route.category !== undefined) || (route.page === 'dashboard' && route.section !== undefined);
+  // On narrow screens the sidebar is an overlay: close it once a page is chosen. A layout effect, so the content stops
+  // being inert before the pages' effects run: a page opened on a section focuses it there. Focus inside the sidebar
+  // moves to the page's heading in the effect below.
+  useLayoutEffect(() => {
+    closeNarrowSidebar();
+  }, [routeKey]);
   useEffect(() => {
     // Except a link to a section (a category, the run details): the page scrolls to it.
     if (!opensSection) {
@@ -72,8 +84,6 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
       // On short screens the page scrolls, not <main>.
       if (pageScrolls()) window.scrollTo(0, 0);
     }
-    // On narrow screens the sidebar is an overlay: close it once a page is chosen.
-    if (isNarrow()) sidebarOpen.value = false;
     document.title = pageTitle(route, report.tests, settings.title);
     // Another page, not the first load (viewChange.ts): started in the visible sidebar, focus stays there and the
     // page name is announced; otherwise focus moves to the page's heading, which is announced, and the keyboard
@@ -143,6 +153,8 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
         type="button"
         class="button skip-link"
         onClick={() => {
+          // With the narrow sidebar open, the content is inert: close the sidebar first.
+          closeNarrowSidebar();
           // <main> can be taller than the viewport: its top in view, not its middle (the page scrolls on short screens).
           main.current?.focus({ preventScroll: true });
           if (pageScrolls()) main.current?.scrollIntoView({ block: 'start' });
@@ -164,7 +176,10 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
       <Header report={report} title={settings.title} />
       <div class="layout">
         <Sidebar report={report} tree={tree} prefix={prefix} matched={matched.length} route={route} open={sidebarOpen.value} />
-        <main class="main" ref={main} tabIndex={-1}>
+        {/* Behind the narrow sidebar: a click closes it. Pointer only, so not focusable and hidden from assistive technology (Escape is the keyboard's way). */}
+        {overlayOpen.value && <div class="sidebar-backdrop" aria-hidden="true" onClick={closeNarrowSidebar} />}
+        {/* Inert behind the narrow sidebar, so focus cannot wander behind it; the header stays reachable for the toggle. */}
+        <main class="main" ref={main} tabIndex={-1} inert={overlayOpen.value}>
           {/* Keyed by page: another test or group gets a new heading, so moving focus to it is announced. */}
           <Fragment key={routeKey}>{page}</Fragment>
           <Footer version={report.generator.version} />

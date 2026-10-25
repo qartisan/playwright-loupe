@@ -1180,7 +1180,8 @@ pre.step-error { margin: 2px 0 6px 50px; font-weight: 400; }
 /* Footer */
 .footer { padding: 16px 24px; border-top: 1px solid var(--border); color: var(--fg-secondary); font-size: 12px; }
 
-/* Narrow screens: the sidebar overlays the main area. */
+/* Narrow screens: the sidebar overlays the main area, above a backdrop (rendered only then). */
+.sidebar-backdrop { position: absolute; inset: 0; z-index: 9; background: rgb(0 0 0 / 0.25); }
 @media (max-width: 760px) {
   .header { padding: 8px 12px; }
   .sidebar { position: absolute; inset: 0 auto 0 0; z-index: 10; box-shadow: var(--shadow); }

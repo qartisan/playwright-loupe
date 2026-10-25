@@ -5,7 +5,7 @@ import { formatRunStart } from '../datetime.js';
 import { filtersHref } from '../filters/store.js';
 import { EMPTY_FILTERS } from '../filters/url.js';
 import { formatDuration } from '../format.js';
-import { sidebarOpen, toggleSidebar } from '../layout.js';
+import { SIDEBAR_TOGGLE_ID, closeNarrowSidebar, sidebarOpen, toggleSidebar } from '../layout.js';
 import { currentLocation, hrefTo } from '../navigation.js';
 import { partialPillText } from '../runDetails.js';
 import { singleKeyHint, useShortcuts } from '../shortcuts.js';
@@ -71,7 +71,8 @@ function ShortcutsButton() {
 /**
  * The run start in the viewer's time zone, then the duration. Hover or focus
  * shows the full date with seconds, the time zone and the UTC timestamp;
- * Escape hides it (WCAG 1.4.13). Without a valid start, the duration alone.
+ * Escape hides it (WCAG 1.4.13), and only that: the narrow sidebar closes on
+ * a further Escape. Without a valid start, the duration alone.
  */
 function RunTime({ startedAt, durationMs }: { startedAt: unknown; durationMs: number }) {
   const start = useMemo(() => formatRunStart(startedAt), [startedAt]);
@@ -86,7 +87,11 @@ function RunTime({ startedAt, durationMs }: { startedAt: unknown; durationMs: nu
               dateTime={start.utc}
               tabIndex={0}
               aria-describedby="run-time-details"
-              onKeyDown={(event) => event.key === 'Escape' && setDismissed(true)}
+              onKeyDown={(event) => {
+                if (event.key !== 'Escape' || dismissed) return;
+                event.preventDefault();
+                setDismissed(true);
+              }}
               onBlur={() => setDismissed(false)}
             >
               {start.label}
@@ -150,7 +155,12 @@ function PartialPill({ reasons }: { reasons: readonly string[] }) {
       class="scope-pill"
       href={hrefTo({ page: 'dashboard', section: 'run-details' })}
       aria-label={`${text.full}. Show details in Run details`}
-      onClick={() => here && focusRunDetails()}
+      onClick={() => {
+        if (!here) return;
+        // The content is inert behind the narrow sidebar: close it first. Another page closes it itself (App).
+        closeNarrowSidebar();
+        focusRunDetails();
+      }}
     >
       <span class="scope-pill-full">{text.full}</span>
       <span class="scope-pill-short">{text.short}</span>
@@ -175,6 +185,7 @@ export function Header({ report, title }: { report: LoupeReport; title: string }
             <div class="header-name">
               <button
                 type="button"
+                id={SIDEBAR_TOGGLE_ID}
                 class="icon-button"
                 aria-controls="sidebar"
                 aria-expanded={sidebarOpen.value}

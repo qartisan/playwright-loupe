@@ -61,14 +61,27 @@ describe('application shell (file://)', { timeout: 60_000 }, () => {
     await page.getByRole('button', { name: 'Expand all' }).click();
   }
 
-  /** Wheels far down over each visible pane: the middle of the sidebar, the right edge of the content (the narrow drawer covers its left part). */
+  /** Wheels far down over the middle of a pane. */
+  async function wheelPane(page: Page, selector: string): Promise<void> {
+    const box = (await page.locator(selector).boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    for (let index = 0; index < 20; index++) await page.mouse.wheel(0, 5000);
+  }
+
+  /**
+   * Wheels far down over each pane. The open narrow drawer covers the content
+   * with its backdrop: the content first, with the drawer closed, then the
+   * sidebar, open again.
+   */
   async function wheelPanes(page: Page): Promise<void> {
-    for (const selector of ['.sidebar-scroll', '.main']) {
-      const box = await page.locator(selector).boundingBox();
-      if (!box || box.height === 0) continue;
-      await page.mouse.move(selector === '.main' ? box.x + box.width - 40 : box.x + box.width / 2, box.y + box.height / 2);
-      for (let index = 0; index < 20; index++) await page.mouse.wheel(0, 5000);
+    const drawer = (await page.locator('.sidebar-backdrop').count()) > 0;
+    if (drawer) {
+      await page.keyboard.press('Escape');
+      await page.locator('#sidebar').waitFor({ state: 'hidden' });
     }
+    await wheelPane(page, '.main');
+    if (drawer) await page.locator('.masthead [aria-controls="sidebar"]').click();
+    await wheelPane(page, '.sidebar-scroll');
     await settle(page);
   }
 
@@ -156,7 +169,11 @@ describe('application shell (file://)', { timeout: 60_000 }, () => {
       await settle(page);
       expect(await page.locator('[role="treeitem"]').last().evaluate((row) => row === row.ownerDocument.activeElement)).toBe(true);
       await expectLockedDocument(page, viewport);
-      // On the narrow layout, the drawer covers the table: the content is still focusable behind it.
+      // On the narrow layout, the content is inert behind the drawer: Escape closes it first.
+      if (viewport.width === 640) {
+        await page.keyboard.press('Escape');
+        await page.locator('#sidebar').waitFor({ state: 'hidden' });
+      }
       await page.locator('.tests-table tbody tr').last().locator('a').first().focus();
       await settle(page);
       expect(await page.locator('.main').evaluate((main) => main.scrollTop)).toBeGreaterThan(0);
@@ -223,6 +240,13 @@ describe('application shell (file://)', { timeout: 60_000 }, () => {
     expect(main.x).toBe(0);
     expect(main.width).toBe(640);
     expect([sidebar.y, sidebar.y + sidebar.height]).toEqual([layout.y, 720]);
+    // The backdrop covers the content, under the drawer: the wheel over it scrolls nothing.
+    expect(await page.locator('.sidebar-backdrop').boundingBox()).toEqual(layout);
+    await page.mouse.move(600, layout.y + layout.height / 2);
+    for (let index = 0; index < 5; index++) await page.mouse.wheel(0, 5000);
+    await settle(page);
+    expect(await page.locator('.main').evaluate((element) => element.scrollTop)).toBe(0);
+    expect((await documentScroll(page)).top).toBe(0);
     await page.close();
   });
 
