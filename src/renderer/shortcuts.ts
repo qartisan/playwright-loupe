@@ -28,7 +28,7 @@ export const SHORTCUTS: readonly ShortcutHelp[] = [
   { keys: ['Enter', 'Space'], action: 'Open the view or the test, focus stays', where: 'Sidebar', singleKey: false },
   { keys: ['←', '→'], action: 'Collapse / expand a group', where: 'Sidebar tree', singleKey: false },
   { keys: ['←', '→'], action: 'Previous / next screenshot', where: 'Screenshot viewer', singleKey: false },
-  { keys: ['Escape'], action: 'Clear the search, close a dialog', where: 'Everywhere', singleKey: false },
+  { keys: ['Escape'], action: 'Clear the search, close a dialog or the narrow sidebar', where: 'Everywhere', singleKey: false },
 ];
 
 const SINGLE_KEY_STORAGE = 'loupe.singleKeyShortcuts';

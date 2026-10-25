@@ -13,9 +13,16 @@ No change to the JSON shape: `schemaVersion` stays 1.
 - **Git information is now read from the local repository** when Playwright's metadata and the CI variables do not provide it. `git.local` / `LOUPE_GIT_LOCAL` turn off Loupe's own reads only. Loupe runs three read-only git commands once per run, for the commit hash, the branch and the `origin` URL (credentials removed), and never reads the commit message or the author. Under `merge-reports`, the local commit is not used, and the local branch and remote only when the local `HEAD` is the report's commit. To record no git information on a local run, also set Playwright's `captureGitInfo: { commit: false }`. See [Git information](docs/config.md#git-information).
 - **"Skip to test list"**, the second element Tab reaches, after "Skip to content": it moves focus to the sidebar tree (the current test's row, or the row last focused), opening the sidebar first when it is closed. With no row to show, focus goes to the tree's "Tests" heading.
 - **Landmarks are checked on every kind of page**: one banner, one main, the sidebar navigation named "Report", and every navigation (the sidebar, the pager of a test or an error group) named differently.
+- **`#/run-details`** opens the Overview on its run details, with focus on their heading: the target of the partial run pill, and a link that can be shared.
+
+### Changed
+
+- **A partial run shows a pill in the header instead of a banner.** The full-width amber banner cut the header off from the sidebar and used the warning colour for a filter chosen on purpose. The pill sits after the run status, in a neutral style: "Partial: grep filter", "+2" when there are more reasons, "Partial" alone on narrow headers. It links to the run details, which list every reason and receive focus. Its text comes from the same labels as the run details, so the two never disagree.
+- **The narrow sidebar is a drawer.** On windows 760 px wide or less, while the sidebar is open over the content, the content is dimmed and out of reach of the keyboard and assistive technologies; the header stays reachable. A click on the dimmed content closes the sidebar, and "Skip to content" closes it before moving focus to the content.
 
 ### Fixed
 
+- **Escape closes the narrow sidebar.** It used to stay open. What is inside closes first: the first Escape clears the search text, closes a dialog or hides a tooltip, the next one closes the sidebar. Focus inside the sidebar returns to the sidebar button; elsewhere, it stays. Escape never collapses the sidebar on wide windows, and does not change the remembered sidebar choice.
 - **The page no longer scrolls past the sidebar and the content.** Visually hidden text escaped the two scrolling panes and made the page taller than the window: the mouse wheel, at the end of a pane, scrolled the whole page into empty space, with a second scrollbar. Each pane now scrolls on its own and keeps the wheel, and the page never scrolls, except on short screens (400 % zoom), where it scrolls as a whole by design.
 
 ## [0.1.5] - 2026-10-23

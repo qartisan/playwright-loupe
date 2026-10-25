@@ -37,7 +37,7 @@ A run that broke outside its tests (a spec file that fails to import, a failing 
 
 The report is a single self-contained HTML file. It works offline, straight from `file://`, in light and dark themes.
 
-- **Header:** the run's verdict and status counts, its start, duration and environment; the shortcuts and theme controls stay top-right at every width.
+- **Header:** the run's verdict and status counts, its start, duration and environment; the shortcuts and theme controls stay top-right at every width. A [partial run](docs/schema/v1.md#run-scope) shows a pill after the verdict, "Partial: grep filter" ("+2" with more reasons, "Partial" alone on narrow screens), which opens the run details (`#/run-details`) where every reason is listed.
 - **Overview:** verdict with pass rate, run errors first when the run broke outside its tests, [common failure points](#common-failure-points), error categories, project cards, and the run details in three groups: Run (scope, CI, workers, shard), Code (commit, short with a copy button; branch; repository) and Environment (Playwright, Loupe, Node, OS). Empty values are left out.
 - **Errors:** every error group, built from normalized error signatures, with the failed / flaky split and links to the affected tests. Groups [only seen after a test timeout](#groups-only-seen-after-a-test-timeout) are folded at the end. A group page has previous / next buttons: from a category, they stay within that category.
 - **Test detail:** title path, outcome, project, `file:line`, tags, annotations and dimensions, then one tab per attempt (the last failing attempt first; `?attempt=` in the URL): errors with Expected / Received and diffs highlighted and the code snippet, steps (`test.step` and failing steps, the failing path expanded; "Show all steps" for hooks, fixtures and API calls), attachments, stdout and stderr. Previous / next walk the Tests view's current list.
@@ -94,11 +94,13 @@ When a test times out, Playwright stops it and the action still running fails to
 | `/` | Focus the search | Everywhere |
 | `?` | Show keyboard shortcuts | Everywhere |
 | `←` / `→` | Previous / next screenshot | Screenshot viewer |
-| `Escape` | Clear the search, close a dialog | Everywhere |
+| `Escape` | Clear the search, close a dialog or the narrow sidebar | Everywhere |
 
 Single keys do nothing while typing in a field or with Ctrl, Alt or Meta held, nor while a dialog or the screenshot viewer is open; letters work with Caps Lock on. The keyboard icon in the header opens the same list, with a **Single-key shortcuts** switch: turn them off if they get in the way of your keyboard or assistive technology (WCAG 2.1.4). The choice is remembered in this browser. Escape and the arrow keys keep working. A view shortcut moves focus to the page's heading, like `j` / `k`. Attempts of a test are tabs: Tab to them, then the arrow keys.
 
 In the sidebar, the view links and the test tree are one tab stop each: the arrow keys and Home / End move inside them, Enter or Space opens the page, focus stays in the sidebar, and Tab moves on. In the tree, Right and Left also expand and collapse groups.
+
+On narrow windows (760 px wide or less), the sidebar opens over the content, as a drawer. While it is open, the content behind is dimmed and out of reach of Tab and of assistive technologies; the header stays reachable. Escape closes it, once whatever is inside has handled the key: the first Escape clears the search text, closes a dialog or hides a tooltip, the next one closes the sidebar. When focus was inside the sidebar, it returns to the sidebar button; otherwise it stays where it was. A click on the dimmed content also closes it, "Skip to content" closes it before moving focus to the content, and opening a page closes it, focus on the page's heading. On wide windows, Escape leaves the sidebar alone.
 
 ### Coming next
 
@@ -163,7 +165,7 @@ Checked automatically on every test run:
 
 - **axe-core** on every view and its main states (Overview, Errors, Suite health, Tests, test detail, error group page, comparison viewer, screenshot viewer, dialogs), in the light and dark themes and a few under forced colours, at desktop width, at 360 px and at 320 × 180 and 320 × 256 (400 % zoom). A serious or critical WCAG violation fails the build.
 - **Contrast** of every colour token and of the category colours, those derived from your own colours included, in both themes: 4.5:1 for text, 3:1 for borders and icons.
-- **Keyboard and focus**: controls reached and operated with the keyboard, a visible focus ring, focus returned after every dialog, skip links to the content and to the test list, a page title per view, single-key shortcuts that can be turned off. When the view changes from the content, a shortcut or Back / Forward, focus moves to the new heading; from the sidebar, focus stays there and the page name is announced. The focused row of the sidebar tree stays visible.
+- **Keyboard and focus**: controls reached and operated with the keyboard, a visible focus ring, focus returned after every dialog, skip links to the content and to the test list, the narrow sidebar closing with Escape and keeping focus out of the content behind it, a page title per view, single-key shortcuts that can be turned off. When the view changes from the content, a shortcut or Back / Forward, focus moves to the new heading; from the sidebar, focus stays there and the page name is announced. The focused row of the sidebar tree stays visible.
 - **Layout**: no horizontal scroll down to 320 px; on short viewports (high zoom) the page scrolls and the content stays reachable; hit areas of chips and small buttons at least 24 × 24 px.
 - **Forced colours and reduced motion**: pressed and selected states, bars and focus rings in forced colours; no transition or smooth scrolling when reduced motion is requested.
 
