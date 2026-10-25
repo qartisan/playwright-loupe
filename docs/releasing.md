@@ -1,6 +1,6 @@
 # Releasing Loupe
 
-The maintainer procedure for publishing `@qartisan/playwright-loupe` to npm. Claude Code prepares the CHANGELOG and runs the read-only checks (steps 1 and 4); the maintainer runs everything that commits, tags, pushes or publishes. Steps marked *maintainer only, not verified by Claude Code* were not run while writing this document.
+The maintainer procedure for publishing `@qartisan/playwright-loupe` to npm. Claude Code prepares the CHANGELOG and runs the read-only checks (steps 1, 4 and 6); the maintainer runs everything that commits, tags, pushes or publishes. Steps marked *maintainer only, not verified by Claude Code* were not run while writing this document.
 
 In the commands, `<version>` is the version being released (for example `0.1.7`) and `<previous>` the last published one (`0.1.6`).
 
@@ -113,7 +113,7 @@ test('fails', () => { expect(1 + 1).toBe(3); });
 npx playwright test
 ```
 
-Expected: exit code 1 (one test fails on purpose), `Loupe report written to loupe-report`, and `loupe-report/` with `index.html`, `report.json` and `data/`. The report data in `index.html` has `schemaVersion` 1 and `generator.version` `<version>`. Remove `<tmp>` afterwards. The `.tgz` is ignored by git, but nothing needs to be packed into the repository.
+Expected: exit code 1 (one test fails on purpose), `Loupe report written to loupe-report`, and `loupe-report/` with `index.html`, `report.json` and `data/`. The report data in `index.html` has `schemaVersion` 1 and `generator.version` `<version>`. Remove `<tmp>` afterwards. The tarball goes to `<tmp>`, not the repository root: `*.tgz` is ignored by git, but tarballs left there pile up.
 
 The version is not published yet at this point, so npm installs the tarball; a tarball carrying an already published version may be taken as installed and not reinstalled in a consumer project.
 
