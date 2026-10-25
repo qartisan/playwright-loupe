@@ -83,18 +83,17 @@ There is no `show` command: traces open with `npx playwright show-trace <file>`,
 
 ## Releasing
 
-Publishing is manual and done by the maintainer:
+Claude Code prepares and verifies a release; the maintainer runs `npm version`, `npm publish`, the tag and every push. The full procedure, its checks and the recovery steps are in [`docs/releasing.md`](docs/releasing.md).
 
-1. `main` clean and up to date; `package.json` version without a prerelease suffix.
-2. CHANGELOG: `[Unreleased]` becomes `[<version>] - <date>` above a new empty `[Unreleased]`, and the link references at the bottom are updated (`[Unreleased]` compares from the new tag, the new version from the previous tag). Commit `docs: prepare <version>`.
-3. `npm version patch|minor -m "chore: release %s"`: bumps the version, commits and creates the `v<version>` tag.
-4. `npm pack --dry-run`: only `dist/`, `licenses/`, README, LICENSE, CHANGELOG and `package.json`.
-5. `npm publish`, then check the package page on npmjs.com.
-6. `git push --follow-tags`, then `npm view @qartisan/playwright-loupe version`.
+- **Choosing the version.** Patch for fixes and improvements, minor for a new version line, as practiced since 0.1.0. `1.0.0` is not on the table until the history design (phase 2) is settled.
+- **`schemaVersion` is independent** from the package version (`src/schema/v1.ts`, policy in `docs/schema/v1.md`). It changes only with the JSON shape, noted in the CHANGELOG. A change in how signatures are computed keeps `schemaVersion` but always gets a CHANGELOG note.
+- **What Claude Code prepares**, left in the working tree:
+  - the CHANGELOG: `## [Unreleased]` becomes `## [<version>] - <YYYY-MM-DD>` under a new empty `## [Unreleased]`; at the bottom, `[Unreleased]` compares `v<version>...HEAD` and a new `[<version>]` line compares `v<previous>...v<version>`. It proposes the commit `docs: prepare <version>`, which the maintainer commits and pushes before `npm version`;
+  - the read-only pre-flight checks of `docs/releasing.md`, once CI is green on that commit, and the tag check after the bump.
+- **During a release, Claude Code never runs** `npm version`, `npm publish`, `npm deprecate`, `git commit`, `git tag` or `git push`, and never changes `package.json` or `package-lock.json`.
+- **A release never includes** a `*.tgz` in git, a report, or a version change made by Claude Code.
 
-Claude Code prepares steps 1 and 2 only. It never runs steps 3 to 6, nor `git tag`, `git push` or anything else that changes the version in `package.json`.
-
-To try a local build in a consumer project, give it a prerelease version first, `npm version prerelease --preid=dev --no-git-tag-version` (for example `0.1.5-dev.0`), then `npm pack` and install the tarball; restore the version afterwards, it is never committed. Never pack a tarball with an already published version number: npm treats it as installed and will not reinstall it.
+To try a local build in a consumer project, give it a prerelease version first, `npm version prerelease --preid=dev --no-git-tag-version` (for example `0.1.5-dev.0`), then `npm pack` and install the tarball. This dev version is never committed and must be reverted in `package.json` and `package-lock.json` before a release. Never pack a tarball with an already published version number: npm treats it as installed and will not reinstall it.
 
 ## Working agreement
 
