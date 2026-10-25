@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Checkout · Demo Store</title>
+<link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body data-page="checkout">
+<header>
+  <a class="brand" href="/">Demo Store</a>
+  <nav aria-label="Main">
+    <a href="/">Catalog</a>
+    <a href="/cart">Cart (<span id="cart-count">0</span>)</a>
+    <a href="/account">Account</a>
+  </nav>
+</header>
+<main>
+  <h1>Checkout</h1>
+  <section class="panel">
+    <form id="shipping-form" aria-label="Shipping address">
+      <h2>Shipping address</h2>
+      <label>Full name <input name="name" autocomplete="name" required></label>
+      <label>Street <input name="street" autocomplete="street-address" required></label>
+      <label>City <input name="city" autocomplete="address-level2" required></label>
+      <label>Postcode <input name="postcode" autocomplete="postal-code" required></label>
+      <button type="submit">Continue to payment</button>
+    </form>
+    <form id="payment-form" aria-label="Payment" hidden>
+      <h2>Payment</h2>
+      <label>Card number <input name="card" inputmode="numeric" required></label>
+      <label>Expiry date <input name="expiry" placeholder="MM/YY" required></label>
+      <label>Security code <input name="cvc" inputmode="numeric" required></label>
+      <button type="submit">Pay now</button>
+    </form>
+    <p id="payment-status" role="status"></p>
+  </section>
+</main>
+<script type="module" src="/assets/app.js"></script>
+</body>
+</html>

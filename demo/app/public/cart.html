@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cart · Demo Store</title>
+<link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body data-page="cart">
+<header>
+  <a class="brand" href="/">Demo Store</a>
+  <nav aria-label="Main">
+    <a href="/">Catalog</a>
+    <a href="/cart" aria-current="page">Cart (<span id="cart-count">0</span>)</a>
+    <a href="/account">Account</a>
+  </nav>
+</header>
+<main>
+  <h1>Cart</h1>
+  <section class="panel" aria-label="Cart items">
+    <div id="lines"></div>
+    <p id="empty" hidden>Your cart is empty.</p>
+  </section>
+  <section class="panel" aria-labelledby="saved-title">
+    <h2 id="saved-title">Saved for later</h2>
+    <div class="row">
+      <span class="name">Wool throw</span>
+      <button type="button" class="secondary">Move to cart</button>
+      <button type="button" class="secondary">Remove</button>
+    </div>
+  </section>
+  <section class="panel summary" aria-label="Order summary">
+    <p>Subtotal <span id="subtotal"></span></p>
+    <p>Shipping <span id="shipping"></span></p>
+    <p class="total" data-testid="cart-total">Total <span id="total"></span></p>
+    <p id="delivery" role="status">Checking delivery…</p>
+    <form id="discount" class="inline">
+      <label>Discount code <input name="code"></label>
+      <button type="submit" class="secondary">Apply</button>
+    </form>
+    <p id="discount-status" role="status"></p>
+    <p><a href="/checkout">Go to checkout</a></p>
+  </section>
+</main>
+<script type="module" src="/assets/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Account · Demo Store</title>
+<link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body data-page="account">
+<header>
+  <a class="brand" href="/">Demo Store</a>
+  <nav aria-label="Main">
+    <a href="/">Catalog</a>
+    <a href="/cart">Cart (<span id="cart-count">0</span>)</a>
+    <a href="/account" aria-current="page">Account</a>
+  </nav>
+</header>
+<main>
+  <h1>Account</h1>
+  <form id="sign-in" class="panel" aria-label="Sign in" hidden>
+    <label>Email <input name="email" type="email" autocomplete="username" required></label>
+    <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
+    <button type="submit">Sign in</button>
+    <p id="sign-in-error" role="alert"></p>
+  </form>
+  <div id="signed-in" hidden>
+    <section class="panel inline">
+      <p id="who"></p>
+      <button type="button" id="sign-out" class="secondary">Sign out</button>
+    </section>
+    <section class="panel">
+      <h2>Orders</h2>
+      <table>
+        <thead><tr><th>Order</th><th>Placed on</th><th>Total</th><th>Status</th><th>Invoice</th></tr></thead>
+        <tbody id="orders"></tbody>
+      </table>
+      <p><button type="button" id="export" disabled>Export CSV</button></p>
+    </section>
+  </div>
+</main>
+<script type="module" src="/assets/app.js"></script>
+</body>
+</html>

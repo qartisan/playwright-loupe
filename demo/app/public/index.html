@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Catalog · Demo Store</title>
+<link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body data-page="catalog">
+<header>
+  <a class="brand" href="/">Demo Store</a>
+  <nav aria-label="Main">
+    <a href="/" aria-current="page">Catalog</a>
+    <a href="/cart">Cart (<span id="cart-count">0</span>)</a>
+    <a href="/account">Account</a>
+  </nav>
+</header>
+<main>
+  <h1>Catalog</h1>
+  <div class="toolbar">
+    <label>Search <input type="search" id="search" name="q"></label>
+    <label>Category
+      <select id="category">
+        <option value="">All</option>
+        <option>Kitchen</option>
+        <option>Accessories</option>
+        <option>Home office</option>
+        <option>Living room</option>
+      </select>
+    </label>
+    <label>Sort by
+      <select id="sort">
+        <option value="">Featured</option>
+        <option value="price">Price, low to high</option>
+      </select>
+    </label>
+  </div>
+  <ul class="grid" id="products" aria-label="Products"></ul>
+  <p id="empty" hidden>No products match your search.</p>
+</main>
+<script type="module" src="/assets/app.js"></script>
+</body>
+</html>

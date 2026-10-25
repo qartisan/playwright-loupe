@@ -159,6 +159,8 @@ playwright-report
 loupe-report-load-error
 loupe-report-scope
 loupe-report-sample
+# Demo suite report, written by `npm run demo`
+demo-report
 # 5,000-test reports written by `npm run perf:sample`
 loupe-perf
 # Attachments of the renderer dev sample, written by `npm run sample:update`
