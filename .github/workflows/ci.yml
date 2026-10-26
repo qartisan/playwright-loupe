@@ -11,7 +11,7 @@ permissions:
 jobs:
   ci:
     name: Node ${{ matrix.node }} · Playwright ${{ matrix.playwright }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
@@ -24,6 +24,8 @@ jobs:
           # `filteredProjects`) paths of run scope detection.
           - node: 22
             playwright: 1.52.0
+            # Playwright 1.52 cannot install Chromium on Ubuntu 26.04 (ubuntu-latest): pinned to 24.04.
+            os: ubuntu-24.04
           # Latest release, ahead of the lockfile: catches changes to the
           # internals Loupe reads (`_only`, see test/scope.integration.test.ts).
           - node: 24
