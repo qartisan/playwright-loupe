@@ -4,6 +4,10 @@ on:
   push:
   pull_request:
 
+# Every job only reads the repository.
+permissions:
+  contents: read
+
 jobs:
   ci:
     name: Node ${{ matrix.node }} · Playwright ${{ matrix.playwright }}
@@ -56,4 +60,34 @@ jobs:
         with:
           name: loupe-report-node-${{ matrix.node }}-playwright-${{ matrix.playwright }}
           path: loupe-report
+          if-no-files-found: error
+
+  # The demo suite behind the live demo report (demo/README.md): checks on
+  # every push that it still fails exactly as intended. No deployment here.
+  demo:
+    name: Demo suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # Builds, runs the demo and exits 0 only when it fails in the intended way
+      # (see scripts/run-demo.mjs).
+      - run: npm run demo
+
+      - name: Upload demo report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-report
+          path: demo-report
           if-no-files-found: error
