@@ -3,7 +3,12 @@ Loupe — an HTML reporter for Playwright: a dashboard that shows what failed an
 
 > **Status: work in progress — the JSON schema will change before 1.0.**
 
-![Loupe overview](https://raw.githubusercontent.com/qartisan/playwright-loupe/main/docs/images/overview.png)
+**[Live demo](https://qartisan.github.io/playwright-loupe/)**: the report of a small demo suite that fails on purpose, rebuilt at each release.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/qartisan/playwright-loupe/main/docs/images/overview-dark.png">
+  <img alt="The Overview of the demo report: a failed run of 48 tests, with the common failure point signIn shared by 5 tests in 3 files, the failing tests per error category, and the sidebar listing the web and api projects and their spec files." src="https://raw.githubusercontent.com/qartisan/playwright-loupe/main/docs/images/overview-light.png">
+</picture>
 
 Loupe is a reporter for Playwright, not affiliated with Microsoft.
 
@@ -35,7 +40,35 @@ A run that broke outside its tests (a spec file that fails to import, a failing 
 
 ## The report
 
-The report is a single self-contained HTML file. It works offline, straight from `file://`, in light and dark themes.
+The report is a single self-contained HTML file. It works offline, straight from `file://`, in light and dark themes. The screenshots below come from the [live demo](https://qartisan.github.io/playwright-loupe/).
+
+**An error group**, shared by several tests:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/qartisan/playwright-loupe/main/docs/images/errors-dark.png">
+  <img alt="An error group page: 3 tests failing with the same Server error, expect(response).toBeOK() failed with a 500 Internal Server Error, its sample message with the call log, and the affected tests with their project and file." src="https://raw.githubusercontent.com/qartisan/playwright-loupe/main/docs/images/errors-light.png">
+</picture>
+
+**Suite health**, by dimension:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/qartisan/playwright-loupe/main/docs/images/health-dark.png">
+  <img alt="Suite health: a bar of passed, failed, flaky and skipped tests for each value of the Area and Owner dimensions, and the failing tests of each bug annotation." src="https://raw.githubusercontent.com/qartisan/playwright-loupe/main/docs/images/health-light.png">
+</picture>
+
+**Tests**, filtered:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/qartisan/playwright-loupe/main/docs/images/tests-dark.png">
+  <img alt="The Tests view filtered on failed and flaky tests: 19 of 48 tests, the active filters as chips, a button copying the rerun command of the 17 failed tests, and the sortable table with status, test, project, file, duration and error category." src="https://raw.githubusercontent.com/qartisan/playwright-loupe/main/docs/images/tests-light.png">
+</picture>
+
+**A screenshot comparison**, in a test's attachments:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/qartisan/playwright-loupe/main/docs/images/test-detail-dark.png">
+  <img alt="Screenshot comparison of a failed toHaveScreenshot test, in Side by side mode: the expected product card with a green Add to cart button next to the actual one with a blue button." src="https://raw.githubusercontent.com/qartisan/playwright-loupe/main/docs/images/test-detail-light.png">
+</picture>
 
 - **Header:** the run's verdict and status counts, its start, duration and environment; the shortcuts and theme controls stay top-right at every width. A [partial run](docs/schema/v1.md#run-scope) shows a pill after the verdict, "Partial: grep filter" ("+2" with more reasons, "Partial" alone on narrow screens), which opens the run details (`#/run-details`) where every reason is listed.
 - **Overview:** verdict with pass rate, run errors first when the run broke outside its tests, [common failure points](#common-failure-points), error categories, project cards, and the run details in three groups: Run (scope, CI, workers, shard), Code (commit, short with a copy button; branch; repository) and Environment (Playwright, Loupe, Node, OS). Empty values are left out.
@@ -52,7 +85,7 @@ The report is a single self-contained HTML file. It works offline, straight from
   - A `file:line` argument targets the line where the test is declared and reruns every test declared on that line. A command is only valid while the file has not changed since the run.
 - **Suite health:** dimensions from tags and annotations (with hints for unknown or inconsistent values), slowest, skipped (with why, see [Skip reasons](#skip-reasons)) and flaky tests.
 - **Tests:** every test in one sortable list (by default in declaration order, as in the sidebar: project, file, line; the Status header sorts failed, flaky, passed, skipped), filtered by status, error category, failure point, project, tag and dimension, with the count each filter would give. Header counts, error categories, failure points and dimension values open it pre-filtered. Large lists show their first 500 rows, with "Show 500 more" and "Show all". Under each title, chips show what the test covers: its dimension values first (dimensions in config order, the value alone, `api`, with the dimension in the tooltip), then its other tags (`@smoke`), sorted. A tag a dimension takes appears only as that dimension's value. A chip adds its value to the filters, keeping the others and the sort; an active chip (with a ×) removes it, and Back undoes either. Up to four chips per row, active chips always among them; "+N" shows the rest. A skipped test shows why on a muted line under its title, above the chips.
-- **Sidebar:** search (`/` to focus; every word must match, ignoring case and accents, the title path, file, project, tags, dimension values or the reason a test was skipped: `smoke`, `api`, `layer:api`, `sandbox`), projects, folders, files, `describe` blocks and tests, with status icons, failure counts and keyboard navigation. The folder shared by every file is not repeated.
+- **Sidebar:** search (`/` to focus; every word must match, ignoring case and accents, the title path, file, project, tags, dimension values or the reason a test was skipped: `smoke`, `api`, `layer:api`, `sandbox`), projects, folders, files, `describe` blocks and tests, with status icons, failure counts and keyboard navigation. Each project leaves out the folder shared by its own files, so a project with its own test directory does not repeat it.
 - **Filters in the URL:** search, filters and sort live in the link, so a filtered view can be shared or bookmarked, even from `file://`. A project without a `name` (Playwright's default project) cannot be selected in the project filter: an empty name cannot be written in the URL. Give your projects a name to filter by them. Each tag is filterable in one place only: a tag a dimension is built from (`@layer:ui` with a `layer` dimension, configured or automatic) is in that dimension's filter (Layer: `ui`), not in the tag filter, so the two can never be combined into an empty result. Unprefixed tags (`@smoke`) and prefixed tags no dimension uses stay in the tag filter. The failure point filter (`point`, the value `<file>#<function>` encoded like any other, `#` as `%23`: `point=fixtures%2Fsession.ts%23signIn`) offers the points of the Overview card; a test matches when the function is in the stack of one of its failing attempts.
 
 ### Skip reasons
@@ -201,6 +234,8 @@ Node.js 22.12 is the minimum because ES module config files are loaded with `req
 | `npm run fixtures` | Builds, then runs the fixture suite into `loupe-report/`. Its failures are intentional, see [`fixtures/README.md`](fixtures/README.md). |
 | `npm run sample:update` | Builds, then runs the fixture suite with `fixtures/sample.config.ts` and writes its report to `src/renderer/dev/sample.json`: failures, flaky and skipped tests, a partial run and a run error. Its attachment files go to `src/renderer/dev/data/` (gitignored). |
 | `npm run perf:sample` | Builds, then writes two 5,000-test reports to `loupe-perf/` (gitignored), from the renderer sample: `sample` (its own tags) and `heavy` (7 to 8 chips per row). Add `-- --measure` to time opening, filtering, sorting and searching the Tests view in Chromium (median of 7 runs), and `--renderer <index.html>` to time another renderer build, for a before / after comparison. |
+| `npm run demo` | Builds, then runs the demo suite ([`demo/`](demo/README.md)) into `demo-report/` (gitignored) and checks that it fails exactly as intended: the live demo report comes from it. Add `-- --open` to open the report. A report built locally holds your local paths: it is not for publishing. |
+| `npm run demo:screenshots` | Regenerates the README screenshots in `docs/images/`, light and dark, from a **CI-built** demo report in `demo-report/` (the `demo-report` artifact of the CI's "Demo suite" job). It refuses a report built on your machine. |
 | `npm run dev:renderer` | Vite dev server for the renderer, fed with `src/renderer/dev/sample.json`, with hot reload; it serves the sample's attachments at `data/`. No Playwright run needed for UI work. |
 
 Tests that drive a browser need Chromium: `npx playwright install chromium`.

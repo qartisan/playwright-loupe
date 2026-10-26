@@ -77,6 +77,8 @@ The npm scripts of `package.json`; the README's Development section describes ea
 - `npm run sample:update`: rewrites the renderer sample `src/renderer/dev/sample.json` from the fixture suite.
 - `npm run perf:sample`: writes 5,000-test reports to `loupe-perf/`; `-- --measure` times the Tests view.
 - `npm run dev:renderer`: Vite dev server for the renderer, on the sample.
+- `npm run demo`: builds, then runs the demo suite (`demo/`) into `demo-report/` and checks it fails exactly as intended; `-- --open` opens it.
+- `npm run demo:screenshots`: regenerates the README images in `docs/images/` from a CI-built `demo-report/` (it refuses a locally built one).
 - Accessibility suite alone: `npm run build && npx vitest run test/renderer-a11y-browser.test.ts`. To add a state, one line in its `MATRIX`; accepted findings in `test/a11y-allowlist.ts`, each with its reason (an unused entry fails a full run). See the README's "Accessibility tests".
 
 There is no `show` command: traces open with `npx playwright show-trace <file>`, which the report's trace card copies.
