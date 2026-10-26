@@ -1,0 +1,57 @@
+name: Live demo
+
+# Builds the demo report (demo/README.md) and deploys it to GitHub Pages, so
+# the live demo matches the published version. Never publishes to npm.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+# The build job only reads the repository; the deploy job sets its own.
+permissions:
+  contents: read
+
+# One deployment at a time; a running deployment is never cancelled.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build the demo report
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # Builds, runs the demo and exits 0 only when it fails in the intended way
+      # (see scripts/run-demo.mjs), as in ci.yml: any other failure stops here.
+      - run: npm run demo
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: demo-report
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
