@@ -52,6 +52,7 @@
     "sample:update": "npm run build && node scripts/update-sample.mjs",
     "perf:sample": "npm run build && node scripts/perf-sample.mjs",
     "demo": "npm run build && node scripts/run-demo.mjs",
+    "demo:screenshots": "node scripts/demo-screenshots.mjs",
     "prepublishOnly": "npm run typecheck && npm run build && npm test"
   },
   "peerDependencies": {
