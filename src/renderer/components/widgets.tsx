@@ -625,11 +625,11 @@ function DimensionTiles({ name, values }: { name: string; values: readonly Dimen
 /**
  * Outcomes per value of a dimension, with tag hygiene (unknown values and case
  * variants flagged, never merged). Bars up to `DIMENSION_BARS_MAX` values,
- * tiles above; the exact table is one click away.
+ * tiles above; the exact table is one click away. `id` is its heading's,
+ * from `uniqueIds`: never the raw name, which may hold spaces or quotes.
  */
-export function DimensionWidget({ distribution }: { distribution: DimensionDistribution }) {
+export function DimensionWidget({ distribution, id }: { distribution: DimensionDistribution; id: string }) {
   const { definition, values, without } = distribution;
-  const id = `w-dimension-${definition.name}`;
   const representation = dimensionRepresentation(distribution);
   return (
     <section class="widget widget-dimension" aria-labelledby={id} data-dimension={definition.name} data-representation={representation}>

@@ -471,6 +471,25 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     await page.close();
   });
 
+  it('labels each dimension widget by its name, even with spaces, quotes or names giving the same id', async () => {
+    const names = ['Test type', 'test-type', 'Team "core"'];
+    const tests = report.tests.map((test) => ({ ...test, dimensions: { ...test.dimensions, ...Object.fromEntries(names.map((name) => [name, ['a']])) } }));
+    const dimensions = [...report.dimensions, ...names.map((name) => ({ name, source: 'annotation' as const, key: name, values: null }))];
+    const { page, errors } = await open(`${writeReport('dimension-ids', { ...report, tests, dimensions })}#/health`);
+    await page.locator('.widget-dimension').first().waitFor();
+    for (const name of names) {
+      // A section named by aria-labelledby: the region's accessible name is its heading.
+      const region = page.getByRole('region', { name, exact: true });
+      expect(await region.count()).toBe(1);
+      expect(await region.getAttribute('data-dimension')).toBe(name);
+    }
+    const ids = await page.locator('.widget-dimension h2').evaluateAll((headings) => headings.map((heading) => heading.id));
+    expect(ids.every((id) => /^\S+$/.test(id))).toBe(true);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
   it('shows a dimension with many values as tiles, problem values first, details on focus', async () => {
     // 20 values: tiles. Every test gets one: failed and flaky tests m00 to m09, the others m10 to m19.
     const tests = report.tests.map((test, index) => {

@@ -3,6 +3,7 @@ import type { LoupeReport } from '../../schema/v1.js';
 import { categoryColorMap } from '../categoryColors.js';
 import { DimensionWidget, FlakyWidget, SkippedWidget, SlowestWidget } from '../components/widgets.js';
 import { dimensionDistributions, flakyTests, skippedTests, slowestTests } from '../dashboard.js';
+import { uniqueIds } from '../ids.js';
 
 /** Suite health (`#/health`): dimensions and tag hygiene, then slow, skipped and flaky tests. */
 export function HealthPage({ report }: { report: LoupeReport }) {
@@ -16,6 +17,8 @@ export function HealthPage({ report }: { report: LoupeReport }) {
     [report],
   );
   const colors = useMemo(() => categoryColorMap(report.categories), [report]);
+  // Heading ids from the dimension names, which may hold spaces or quotes.
+  const headingIds = useMemo(() => uniqueIds('w-dimension-', report.dimensions.map((definition) => definition.name)), [report]);
   const empty = data.dimensions.length + data.slowest.length + data.skipped.length + data.flaky.length === 0;
 
   return (
@@ -25,7 +28,11 @@ export function HealthPage({ report }: { report: LoupeReport }) {
       {data.dimensions.length > 0 && (
         <div class="widget-grid dimension-grid">
           {data.dimensions.map((distribution) => (
-            <DimensionWidget key={distribution.definition.name} distribution={distribution} />
+            <DimensionWidget
+              key={distribution.definition.name}
+              distribution={distribution}
+              id={headingIds.get(distribution.definition.name) ?? 'w-dimension'}
+            />
           ))}
         </div>
       )}

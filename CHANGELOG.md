@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - **The sidebar no longer repeats a project's own test folder** under the project when projects have separate test directories: each project leaves out the folder shared by its own files, and its row names that folder for screen readers and in its tooltip.
+- **Dimension widgets keep their accessible name when the dimension name has a space or a quote** (`Test type`): the widget's heading id is now a slug of the name, unique even when two names give the same slug, instead of the raw name. URLs are unchanged.
 
 ## [0.1.6] - 2026-10-25
 
