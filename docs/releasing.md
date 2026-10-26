@@ -1,6 +1,6 @@
 # Releasing Loupe
 
-The maintainer procedure for publishing `@qartisan/playwright-loupe` to npm. Claude Code prepares the CHANGELOG and runs the read-only checks (steps 1, 4 and 6); the maintainer runs everything that commits, tags, pushes or publishes. Steps marked *maintainer only, not verified by Claude Code* were not run while writing this document.
+The maintainer procedure for publishing `@qartisan/playwright-loupe` to npm. Claude Code prepares the CHANGELOG, regenerates the README screenshots when the UI visibly changed, and runs the read-only checks (steps 1, 3, 4 and 6); the maintainer runs everything that commits, tags, pushes or publishes. Steps marked *maintainer only, not verified by Claude Code* were not run while writing this document.
 
 In the commands, `<version>` is the version being released (for example `0.1.7`) and `<previous>` the last published one (`0.1.6`).
 
@@ -8,7 +8,7 @@ In the commands, `<version>` is the version being released (for example `0.1.7`)
 
 1. **Prepare the CHANGELOG** (Claude Code, left in the working tree).
 2. **Commit and push** `docs: prepare <version>` to `main`.
-3. **Wait for CI**: the four jobs of `.github/workflows/ci.yml` must be green (Node 22 and 24 on the lockfile Playwright, Node 22 on Playwright 1.52.0, Node 24 on the latest Playwright).
+3. **Wait for CI**: the five jobs of `.github/workflows/ci.yml` must be green (Node 22 and 24 on the lockfile Playwright, Node 22 on Playwright 1.52.0, Node 24 on the latest Playwright, and the Demo suite). **If the UI visibly changed** since the last release, regenerate the README screenshots from this run, commit, push and wait for CI again (see [below](#3-readme-screenshots-when-the-ui-visibly-changed)).
 4. **Pre-flight checks** (read-only).
 5. **Bump the version**: `npm version patch -m "chore: release %s"` (or `minor`).
 6. **Check the tag.**
@@ -33,6 +33,26 @@ In `CHANGELOG.md`:
 ```
 
 The CHANGELOG is committed before `npm version`: `npm version` refuses to run with changes to tracked files, and the tag must contain the new heading.
+
+## 3. README screenshots (when the UI visibly changed)
+
+Skip this step when the views look the same as in the current images (`docs/images/`). The images come from a report built in CI: a report built locally holds local paths in its stack traces, and `npm run demo:screenshots` refuses it.
+
+1. Download the `demo-report` artifact of the green **Demo suite** job of the run above into `demo-report/` (replacing any local one): from the run's page on GitHub, or *maintainer only, not verified by Claude Code*:
+
+   ```sh
+   rm -rf demo-report
+   gh run download <run-id> --name demo-report --dir demo-report
+   ```
+
+2. Regenerate the images (Claude Code can run this, and leaves them in the working tree):
+
+   ```sh
+   npm run demo:screenshots
+   ```
+
+   It writes `docs/images/<view>-light.png` and `<view>-dark.png` for the five views, and overwrites `overview.png` with the light Overview. Never delete or rename an image: the README of published versions points at `main`.
+3. Look at the images, then commit `docs: refresh the README screenshots`, push, and wait for CI again before step 4.
 
 ## 4. Pre-flight checks
 
@@ -144,6 +164,8 @@ npm view @qartisan/playwright-loupe version
 ```
 
 `git push --follow-tags` pushes the release commit and its annotated tag. `npm view` must print `<version>`. Finally, install `@qartisan/playwright-loupe@<version>` in a consumer project and run its suite.
+
+The tag push also runs `.github/workflows/demo.yml` (**Live demo**), which builds the demo suite from the tag and deploys its report to GitHub Pages. Check that the workflow is green and that the footer of https://qartisan.github.io/playwright-loupe/ shows `v<version>`. Nothing is published to npm from GitHub Actions.
 
 ## If something goes wrong
 

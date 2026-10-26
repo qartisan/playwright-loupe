@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **The README shows each view of the report in light and dark, and links to a [live demo](https://qartisan.github.io/playwright-loupe/)**: the report of a small demo suite that fails on purpose, rebuilt at each release.
+
 ### Fixed
 
 - **The sidebar no longer repeats a project's own test folder** under the project when projects have separate test directories: each project leaves out the folder shared by its own files, and its row names that folder for screen readers and in its tooltip.

@@ -91,6 +91,7 @@ Claude Code prepares and verifies a release; the maintainer runs `npm version`, 
 - **`schemaVersion` is independent** from the package version (`src/schema/v1.ts`, policy in `docs/schema/v1.md`). It changes only with the JSON shape, noted in the CHANGELOG. A change in how signatures are computed keeps `schemaVersion` but always gets a CHANGELOG note.
 - **What Claude Code prepares**, left in the working tree:
   - the CHANGELOG: `## [Unreleased]` becomes `## [<version>] - <YYYY-MM-DD>` under a new empty `## [Unreleased]`; at the bottom, `[Unreleased]` compares `v<version>...HEAD` and a new `[<version>]` line compares `v<previous>...v<version>`. It proposes the commit `docs: prepare <version>`, which the maintainer commits and pushes before `npm version`;
+  - when the UI visibly changed, the README screenshots (`npm run demo:screenshots`), from the CI `demo-report` artifact the maintainer downloads into `demo-report/`, for a `docs: refresh the README screenshots` commit;
   - the read-only pre-flight checks of `docs/releasing.md`, once CI is green on that commit, and the tag check after the bump.
 - **During a release, Claude Code never runs** `npm version`, `npm publish`, `npm deprecate`, `git commit`, `git tag` or `git push`, and never changes `package.json` or `package-lock.json`.
 - **A release never includes** a `*.tgz` in git, a report, or a version change made by Claude Code.
