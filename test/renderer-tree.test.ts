@@ -5,6 +5,7 @@ import {
   ancestorKeys,
   buildTree,
   groupKeys,
+  projectPrefixes,
   testKey,
   visibleRows,
   type GroupNode,
@@ -219,21 +220,136 @@ describe('buildTree', () => {
     expect(group(folder.children).path).toBe('tests/api/users/v2/list.spec.ts');
   });
 
-  it('uses the given prefix, so a filtered tree keeps the folders of the whole run', () => {
+  it('uses the given prefixes, so a filtered tree keeps the folders of the whole run', () => {
     const input: Input = { projects: [project('p')], tests: [makeTest({ file: 'tests/api/users.spec.ts', title: 'u' })] };
     expect(shape(group(buildTree(input)).children)).toEqual([{ 'file: users.spec.ts': ['u [passed]'] }]);
-    expect(shape(group(buildTree(input, { prefix: 'tests/' })).children)).toEqual([{ 'folder: api': [{ 'file: users.spec.ts': ['u [passed]'] }] }]);
+    const prefixes = new Map([['p', 'tests/']]);
+    expect(shape(group(buildTree(input, { prefixes })).children)).toEqual([{ 'folder: api': [{ 'file: users.spec.ts': ['u [passed]'] }] }]);
   });
 
   it('keeps folder keys stable when filtering changes the merged folders', () => {
     const tests = [makeTest({ file: 'tests/api/a.spec.ts', title: 'a' }), makeTest({ file: 'tests/ui/b.spec.ts', title: 'b' })];
-    const full = buildTree({ projects: [project('p')], tests }, { prefix: 'tests/' });
-    const filtered = buildTree({ projects: [project('p')], tests: [tests[0] as TestCase] }, { prefix: 'tests/' });
+    const prefixes = projectPrefixes(tests);
+    const full = buildTree({ projects: [project('p')], tests }, { prefixes });
+    const filtered = buildTree({ projects: [project('p')], tests: [tests[0] as TestCase] }, { prefixes });
     expect(group(group(filtered).children).key).toBe(group(group(full).children).key);
   });
 
   it('returns no root for a run without tests', () => {
     expect(buildTree({ projects: [project('p')], tests: [] })).toEqual([]);
+  });
+});
+
+describe('per-project prefix', () => {
+  /** Each project's label, prefix and children, compact. */
+  const projects = (input: Input) =>
+    buildTree(input).map((root) => ({ project: root.labels[0], prefix: root.prefix, children: shape(root.children) }));
+  const files = (projectName: string, paths: string[]) => paths.map((file, index) => makeTest({ project: projectName, file, title: `${projectName} ${index}` }));
+  const leaf = (projectName: string, index: number) => [`${projectName} ${index} [passed]`];
+
+  it('leaves out the test directory of each project when projects have their own (the demo suite)', () => {
+    const input: Input = {
+      projects: [project('web'), project('api')],
+      tests: [...files('web', ['web/cart.spec.ts', 'web/account.spec.ts']), ...files('api', ['api/orders.spec.ts'])],
+    };
+    expect(projects(input)).toEqual([
+      { project: 'web', prefix: 'web/', children: [{ 'file: account.spec.ts': leaf('web', 1) }, { 'file: cart.spec.ts': leaf('web', 0) }] },
+      { project: 'api', prefix: 'api/', children: [{ 'file: orders.spec.ts': leaf('api', 0) }] },
+    ]);
+    // Full paths stay on the nodes, for the tooltip and the accessible name.
+    expect(group(group(buildTree(input)).children).path).toBe('web/account.spec.ts');
+  });
+
+  it('changes nothing for projects running the same files (the fixture suite)', () => {
+    const paths = ['basics.spec.ts', 'resources/orders.spec.ts', 'resources/profiles.spec.ts'];
+    const input: Input = { projects: [project('a'), project('b')], tests: [...files('a', paths), ...files('b', paths)] };
+    const expected = (name: string) => [
+      { 'folder: resources': [{ 'file: orders.spec.ts': leaf(name, 1) }, { 'file: profiles.spec.ts': leaf(name, 2) }] },
+      { 'file: basics.spec.ts': leaf(name, 0) },
+    ];
+    expect(projects(input)).toEqual([
+      { project: 'a', prefix: '', children: expected('a') },
+      { project: 'b', prefix: '', children: expected('b') },
+    ]);
+  });
+
+  it('leaves out the prefix shared by every file when there is one project, as before', () => {
+    const input: Input = { projects: [project('p')], tests: files('p', ['tests/e2e/api/users.spec.ts', 'tests/e2e/home.spec.ts']) };
+    expect(projects(input)).toEqual([
+      { project: 'p', prefix: 'tests/e2e/', children: [{ 'folder: api': [{ 'file: users.spec.ts': leaf('p', 0) }] }, { 'file: home.spec.ts': leaf('p', 1) }] },
+    ]);
+  });
+
+  it('gives projects of the same test directory and the same files the same tree', () => {
+    const paths = ['tests/api/users.spec.ts', 'tests/ui/home.spec.ts'];
+    const input: Input = { projects: [project('chromium'), project('firefox')], tests: [...files('chromium', paths), ...files('firefox', paths)] };
+    const [chromium, firefox] = projects(input);
+    expect(chromium?.prefix).toBe('tests/');
+    expect(firefox?.prefix).toBe('tests/');
+    expect(chromium?.children).toEqual([{ 'folder: api': [{ 'file: users.spec.ts': leaf('chromium', 0) }] }, { 'folder: ui': [{ 'file: home.spec.ts': leaf('chromium', 1) }] }]);
+    expect(firefox?.children).toEqual([{ 'folder: api': [{ 'file: users.spec.ts': leaf('firefox', 0) }] }, { 'folder: ui': [{ 'file: home.spec.ts': leaf('firefox', 1) }] }]);
+  });
+
+  it('lets projects of the same test directory with different files start at different depths', () => {
+    const input: Input = {
+      projects: [project('setup'), project('chromium')],
+      tests: [...files('setup', ['tests/auth.setup.ts']), ...files('chromium', ['tests/e2e/a.spec.ts', 'tests/e2e/b.spec.ts'])],
+    };
+    expect(projects(input)).toEqual([
+      { project: 'setup', prefix: 'tests/', children: [{ 'file: auth.setup.ts': leaf('setup', 0) }] },
+      { project: 'chromium', prefix: 'tests/e2e/', children: [{ 'file: a.spec.ts': leaf('chromium', 0) }, { 'file: b.spec.ts': leaf('chromium', 1) }] },
+    ]);
+  });
+
+  it('removes a folder holding every file of a project, at any depth', () => {
+    const input: Input = {
+      projects: [project('mobile'), project('desktop')],
+      tests: [...files('mobile', ['suites/mobile/smoke/a.spec.ts', 'suites/mobile/smoke/b.spec.ts']), ...files('desktop', ['suites/desktop/c.spec.ts'])],
+    };
+    expect(projects(input)[0]).toEqual({
+      project: 'mobile',
+      prefix: 'suites/mobile/smoke/',
+      children: [{ 'file: a.spec.ts': leaf('mobile', 0) }, { 'file: b.spec.ts': leaf('mobile', 1) }],
+    });
+  });
+
+  it('keeps the folders below the shared one when a project spreads over several', () => {
+    const input: Input = {
+      projects: [project('web'), project('api')],
+      tests: [...files('web', ['web/checkout/pay.spec.ts', 'web/account/login.spec.ts']), ...files('api', ['api/users.spec.ts'])],
+    };
+    expect(projects(input)[0]).toEqual({
+      project: 'web',
+      prefix: 'web/',
+      children: [{ 'folder: account': [{ 'file: login.spec.ts': leaf('web', 1) }] }, { 'folder: checkout': [{ 'file: pay.spec.ts': leaf('web', 0) }] }],
+    });
+  });
+
+  it('puts the only file of a project directly under it', () => {
+    const input: Input = {
+      projects: [project('smoke'), project('full')],
+      tests: [...files('smoke', ['tests/smoke/only.spec.ts']), ...files('full', ['tests/a.spec.ts', 'tests/b/c.spec.ts'])],
+    };
+    expect(projects(input)[0]).toEqual({ project: 'smoke', prefix: 'tests/smoke/', children: [{ 'file: only.spec.ts': leaf('smoke', 0) }] });
+  });
+
+  it('builds the same tree for a merged report, whatever the order of its shards', () => {
+    const tests = [...files('web', ['web/a.spec.ts', 'web/b.spec.ts']), ...files('api', ['api/c.spec.ts', 'api/d.spec.ts'])];
+    const projectsList = [project('web'), project('api')];
+    // merge-reports lists the tests of each blob in turn: here shard 2 (b, d) before shard 1 (a, c).
+    const merged = [tests[1], tests[3], tests[0], tests[2]] as TestCase[];
+    expect(shape(buildTree({ projects: projectsList, tests: merged }))).toEqual(shape(buildTree({ projects: projectsList, tests })));
+    expect(projectPrefixes(merged)).toEqual(new Map([['web', 'web/'], ['api', 'api/']]));
+  });
+
+  it('computes one prefix per project, the unnamed project included', () => {
+    const tests = [makeTest({ project: '', file: 'e2e/a.spec.ts', title: 'a' }), makeTest({ project: 'x', file: 'x/b.spec.ts', title: 'b' })];
+    expect(projectPrefixes(tests)).toEqual(new Map([['', 'e2e/'], ['x', 'x/']]));
+  });
+
+  it('keeps full paths for a project missing from the given prefixes', () => {
+    const input: Input = { projects: [project('p')], tests: files('p', ['tests/a.spec.ts']) };
+    expect(shape(group(buildTree(input, { prefixes: new Map() })).children)).toEqual([{ 'folder: tests': [{ 'file: a.spec.ts': leaf('p', 0) }] }]);
   });
 });
 

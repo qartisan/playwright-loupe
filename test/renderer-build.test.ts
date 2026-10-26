@@ -1056,6 +1056,36 @@ describe('built renderer in a browser (file://)', { timeout: 30_000 }, () => {
     await page.close();
   });
 
+  it('leaves out the test directory of each project, and names it in the project row', async () => {
+    // Projects that share their files (the fixture report): no own prefix, rows unchanged.
+    const shared = await open(writeReport('project-prefix-shared', report));
+    expect(await shared.page.locator('.tree [role="treeitem"][aria-level="1"] .row-label').allTextContents()).toEqual(['chromium-a', 'chromium-b']);
+    expect(await shared.page.getByRole('treeitem', { level: 1, name: /files in/ }).count()).toBe(0);
+    expect(shared.errors).toEqual([]);
+    await shared.page.close();
+
+    // Projects with their own test directory, as in the demo suite.
+    const directories: Record<string, string> = { 'chromium-a': 'web/', 'chromium-b': 'api/' };
+    const tests = report.tests.map((test) => ({ ...test, file: `${directories[test.project]}${test.file}` }));
+    const { page, errors } = await open(writeReport('project-prefix-own', { ...report, tests }));
+    // Nothing is shared by every file: no line above the tree.
+    expect(await page.locator('.tree-prefix').count()).toBe(0);
+    // Accessible name: "chromium-a , files in web/ …" (Chromium adds a space between the spans).
+    const web = page.getByRole('treeitem', { level: 1, name: /^chromium-a\s*, files in web\// });
+    expect(await web.count()).toBe(1);
+    expect(await web.locator('.row-label').getAttribute('title')).toBe('chromium-a, files in web/');
+    // The visible label stays the project name.
+    expect(await web.locator('.label-part').allTextContents()).toEqual(['chromium-a']);
+    expect(await page.getByRole('treeitem', { level: 1, name: /^chromium-b\s*, files in api\// }).count()).toBe(1);
+    // No folder repeats the project's directory; the folders below it stay.
+    const folders = await page.locator('.tree-folder .row-label').allTextContents();
+    expect(folders).not.toContain('web');
+    expect(folders).not.toContain('api');
+    expect(folders).toContain('resources');
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
   it('shows the run start in the viewer time zone, with details on focus', async () => {
     const { page, errors } = await open(writeReport('run-time', report), { timezoneId: 'Europe/Paris', locale: 'en-GB' });
     const time = page.locator('.run-time time');

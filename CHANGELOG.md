@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **The sidebar no longer repeats a project's own test folder** under the project when projects have separate test directories: each project leaves out the folder shared by its own files, and its row names that folder for screen readers and in its tooltip.
+
 ## [0.1.6] - 2026-10-25
 
 No change to the JSON shape: `schemaVersion` stays 1.

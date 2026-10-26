@@ -3,8 +3,10 @@ import { commonDirectoryPrefix, stripPrefix, toPosix } from './paths.js';
 
 /**
  * Sidebar tree: projects → folders → files → describe blocks → tests, built
- * from the flat test list of the report. The directory prefix shared by every
- * file is left out. Pure functions, no DOM: unit-tested in Node.
+ * from the flat test list of the report. In each project, the directory
+ * prefix shared by every file of that project is left out, so a project with
+ * its own test directory does not repeat it as a folder. Pure functions, no
+ * DOM: unit-tested in Node.
  */
 
 export type GroupKind = 'project' | 'folder' | 'file' | 'suite';
@@ -20,6 +22,8 @@ export interface GroupNode {
   labels: string[];
   /** Folders and files: the full path, common prefix included (POSIX separators). */
   path?: string;
+  /** Projects: the directory prefix left out of its folders and files, with its trailing `/`; empty when none. */
+  prefix?: string;
   children: TreeNode[];
   counts: Stats;
   /** Smallest declaration line of the tests below, to keep the source order. */
@@ -126,14 +130,28 @@ function flatten(node: GroupNode): GroupNode {
   return { ...current, children: current.children.map((child) => (child.kind === 'test' ? child : flatten(child))) };
 }
 
+/**
+ * Per project, the directory prefix shared by its files, with its trailing
+ * `/` (see `commonDirectoryPrefix`): what its tree leaves out.
+ */
+export function projectPrefixes(tests: Iterable<Pick<TestCase, 'project' | 'file'>>): Map<string, string> {
+  const files = new Map<string, string[]>();
+  for (const test of tests) {
+    const list = files.get(test.project);
+    if (list) list.push(test.file);
+    else files.set(test.project, [test.file]);
+  }
+  return new Map([...files].map(([project, list]) => [project, commonDirectoryPrefix(list)]));
+}
+
 export interface TreeOptions {
   /**
-   * Directory prefix left out of the folders, with its trailing `/`. Defaults
-   * to the prefix shared by the files of `report.tests`; pass the one of the
+   * Per project, the directory prefix left out of its folders and files.
+   * Defaults to `projectPrefixes(report.tests)`; pass the prefixes of the
    * whole run when building the tree of a filtered list, so folders do not
-   * change with the filters.
+   * change with the filters. A project missing from the map keeps full paths.
    */
-  prefix?: string;
+  prefixes?: ReadonlyMap<string, string>;
 }
 
 /**
@@ -142,20 +160,24 @@ export interface TreeOptions {
  * name; describe blocks and tests follow their declaration order.
  */
 export function buildTree(report: Pick<LoupeReport, 'projects' | 'tests'>, options: TreeOptions = {}): GroupNode[] {
-  const prefix = options.prefix ?? commonDirectoryPrefix(report.tests.map((test) => test.file));
+  const prefixes = options.prefixes ?? projectPrefixes(report.tests);
   const projects = new Map<string, GroupNode>();
-  for (const project of report.projects) {
-    projects.set(project.name, group('project', projectKey(project.name), project.name || UNNAMED_PROJECT));
-  }
+  const projectNode = (name: string): GroupNode => {
+    const node = group('project', projectKey(name), name || UNNAMED_PROJECT);
+    node.prefix = prefixes.get(name) ?? '';
+    return node;
+  };
+  for (const project of report.projects) projects.set(project.name, projectNode(project.name));
   // Groups by key, so describe blocks of the same name in the same parent are merged, as in Playwright.
   const groups = new Map<string, GroupNode>();
 
   for (const test of report.tests) {
     let parent = projects.get(test.project);
     if (!parent) {
-      parent = group('project', projectKey(test.project), test.project || UNNAMED_PROJECT);
+      parent = projectNode(test.project);
       projects.set(test.project, parent);
     }
+    const prefix = parent.prefix ?? '';
     const relative = stripPrefix(test.file, prefix).split('/');
     const fileName = relative.pop() ?? test.file;
     const levels: Array<[GroupKind, string, string?]> = [

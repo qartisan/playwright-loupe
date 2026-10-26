@@ -21,7 +21,7 @@ import { NotFoundPage } from '../pages/NotFoundPage.js';
 import { OverviewPage } from '../pages/OverviewPage.js';
 import { TestPage } from '../pages/TestPage.js';
 import { TestsPage } from '../pages/TestsPage.js';
-import { buildTree, testKey } from '../tree.js';
+import { buildTree, projectPrefixes, testKey } from '../tree.js';
 import { announcesPage, focusesHeading, pageKey, pageName, pageTitle, type ChangeContext } from '../viewChange.js';
 import { CopyFallbackDialog } from './Dialog.js';
 import { Footer } from './Footer.js';
@@ -33,9 +33,11 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
   const state = filters.value;
   const filterKey = serializeFilters({ ...state, sort: DEFAULT_SORT });
   const matched = useMemo(() => filterTests(report.tests, state, context.value), [report, filterKey]);
-  // From every file of the run, so folders do not change with the filters.
+  // From every file of the run, so folders do not change with the filters. `prefix`, shared by
+  // every file, is shown above the tree; each project also leaves out its own, deeper one.
   const prefix = useMemo(() => commonDirectoryPrefix(report.tests.map((test) => test.file)), [report]);
-  const tree = useMemo(() => buildTree({ projects: report.projects, tests: matched }, { prefix }), [report, matched, prefix]);
+  const prefixes = useMemo(() => projectPrefixes(report.tests), [report]);
+  const tree = useMemo(() => buildTree({ projects: report.projects, tests: matched }, { prefixes }), [report, matched, prefixes]);
   const testsByKey = useMemo(
     () => new Map<string, TestCase>(report.tests.map((test) => [testKey(test.id, test.repeatEachIndex), test])),
     [report],

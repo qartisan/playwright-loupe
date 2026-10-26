@@ -225,7 +225,7 @@ export function Tree({
                 class={`tree-row tree-group tree-${row.node.kind}${key === revealedKey ? ' revealed' : ''}`}
                 aria-expanded={expanded.has(key)}
               >
-                <GroupRow node={row.node} onToggle={() => setOpen(key, !expanded.has(key))} />
+                <GroupRow node={row.node} sharedPrefix={prefix} onToggle={() => setOpen(key, !expanded.has(key))} />
               </li>
             );
           })}
@@ -266,11 +266,19 @@ function FileName({ name, path }: { name: string; path: string }) {
   );
 }
 
-function GroupRow({ node, onToggle }: { node: GroupNode; onToggle: () => void }) {
+/**
+ * A group row. A project whose files share a deeper folder than the one shown
+ * above the tree (`sharedPrefix`) names it in its accessible name and tooltip:
+ * that folder is left out of its rows.
+ */
+function GroupRow({ node, sharedPrefix, onToggle }: { node: GroupNode; sharedPrefix: string; onToggle: () => void }) {
   const { counts } = node;
   const summary = [plural(counts.total, 'test'), `${counts.failed} failed`, ...(counts.flaky > 0 ? [`${counts.flaky} flaky`] : [])].join(', ');
   const [first = '', ...rest] = node.labels;
-  const tooltip = [node.kind === 'folder' ? `${node.path ?? first}/` : (node.path ?? first), ...rest].join(' › ');
+  const ownPrefix = node.kind === 'project' && node.prefix && node.prefix !== sharedPrefix ? node.prefix : null;
+  const tooltip = ownPrefix
+    ? `${first}, files in ${ownPrefix}`
+    : [node.kind === 'folder' ? `${node.path ?? first}/` : (node.path ?? first), ...rest].join(' › ');
   return (
     <div class="row-content" onClick={onToggle}>
       <ChevronIcon class="chevron" />
@@ -281,6 +289,7 @@ function GroupRow({ node, onToggle }: { node: GroupNode; onToggle: () => void })
             {label}
           </span>
         ))}
+        {ownPrefix && <span class="visually-hidden">, files in {ownPrefix}</span>}
       </span>
       <span class="row-counts" title={summary}>
         <span class="visually-hidden">{summary}</span>
