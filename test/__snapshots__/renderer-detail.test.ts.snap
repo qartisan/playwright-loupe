@@ -46,9 +46,8 @@ Code:
 
 Stack:
 \`\`\`
-Error: expect(locator).toHaveText(expected) failed
-    at <root>/fixtures/tests/structure.spec.ts:23:46
-    at <root>/fixtures/tests/structure.spec.ts:22:7
+    at structure.spec.ts:23:46
+    at structure.spec.ts:22:7
 \`\`\`
 
 ## Failing step

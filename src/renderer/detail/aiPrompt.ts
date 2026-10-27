@@ -1,6 +1,8 @@
 import type { Attempt, LoupeError, Step, TestCase } from '../../schema/v1.js';
 import { mergeAnnotations } from '../../shared/annotations.js';
+import { isFrameLine } from '../../shared/frames.js';
 import { NO_CATEGORY } from '../dashboard.js';
+import { parseStack } from '../failure-points/frames.js';
 import { attemptLabel } from './attempts.js';
 import { failingStepContext } from './steps.js';
 
@@ -32,6 +34,22 @@ function location(error: LoupeError): string | null {
   return error.location ? `${error.location.file}:${error.location.line}:${error.location.column}` : null;
 }
 
+/**
+ * The stack from its first frame line: its head repeats the message, printed
+ * just before. Lines after the first frame (a nested cause) are kept. Null
+ * without a frame line, or when the only line left is a frame at the error's
+ * location (same file and line), printed above.
+ */
+function stackFrames(error: LoupeError): string | null {
+  const lines = error.stack?.split('\n') ?? [];
+  const first = lines.findIndex(isFrameLine);
+  if (first === -1) return null;
+  const frames = lines.slice(first).join('\n').replace(/\s+$/, '');
+  const [only] = parseStack(frames);
+  const atLocation = error.location !== null && only?.path === error.location.file && only.line === error.location.line;
+  return atLocation && !frames.includes('\n') ? null : frames;
+}
+
 function stepText(step: Step): string {
   return step.subtitle ? `${step.title} (${step.subtitle})` : step.title;
 }
@@ -42,7 +60,8 @@ function errorSection(error: LoupeError, index: number, total: number, options: 
   if (where) lines.push(`Location: ${where}`);
   lines.push('', 'Message:', fenced(error.message));
   if (error.snippet) lines.push('', 'Code:', fenced(error.snippet));
-  if (options.includeStack && error.stack && error.stack !== error.message) lines.push('', 'Stack:', fenced(error.stack));
+  const frames = options.includeStack ? stackFrames(error) : null;
+  if (frames) lines.push('', 'Stack:', fenced(frames));
   return lines;
 }
 

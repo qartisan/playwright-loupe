@@ -68,7 +68,7 @@ Merging is done key by key for nested objects (`categories`, `dimensions`, `scre
 | `dimensions.definitions` | `Dimension[]` | `[]` | See [Dimensions](#dimensions). |
 | `screenshots.defaultView` | `'side-by-side' \| 'slider' \| 'overlay' \| 'diff'` | `'side-by-side'` | Default view of screenshot comparisons. [Renderer setting](#renderer-settings). |
 | `theme` | `'system' \| 'light' \| 'dark'` | `'system'` | Default theme. The viewer can switch it; their choice is remembered in the browser. [Renderer setting](#renderer-settings). |
-| `aiPrompt.includeStack` | `boolean` | `true` | Include each error's stack trace in the AI prompt the test detail copies to the clipboard. Turn it off when stacks are long. [Renderer setting](#renderer-settings). |
+| `aiPrompt.includeStack` | `boolean` | `true` | Include each error's stack trace in the AI prompt the test detail copies to the clipboard: its frame lines, from the first one, left out when the only frame is the error location. Turn it off when stacks are long. [Renderer setting](#renderer-settings). |
 | `redact.patterns` | `(string \| RegExp)[]` | `[]` | Secret-looking names, added to the defaults. See [Secret redaction](#secret-redaction). |
 | `redact.mode` | `'extend' \| 'replace'` | `'extend'` | `replace`: only `redact.patterns`; `[]` turns name-based redaction off. |
 | `redact.env` | `string[]` | `[]` | Names of environment variables whose values are redacted everywhere. `LOUPE_REDACT_ENV` adds to it. |

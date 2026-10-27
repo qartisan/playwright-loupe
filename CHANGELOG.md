@@ -18,12 +18,13 @@ No change to the JSON shape: `schemaVersion` stays 1. The content of `stack`, `m
   Error signatures, categories and test ids are still computed from the original text: none changes. Category rules match the original text too, so a rule anchored on a relative path copied from the report (`^tests/`) does not match. Attachments (traces, screenshots, videos) are not altered. The rules and their limits (`merge-reports` blobs whose stacks never show their own test files, a root dir of one segment) are in [Paths in text](docs/schema/v1.md#paths-in-text).
 - **`location.file` may start with `~/`**, for a location in a home directory that shares no directory with the root dir.
 - **Common failure points read the frame paths of the report as they are.** Keys are unchanged, except for a function in a file sharing no directory with the root dir, which keeps its absolute path (`/opt/shared/x.ts#send`, before `../../opt/shared/x.ts#send`).
+- **The stack in the AI prompt keeps its frame lines only.** Its first lines repeated the error message, printed just above. Lines after the first frame, such as a nested cause, are kept. The stack is left out when it has no frame, or when its only frame is the error location the prompt already gives. The test detail still shows the whole stack.
 
 ### Fixed
 
 - **Error locations in merged reports point to the right file.** `merge-reports` does not rebase error locations, so with a merge config they pointed to the shard's file, relative to the merge root dir (`../../../runner/work/shop/shared/helper.ts` for a merge root dir `/home/alice/merge/tests`, instead of `../shared/helper.ts`), sometimes with that machine's user name. Loupe now finds the shard's root from the stacks.
 - **On Windows, a location on another drive or a UNC share is `null`** instead of an absolute path, which the schema rejects. The stack still shows it.
-- **The AI prompt lists each annotation once.** Since Playwright 1.52, each attempt's annotations start with a copy of the test's, and the prompt joined both lists: `bug: BUG-1; bug: BUG-1`. The test detail, the skip reason and annotation dimensions now merge the two lists the same way; they showed no duplicate. The JSON still holds both lists as Playwright gives them ([Annotation](docs/schema/v1.md#annotation)).
+- **The AI prompt lists each annotation once.** Since Playwright 1.52, each attempt's annotations start with a copy of the test's, and the prompt joined both lists: `bug: BUG-1; bug: BUG-1`. The test detail, the skip reason and annotation dimensions now merge the two lists the same way. Of these, only the test detail showed a duplicate: an annotation added twice at runtime was listed twice under "Annotations of this attempt". The JSON still holds both lists as Playwright gives them ([Annotation](docs/schema/v1.md#annotation)).
 
 ## [0.1.7] - 2026-10-26
 

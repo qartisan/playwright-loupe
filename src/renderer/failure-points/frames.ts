@@ -1,3 +1,5 @@
+import { frameBody } from '../../shared/frames.js';
+
 /**
  * Stack frames of an error, as V8 prints them: `at fn (path:line:col)` and
  * `at path:line:col`, with `async `, `new ` and `[as alias]` variants.
@@ -21,7 +23,6 @@ export interface StackFrame {
   line: number | null;
 }
 
-const FRAME_LINE = /^\s+at (.+)$/;
 const NAMED = /^(.+?) \((.+)\)$/;
 const POSITION = /^(.*?):(\d+)(?::\d+)?$/;
 
@@ -64,9 +65,8 @@ export function parseStack(stack: string | null): StackFrame[] {
   if (!stack) return [];
   const frames: StackFrame[] = [];
   for (const text of stack.split('\n')) {
-    const match = FRAME_LINE.exec(text);
-    if (!match) continue;
-    let body = (match[1] as string).trim();
+    let body = frameBody(text)?.trim();
+    if (body === undefined) continue;
     // `at async /path/x.ts:1:2`: an anonymous async frame.
     if (body.startsWith('async ') && !NAMED.test(body)) body = body.slice('async '.length);
     const named = NAMED.exec(body);

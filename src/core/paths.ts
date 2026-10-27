@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { frameBody, isFrameLine } from '../shared/frames.js';
 
 /**
  * Rewrites the absolute paths of a text so the report does not reveal the
@@ -246,10 +247,10 @@ export function createPathRewriter(options: PathRewriterOptions): PathRewriter {
     file,
     stack(stack) {
       const lines = stack.split('\n');
-      const first = lines.findIndex((line) => FRAME.test(line));
+      const first = lines.findIndex(isFrameLine);
       if (first === -1) return text(stack);
       const head = first === 0 ? [] : [text(lines.slice(0, first).join('\n'))];
-      return [...head, ...lines.slice(first).map((line) => (FRAME.test(line) ? file(line) : text(line)))].join('\n');
+      return [...head, ...lines.slice(first).map((line) => (isFrameLine(line) ? file(line) : text(line)))].join('\n');
     },
   };
 }
@@ -314,7 +315,6 @@ function decode(text: string): string {
   }
 }
 
-const FRAME = /^\s+at (?:async )?(.+)$/;
 const NAMED = /^.+? \((.+)\)$/;
 const POSITION = /^(.*?):\d+(?::\d+)?$/;
 
@@ -342,7 +342,7 @@ export function rootsFromStack(stack: string, testFile: string): string[] {
   if (testFile === '' || testFile.split('/').includes('..')) return [];
   const roots = new Set<string>();
   for (const line of stack.split('\n')) {
-    const body = FRAME.exec(line)?.[1];
+    const body = frameBody(line)?.replace(/^async /, '');
     if (body === undefined) continue;
     const file = frameFile(NAMED.exec(body)?.[1] ?? body);
     const flavor = flavorOf(file);

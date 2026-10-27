@@ -163,7 +163,7 @@ export default defineConfig({
 });
 ```
 
-`aiPrompt.includeStack` (default `true`) sets whether the AI prompt copied from the test detail includes each error's stack trace. Like `title` and `theme`, it is a presentation setting written to `index.html`, not to `report.json`.
+`aiPrompt.includeStack` (default `true`) sets whether the AI prompt copied from the test detail includes each error's stack trace: its frame lines, since the message is printed above it. Like `title` and `theme`, it is a presentation setting written to `index.html`, not to `report.json`.
 
 Options can also be passed inline (`['@qartisan/playwright-loupe', { title: 'Nightly' }]`) and through `LOUPE_*` environment variables. Precedence: defaults < config file < inline options < environment variables. The config is validated at startup: an invalid option, or a typo in a key, stops the run with an explicit message.
 

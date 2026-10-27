@@ -317,8 +317,8 @@ describe('AI prompt', () => {
       ].join('\n'),
       stack: [
         'Error: expect(locator).toHaveText(expected) failed',
-        '    at <root>/fixtures/tests/structure.spec.ts:23:46',
-        '    at <root>/fixtures/tests/structure.spec.ts:22:7',
+        '    at structure.spec.ts:23:46',
+        '    at structure.spec.ts:22:7',
       ].join('\n'),
     },
   );
@@ -364,10 +364,54 @@ describe('AI prompt', () => {
   it('leaves the stack out when configured', () => {
     const prompt = buildAiPrompt(test, test.attempts[1] as Attempt, { includeStack: false });
     expect(prompt).not.toContain('Stack:');
-    expect(prompt).not.toContain('<root>/fixtures');
+    expect(prompt).not.toContain('structure.spec.ts:22:7');
     expect(prompt).toContain('Expected: "15.00"');
     expect(prompt).toContain("> 23 |");
     expect(prompt).toContain('open the cart › check the total › Expect "toHaveText" (locator(\'#total\'))');
+  });
+
+  describe('stack block', () => {
+    const MESSAGE = 'Error: expect(received).toBe(expected)\n\nExpected: 2\nReceived: 1';
+    const promptOf = (fields: Partial<LoupeError>, includeStack = true) => {
+      const failed = attempt(0, 'failed', { errors: [error(MESSAGE, fields)] });
+      return buildAiPrompt(makeTest({ attempts: [failed] }), failed, { includeStack });
+    };
+    const stackBlock = (prompt: string) => /\nStack:\n```\n([\s\S]*?)\n```\n/.exec(prompt)?.[1] ?? null;
+
+    it('keeps the frame lines only: the message is not repeated', () => {
+      const stack = `${MESSAGE}\n    at expectTwo (../helpers/resources.ts:4:3)\n    at async a.spec.ts:9:5`;
+      const prompt = promptOf({ stack, location: { file: '../helpers/resources.ts', line: 4, column: 3 } });
+      expect(stackBlock(prompt)).toBe('    at expectTwo (../helpers/resources.ts:4:3)\n    at async a.spec.ts:9:5');
+      expect(prompt.split('Expected: 2')).toHaveLength(2);
+    });
+
+    it('has no stack block for a frameless error', () => {
+      expect(promptOf({ stack: MESSAGE })).not.toContain('Stack:');
+      expect(promptOf({ stack: 'Error: thrown elsewhere' })).not.toContain('Stack:');
+    });
+
+    it('has no stack block when its only frame is the error location', () => {
+      const location = { file: 'a.spec.ts', line: 9, column: 5 };
+      expect(promptOf({ stack: `${MESSAGE}\n    at a.spec.ts:9:5`, location })).not.toContain('Stack:');
+      expect(promptOf({ stack: `${MESSAGE}\n    at Context.<anonymous> (a.spec.ts:9:5)\n`, location })).not.toContain('Stack:');
+      // Elsewhere, or without a location to print instead, the frame stays.
+      expect(stackBlock(promptOf({ stack: `${MESSAGE}\n    at a.spec.ts:12:5`, location }))).toBe('    at a.spec.ts:12:5');
+      expect(stackBlock(promptOf({ stack: `${MESSAGE}\n    at a.spec.ts:9:5` }))).toBe('    at a.spec.ts:9:5');
+    });
+
+    it('keeps the lines after the first frame, a nested cause included, in order', () => {
+      const tail = ['    at load (a.spec.ts:9:5)', '[cause]: Error: ENOENT', '    at read (../helpers/files.ts:2:1)'];
+      const location = { file: 'a.spec.ts', line: 9, column: 5 };
+      expect(stackBlock(promptOf({ stack: [MESSAGE, ...tail].join('\n'), location }))).toBe(tail.join('\n'));
+      // A cause after the error's only frame keeps the block.
+      expect(stackBlock(promptOf({ stack: [MESSAGE, ...tail.slice(0, 2)].join('\n'), location }))).toBe(tail.slice(0, 2).join('\n'));
+    });
+
+    it('prints no stack when includeStack is off', () => {
+      const off = promptOf({ stack: `${MESSAGE}\n    at a.spec.ts:12:5` }, false);
+      expect(off).not.toContain('Stack:');
+      expect(off).not.toContain('a.spec.ts:12:5');
+    });
   });
 
   it("lists each annotation once, though the attempt holds a copy of the test's", () => {

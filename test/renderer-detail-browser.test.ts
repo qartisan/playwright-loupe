@@ -295,7 +295,9 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     await expect.poll(async () => (await copied())[1] ?? '').toContain('Explain the most likely cause');
     const prompt = (await copied())[1] ?? '';
     expect(prompt).toContain('Expected: "Wrong heading"');
-    expect(prompt).toContain('Stack:');
+    // Its only frame is the error location, printed already: no stack block.
+    expect(prompt).toContain(`Location: ${failing.file}:`);
+    expect(prompt).not.toContain('Stack:');
     // Each attempt holds a copy of the test's annotation: listed once.
     expect(prompt).toContain('- Annotations: bug: BUG-1\n');
     expect(errors).toEqual([]);
@@ -349,14 +351,22 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     await page.close();
   });
 
-  it('leaves the stack out of the AI prompt when configured', async () => {
-    const failing = find('fails on a wrong heading (intentional)');
-    const reportUrl = writeReport('no-stack', report, { ...DEFAULT_RENDERER_SETTINGS, aiPrompt: { includeStack: false } });
-    const { page } = await open(testHash(failing), { init: CLIPBOARD_STUB, reportUrl });
-    await page.getByRole('button', { name: 'Copy AI prompt' }).click();
-    await expect.poll(async () => ((await page.evaluate<string[]>('window.__copied'))[0] ?? '').length).toBeGreaterThan(0);
-    expect((await page.evaluate<string[]>('window.__copied'))[0]).not.toContain('Stack:');
-    await page.close();
+  it('gives the stack frames in the AI prompt, and leaves them out when configured', async () => {
+    const failing = find('downloads an invoice (intentional)');
+    const copy = async (reportUrl = url): Promise<string> => {
+      const { page } = await open(testHash(failing), { init: CLIPBOARD_STUB, reportUrl });
+      await page.getByRole('button', { name: 'Copy AI prompt' }).click();
+      await expect.poll(async () => ((await page.evaluate<string[]>('window.__copied'))[0] ?? '').length).toBeGreaterThan(0);
+      const prompt = (await page.evaluate<string[]>('window.__copied'))[0] ?? '';
+      await page.close();
+      return prompt;
+    };
+    const prompt = await copy();
+    expect(prompt).toMatch(/\nStack:\n```\n {4}at checkResponse \(\.\.\/helpers\/resources\.ts:\d+:\d+\)\n/);
+    // The message is printed once, above the stack.
+    const message = failing.attempts.at(-1)?.errors[0]?.message.split('\n')[0] ?? '';
+    expect(prompt.split(message)).toHaveLength(2);
+    expect(await copy(writeReport('no-stack', report, { ...DEFAULT_RENDERER_SETTINGS, aiPrompt: { includeStack: false } }))).not.toContain('Stack:');
   });
 
   it('falls back to a dialog with the text selected when the Clipboard API is missing', async () => {
