@@ -40,7 +40,7 @@
     "errors": [
       {
         "message": "Error: connect ECONNREFUSED 127.0.0.1:5432 while cleaning up the test database (intentional)",
-        "stack": "Error: connect ECONNREFUSED 127.0.0.1:5432 while cleaning up the test database (intentional)\n    at globalTeardown (<root>/fixtures/sample/global-teardown.ts:5:9)",
+        "stack": "Error: connect ECONNREFUSED 127.0.0.1:5432 while cleaning up the test database (intentional)\n    at globalTeardown (../sample/global-teardown.ts:5:9)",
         "location": {
           "file": "../sample/global-teardown.ts",
           "line": 5,
@@ -932,7 +932,7 @@
           "errors": [
             {
               "message": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  getByRole('heading', { level: 1 })\nExpected: \"Wrong heading\"\nReceived: \"Loupe fixture\"\nTimeout:  500ms\n\nCall log:\n  - Expect \"toHaveText\" getByRole('heading', { level: 1 }) with timeout 500ms\n  - waiting for getByRole('heading', { level: 1 })\n    6 × locator resolved to <h1>Loupe fixture</h1>\n      - unexpected value \"Loupe fixture\"\n",
-              "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  getByRole('heading', { level: 1 })\nExpected: \"Wrong heading\"\nReceived: \"Loupe fixture\"\nTimeout:  500ms\n\nCall log:\n  - Expect \"toHaveText\" getByRole('heading', { level: 1 }) with timeout 500ms\n  - waiting for getByRole('heading', { level: 1 })\n    6 × locator resolved to <h1>Loupe fixture</h1>\n      - unexpected value \"Loupe fixture\"\n\n    at <root>/fixtures/tests/basics.spec.ts:38:61",
+              "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  getByRole('heading', { level: 1 })\nExpected: \"Wrong heading\"\nReceived: \"Loupe fixture\"\nTimeout:  500ms\n\nCall log:\n  - Expect \"toHaveText\" getByRole('heading', { level: 1 }) with timeout 500ms\n  - waiting for getByRole('heading', { level: 1 })\n    6 × locator resolved to <h1>Loupe fixture</h1>\n      - unexpected value \"Loupe fixture\"\n\n    at basics.spec.ts:38:61",
               "location": {
                 "file": "basics.spec.ts",
                 "line": 38,
@@ -1045,7 +1045,7 @@
               "durationMs": 511,
               "error": {
                 "message": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  getByRole('heading', { level: 1 })\nExpected: \"Wrong heading\"\nReceived: \"Loupe fixture\"\nTimeout:  500ms\n\nCall log:\n  - Expect \"toHaveText\" getByRole('heading', { level: 1 }) with timeout 500ms\n  - waiting for getByRole('heading', { level: 1 })\n    6 × locator resolved to <h1>Loupe fixture</h1>\n      - unexpected value \"Loupe fixture\"\n",
-                "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  getByRole('heading', { level: 1 })\nExpected: \"Wrong heading\"\nReceived: \"Loupe fixture\"\nTimeout:  500ms\n\nCall log:\n  - Expect \"toHaveText\" getByRole('heading', { level: 1 }) with timeout 500ms\n  - waiting for getByRole('heading', { level: 1 })\n    6 × locator resolved to <h1>Loupe fixture</h1>\n      - unexpected value \"Loupe fixture\"\n\n    at <root>/fixtures/tests/basics.spec.ts:38:61",
+                "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  getByRole('heading', { level: 1 })\nExpected: \"Wrong heading\"\nReceived: \"Loupe fixture\"\nTimeout:  500ms\n\nCall log:\n  - Expect \"toHaveText\" getByRole('heading', { level: 1 }) with timeout 500ms\n  - waiting for getByRole('heading', { level: 1 })\n    6 × locator resolved to <h1>Loupe fixture</h1>\n      - unexpected value \"Loupe fixture\"\n\n    at basics.spec.ts:38:61",
                 "location": {
                   "file": "basics.spec.ts",
                   "line": 38,
@@ -1170,7 +1170,7 @@
           "errors": [
             {
               "message": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  getByRole('heading', { level: 1 })\nExpected: \"Wrong heading\"\nReceived: \"Loupe fixture\"\nTimeout:  500ms\n\nCall log:\n  - Expect \"toHaveText\" getByRole('heading', { level: 1 }) with timeout 500ms\n  - waiting for getByRole('heading', { level: 1 })\n    6 × locator resolved to <h1>Loupe fixture</h1>\n      - unexpected value \"Loupe fixture\"\n",
-              "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  getByRole('heading', { level: 1 })\nExpected: \"Wrong heading\"\nReceived: \"Loupe fixture\"\nTimeout:  500ms\n\nCall log:\n  - Expect \"toHaveText\" getByRole('heading', { level: 1 }) with timeout 500ms\n  - waiting for getByRole('heading', { level: 1 })\n    6 × locator resolved to <h1>Loupe fixture</h1>\n      - unexpected value \"Loupe fixture\"\n\n    at <root>/fixtures/tests/basics.spec.ts:38:61",
+              "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  getByRole('heading', { level: 1 })\nExpected: \"Wrong heading\"\nReceived: \"Loupe fixture\"\nTimeout:  500ms\n\nCall log:\n  - Expect \"toHaveText\" getByRole('heading', { level: 1 }) with timeout 500ms\n  - waiting for getByRole('heading', { level: 1 })\n    6 × locator resolved to <h1>Loupe fixture</h1>\n      - unexpected value \"Loupe fixture\"\n\n    at basics.spec.ts:38:61",
               "location": {
                 "file": "basics.spec.ts",
                 "line": 38,
@@ -1283,7 +1283,7 @@
               "durationMs": 508,
               "error": {
                 "message": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  getByRole('heading', { level: 1 })\nExpected: \"Wrong heading\"\nReceived: \"Loupe fixture\"\nTimeout:  500ms\n\nCall log:\n  - Expect \"toHaveText\" getByRole('heading', { level: 1 }) with timeout 500ms\n  - waiting for getByRole('heading', { level: 1 })\n    6 × locator resolved to <h1>Loupe fixture</h1>\n      - unexpected value \"Loupe fixture\"\n",
-                "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  getByRole('heading', { level: 1 })\nExpected: \"Wrong heading\"\nReceived: \"Loupe fixture\"\nTimeout:  500ms\n\nCall log:\n  - Expect \"toHaveText\" getByRole('heading', { level: 1 }) with timeout 500ms\n  - waiting for getByRole('heading', { level: 1 })\n    6 × locator resolved to <h1>Loupe fixture</h1>\n      - unexpected value \"Loupe fixture\"\n\n    at <root>/fixtures/tests/basics.spec.ts:38:61",
+                "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  getByRole('heading', { level: 1 })\nExpected: \"Wrong heading\"\nReceived: \"Loupe fixture\"\nTimeout:  500ms\n\nCall log:\n  - Expect \"toHaveText\" getByRole('heading', { level: 1 }) with timeout 500ms\n  - waiting for getByRole('heading', { level: 1 })\n    6 × locator resolved to <h1>Loupe fixture</h1>\n      - unexpected value \"Loupe fixture\"\n\n    at basics.spec.ts:38:61",
                 "location": {
                   "file": "basics.spec.ts",
                   "line": 38,
@@ -1445,7 +1445,7 @@
             },
             {
               "message": "Error: page.waitForTimeout: Test timeout of 1000ms exceeded.",
-              "stack": "Error: page.waitForTimeout: Test timeout of 1000ms exceeded.\n    at <root>/fixtures/tests/failures.spec.ts:22:18",
+              "stack": "Error: page.waitForTimeout: Test timeout of 1000ms exceeded.\n    at failures.spec.ts:22:18",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 22,
@@ -1544,7 +1544,7 @@
               "durationMs": 973,
               "error": {
                 "message": "Error: page.waitForTimeout: Test timeout of 1000ms exceeded.",
-                "stack": "Error: page.waitForTimeout: Test timeout of 1000ms exceeded.\n    at <root>/fixtures/tests/failures.spec.ts:22:18",
+                "stack": "Error: page.waitForTimeout: Test timeout of 1000ms exceeded.\n    at failures.spec.ts:22:18",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 22,
@@ -1672,7 +1672,7 @@
             },
             {
               "message": "Error: page.waitForTimeout: Test timeout of 1000ms exceeded.",
-              "stack": "Error: page.waitForTimeout: Test timeout of 1000ms exceeded.\n    at <root>/fixtures/tests/failures.spec.ts:22:18",
+              "stack": "Error: page.waitForTimeout: Test timeout of 1000ms exceeded.\n    at failures.spec.ts:22:18",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 22,
@@ -1771,7 +1771,7 @@
               "durationMs": 1024,
               "error": {
                 "message": "Error: page.waitForTimeout: Test timeout of 1000ms exceeded.",
-                "stack": "Error: page.waitForTimeout: Test timeout of 1000ms exceeded.\n    at <root>/fixtures/tests/failures.spec.ts:22:18",
+                "stack": "Error: page.waitForTimeout: Test timeout of 1000ms exceeded.\n    at failures.spec.ts:22:18",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 22,
@@ -1920,7 +1920,7 @@
           "errors": [
             {
               "message": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: 'Missing' })\nExpected: visible\nTimeout: 300ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('button', { name: 'Missing' }) with timeout 300ms\n  - waiting for getByRole('button', { name: 'Missing' })\n",
-              "stack": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: 'Missing' })\nExpected: visible\nTimeout: 300ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('button', { name: 'Missing' }) with timeout 300ms\n  - waiting for getByRole('button', { name: 'Missing' })\n\n    at <root>/fixtures/tests/failures.spec.ts:27:67",
+              "stack": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: 'Missing' })\nExpected: visible\nTimeout: 300ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('button', { name: 'Missing' }) with timeout 300ms\n  - waiting for getByRole('button', { name: 'Missing' })\n\n    at failures.spec.ts:27:67",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 27,
@@ -2019,7 +2019,7 @@
               "durationMs": 309,
               "error": {
                 "message": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: 'Missing' })\nExpected: visible\nTimeout: 300ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('button', { name: 'Missing' }) with timeout 300ms\n  - waiting for getByRole('button', { name: 'Missing' })\n",
-                "stack": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: 'Missing' })\nExpected: visible\nTimeout: 300ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('button', { name: 'Missing' }) with timeout 300ms\n  - waiting for getByRole('button', { name: 'Missing' })\n\n    at <root>/fixtures/tests/failures.spec.ts:27:67",
+                "stack": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: 'Missing' })\nExpected: visible\nTimeout: 300ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('button', { name: 'Missing' }) with timeout 300ms\n  - waiting for getByRole('button', { name: 'Missing' })\n\n    at failures.spec.ts:27:67",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 27,
@@ -2139,7 +2139,7 @@
           "errors": [
             {
               "message": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: 'Missing' })\nExpected: visible\nTimeout: 300ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('button', { name: 'Missing' }) with timeout 300ms\n  - waiting for getByRole('button', { name: 'Missing' })\n",
-              "stack": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: 'Missing' })\nExpected: visible\nTimeout: 300ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('button', { name: 'Missing' }) with timeout 300ms\n  - waiting for getByRole('button', { name: 'Missing' })\n\n    at <root>/fixtures/tests/failures.spec.ts:27:67",
+              "stack": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: 'Missing' })\nExpected: visible\nTimeout: 300ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('button', { name: 'Missing' }) with timeout 300ms\n  - waiting for getByRole('button', { name: 'Missing' })\n\n    at failures.spec.ts:27:67",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 27,
@@ -2238,7 +2238,7 @@
               "durationMs": 307,
               "error": {
                 "message": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: 'Missing' })\nExpected: visible\nTimeout: 300ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('button', { name: 'Missing' }) with timeout 300ms\n  - waiting for getByRole('button', { name: 'Missing' })\n",
-                "stack": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: 'Missing' })\nExpected: visible\nTimeout: 300ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('button', { name: 'Missing' }) with timeout 300ms\n  - waiting for getByRole('button', { name: 'Missing' })\n\n    at <root>/fixtures/tests/failures.spec.ts:27:67",
+                "stack": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: 'Missing' })\nExpected: visible\nTimeout: 300ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('button', { name: 'Missing' }) with timeout 300ms\n  - waiting for getByRole('button', { name: 'Missing' })\n\n    at failures.spec.ts:27:67",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 27,
@@ -2387,7 +2387,7 @@
           "errors": [
             {
               "message": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:45877/\nCall log:\n  - navigating to \"http://127.0.0.1:45877/\", waiting until \"load\"\n",
-              "stack": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:45877/\nCall log:\n  - navigating to \"http://127.0.0.1:45877/\", waiting until \"load\"\n\n    at <root>/fixtures/tests/failures.spec.ts:36:18",
+              "stack": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:45877/\nCall log:\n  - navigating to \"http://127.0.0.1:45877/\", waiting until \"load\"\n\n    at failures.spec.ts:36:18",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 36,
@@ -2473,7 +2473,7 @@
               "durationMs": 40,
               "error": {
                 "message": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:45877/\nCall log:\n  - navigating to \"http://127.0.0.1:45877/\", waiting until \"load\"\n",
-                "stack": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:45877/\nCall log:\n  - navigating to \"http://127.0.0.1:45877/\", waiting until \"load\"\n\n    at <root>/fixtures/tests/failures.spec.ts:36:18",
+                "stack": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:45877/\nCall log:\n  - navigating to \"http://127.0.0.1:45877/\", waiting until \"load\"\n\n    at failures.spec.ts:36:18",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 36,
@@ -2593,7 +2593,7 @@
           "errors": [
             {
               "message": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:36291/\nCall log:\n  - navigating to \"http://127.0.0.1:36291/\", waiting until \"load\"\n",
-              "stack": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:36291/\nCall log:\n  - navigating to \"http://127.0.0.1:36291/\", waiting until \"load\"\n\n    at <root>/fixtures/tests/failures.spec.ts:36:18",
+              "stack": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:36291/\nCall log:\n  - navigating to \"http://127.0.0.1:36291/\", waiting until \"load\"\n\n    at failures.spec.ts:36:18",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 36,
@@ -2679,7 +2679,7 @@
               "durationMs": 27,
               "error": {
                 "message": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:36291/\nCall log:\n  - navigating to \"http://127.0.0.1:36291/\", waiting until \"load\"\n",
-                "stack": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:36291/\nCall log:\n  - navigating to \"http://127.0.0.1:36291/\", waiting until \"load\"\n\n    at <root>/fixtures/tests/failures.spec.ts:36:18",
+                "stack": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:36291/\nCall log:\n  - navigating to \"http://127.0.0.1:36291/\", waiting until \"load\"\n\n    at failures.spec.ts:36:18",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 36,
@@ -2828,7 +2828,7 @@
           "errors": [
             {
               "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:\n    1) <button>Save</button> aka getByRole('button', { name: 'Save', exact: true })\n    2) <button>Save draft</button> aka getByRole('button', { name: 'Save draft' })\n\nCall log:\n  - waiting for getByRole('button', { name: 'Save' })\n",
-              "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:\n    1) <button>Save</button> aka getByRole('button', { name: 'Save', exact: true })\n    2) <button>Save draft</button> aka getByRole('button', { name: 'Save draft' })\n\nCall log:\n  - waiting for getByRole('button', { name: 'Save' })\n\n    at <root>/fixtures/tests/failures.spec.ts:41:56",
+              "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:\n    1) <button>Save</button> aka getByRole('button', { name: 'Save', exact: true })\n    2) <button>Save draft</button> aka getByRole('button', { name: 'Save draft' })\n\nCall log:\n  - waiting for getByRole('button', { name: 'Save' })\n\n    at failures.spec.ts:41:56",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 41,
@@ -2908,7 +2908,7 @@
               "durationMs": 25,
               "error": {
                 "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:\n    1) <button>Save</button> aka getByRole('button', { name: 'Save', exact: true })\n    2) <button>Save draft</button> aka getByRole('button', { name: 'Save draft' })\n\nCall log:\n  - waiting for getByRole('button', { name: 'Save' })\n",
-                "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:\n    1) <button>Save</button> aka getByRole('button', { name: 'Save', exact: true })\n    2) <button>Save draft</button> aka getByRole('button', { name: 'Save draft' })\n\nCall log:\n  - waiting for getByRole('button', { name: 'Save' })\n\n    at <root>/fixtures/tests/failures.spec.ts:41:56",
+                "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:\n    1) <button>Save</button> aka getByRole('button', { name: 'Save', exact: true })\n    2) <button>Save draft</button> aka getByRole('button', { name: 'Save draft' })\n\nCall log:\n  - waiting for getByRole('button', { name: 'Save' })\n\n    at failures.spec.ts:41:56",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 41,
@@ -3028,7 +3028,7 @@
           "errors": [
             {
               "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:\n    1) <button>Save</button> aka getByRole('button', { name: 'Save', exact: true })\n    2) <button>Save draft</button> aka getByRole('button', { name: 'Save draft' })\n\nCall log:\n  - waiting for getByRole('button', { name: 'Save' })\n",
-              "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:\n    1) <button>Save</button> aka getByRole('button', { name: 'Save', exact: true })\n    2) <button>Save draft</button> aka getByRole('button', { name: 'Save draft' })\n\nCall log:\n  - waiting for getByRole('button', { name: 'Save' })\n\n    at <root>/fixtures/tests/failures.spec.ts:41:56",
+              "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:\n    1) <button>Save</button> aka getByRole('button', { name: 'Save', exact: true })\n    2) <button>Save draft</button> aka getByRole('button', { name: 'Save draft' })\n\nCall log:\n  - waiting for getByRole('button', { name: 'Save' })\n\n    at failures.spec.ts:41:56",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 41,
@@ -3127,7 +3127,7 @@
               "durationMs": 35,
               "error": {
                 "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:\n    1) <button>Save</button> aka getByRole('button', { name: 'Save', exact: true })\n    2) <button>Save draft</button> aka getByRole('button', { name: 'Save draft' })\n\nCall log:\n  - waiting for getByRole('button', { name: 'Save' })\n",
-                "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:\n    1) <button>Save</button> aka getByRole('button', { name: 'Save', exact: true })\n    2) <button>Save draft</button> aka getByRole('button', { name: 'Save draft' })\n\nCall log:\n  - waiting for getByRole('button', { name: 'Save' })\n\n    at <root>/fixtures/tests/failures.spec.ts:41:56",
+                "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:\n    1) <button>Save</button> aka getByRole('button', { name: 'Save', exact: true })\n    2) <button>Save draft</button> aka getByRole('button', { name: 'Save draft' })\n\nCall log:\n  - waiting for getByRole('button', { name: 'Save' })\n\n    at failures.spec.ts:41:56",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 41,
@@ -3276,7 +3276,7 @@
           "errors": [
             {
               "message": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:46163/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 429 Too Many Requests\n  date: Wed, 21 Oct 2026 16:45:38 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n",
-              "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:46163/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 429 Too Many Requests\n  date: Wed, 21 Oct 2026 16:45:38 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at <root>/fixtures/tests/failures.spec.ts:46:46\n    at withStatusServer (<root>/fixtures/helpers/status-server.ts:15:12)\n    at <root>/fixtures/tests/failures.spec.ts:45:7",
+              "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:46163/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 429 Too Many Requests\n  date: Wed, 21 Oct 2026 16:45:38 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at failures.spec.ts:46:46\n    at withStatusServer (../helpers/status-server.ts:15:12)\n    at failures.spec.ts:45:7",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 46,
@@ -3337,7 +3337,7 @@
               "durationMs": 1,
               "error": {
                 "message": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:46163/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 429 Too Many Requests\n  date: Wed, 21 Oct 2026 16:45:38 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n",
-                "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:46163/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 429 Too Many Requests\n  date: Wed, 21 Oct 2026 16:45:38 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at <root>/fixtures/tests/failures.spec.ts:46:46\n    at withStatusServer (<root>/fixtures/helpers/status-server.ts:15:12)\n    at <root>/fixtures/tests/failures.spec.ts:45:7",
+                "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:46163/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 429 Too Many Requests\n  date: Wed, 21 Oct 2026 16:45:38 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at failures.spec.ts:46:46\n    at withStatusServer (../helpers/status-server.ts:15:12)\n    at failures.spec.ts:45:7",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 46,
@@ -3430,7 +3430,7 @@
           "errors": [
             {
               "message": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:46373/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 429 Too Many Requests\n  date: Wed, 21 Oct 2026 16:45:38 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n",
-              "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:46373/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 429 Too Many Requests\n  date: Wed, 21 Oct 2026 16:45:38 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at <root>/fixtures/tests/failures.spec.ts:46:46\n    at withStatusServer (<root>/fixtures/helpers/status-server.ts:15:12)\n    at <root>/fixtures/tests/failures.spec.ts:45:7",
+              "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:46373/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 429 Too Many Requests\n  date: Wed, 21 Oct 2026 16:45:38 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at failures.spec.ts:46:46\n    at withStatusServer (../helpers/status-server.ts:15:12)\n    at failures.spec.ts:45:7",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 46,
@@ -3491,7 +3491,7 @@
               "durationMs": 2,
               "error": {
                 "message": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:46373/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 429 Too Many Requests\n  date: Wed, 21 Oct 2026 16:45:38 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n",
-                "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:46373/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 429 Too Many Requests\n  date: Wed, 21 Oct 2026 16:45:38 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at <root>/fixtures/tests/failures.spec.ts:46:46\n    at withStatusServer (<root>/fixtures/helpers/status-server.ts:15:12)\n    at <root>/fixtures/tests/failures.spec.ts:45:7",
+                "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:46373/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 429 Too Many Requests\n  date: Wed, 21 Oct 2026 16:45:38 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at failures.spec.ts:46:46\n    at withStatusServer (../helpers/status-server.ts:15:12)\n    at failures.spec.ts:45:7",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 46,
@@ -3603,7 +3603,7 @@
           "errors": [
             {
               "message": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:38123/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 503 Service Unavailable\n  date: Wed, 21 Oct 2026 16:45:38 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n",
-              "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:38123/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 503 Service Unavailable\n  date: Wed, 21 Oct 2026 16:45:38 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at <root>/fixtures/tests/failures.spec.ts:53:46\n    at withStatusServer (<root>/fixtures/helpers/status-server.ts:15:12)\n    at <root>/fixtures/tests/failures.spec.ts:52:7",
+              "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:38123/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 503 Service Unavailable\n  date: Wed, 21 Oct 2026 16:45:38 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at failures.spec.ts:53:46\n    at withStatusServer (../helpers/status-server.ts:15:12)\n    at failures.spec.ts:52:7",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 53,
@@ -3664,7 +3664,7 @@
               "durationMs": 1,
               "error": {
                 "message": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:38123/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 503 Service Unavailable\n  date: Wed, 21 Oct 2026 16:45:38 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n",
-                "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:38123/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 503 Service Unavailable\n  date: Wed, 21 Oct 2026 16:45:38 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at <root>/fixtures/tests/failures.spec.ts:53:46\n    at withStatusServer (<root>/fixtures/helpers/status-server.ts:15:12)\n    at <root>/fixtures/tests/failures.spec.ts:52:7",
+                "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:38123/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 503 Service Unavailable\n  date: Wed, 21 Oct 2026 16:45:38 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at failures.spec.ts:53:46\n    at withStatusServer (../helpers/status-server.ts:15:12)\n    at failures.spec.ts:52:7",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 53,
@@ -3757,7 +3757,7 @@
           "errors": [
             {
               "message": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:37339/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 503 Service Unavailable\n  date: Wed, 21 Oct 2026 16:45:38 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n",
-              "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:37339/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 503 Service Unavailable\n  date: Wed, 21 Oct 2026 16:45:38 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at <root>/fixtures/tests/failures.spec.ts:53:46\n    at withStatusServer (<root>/fixtures/helpers/status-server.ts:15:12)\n    at <root>/fixtures/tests/failures.spec.ts:52:7",
+              "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:37339/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 503 Service Unavailable\n  date: Wed, 21 Oct 2026 16:45:38 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at failures.spec.ts:53:46\n    at withStatusServer (../helpers/status-server.ts:15:12)\n    at failures.spec.ts:52:7",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 53,
@@ -3818,7 +3818,7 @@
               "durationMs": 2,
               "error": {
                 "message": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:37339/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 503 Service Unavailable\n  date: Wed, 21 Oct 2026 16:45:38 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n",
-                "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:37339/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 503 Service Unavailable\n  date: Wed, 21 Oct 2026 16:45:38 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at <root>/fixtures/tests/failures.spec.ts:53:46\n    at withStatusServer (<root>/fixtures/helpers/status-server.ts:15:12)\n    at <root>/fixtures/tests/failures.spec.ts:52:7",
+                "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:37339/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 503 Service Unavailable\n  date: Wed, 21 Oct 2026 16:45:38 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at failures.spec.ts:53:46\n    at withStatusServer (../helpers/status-server.ts:15:12)\n    at failures.spec.ts:52:7",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 53,
@@ -3930,7 +3930,7 @@
           "errors": [
             {
               "message": "Error: apiRequestContext.get: 500 Internal Server Error\nResponse text:\nIntentional failure\nCall log:\n  - → GET http://127.0.0.1:36003/api/orders\n    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n    - accept: */*\n    - accept-encoding: gzip,deflate,br\n  - ← 500 Internal Server Error\n    - date: Wed, 21 Oct 2026 16:45:38 GMT\n    - connection: keep-alive\n    - keep-alive: timeout=5\n    - content-length: 19\n",
-              "stack": "Error: apiRequestContext.get: 500 Internal Server Error\nResponse text:\nIntentional failure\nCall log:\n  - → GET http://127.0.0.1:36003/api/orders\n    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n    - accept: */*\n    - accept-encoding: gzip,deflate,br\n  - ← 500 Internal Server Error\n    - date: Wed, 21 Oct 2026 16:45:38 GMT\n    - connection: keep-alive\n    - keep-alive: timeout=5\n    - content-length: 19\n\n    at use (<root>/fixtures/tests/failures.spec.ts:59:23)\n    at withStatusServer (<root>/fixtures/helpers/status-server.ts:15:18)\n    at <root>/fixtures/tests/failures.spec.ts:58:7",
+              "stack": "Error: apiRequestContext.get: 500 Internal Server Error\nResponse text:\nIntentional failure\nCall log:\n  - → GET http://127.0.0.1:36003/api/orders\n    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n    - accept: */*\n    - accept-encoding: gzip,deflate,br\n  - ← 500 Internal Server Error\n    - date: Wed, 21 Oct 2026 16:45:38 GMT\n    - connection: keep-alive\n    - keep-alive: timeout=5\n    - content-length: 19\n\n    at use (failures.spec.ts:59:23)\n    at withStatusServer (../helpers/status-server.ts:15:18)\n    at failures.spec.ts:58:7",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 59,
@@ -3978,7 +3978,7 @@
               "durationMs": 12,
               "error": {
                 "message": "Error: apiRequestContext.get: 500 Internal Server Error\nResponse text:\nIntentional failure\nCall log:\n  - → GET http://127.0.0.1:36003/api/orders\n    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n    - accept: */*\n    - accept-encoding: gzip,deflate,br\n  - ← 500 Internal Server Error\n    - date: Wed, 21 Oct 2026 16:45:38 GMT\n    - connection: keep-alive\n    - keep-alive: timeout=5\n    - content-length: 19\n",
-                "stack": "Error: apiRequestContext.get: 500 Internal Server Error\nResponse text:\nIntentional failure\nCall log:\n  - → GET http://127.0.0.1:36003/api/orders\n    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n    - accept: */*\n    - accept-encoding: gzip,deflate,br\n  - ← 500 Internal Server Error\n    - date: Wed, 21 Oct 2026 16:45:38 GMT\n    - connection: keep-alive\n    - keep-alive: timeout=5\n    - content-length: 19\n\n    at use (<root>/fixtures/tests/failures.spec.ts:59:23)\n    at withStatusServer (<root>/fixtures/helpers/status-server.ts:15:18)\n    at <root>/fixtures/tests/failures.spec.ts:58:7",
+                "stack": "Error: apiRequestContext.get: 500 Internal Server Error\nResponse text:\nIntentional failure\nCall log:\n  - → GET http://127.0.0.1:36003/api/orders\n    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n    - accept: */*\n    - accept-encoding: gzip,deflate,br\n  - ← 500 Internal Server Error\n    - date: Wed, 21 Oct 2026 16:45:38 GMT\n    - connection: keep-alive\n    - keep-alive: timeout=5\n    - content-length: 19\n\n    at use (failures.spec.ts:59:23)\n    at withStatusServer (../helpers/status-server.ts:15:18)\n    at failures.spec.ts:58:7",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 59,
@@ -4071,7 +4071,7 @@
           "errors": [
             {
               "message": "Error: apiRequestContext.get: 500 Internal Server Error\nResponse text:\nIntentional failure\nCall log:\n  - → GET http://127.0.0.1:39511/api/orders\n    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n    - accept: */*\n    - accept-encoding: gzip,deflate,br\n  - ← 500 Internal Server Error\n    - date: Wed, 21 Oct 2026 16:45:38 GMT\n    - connection: keep-alive\n    - keep-alive: timeout=5\n    - content-length: 19\n",
-              "stack": "Error: apiRequestContext.get: 500 Internal Server Error\nResponse text:\nIntentional failure\nCall log:\n  - → GET http://127.0.0.1:39511/api/orders\n    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n    - accept: */*\n    - accept-encoding: gzip,deflate,br\n  - ← 500 Internal Server Error\n    - date: Wed, 21 Oct 2026 16:45:38 GMT\n    - connection: keep-alive\n    - keep-alive: timeout=5\n    - content-length: 19\n\n    at use (<root>/fixtures/tests/failures.spec.ts:59:23)\n    at withStatusServer (<root>/fixtures/helpers/status-server.ts:15:18)\n    at <root>/fixtures/tests/failures.spec.ts:58:7",
+              "stack": "Error: apiRequestContext.get: 500 Internal Server Error\nResponse text:\nIntentional failure\nCall log:\n  - → GET http://127.0.0.1:39511/api/orders\n    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n    - accept: */*\n    - accept-encoding: gzip,deflate,br\n  - ← 500 Internal Server Error\n    - date: Wed, 21 Oct 2026 16:45:38 GMT\n    - connection: keep-alive\n    - keep-alive: timeout=5\n    - content-length: 19\n\n    at use (failures.spec.ts:59:23)\n    at withStatusServer (../helpers/status-server.ts:15:18)\n    at failures.spec.ts:58:7",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 59,
@@ -4119,7 +4119,7 @@
               "durationMs": 16,
               "error": {
                 "message": "Error: apiRequestContext.get: 500 Internal Server Error\nResponse text:\nIntentional failure\nCall log:\n  - → GET http://127.0.0.1:39511/api/orders\n    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n    - accept: */*\n    - accept-encoding: gzip,deflate,br\n  - ← 500 Internal Server Error\n    - date: Wed, 21 Oct 2026 16:45:38 GMT\n    - connection: keep-alive\n    - keep-alive: timeout=5\n    - content-length: 19\n",
-                "stack": "Error: apiRequestContext.get: 500 Internal Server Error\nResponse text:\nIntentional failure\nCall log:\n  - → GET http://127.0.0.1:39511/api/orders\n    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n    - accept: */*\n    - accept-encoding: gzip,deflate,br\n  - ← 500 Internal Server Error\n    - date: Wed, 21 Oct 2026 16:45:38 GMT\n    - connection: keep-alive\n    - keep-alive: timeout=5\n    - content-length: 19\n\n    at use (<root>/fixtures/tests/failures.spec.ts:59:23)\n    at withStatusServer (<root>/fixtures/helpers/status-server.ts:15:18)\n    at <root>/fixtures/tests/failures.spec.ts:58:7",
+                "stack": "Error: apiRequestContext.get: 500 Internal Server Error\nResponse text:\nIntentional failure\nCall log:\n  - → GET http://127.0.0.1:39511/api/orders\n    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n    - accept: */*\n    - accept-encoding: gzip,deflate,br\n  - ← 500 Internal Server Error\n    - date: Wed, 21 Oct 2026 16:45:38 GMT\n    - connection: keep-alive\n    - keep-alive: timeout=5\n    - content-length: 19\n\n    at use (failures.spec.ts:59:23)\n    at withStatusServer (../helpers/status-server.ts:15:18)\n    at failures.spec.ts:58:7",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 59,
@@ -4231,7 +4231,7 @@
           "errors": [
             {
               "message": "Error: Order sync 77fa31e2-f25b-4691-9a0d-28b6ab26e2d9 rejected by http://localhost:5207/api/orders/2941 after 1246ms",
-              "stack": "Error: Order sync 77fa31e2-f25b-4691-9a0d-28b6ab26e2d9 rejected by http://localhost:5207/api/orders/2941 after 1246ms\n    at failOrderSync (<root>/fixtures/tests/failures.spec.ts:14:9)\n    at <root>/fixtures/tests/failures.spec.ts:66:7",
+              "stack": "Error: Order sync 77fa31e2-f25b-4691-9a0d-28b6ab26e2d9 rejected by http://localhost:5207/api/orders/2941 after 1246ms\n    at failOrderSync (failures.spec.ts:14:9)\n    at failures.spec.ts:66:7",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 14,
@@ -4308,7 +4308,7 @@
           "errors": [
             {
               "message": "Error: Order sync 0bd4b60f-aaf2-4a11-933d-33e3f7826e80 rejected by http://localhost:7755/api/orders/1224 after 2031ms",
-              "stack": "Error: Order sync 0bd4b60f-aaf2-4a11-933d-33e3f7826e80 rejected by http://localhost:7755/api/orders/1224 after 2031ms\n    at failOrderSync (<root>/fixtures/tests/failures.spec.ts:14:9)\n    at <root>/fixtures/tests/failures.spec.ts:66:7",
+              "stack": "Error: Order sync 0bd4b60f-aaf2-4a11-933d-33e3f7826e80 rejected by http://localhost:7755/api/orders/1224 after 2031ms\n    at failOrderSync (failures.spec.ts:14:9)\n    at failures.spec.ts:66:7",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 14,
@@ -4414,7 +4414,7 @@
           "errors": [
             {
               "message": "Error: Order sync 5497417d-a76b-4aa4-b080-5c86c1a44e85 rejected by http://localhost:4385/api/orders/2445 after 2673ms",
-              "stack": "Error: Order sync 5497417d-a76b-4aa4-b080-5c86c1a44e85 rejected by http://localhost:4385/api/orders/2445 after 2673ms\n    at failOrderSync (<root>/fixtures/tests/failures.spec.ts:14:9)\n    at <root>/fixtures/tests/failures.spec.ts:70:7",
+              "stack": "Error: Order sync 5497417d-a76b-4aa4-b080-5c86c1a44e85 rejected by http://localhost:4385/api/orders/2445 after 2673ms\n    at failOrderSync (failures.spec.ts:14:9)\n    at failures.spec.ts:70:7",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 14,
@@ -4491,7 +4491,7 @@
           "errors": [
             {
               "message": "Error: Order sync 3cf9599b-b4f1-4a86-8803-67c3fe8c458a rejected by http://localhost:4225/api/orders/8732 after 183ms",
-              "stack": "Error: Order sync 3cf9599b-b4f1-4a86-8803-67c3fe8c458a rejected by http://localhost:4225/api/orders/8732 after 183ms\n    at failOrderSync (<root>/fixtures/tests/failures.spec.ts:14:9)\n    at <root>/fixtures/tests/failures.spec.ts:70:7",
+              "stack": "Error: Order sync 3cf9599b-b4f1-4a86-8803-67c3fe8c458a rejected by http://localhost:4225/api/orders/8732 after 183ms\n    at failOrderSync (failures.spec.ts:14:9)\n    at failures.spec.ts:70:7",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 14,
@@ -4596,7 +4596,7 @@
           "errors": [
             {
               "message": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 2\n+ Received  + 2\n\n  Object {\n    \"id\": 7,\n    \"items\": Array [\n      \"book\",\n-     \"lamp\",\n+     \"pen\",\n    ],\n-   \"status\": \"paid\",\n+   \"status\": \"pending\",\n  }",
-              "stack": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 2\n+ Received  + 2\n\n  Object {\n    \"id\": 7,\n    \"items\": Array [\n      \"book\",\n-     \"lamp\",\n+     \"pen\",\n    ],\n-   \"status\": \"paid\",\n+   \"status\": \"pending\",\n  }\n    at <root>/fixtures/tests/failures.spec.ts:76:66",
+              "stack": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 2\n+ Received  + 2\n\n  Object {\n    \"id\": 7,\n    \"items\": Array [\n      \"book\",\n-     \"lamp\",\n+     \"pen\",\n    ],\n-   \"status\": \"paid\",\n+   \"status\": \"pending\",\n  }\n    at failures.spec.ts:76:66",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 76,
@@ -4624,7 +4624,7 @@
               "durationMs": 4,
               "error": {
                 "message": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 2\n+ Received  + 2\n\n  Object {\n    \"id\": 7,\n    \"items\": Array [\n      \"book\",\n-     \"lamp\",\n+     \"pen\",\n    ],\n-   \"status\": \"paid\",\n+   \"status\": \"pending\",\n  }",
-                "stack": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 2\n+ Received  + 2\n\n  Object {\n    \"id\": 7,\n    \"items\": Array [\n      \"book\",\n-     \"lamp\",\n+     \"pen\",\n    ],\n-   \"status\": \"paid\",\n+   \"status\": \"pending\",\n  }\n    at <root>/fixtures/tests/failures.spec.ts:76:66",
+                "stack": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 2\n+ Received  + 2\n\n  Object {\n    \"id\": 7,\n    \"items\": Array [\n      \"book\",\n-     \"lamp\",\n+     \"pen\",\n    ],\n-   \"status\": \"paid\",\n+   \"status\": \"pending\",\n  }\n    at failures.spec.ts:76:66",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 76,
@@ -4697,7 +4697,7 @@
           "errors": [
             {
               "message": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 2\n+ Received  + 2\n\n  Object {\n    \"id\": 7,\n    \"items\": Array [\n      \"book\",\n-     \"lamp\",\n+     \"pen\",\n    ],\n-   \"status\": \"paid\",\n+   \"status\": \"pending\",\n  }",
-              "stack": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 2\n+ Received  + 2\n\n  Object {\n    \"id\": 7,\n    \"items\": Array [\n      \"book\",\n-     \"lamp\",\n+     \"pen\",\n    ],\n-   \"status\": \"paid\",\n+   \"status\": \"pending\",\n  }\n    at <root>/fixtures/tests/failures.spec.ts:76:66",
+              "stack": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 2\n+ Received  + 2\n\n  Object {\n    \"id\": 7,\n    \"items\": Array [\n      \"book\",\n-     \"lamp\",\n+     \"pen\",\n    ],\n-   \"status\": \"paid\",\n+   \"status\": \"pending\",\n  }\n    at failures.spec.ts:76:66",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 76,
@@ -4725,7 +4725,7 @@
               "durationMs": 4,
               "error": {
                 "message": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 2\n+ Received  + 2\n\n  Object {\n    \"id\": 7,\n    \"items\": Array [\n      \"book\",\n-     \"lamp\",\n+     \"pen\",\n    ],\n-   \"status\": \"paid\",\n+   \"status\": \"pending\",\n  }",
-                "stack": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 2\n+ Received  + 2\n\n  Object {\n    \"id\": 7,\n    \"items\": Array [\n      \"book\",\n-     \"lamp\",\n+     \"pen\",\n    ],\n-   \"status\": \"paid\",\n+   \"status\": \"pending\",\n  }\n    at <root>/fixtures/tests/failures.spec.ts:76:66",
+                "stack": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 2\n+ Received  + 2\n\n  Object {\n    \"id\": 7,\n    \"items\": Array [\n      \"book\",\n-     \"lamp\",\n+     \"pen\",\n    ],\n-   \"status\": \"paid\",\n+   \"status\": \"pending\",\n  }\n    at failures.spec.ts:76:66",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 76,
@@ -4826,7 +4826,7 @@
           "errors": [
             {
               "message": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: locator('div')\n  10000 pixels (ratio 1.00 of all image pixels) are different.\n\n  Snapshot: square.png\n\nCall log:\n  - Expect \"toHaveScreenshot(square.png)\" locator('div') with timeout 5000ms\n    - verifying given screenshot expectation\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - captured a stable screenshot\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n",
-              "stack": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: locator('div')\n  10000 pixels (ratio 1.00 of all image pixels) are different.\n\n  Snapshot: square.png\n\nCall log:\n  - Expect \"toHaveScreenshot(square.png)\" locator('div') with timeout 5000ms\n    - verifying given screenshot expectation\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - captured a stable screenshot\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n\n    at <root>/fixtures/tests/failures.spec.ts:83:39",
+              "stack": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: locator('div')\n  10000 pixels (ratio 1.00 of all image pixels) are different.\n\n  Snapshot: square.png\n\nCall log:\n  - Expect \"toHaveScreenshot(square.png)\" locator('div') with timeout 5000ms\n    - verifying given screenshot expectation\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - captured a stable screenshot\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n\n    at failures.spec.ts:83:39",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 83,
@@ -4938,7 +4938,7 @@
               "durationMs": 263,
               "error": {
                 "message": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: locator('div')\n  10000 pixels (ratio 1.00 of all image pixels) are different.\n\n  Snapshot: square.png\n\nCall log:\n  - Expect \"toHaveScreenshot(square.png)\" locator('div') with timeout 5000ms\n    - verifying given screenshot expectation\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - captured a stable screenshot\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n",
-                "stack": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: locator('div')\n  10000 pixels (ratio 1.00 of all image pixels) are different.\n\n  Snapshot: square.png\n\nCall log:\n  - Expect \"toHaveScreenshot(square.png)\" locator('div') with timeout 5000ms\n    - verifying given screenshot expectation\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - captured a stable screenshot\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n\n    at <root>/fixtures/tests/failures.spec.ts:83:39",
+                "stack": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: locator('div')\n  10000 pixels (ratio 1.00 of all image pixels) are different.\n\n  Snapshot: square.png\n\nCall log:\n  - Expect \"toHaveScreenshot(square.png)\" locator('div') with timeout 5000ms\n    - verifying given screenshot expectation\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - captured a stable screenshot\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n\n    at failures.spec.ts:83:39",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 83,
@@ -5091,7 +5091,7 @@
           "errors": [
             {
               "message": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: locator('div')\n  10000 pixels (ratio 1.00 of all image pixels) are different.\n\n  Snapshot: square.png\n\nCall log:\n  - Expect \"toHaveScreenshot(square.png)\" locator('div') with timeout 5000ms\n    - verifying given screenshot expectation\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - captured a stable screenshot\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n",
-              "stack": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: locator('div')\n  10000 pixels (ratio 1.00 of all image pixels) are different.\n\n  Snapshot: square.png\n\nCall log:\n  - Expect \"toHaveScreenshot(square.png)\" locator('div') with timeout 5000ms\n    - verifying given screenshot expectation\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - captured a stable screenshot\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n\n    at <root>/fixtures/tests/failures.spec.ts:83:39",
+              "stack": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: locator('div')\n  10000 pixels (ratio 1.00 of all image pixels) are different.\n\n  Snapshot: square.png\n\nCall log:\n  - Expect \"toHaveScreenshot(square.png)\" locator('div') with timeout 5000ms\n    - verifying given screenshot expectation\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - captured a stable screenshot\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n\n    at failures.spec.ts:83:39",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 83,
@@ -5203,7 +5203,7 @@
               "durationMs": 262,
               "error": {
                 "message": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: locator('div')\n  10000 pixels (ratio 1.00 of all image pixels) are different.\n\n  Snapshot: square.png\n\nCall log:\n  - Expect \"toHaveScreenshot(square.png)\" locator('div') with timeout 5000ms\n    - verifying given screenshot expectation\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - captured a stable screenshot\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n",
-                "stack": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: locator('div')\n  10000 pixels (ratio 1.00 of all image pixels) are different.\n\n  Snapshot: square.png\n\nCall log:\n  - Expect \"toHaveScreenshot(square.png)\" locator('div') with timeout 5000ms\n    - verifying given screenshot expectation\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - captured a stable screenshot\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n\n    at <root>/fixtures/tests/failures.spec.ts:83:39",
+                "stack": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: locator('div')\n  10000 pixels (ratio 1.00 of all image pixels) are different.\n\n  Snapshot: square.png\n\nCall log:\n  - Expect \"toHaveScreenshot(square.png)\" locator('div') with timeout 5000ms\n    - verifying given screenshot expectation\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - captured a stable screenshot\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n\n    at failures.spec.ts:83:39",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 83,
@@ -5384,7 +5384,7 @@
           "errors": [
             {
               "message": "Error: fails on the first attempt on purpose\n\nexpect(received).toBeGreaterThan(expected)\n\nExpected: > 0\nReceived:   0",
-              "stack": "Error: fails on the first attempt on purpose\n\nexpect(received).toBeGreaterThan(expected)\n\nExpected: > 0\nReceived:   0\n    at <root>/fixtures/tests/outcomes.spec.ts:9:69",
+              "stack": "Error: fails on the first attempt on purpose\n\nexpect(received).toBeGreaterThan(expected)\n\nExpected: > 0\nReceived:   0\n    at outcomes.spec.ts:9:69",
               "location": {
                 "file": "outcomes.spec.ts",
                 "line": 9,
@@ -5425,7 +5425,7 @@
               "durationMs": 2,
               "error": {
                 "message": "Error: fails on the first attempt on purpose\n\nexpect(received).toBeGreaterThan(expected)\n\nExpected: > 0\nReceived:   0",
-                "stack": "Error: fails on the first attempt on purpose\n\nexpect(received).toBeGreaterThan(expected)\n\nExpected: > 0\nReceived:   0\n    at <root>/fixtures/tests/outcomes.spec.ts:9:69",
+                "stack": "Error: fails on the first attempt on purpose\n\nexpect(received).toBeGreaterThan(expected)\n\nExpected: > 0\nReceived:   0\n    at outcomes.spec.ts:9:69",
                 "location": {
                   "file": "outcomes.spec.ts",
                   "line": 9,
@@ -5938,7 +5938,7 @@
           "errors": [
             {
               "message": "Error: fails on purpose so the next test is not run\n\nexpect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 0\n\n  Array [\n    \"draft\",\n-   \"published\",\n  ]",
-              "stack": "Error: fails on purpose so the next test is not run\n\nexpect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 0\n\n  Array [\n    \"draft\",\n-   \"published\",\n  ]\n    at <root>/fixtures/tests/outcomes.spec.ts:41:73",
+              "stack": "Error: fails on purpose so the next test is not run\n\nexpect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 0\n\n  Array [\n    \"draft\",\n-   \"published\",\n  ]\n    at outcomes.spec.ts:41:73",
               "location": {
                 "file": "outcomes.spec.ts",
                 "line": 41,
@@ -5966,7 +5966,7 @@
               "durationMs": 4,
               "error": {
                 "message": "Error: fails on purpose so the next test is not run\n\nexpect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 0\n\n  Array [\n    \"draft\",\n-   \"published\",\n  ]",
-                "stack": "Error: fails on purpose so the next test is not run\n\nexpect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 0\n\n  Array [\n    \"draft\",\n-   \"published\",\n  ]\n    at <root>/fixtures/tests/outcomes.spec.ts:41:73",
+                "stack": "Error: fails on purpose so the next test is not run\n\nexpect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 0\n\n  Array [\n    \"draft\",\n-   \"published\",\n  ]\n    at outcomes.spec.ts:41:73",
                 "location": {
                   "file": "outcomes.spec.ts",
                   "line": 41,
@@ -6044,7 +6044,7 @@
           "errors": [
             {
               "message": "Error: fails on purpose so the next test is not run\n\nexpect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 0\n\n  Array [\n    \"draft\",\n-   \"published\",\n  ]",
-              "stack": "Error: fails on purpose so the next test is not run\n\nexpect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 0\n\n  Array [\n    \"draft\",\n-   \"published\",\n  ]\n    at <root>/fixtures/tests/outcomes.spec.ts:41:73",
+              "stack": "Error: fails on purpose so the next test is not run\n\nexpect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 0\n\n  Array [\n    \"draft\",\n-   \"published\",\n  ]\n    at outcomes.spec.ts:41:73",
               "location": {
                 "file": "outcomes.spec.ts",
                 "line": 41,
@@ -6072,7 +6072,7 @@
               "durationMs": 4,
               "error": {
                 "message": "Error: fails on purpose so the next test is not run\n\nexpect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 0\n\n  Array [\n    \"draft\",\n-   \"published\",\n  ]",
-                "stack": "Error: fails on purpose so the next test is not run\n\nexpect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 0\n\n  Array [\n    \"draft\",\n-   \"published\",\n  ]\n    at <root>/fixtures/tests/outcomes.spec.ts:41:73",
+                "stack": "Error: fails on purpose so the next test is not run\n\nexpect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 0\n\n  Array [\n    \"draft\",\n-   \"published\",\n  ]\n    at outcomes.spec.ts:41:73",
                 "location": {
                   "file": "outcomes.spec.ts",
                   "line": 41,
@@ -6615,7 +6615,7 @@
           "errors": [
             {
               "message": "Error: Unexpected response: 404 Not Found for http://127.0.0.1:44083/api/invoices/7/pdf",
-              "stack": "Error: Unexpected response: 404 Not Found for http://127.0.0.1:44083/api/invoices/7/pdf\n    at checkResponse (<root>/fixtures/helpers/resources.ts:15:29)\n    at fetchResource (<root>/fixtures/helpers/resources.ts:21:3)\n    at <root>/fixtures/tests/resources/invoices.spec.ts:8:5",
+              "stack": "Error: Unexpected response: 404 Not Found for http://127.0.0.1:44083/api/invoices/7/pdf\n    at checkResponse (../helpers/resources.ts:15:29)\n    at fetchResource (../helpers/resources.ts:21:3)\n    at resources/invoices.spec.ts:8:5",
               "location": {
                 "file": "../helpers/resources.ts",
                 "line": 15,
@@ -6735,7 +6735,7 @@
           "errors": [
             {
               "message": "Error: Unexpected response: 404 Not Found for http://127.0.0.1:37013/api/invoices/7/pdf",
-              "stack": "Error: Unexpected response: 404 Not Found for http://127.0.0.1:37013/api/invoices/7/pdf\n    at checkResponse (<root>/fixtures/helpers/resources.ts:15:29)\n    at fetchResource (<root>/fixtures/helpers/resources.ts:21:3)\n    at <root>/fixtures/tests/resources/invoices.spec.ts:8:5",
+              "stack": "Error: Unexpected response: 404 Not Found for http://127.0.0.1:37013/api/invoices/7/pdf\n    at checkResponse (../helpers/resources.ts:15:29)\n    at fetchResource (../helpers/resources.ts:21:3)\n    at resources/invoices.spec.ts:8:5",
               "location": {
                 "file": "../helpers/resources.ts",
                 "line": 15,
@@ -6883,7 +6883,7 @@
           "errors": [
             {
               "message": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:33701/api/invoices?status=unpaid",
-              "stack": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:33701/api/invoices?status=unpaid\n    at checkResponse (<root>/fixtures/helpers/resources.ts:15:29)\n    at fetchResource (<root>/fixtures/helpers/resources.ts:21:3)\n    at <root>/fixtures/tests/resources/invoices.spec.ts:12:5",
+              "stack": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:33701/api/invoices?status=unpaid\n    at checkResponse (../helpers/resources.ts:15:29)\n    at fetchResource (../helpers/resources.ts:21:3)\n    at resources/invoices.spec.ts:12:5",
               "location": {
                 "file": "../helpers/resources.ts",
                 "line": 15,
@@ -7013,7 +7013,7 @@
           "errors": [
             {
               "message": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:42169/api/invoices?status=unpaid",
-              "stack": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:42169/api/invoices?status=unpaid\n    at checkResponse (<root>/fixtures/helpers/resources.ts:15:29)\n    at fetchResource (<root>/fixtures/helpers/resources.ts:21:3)\n    at <root>/fixtures/tests/resources/invoices.spec.ts:12:5",
+              "stack": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:42169/api/invoices?status=unpaid\n    at checkResponse (../helpers/resources.ts:15:29)\n    at fetchResource (../helpers/resources.ts:21:3)\n    at resources/invoices.spec.ts:12:5",
               "location": {
                 "file": "../helpers/resources.ts",
                 "line": 15,
@@ -7161,7 +7161,7 @@
           "errors": [
             {
               "message": "Error: Unexpected response: 404 Not Found for http://127.0.0.1:42885/api/orders/history",
-              "stack": "Error: Unexpected response: 404 Not Found for http://127.0.0.1:42885/api/orders/history\n    at checkResponse (<root>/fixtures/helpers/resources.ts:15:29)\n    at fetchResource (<root>/fixtures/helpers/resources.ts:21:3)\n    at <root>/fixtures/tests/resources/orders.spec.ts:8:5",
+              "stack": "Error: Unexpected response: 404 Not Found for http://127.0.0.1:42885/api/orders/history\n    at checkResponse (../helpers/resources.ts:15:29)\n    at fetchResource (../helpers/resources.ts:21:3)\n    at resources/orders.spec.ts:8:5",
               "location": {
                 "file": "../helpers/resources.ts",
                 "line": 15,
@@ -7281,7 +7281,7 @@
           "errors": [
             {
               "message": "Error: Unexpected response: 404 Not Found for http://127.0.0.1:43123/api/orders/history",
-              "stack": "Error: Unexpected response: 404 Not Found for http://127.0.0.1:43123/api/orders/history\n    at checkResponse (<root>/fixtures/helpers/resources.ts:15:29)\n    at fetchResource (<root>/fixtures/helpers/resources.ts:21:3)\n    at <root>/fixtures/tests/resources/orders.spec.ts:8:5",
+              "stack": "Error: Unexpected response: 404 Not Found for http://127.0.0.1:43123/api/orders/history\n    at checkResponse (../helpers/resources.ts:15:29)\n    at fetchResource (../helpers/resources.ts:21:3)\n    at resources/orders.spec.ts:8:5",
               "location": {
                 "file": "../helpers/resources.ts",
                 "line": 15,
@@ -7429,7 +7429,7 @@
           "errors": [
             {
               "message": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:36707/api/orders/42",
-              "stack": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:36707/api/orders/42\n    at checkResponse (<root>/fixtures/helpers/resources.ts:15:29)\n    at fetchResource (<root>/fixtures/helpers/resources.ts:21:3)\n    at <root>/fixtures/tests/resources/orders.spec.ts:12:5",
+              "stack": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:36707/api/orders/42\n    at checkResponse (../helpers/resources.ts:15:29)\n    at fetchResource (../helpers/resources.ts:21:3)\n    at resources/orders.spec.ts:12:5",
               "location": {
                 "file": "../helpers/resources.ts",
                 "line": 15,
@@ -7549,7 +7549,7 @@
           "errors": [
             {
               "message": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:45911/api/orders/42",
-              "stack": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:45911/api/orders/42\n    at checkResponse (<root>/fixtures/helpers/resources.ts:15:29)\n    at fetchResource (<root>/fixtures/helpers/resources.ts:21:3)\n    at <root>/fixtures/tests/resources/orders.spec.ts:12:5",
+              "stack": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:45911/api/orders/42\n    at checkResponse (../helpers/resources.ts:15:29)\n    at fetchResource (../helpers/resources.ts:21:3)\n    at resources/orders.spec.ts:12:5",
               "location": {
                 "file": "../helpers/resources.ts",
                 "line": 15,
@@ -7695,7 +7695,7 @@
           "errors": [
             {
               "message": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:41809/api/profile",
-              "stack": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:41809/api/profile\n    at checkResponse (<root>/fixtures/helpers/resources.ts:15:29)\n    at fetchResource (<root>/fixtures/helpers/resources.ts:21:3)\n    at <root>/fixtures/tests/resources/profiles.spec.ts:7:3",
+              "stack": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:41809/api/profile\n    at checkResponse (../helpers/resources.ts:15:29)\n    at fetchResource (../helpers/resources.ts:21:3)\n    at resources/profiles.spec.ts:7:3",
               "location": {
                 "file": "../helpers/resources.ts",
                 "line": 15,
@@ -7825,7 +7825,7 @@
           "errors": [
             {
               "message": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:39143/api/profile",
-              "stack": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:39143/api/profile\n    at checkResponse (<root>/fixtures/helpers/resources.ts:15:29)\n    at fetchResource (<root>/fixtures/helpers/resources.ts:21:3)\n    at <root>/fixtures/tests/resources/profiles.spec.ts:7:3",
+              "stack": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:39143/api/profile\n    at checkResponse (../helpers/resources.ts:15:29)\n    at fetchResource (../helpers/resources.ts:21:3)\n    at resources/profiles.spec.ts:7:3",
               "location": {
                 "file": "../helpers/resources.ts",
                 "line": 15,
@@ -8187,7 +8187,7 @@
           "errors": [
             {
               "message": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n",
-              "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at <root>/fixtures/tests/structure.spec.ts:23:46\n    at <root>/fixtures/tests/structure.spec.ts:22:7\n    at <root>/fixtures/tests/structure.spec.ts:20:5",
+              "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at structure.spec.ts:23:46\n    at structure.spec.ts:22:7\n    at structure.spec.ts:20:5",
               "location": {
                 "file": "structure.spec.ts",
                 "line": 23,
@@ -8273,7 +8273,7 @@
               "durationMs": 349,
               "error": {
                 "message": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n",
-                "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at <root>/fixtures/tests/structure.spec.ts:23:46\n    at <root>/fixtures/tests/structure.spec.ts:22:7\n    at <root>/fixtures/tests/structure.spec.ts:20:5",
+                "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at structure.spec.ts:23:46\n    at structure.spec.ts:22:7\n    at structure.spec.ts:20:5",
                 "location": {
                   "file": "structure.spec.ts",
                   "line": 23,
@@ -8309,7 +8309,7 @@
                   "durationMs": 325,
                   "error": {
                     "message": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n",
-                    "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at <root>/fixtures/tests/structure.spec.ts:23:46\n    at <root>/fixtures/tests/structure.spec.ts:22:7\n    at <root>/fixtures/tests/structure.spec.ts:20:5",
+                    "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at structure.spec.ts:23:46\n    at structure.spec.ts:22:7\n    at structure.spec.ts:20:5",
                     "location": {
                       "file": "structure.spec.ts",
                       "line": 23,
@@ -8332,7 +8332,7 @@
                       "durationMs": 318,
                       "error": {
                         "message": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n",
-                        "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at <root>/fixtures/tests/structure.spec.ts:23:46\n    at <root>/fixtures/tests/structure.spec.ts:22:7\n    at <root>/fixtures/tests/structure.spec.ts:20:5",
+                        "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at structure.spec.ts:23:46\n    at structure.spec.ts:22:7\n    at structure.spec.ts:20:5",
                         "location": {
                           "file": "structure.spec.ts",
                           "line": 23,
@@ -8456,7 +8456,7 @@
           "errors": [
             {
               "message": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n",
-              "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at <root>/fixtures/tests/structure.spec.ts:23:46\n    at <root>/fixtures/tests/structure.spec.ts:22:7\n    at <root>/fixtures/tests/structure.spec.ts:20:5",
+              "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at structure.spec.ts:23:46\n    at structure.spec.ts:22:7\n    at structure.spec.ts:20:5",
               "location": {
                 "file": "structure.spec.ts",
                 "line": 23,
@@ -8542,7 +8542,7 @@
               "durationMs": 332,
               "error": {
                 "message": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n",
-                "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at <root>/fixtures/tests/structure.spec.ts:23:46\n    at <root>/fixtures/tests/structure.spec.ts:22:7\n    at <root>/fixtures/tests/structure.spec.ts:20:5",
+                "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at structure.spec.ts:23:46\n    at structure.spec.ts:22:7\n    at structure.spec.ts:20:5",
                 "location": {
                   "file": "structure.spec.ts",
                   "line": 23,
@@ -8578,7 +8578,7 @@
                   "durationMs": 313,
                   "error": {
                     "message": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n",
-                    "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at <root>/fixtures/tests/structure.spec.ts:23:46\n    at <root>/fixtures/tests/structure.spec.ts:22:7\n    at <root>/fixtures/tests/structure.spec.ts:20:5",
+                    "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at structure.spec.ts:23:46\n    at structure.spec.ts:22:7\n    at structure.spec.ts:20:5",
                     "location": {
                       "file": "structure.spec.ts",
                       "line": 23,
@@ -8601,7 +8601,7 @@
                       "durationMs": 308,
                       "error": {
                         "message": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n",
-                        "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at <root>/fixtures/tests/structure.spec.ts:23:46\n    at <root>/fixtures/tests/structure.spec.ts:22:7\n    at <root>/fixtures/tests/structure.spec.ts:20:5",
+                        "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at structure.spec.ts:23:46\n    at structure.spec.ts:22:7\n    at structure.spec.ts:20:5",
                         "location": {
                           "file": "structure.spec.ts",
                           "line": 23,
@@ -9634,7 +9634,7 @@
           "errors": [
             {
               "message": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  getByRole('heading', { level: 1 })\nExpected: \"Wrong heading\"\nReceived: \"Loupe fixture\"\nTimeout:  500ms\n\nCall log:\n  - Expect \"toHaveText\" getByRole('heading', { level: 1 }) with timeout 500ms\n  - waiting for getByRole('heading', { level: 1 })\n    6 × locator resolved to <h1>Loupe fixture</h1>\n      - unexpected value \"Loupe fixture\"\n",
-              "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  getByRole('heading', { level: 1 })\nExpected: \"Wrong heading\"\nReceived: \"Loupe fixture\"\nTimeout:  500ms\n\nCall log:\n  - Expect \"toHaveText\" getByRole('heading', { level: 1 }) with timeout 500ms\n  - waiting for getByRole('heading', { level: 1 })\n    6 × locator resolved to <h1>Loupe fixture</h1>\n      - unexpected value \"Loupe fixture\"\n\n    at <root>/fixtures/tests/basics.spec.ts:38:61",
+              "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  getByRole('heading', { level: 1 })\nExpected: \"Wrong heading\"\nReceived: \"Loupe fixture\"\nTimeout:  500ms\n\nCall log:\n  - Expect \"toHaveText\" getByRole('heading', { level: 1 }) with timeout 500ms\n  - waiting for getByRole('heading', { level: 1 })\n    6 × locator resolved to <h1>Loupe fixture</h1>\n      - unexpected value \"Loupe fixture\"\n\n    at basics.spec.ts:38:61",
               "location": {
                 "file": "basics.spec.ts",
                 "line": 38,
@@ -9747,7 +9747,7 @@
               "durationMs": 509,
               "error": {
                 "message": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  getByRole('heading', { level: 1 })\nExpected: \"Wrong heading\"\nReceived: \"Loupe fixture\"\nTimeout:  500ms\n\nCall log:\n  - Expect \"toHaveText\" getByRole('heading', { level: 1 }) with timeout 500ms\n  - waiting for getByRole('heading', { level: 1 })\n    6 × locator resolved to <h1>Loupe fixture</h1>\n      - unexpected value \"Loupe fixture\"\n",
-                "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  getByRole('heading', { level: 1 })\nExpected: \"Wrong heading\"\nReceived: \"Loupe fixture\"\nTimeout:  500ms\n\nCall log:\n  - Expect \"toHaveText\" getByRole('heading', { level: 1 }) with timeout 500ms\n  - waiting for getByRole('heading', { level: 1 })\n    6 × locator resolved to <h1>Loupe fixture</h1>\n      - unexpected value \"Loupe fixture\"\n\n    at <root>/fixtures/tests/basics.spec.ts:38:61",
+                "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  getByRole('heading', { level: 1 })\nExpected: \"Wrong heading\"\nReceived: \"Loupe fixture\"\nTimeout:  500ms\n\nCall log:\n  - Expect \"toHaveText\" getByRole('heading', { level: 1 }) with timeout 500ms\n  - waiting for getByRole('heading', { level: 1 })\n    6 × locator resolved to <h1>Loupe fixture</h1>\n      - unexpected value \"Loupe fixture\"\n\n    at basics.spec.ts:38:61",
                 "location": {
                   "file": "basics.spec.ts",
                   "line": 38,
@@ -9872,7 +9872,7 @@
           "errors": [
             {
               "message": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  getByRole('heading', { level: 1 })\nExpected: \"Wrong heading\"\nReceived: \"Loupe fixture\"\nTimeout:  500ms\n\nCall log:\n  - Expect \"toHaveText\" getByRole('heading', { level: 1 }) with timeout 500ms\n  - waiting for getByRole('heading', { level: 1 })\n    6 × locator resolved to <h1>Loupe fixture</h1>\n      - unexpected value \"Loupe fixture\"\n",
-              "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  getByRole('heading', { level: 1 })\nExpected: \"Wrong heading\"\nReceived: \"Loupe fixture\"\nTimeout:  500ms\n\nCall log:\n  - Expect \"toHaveText\" getByRole('heading', { level: 1 }) with timeout 500ms\n  - waiting for getByRole('heading', { level: 1 })\n    6 × locator resolved to <h1>Loupe fixture</h1>\n      - unexpected value \"Loupe fixture\"\n\n    at <root>/fixtures/tests/basics.spec.ts:38:61",
+              "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  getByRole('heading', { level: 1 })\nExpected: \"Wrong heading\"\nReceived: \"Loupe fixture\"\nTimeout:  500ms\n\nCall log:\n  - Expect \"toHaveText\" getByRole('heading', { level: 1 }) with timeout 500ms\n  - waiting for getByRole('heading', { level: 1 })\n    6 × locator resolved to <h1>Loupe fixture</h1>\n      - unexpected value \"Loupe fixture\"\n\n    at basics.spec.ts:38:61",
               "location": {
                 "file": "basics.spec.ts",
                 "line": 38,
@@ -9985,7 +9985,7 @@
               "durationMs": 510,
               "error": {
                 "message": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  getByRole('heading', { level: 1 })\nExpected: \"Wrong heading\"\nReceived: \"Loupe fixture\"\nTimeout:  500ms\n\nCall log:\n  - Expect \"toHaveText\" getByRole('heading', { level: 1 }) with timeout 500ms\n  - waiting for getByRole('heading', { level: 1 })\n    6 × locator resolved to <h1>Loupe fixture</h1>\n      - unexpected value \"Loupe fixture\"\n",
-                "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  getByRole('heading', { level: 1 })\nExpected: \"Wrong heading\"\nReceived: \"Loupe fixture\"\nTimeout:  500ms\n\nCall log:\n  - Expect \"toHaveText\" getByRole('heading', { level: 1 }) with timeout 500ms\n  - waiting for getByRole('heading', { level: 1 })\n    6 × locator resolved to <h1>Loupe fixture</h1>\n      - unexpected value \"Loupe fixture\"\n\n    at <root>/fixtures/tests/basics.spec.ts:38:61",
+                "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  getByRole('heading', { level: 1 })\nExpected: \"Wrong heading\"\nReceived: \"Loupe fixture\"\nTimeout:  500ms\n\nCall log:\n  - Expect \"toHaveText\" getByRole('heading', { level: 1 }) with timeout 500ms\n  - waiting for getByRole('heading', { level: 1 })\n    6 × locator resolved to <h1>Loupe fixture</h1>\n      - unexpected value \"Loupe fixture\"\n\n    at basics.spec.ts:38:61",
                 "location": {
                   "file": "basics.spec.ts",
                   "line": 38,
@@ -10147,7 +10147,7 @@
             },
             {
               "message": "Error: page.waitForTimeout: Test timeout of 1000ms exceeded.",
-              "stack": "Error: page.waitForTimeout: Test timeout of 1000ms exceeded.\n    at <root>/fixtures/tests/failures.spec.ts:22:18",
+              "stack": "Error: page.waitForTimeout: Test timeout of 1000ms exceeded.\n    at failures.spec.ts:22:18",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 22,
@@ -10246,7 +10246,7 @@
               "durationMs": 1029,
               "error": {
                 "message": "Error: page.waitForTimeout: Test timeout of 1000ms exceeded.",
-                "stack": "Error: page.waitForTimeout: Test timeout of 1000ms exceeded.\n    at <root>/fixtures/tests/failures.spec.ts:22:18",
+                "stack": "Error: page.waitForTimeout: Test timeout of 1000ms exceeded.\n    at failures.spec.ts:22:18",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 22,
@@ -10374,7 +10374,7 @@
             },
             {
               "message": "Error: page.waitForTimeout: Test timeout of 1000ms exceeded.",
-              "stack": "Error: page.waitForTimeout: Test timeout of 1000ms exceeded.\n    at <root>/fixtures/tests/failures.spec.ts:22:18",
+              "stack": "Error: page.waitForTimeout: Test timeout of 1000ms exceeded.\n    at failures.spec.ts:22:18",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 22,
@@ -10473,7 +10473,7 @@
               "durationMs": 1038,
               "error": {
                 "message": "Error: page.waitForTimeout: Test timeout of 1000ms exceeded.",
-                "stack": "Error: page.waitForTimeout: Test timeout of 1000ms exceeded.\n    at <root>/fixtures/tests/failures.spec.ts:22:18",
+                "stack": "Error: page.waitForTimeout: Test timeout of 1000ms exceeded.\n    at failures.spec.ts:22:18",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 22,
@@ -10622,7 +10622,7 @@
           "errors": [
             {
               "message": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: 'Missing' })\nExpected: visible\nTimeout: 300ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('button', { name: 'Missing' }) with timeout 300ms\n  - waiting for getByRole('button', { name: 'Missing' })\n",
-              "stack": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: 'Missing' })\nExpected: visible\nTimeout: 300ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('button', { name: 'Missing' }) with timeout 300ms\n  - waiting for getByRole('button', { name: 'Missing' })\n\n    at <root>/fixtures/tests/failures.spec.ts:27:67",
+              "stack": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: 'Missing' })\nExpected: visible\nTimeout: 300ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('button', { name: 'Missing' }) with timeout 300ms\n  - waiting for getByRole('button', { name: 'Missing' })\n\n    at failures.spec.ts:27:67",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 27,
@@ -10721,7 +10721,7 @@
               "durationMs": 309,
               "error": {
                 "message": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: 'Missing' })\nExpected: visible\nTimeout: 300ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('button', { name: 'Missing' }) with timeout 300ms\n  - waiting for getByRole('button', { name: 'Missing' })\n",
-                "stack": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: 'Missing' })\nExpected: visible\nTimeout: 300ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('button', { name: 'Missing' }) with timeout 300ms\n  - waiting for getByRole('button', { name: 'Missing' })\n\n    at <root>/fixtures/tests/failures.spec.ts:27:67",
+                "stack": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: 'Missing' })\nExpected: visible\nTimeout: 300ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('button', { name: 'Missing' }) with timeout 300ms\n  - waiting for getByRole('button', { name: 'Missing' })\n\n    at failures.spec.ts:27:67",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 27,
@@ -10841,7 +10841,7 @@
           "errors": [
             {
               "message": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: 'Missing' })\nExpected: visible\nTimeout: 300ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('button', { name: 'Missing' }) with timeout 300ms\n  - waiting for getByRole('button', { name: 'Missing' })\n",
-              "stack": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: 'Missing' })\nExpected: visible\nTimeout: 300ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('button', { name: 'Missing' }) with timeout 300ms\n  - waiting for getByRole('button', { name: 'Missing' })\n\n    at <root>/fixtures/tests/failures.spec.ts:27:67",
+              "stack": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: 'Missing' })\nExpected: visible\nTimeout: 300ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('button', { name: 'Missing' }) with timeout 300ms\n  - waiting for getByRole('button', { name: 'Missing' })\n\n    at failures.spec.ts:27:67",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 27,
@@ -10940,7 +10940,7 @@
               "durationMs": 305,
               "error": {
                 "message": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: 'Missing' })\nExpected: visible\nTimeout: 300ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('button', { name: 'Missing' }) with timeout 300ms\n  - waiting for getByRole('button', { name: 'Missing' })\n",
-                "stack": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: 'Missing' })\nExpected: visible\nTimeout: 300ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('button', { name: 'Missing' }) with timeout 300ms\n  - waiting for getByRole('button', { name: 'Missing' })\n\n    at <root>/fixtures/tests/failures.spec.ts:27:67",
+                "stack": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: 'Missing' })\nExpected: visible\nTimeout: 300ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('button', { name: 'Missing' }) with timeout 300ms\n  - waiting for getByRole('button', { name: 'Missing' })\n\n    at failures.spec.ts:27:67",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 27,
@@ -11089,7 +11089,7 @@
           "errors": [
             {
               "message": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:38095/\nCall log:\n  - navigating to \"http://127.0.0.1:38095/\", waiting until \"load\"\n",
-              "stack": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:38095/\nCall log:\n  - navigating to \"http://127.0.0.1:38095/\", waiting until \"load\"\n\n    at <root>/fixtures/tests/failures.spec.ts:36:18",
+              "stack": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:38095/\nCall log:\n  - navigating to \"http://127.0.0.1:38095/\", waiting until \"load\"\n\n    at failures.spec.ts:36:18",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 36,
@@ -11156,7 +11156,7 @@
               "durationMs": 29,
               "error": {
                 "message": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:38095/\nCall log:\n  - navigating to \"http://127.0.0.1:38095/\", waiting until \"load\"\n",
-                "stack": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:38095/\nCall log:\n  - navigating to \"http://127.0.0.1:38095/\", waiting until \"load\"\n\n    at <root>/fixtures/tests/failures.spec.ts:36:18",
+                "stack": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:38095/\nCall log:\n  - navigating to \"http://127.0.0.1:38095/\", waiting until \"load\"\n\n    at failures.spec.ts:36:18",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 36,
@@ -11276,7 +11276,7 @@
           "errors": [
             {
               "message": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:44429/\nCall log:\n  - navigating to \"http://127.0.0.1:44429/\", waiting until \"load\"\n",
-              "stack": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:44429/\nCall log:\n  - navigating to \"http://127.0.0.1:44429/\", waiting until \"load\"\n\n    at <root>/fixtures/tests/failures.spec.ts:36:18",
+              "stack": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:44429/\nCall log:\n  - navigating to \"http://127.0.0.1:44429/\", waiting until \"load\"\n\n    at failures.spec.ts:36:18",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 36,
@@ -11362,7 +11362,7 @@
               "durationMs": 24,
               "error": {
                 "message": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:44429/\nCall log:\n  - navigating to \"http://127.0.0.1:44429/\", waiting until \"load\"\n",
-                "stack": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:44429/\nCall log:\n  - navigating to \"http://127.0.0.1:44429/\", waiting until \"load\"\n\n    at <root>/fixtures/tests/failures.spec.ts:36:18",
+                "stack": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:44429/\nCall log:\n  - navigating to \"http://127.0.0.1:44429/\", waiting until \"load\"\n\n    at failures.spec.ts:36:18",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 36,
@@ -11511,7 +11511,7 @@
           "errors": [
             {
               "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:\n    1) <button>Save</button> aka getByRole('button', { name: 'Save', exact: true })\n    2) <button>Save draft</button> aka getByRole('button', { name: 'Save draft' })\n\nCall log:\n  - waiting for getByRole('button', { name: 'Save' })\n",
-              "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:\n    1) <button>Save</button> aka getByRole('button', { name: 'Save', exact: true })\n    2) <button>Save draft</button> aka getByRole('button', { name: 'Save draft' })\n\nCall log:\n  - waiting for getByRole('button', { name: 'Save' })\n\n    at <root>/fixtures/tests/failures.spec.ts:41:56",
+              "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:\n    1) <button>Save</button> aka getByRole('button', { name: 'Save', exact: true })\n    2) <button>Save draft</button> aka getByRole('button', { name: 'Save draft' })\n\nCall log:\n  - waiting for getByRole('button', { name: 'Save' })\n\n    at failures.spec.ts:41:56",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 41,
@@ -11591,7 +11591,7 @@
               "durationMs": 37,
               "error": {
                 "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:\n    1) <button>Save</button> aka getByRole('button', { name: 'Save', exact: true })\n    2) <button>Save draft</button> aka getByRole('button', { name: 'Save draft' })\n\nCall log:\n  - waiting for getByRole('button', { name: 'Save' })\n",
-                "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:\n    1) <button>Save</button> aka getByRole('button', { name: 'Save', exact: true })\n    2) <button>Save draft</button> aka getByRole('button', { name: 'Save draft' })\n\nCall log:\n  - waiting for getByRole('button', { name: 'Save' })\n\n    at <root>/fixtures/tests/failures.spec.ts:41:56",
+                "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:\n    1) <button>Save</button> aka getByRole('button', { name: 'Save', exact: true })\n    2) <button>Save draft</button> aka getByRole('button', { name: 'Save draft' })\n\nCall log:\n  - waiting for getByRole('button', { name: 'Save' })\n\n    at failures.spec.ts:41:56",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 41,
@@ -11711,7 +11711,7 @@
           "errors": [
             {
               "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:\n    1) <button>Save</button> aka getByRole('button', { name: 'Save', exact: true })\n    2) <button>Save draft</button> aka getByRole('button', { name: 'Save draft' })\n\nCall log:\n  - waiting for getByRole('button', { name: 'Save' })\n",
-              "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:\n    1) <button>Save</button> aka getByRole('button', { name: 'Save', exact: true })\n    2) <button>Save draft</button> aka getByRole('button', { name: 'Save draft' })\n\nCall log:\n  - waiting for getByRole('button', { name: 'Save' })\n\n    at <root>/fixtures/tests/failures.spec.ts:41:56",
+              "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:\n    1) <button>Save</button> aka getByRole('button', { name: 'Save', exact: true })\n    2) <button>Save draft</button> aka getByRole('button', { name: 'Save draft' })\n\nCall log:\n  - waiting for getByRole('button', { name: 'Save' })\n\n    at failures.spec.ts:41:56",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 41,
@@ -11810,7 +11810,7 @@
               "durationMs": 30,
               "error": {
                 "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:\n    1) <button>Save</button> aka getByRole('button', { name: 'Save', exact: true })\n    2) <button>Save draft</button> aka getByRole('button', { name: 'Save draft' })\n\nCall log:\n  - waiting for getByRole('button', { name: 'Save' })\n",
-                "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:\n    1) <button>Save</button> aka getByRole('button', { name: 'Save', exact: true })\n    2) <button>Save draft</button> aka getByRole('button', { name: 'Save draft' })\n\nCall log:\n  - waiting for getByRole('button', { name: 'Save' })\n\n    at <root>/fixtures/tests/failures.spec.ts:41:56",
+                "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Save' }) resolved to 2 elements:\n    1) <button>Save</button> aka getByRole('button', { name: 'Save', exact: true })\n    2) <button>Save draft</button> aka getByRole('button', { name: 'Save draft' })\n\nCall log:\n  - waiting for getByRole('button', { name: 'Save' })\n\n    at failures.spec.ts:41:56",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 41,
@@ -11959,7 +11959,7 @@
           "errors": [
             {
               "message": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:37325/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 429 Too Many Requests\n  date: Wed, 21 Oct 2026 16:45:41 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n",
-              "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:37325/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 429 Too Many Requests\n  date: Wed, 21 Oct 2026 16:45:41 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at <root>/fixtures/tests/failures.spec.ts:46:46\n    at withStatusServer (<root>/fixtures/helpers/status-server.ts:15:12)\n    at <root>/fixtures/tests/failures.spec.ts:45:7",
+              "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:37325/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 429 Too Many Requests\n  date: Wed, 21 Oct 2026 16:45:41 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at failures.spec.ts:46:46\n    at withStatusServer (../helpers/status-server.ts:15:12)\n    at failures.spec.ts:45:7",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 46,
@@ -12020,7 +12020,7 @@
               "durationMs": 2,
               "error": {
                 "message": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:37325/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 429 Too Many Requests\n  date: Wed, 21 Oct 2026 16:45:41 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n",
-                "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:37325/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 429 Too Many Requests\n  date: Wed, 21 Oct 2026 16:45:41 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at <root>/fixtures/tests/failures.spec.ts:46:46\n    at withStatusServer (<root>/fixtures/helpers/status-server.ts:15:12)\n    at <root>/fixtures/tests/failures.spec.ts:45:7",
+                "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:37325/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 429 Too Many Requests\n  date: Wed, 21 Oct 2026 16:45:41 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at failures.spec.ts:46:46\n    at withStatusServer (../helpers/status-server.ts:15:12)\n    at failures.spec.ts:45:7",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 46,
@@ -12113,7 +12113,7 @@
           "errors": [
             {
               "message": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:35095/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 429 Too Many Requests\n  date: Wed, 21 Oct 2026 16:45:42 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n",
-              "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:35095/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 429 Too Many Requests\n  date: Wed, 21 Oct 2026 16:45:42 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at <root>/fixtures/tests/failures.spec.ts:46:46\n    at withStatusServer (<root>/fixtures/helpers/status-server.ts:15:12)\n    at <root>/fixtures/tests/failures.spec.ts:45:7",
+              "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:35095/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 429 Too Many Requests\n  date: Wed, 21 Oct 2026 16:45:42 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at failures.spec.ts:46:46\n    at withStatusServer (../helpers/status-server.ts:15:12)\n    at failures.spec.ts:45:7",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 46,
@@ -12174,7 +12174,7 @@
               "durationMs": 1,
               "error": {
                 "message": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:35095/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 429 Too Many Requests\n  date: Wed, 21 Oct 2026 16:45:42 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n",
-                "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:35095/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 429 Too Many Requests\n  date: Wed, 21 Oct 2026 16:45:42 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at <root>/fixtures/tests/failures.spec.ts:46:46\n    at withStatusServer (<root>/fixtures/helpers/status-server.ts:15:12)\n    at <root>/fixtures/tests/failures.spec.ts:45:7",
+                "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:35095/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 429 Too Many Requests\n  date: Wed, 21 Oct 2026 16:45:42 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at failures.spec.ts:46:46\n    at withStatusServer (../helpers/status-server.ts:15:12)\n    at failures.spec.ts:45:7",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 46,
@@ -12286,7 +12286,7 @@
           "errors": [
             {
               "message": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:41821/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 503 Service Unavailable\n  date: Wed, 21 Oct 2026 16:45:41 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n",
-              "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:41821/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 503 Service Unavailable\n  date: Wed, 21 Oct 2026 16:45:41 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at <root>/fixtures/tests/failures.spec.ts:53:46\n    at withStatusServer (<root>/fixtures/helpers/status-server.ts:15:12)\n    at <root>/fixtures/tests/failures.spec.ts:52:7",
+              "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:41821/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 503 Service Unavailable\n  date: Wed, 21 Oct 2026 16:45:41 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at failures.spec.ts:53:46\n    at withStatusServer (../helpers/status-server.ts:15:12)\n    at failures.spec.ts:52:7",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 53,
@@ -12347,7 +12347,7 @@
               "durationMs": 2,
               "error": {
                 "message": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:41821/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 503 Service Unavailable\n  date: Wed, 21 Oct 2026 16:45:41 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n",
-                "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:41821/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 503 Service Unavailable\n  date: Wed, 21 Oct 2026 16:45:41 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at <root>/fixtures/tests/failures.spec.ts:53:46\n    at withStatusServer (<root>/fixtures/helpers/status-server.ts:15:12)\n    at <root>/fixtures/tests/failures.spec.ts:52:7",
+                "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:41821/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 503 Service Unavailable\n  date: Wed, 21 Oct 2026 16:45:41 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at failures.spec.ts:53:46\n    at withStatusServer (../helpers/status-server.ts:15:12)\n    at failures.spec.ts:52:7",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 53,
@@ -12440,7 +12440,7 @@
           "errors": [
             {
               "message": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:43527/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 503 Service Unavailable\n  date: Wed, 21 Oct 2026 16:45:42 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n",
-              "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:43527/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 503 Service Unavailable\n  date: Wed, 21 Oct 2026 16:45:42 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at <root>/fixtures/tests/failures.spec.ts:53:46\n    at withStatusServer (<root>/fixtures/helpers/status-server.ts:15:12)\n    at <root>/fixtures/tests/failures.spec.ts:52:7",
+              "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:43527/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 503 Service Unavailable\n  date: Wed, 21 Oct 2026 16:45:42 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at failures.spec.ts:53:46\n    at withStatusServer (../helpers/status-server.ts:15:12)\n    at failures.spec.ts:52:7",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 53,
@@ -12501,7 +12501,7 @@
               "durationMs": 2,
               "error": {
                 "message": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:43527/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 503 Service Unavailable\n  date: Wed, 21 Oct 2026 16:45:42 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n",
-                "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:43527/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 503 Service Unavailable\n  date: Wed, 21 Oct 2026 16:45:42 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at <root>/fixtures/tests/failures.spec.ts:53:46\n    at withStatusServer (<root>/fixtures/helpers/status-server.ts:15:12)\n    at <root>/fixtures/tests/failures.spec.ts:52:7",
+                "stack": "Error: expect(response).toBeOK() failed\n\n\nCall log:\n→ GET http://127.0.0.1:43527/api/orders\n  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n  accept: */*\n  accept-encoding: gzip,deflate,br\n← 503 Service Unavailable\n  date: Wed, 21 Oct 2026 16:45:42 GMT\n  connection: keep-alive\n  keep-alive: timeout=5\n  content-length: 19\n\n    at failures.spec.ts:53:46\n    at withStatusServer (../helpers/status-server.ts:15:12)\n    at failures.spec.ts:52:7",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 53,
@@ -12613,7 +12613,7 @@
           "errors": [
             {
               "message": "Error: apiRequestContext.get: 500 Internal Server Error\nResponse text:\nIntentional failure\nCall log:\n  - → GET http://127.0.0.1:35423/api/orders\n    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n    - accept: */*\n    - accept-encoding: gzip,deflate,br\n  - ← 500 Internal Server Error\n    - date: Wed, 21 Oct 2026 16:45:42 GMT\n    - connection: keep-alive\n    - keep-alive: timeout=5\n    - content-length: 19\n",
-              "stack": "Error: apiRequestContext.get: 500 Internal Server Error\nResponse text:\nIntentional failure\nCall log:\n  - → GET http://127.0.0.1:35423/api/orders\n    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n    - accept: */*\n    - accept-encoding: gzip,deflate,br\n  - ← 500 Internal Server Error\n    - date: Wed, 21 Oct 2026 16:45:42 GMT\n    - connection: keep-alive\n    - keep-alive: timeout=5\n    - content-length: 19\n\n    at use (<root>/fixtures/tests/failures.spec.ts:59:23)\n    at withStatusServer (<root>/fixtures/helpers/status-server.ts:15:18)\n    at <root>/fixtures/tests/failures.spec.ts:58:7",
+              "stack": "Error: apiRequestContext.get: 500 Internal Server Error\nResponse text:\nIntentional failure\nCall log:\n  - → GET http://127.0.0.1:35423/api/orders\n    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n    - accept: */*\n    - accept-encoding: gzip,deflate,br\n  - ← 500 Internal Server Error\n    - date: Wed, 21 Oct 2026 16:45:42 GMT\n    - connection: keep-alive\n    - keep-alive: timeout=5\n    - content-length: 19\n\n    at use (failures.spec.ts:59:23)\n    at withStatusServer (../helpers/status-server.ts:15:18)\n    at failures.spec.ts:58:7",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 59,
@@ -12661,7 +12661,7 @@
               "durationMs": 13,
               "error": {
                 "message": "Error: apiRequestContext.get: 500 Internal Server Error\nResponse text:\nIntentional failure\nCall log:\n  - → GET http://127.0.0.1:35423/api/orders\n    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n    - accept: */*\n    - accept-encoding: gzip,deflate,br\n  - ← 500 Internal Server Error\n    - date: Wed, 21 Oct 2026 16:45:42 GMT\n    - connection: keep-alive\n    - keep-alive: timeout=5\n    - content-length: 19\n",
-                "stack": "Error: apiRequestContext.get: 500 Internal Server Error\nResponse text:\nIntentional failure\nCall log:\n  - → GET http://127.0.0.1:35423/api/orders\n    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n    - accept: */*\n    - accept-encoding: gzip,deflate,br\n  - ← 500 Internal Server Error\n    - date: Wed, 21 Oct 2026 16:45:42 GMT\n    - connection: keep-alive\n    - keep-alive: timeout=5\n    - content-length: 19\n\n    at use (<root>/fixtures/tests/failures.spec.ts:59:23)\n    at withStatusServer (<root>/fixtures/helpers/status-server.ts:15:18)\n    at <root>/fixtures/tests/failures.spec.ts:58:7",
+                "stack": "Error: apiRequestContext.get: 500 Internal Server Error\nResponse text:\nIntentional failure\nCall log:\n  - → GET http://127.0.0.1:35423/api/orders\n    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n    - accept: */*\n    - accept-encoding: gzip,deflate,br\n  - ← 500 Internal Server Error\n    - date: Wed, 21 Oct 2026 16:45:42 GMT\n    - connection: keep-alive\n    - keep-alive: timeout=5\n    - content-length: 19\n\n    at use (failures.spec.ts:59:23)\n    at withStatusServer (../helpers/status-server.ts:15:18)\n    at failures.spec.ts:58:7",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 59,
@@ -12744,7 +12744,7 @@
           "errors": [
             {
               "message": "Error: apiRequestContext.get: 500 Internal Server Error\nResponse text:\nIntentional failure\nCall log:\n  - → GET http://127.0.0.1:42231/api/orders\n    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n    - accept: */*\n    - accept-encoding: gzip,deflate,br\n  - ← 500 Internal Server Error\n    - date: Wed, 21 Oct 2026 16:45:43 GMT\n    - connection: keep-alive\n    - keep-alive: timeout=5\n    - content-length: 19\n",
-              "stack": "Error: apiRequestContext.get: 500 Internal Server Error\nResponse text:\nIntentional failure\nCall log:\n  - → GET http://127.0.0.1:42231/api/orders\n    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n    - accept: */*\n    - accept-encoding: gzip,deflate,br\n  - ← 500 Internal Server Error\n    - date: Wed, 21 Oct 2026 16:45:43 GMT\n    - connection: keep-alive\n    - keep-alive: timeout=5\n    - content-length: 19\n\n    at use (<root>/fixtures/tests/failures.spec.ts:59:23)\n    at withStatusServer (<root>/fixtures/helpers/status-server.ts:15:18)\n    at <root>/fixtures/tests/failures.spec.ts:58:7",
+              "stack": "Error: apiRequestContext.get: 500 Internal Server Error\nResponse text:\nIntentional failure\nCall log:\n  - → GET http://127.0.0.1:42231/api/orders\n    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n    - accept: */*\n    - accept-encoding: gzip,deflate,br\n  - ← 500 Internal Server Error\n    - date: Wed, 21 Oct 2026 16:45:43 GMT\n    - connection: keep-alive\n    - keep-alive: timeout=5\n    - content-length: 19\n\n    at use (failures.spec.ts:59:23)\n    at withStatusServer (../helpers/status-server.ts:15:18)\n    at failures.spec.ts:58:7",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 59,
@@ -12792,7 +12792,7 @@
               "durationMs": 12,
               "error": {
                 "message": "Error: apiRequestContext.get: 500 Internal Server Error\nResponse text:\nIntentional failure\nCall log:\n  - → GET http://127.0.0.1:42231/api/orders\n    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n    - accept: */*\n    - accept-encoding: gzip,deflate,br\n  - ← 500 Internal Server Error\n    - date: Wed, 21 Oct 2026 16:45:43 GMT\n    - connection: keep-alive\n    - keep-alive: timeout=5\n    - content-length: 19\n",
-                "stack": "Error: apiRequestContext.get: 500 Internal Server Error\nResponse text:\nIntentional failure\nCall log:\n  - → GET http://127.0.0.1:42231/api/orders\n    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n    - accept: */*\n    - accept-encoding: gzip,deflate,br\n  - ← 500 Internal Server Error\n    - date: Wed, 21 Oct 2026 16:45:43 GMT\n    - connection: keep-alive\n    - keep-alive: timeout=5\n    - content-length: 19\n\n    at use (<root>/fixtures/tests/failures.spec.ts:59:23)\n    at withStatusServer (<root>/fixtures/helpers/status-server.ts:15:18)\n    at <root>/fixtures/tests/failures.spec.ts:58:7",
+                "stack": "Error: apiRequestContext.get: 500 Internal Server Error\nResponse text:\nIntentional failure\nCall log:\n  - → GET http://127.0.0.1:42231/api/orders\n    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36\n    - accept: */*\n    - accept-encoding: gzip,deflate,br\n  - ← 500 Internal Server Error\n    - date: Wed, 21 Oct 2026 16:45:43 GMT\n    - connection: keep-alive\n    - keep-alive: timeout=5\n    - content-length: 19\n\n    at use (failures.spec.ts:59:23)\n    at withStatusServer (../helpers/status-server.ts:15:18)\n    at failures.spec.ts:58:7",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 59,
@@ -12904,7 +12904,7 @@
           "errors": [
             {
               "message": "Error: Order sync 2d72d5c2-dc29-4e65-81bf-dfe350c35a90 rejected by http://localhost:4141/api/orders/893 after 795ms",
-              "stack": "Error: Order sync 2d72d5c2-dc29-4e65-81bf-dfe350c35a90 rejected by http://localhost:4141/api/orders/893 after 795ms\n    at failOrderSync (<root>/fixtures/tests/failures.spec.ts:14:9)\n    at <root>/fixtures/tests/failures.spec.ts:66:7",
+              "stack": "Error: Order sync 2d72d5c2-dc29-4e65-81bf-dfe350c35a90 rejected by http://localhost:4141/api/orders/893 after 795ms\n    at failOrderSync (failures.spec.ts:14:9)\n    at failures.spec.ts:66:7",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 14,
@@ -12981,7 +12981,7 @@
           "errors": [
             {
               "message": "Error: Order sync 2f6d775d-0f95-409a-b370-1e208acdd852 rejected by http://localhost:6514/api/orders/6892 after 654ms",
-              "stack": "Error: Order sync 2f6d775d-0f95-409a-b370-1e208acdd852 rejected by http://localhost:6514/api/orders/6892 after 654ms\n    at failOrderSync (<root>/fixtures/tests/failures.spec.ts:14:9)\n    at <root>/fixtures/tests/failures.spec.ts:66:7",
+              "stack": "Error: Order sync 2f6d775d-0f95-409a-b370-1e208acdd852 rejected by http://localhost:6514/api/orders/6892 after 654ms\n    at failOrderSync (failures.spec.ts:14:9)\n    at failures.spec.ts:66:7",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 14,
@@ -13087,7 +13087,7 @@
           "errors": [
             {
               "message": "Error: Order sync 4a8cda71-9be3-415b-b2dd-cf20fb8eea70 rejected by http://localhost:7095/api/orders/4321 after 2657ms",
-              "stack": "Error: Order sync 4a8cda71-9be3-415b-b2dd-cf20fb8eea70 rejected by http://localhost:7095/api/orders/4321 after 2657ms\n    at failOrderSync (<root>/fixtures/tests/failures.spec.ts:14:9)\n    at <root>/fixtures/tests/failures.spec.ts:70:7",
+              "stack": "Error: Order sync 4a8cda71-9be3-415b-b2dd-cf20fb8eea70 rejected by http://localhost:7095/api/orders/4321 after 2657ms\n    at failOrderSync (failures.spec.ts:14:9)\n    at failures.spec.ts:70:7",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 14,
@@ -13164,7 +13164,7 @@
           "errors": [
             {
               "message": "Error: Order sync c1bc1060-a121-4994-8196-e70c415cb946 rejected by http://localhost:6592/api/orders/8932 after 4562ms",
-              "stack": "Error: Order sync c1bc1060-a121-4994-8196-e70c415cb946 rejected by http://localhost:6592/api/orders/8932 after 4562ms\n    at failOrderSync (<root>/fixtures/tests/failures.spec.ts:14:9)\n    at <root>/fixtures/tests/failures.spec.ts:70:7",
+              "stack": "Error: Order sync c1bc1060-a121-4994-8196-e70c415cb946 rejected by http://localhost:6592/api/orders/8932 after 4562ms\n    at failOrderSync (failures.spec.ts:14:9)\n    at failures.spec.ts:70:7",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 14,
@@ -13269,7 +13269,7 @@
           "errors": [
             {
               "message": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 2\n+ Received  + 2\n\n  Object {\n    \"id\": 7,\n    \"items\": Array [\n      \"book\",\n-     \"lamp\",\n+     \"pen\",\n    ],\n-   \"status\": \"paid\",\n+   \"status\": \"pending\",\n  }",
-              "stack": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 2\n+ Received  + 2\n\n  Object {\n    \"id\": 7,\n    \"items\": Array [\n      \"book\",\n-     \"lamp\",\n+     \"pen\",\n    ],\n-   \"status\": \"paid\",\n+   \"status\": \"pending\",\n  }\n    at <root>/fixtures/tests/failures.spec.ts:76:66",
+              "stack": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 2\n+ Received  + 2\n\n  Object {\n    \"id\": 7,\n    \"items\": Array [\n      \"book\",\n-     \"lamp\",\n+     \"pen\",\n    ],\n-   \"status\": \"paid\",\n+   \"status\": \"pending\",\n  }\n    at failures.spec.ts:76:66",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 76,
@@ -13297,7 +13297,7 @@
               "durationMs": 6,
               "error": {
                 "message": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 2\n+ Received  + 2\n\n  Object {\n    \"id\": 7,\n    \"items\": Array [\n      \"book\",\n-     \"lamp\",\n+     \"pen\",\n    ],\n-   \"status\": \"paid\",\n+   \"status\": \"pending\",\n  }",
-                "stack": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 2\n+ Received  + 2\n\n  Object {\n    \"id\": 7,\n    \"items\": Array [\n      \"book\",\n-     \"lamp\",\n+     \"pen\",\n    ],\n-   \"status\": \"paid\",\n+   \"status\": \"pending\",\n  }\n    at <root>/fixtures/tests/failures.spec.ts:76:66",
+                "stack": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 2\n+ Received  + 2\n\n  Object {\n    \"id\": 7,\n    \"items\": Array [\n      \"book\",\n-     \"lamp\",\n+     \"pen\",\n    ],\n-   \"status\": \"paid\",\n+   \"status\": \"pending\",\n  }\n    at failures.spec.ts:76:66",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 76,
@@ -13370,7 +13370,7 @@
           "errors": [
             {
               "message": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 2\n+ Received  + 2\n\n  Object {\n    \"id\": 7,\n    \"items\": Array [\n      \"book\",\n-     \"lamp\",\n+     \"pen\",\n    ],\n-   \"status\": \"paid\",\n+   \"status\": \"pending\",\n  }",
-              "stack": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 2\n+ Received  + 2\n\n  Object {\n    \"id\": 7,\n    \"items\": Array [\n      \"book\",\n-     \"lamp\",\n+     \"pen\",\n    ],\n-   \"status\": \"paid\",\n+   \"status\": \"pending\",\n  }\n    at <root>/fixtures/tests/failures.spec.ts:76:66",
+              "stack": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 2\n+ Received  + 2\n\n  Object {\n    \"id\": 7,\n    \"items\": Array [\n      \"book\",\n-     \"lamp\",\n+     \"pen\",\n    ],\n-   \"status\": \"paid\",\n+   \"status\": \"pending\",\n  }\n    at failures.spec.ts:76:66",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 76,
@@ -13398,7 +13398,7 @@
               "durationMs": 4,
               "error": {
                 "message": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 2\n+ Received  + 2\n\n  Object {\n    \"id\": 7,\n    \"items\": Array [\n      \"book\",\n-     \"lamp\",\n+     \"pen\",\n    ],\n-   \"status\": \"paid\",\n+   \"status\": \"pending\",\n  }",
-                "stack": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 2\n+ Received  + 2\n\n  Object {\n    \"id\": 7,\n    \"items\": Array [\n      \"book\",\n-     \"lamp\",\n+     \"pen\",\n    ],\n-   \"status\": \"paid\",\n+   \"status\": \"pending\",\n  }\n    at <root>/fixtures/tests/failures.spec.ts:76:66",
+                "stack": "Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 2\n+ Received  + 2\n\n  Object {\n    \"id\": 7,\n    \"items\": Array [\n      \"book\",\n-     \"lamp\",\n+     \"pen\",\n    ],\n-   \"status\": \"paid\",\n+   \"status\": \"pending\",\n  }\n    at failures.spec.ts:76:66",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 76,
@@ -13499,7 +13499,7 @@
           "errors": [
             {
               "message": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: locator('div')\n  10000 pixels (ratio 1.00 of all image pixels) are different.\n\n  Snapshot: square.png\n\nCall log:\n  - Expect \"toHaveScreenshot(square.png)\" locator('div') with timeout 5000ms\n    - verifying given screenshot expectation\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - captured a stable screenshot\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n",
-              "stack": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: locator('div')\n  10000 pixels (ratio 1.00 of all image pixels) are different.\n\n  Snapshot: square.png\n\nCall log:\n  - Expect \"toHaveScreenshot(square.png)\" locator('div') with timeout 5000ms\n    - verifying given screenshot expectation\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - captured a stable screenshot\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n\n    at <root>/fixtures/tests/failures.spec.ts:83:39",
+              "stack": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: locator('div')\n  10000 pixels (ratio 1.00 of all image pixels) are different.\n\n  Snapshot: square.png\n\nCall log:\n  - Expect \"toHaveScreenshot(square.png)\" locator('div') with timeout 5000ms\n    - verifying given screenshot expectation\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - captured a stable screenshot\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n\n    at failures.spec.ts:83:39",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 83,
@@ -13611,7 +13611,7 @@
               "durationMs": 273,
               "error": {
                 "message": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: locator('div')\n  10000 pixels (ratio 1.00 of all image pixels) are different.\n\n  Snapshot: square.png\n\nCall log:\n  - Expect \"toHaveScreenshot(square.png)\" locator('div') with timeout 5000ms\n    - verifying given screenshot expectation\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - captured a stable screenshot\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n",
-                "stack": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: locator('div')\n  10000 pixels (ratio 1.00 of all image pixels) are different.\n\n  Snapshot: square.png\n\nCall log:\n  - Expect \"toHaveScreenshot(square.png)\" locator('div') with timeout 5000ms\n    - verifying given screenshot expectation\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - captured a stable screenshot\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n\n    at <root>/fixtures/tests/failures.spec.ts:83:39",
+                "stack": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: locator('div')\n  10000 pixels (ratio 1.00 of all image pixels) are different.\n\n  Snapshot: square.png\n\nCall log:\n  - Expect \"toHaveScreenshot(square.png)\" locator('div') with timeout 5000ms\n    - verifying given screenshot expectation\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - captured a stable screenshot\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n\n    at failures.spec.ts:83:39",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 83,
@@ -13764,7 +13764,7 @@
           "errors": [
             {
               "message": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: locator('div')\n  10000 pixels (ratio 1.00 of all image pixels) are different.\n\n  Snapshot: square.png\n\nCall log:\n  - Expect \"toHaveScreenshot(square.png)\" locator('div') with timeout 5000ms\n    - verifying given screenshot expectation\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - captured a stable screenshot\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n",
-              "stack": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: locator('div')\n  10000 pixels (ratio 1.00 of all image pixels) are different.\n\n  Snapshot: square.png\n\nCall log:\n  - Expect \"toHaveScreenshot(square.png)\" locator('div') with timeout 5000ms\n    - verifying given screenshot expectation\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - captured a stable screenshot\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n\n    at <root>/fixtures/tests/failures.spec.ts:83:39",
+              "stack": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: locator('div')\n  10000 pixels (ratio 1.00 of all image pixels) are different.\n\n  Snapshot: square.png\n\nCall log:\n  - Expect \"toHaveScreenshot(square.png)\" locator('div') with timeout 5000ms\n    - verifying given screenshot expectation\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - captured a stable screenshot\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n\n    at failures.spec.ts:83:39",
               "location": {
                 "file": "failures.spec.ts",
                 "line": 83,
@@ -13876,7 +13876,7 @@
               "durationMs": 273,
               "error": {
                 "message": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: locator('div')\n  10000 pixels (ratio 1.00 of all image pixels) are different.\n\n  Snapshot: square.png\n\nCall log:\n  - Expect \"toHaveScreenshot(square.png)\" locator('div') with timeout 5000ms\n    - verifying given screenshot expectation\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - captured a stable screenshot\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n",
-                "stack": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: locator('div')\n  10000 pixels (ratio 1.00 of all image pixels) are different.\n\n  Snapshot: square.png\n\nCall log:\n  - Expect \"toHaveScreenshot(square.png)\" locator('div') with timeout 5000ms\n    - verifying given screenshot expectation\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - captured a stable screenshot\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n\n    at <root>/fixtures/tests/failures.spec.ts:83:39",
+                "stack": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: locator('div')\n  10000 pixels (ratio 1.00 of all image pixels) are different.\n\n  Snapshot: square.png\n\nCall log:\n  - Expect \"toHaveScreenshot(square.png)\" locator('div') with timeout 5000ms\n    - verifying given screenshot expectation\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n  - waiting 100ms before taking screenshot\n  - waiting for locator('div')\n    - locator resolved to <div></div>\n  - taking element screenshot\n    - disabled all CSS animations\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable\n  - captured a stable screenshot\n  - 10000 pixels (ratio 1.00 of all image pixels) are different.\n\n    at failures.spec.ts:83:39",
                 "location": {
                   "file": "failures.spec.ts",
                   "line": 83,
@@ -14057,7 +14057,7 @@
           "errors": [
             {
               "message": "Error: fails on the first attempt on purpose\n\nexpect(received).toBeGreaterThan(expected)\n\nExpected: > 0\nReceived:   0",
-              "stack": "Error: fails on the first attempt on purpose\n\nexpect(received).toBeGreaterThan(expected)\n\nExpected: > 0\nReceived:   0\n    at <root>/fixtures/tests/outcomes.spec.ts:9:69",
+              "stack": "Error: fails on the first attempt on purpose\n\nexpect(received).toBeGreaterThan(expected)\n\nExpected: > 0\nReceived:   0\n    at outcomes.spec.ts:9:69",
               "location": {
                 "file": "outcomes.spec.ts",
                 "line": 9,
@@ -14098,7 +14098,7 @@
               "durationMs": 1,
               "error": {
                 "message": "Error: fails on the first attempt on purpose\n\nexpect(received).toBeGreaterThan(expected)\n\nExpected: > 0\nReceived:   0",
-                "stack": "Error: fails on the first attempt on purpose\n\nexpect(received).toBeGreaterThan(expected)\n\nExpected: > 0\nReceived:   0\n    at <root>/fixtures/tests/outcomes.spec.ts:9:69",
+                "stack": "Error: fails on the first attempt on purpose\n\nexpect(received).toBeGreaterThan(expected)\n\nExpected: > 0\nReceived:   0\n    at outcomes.spec.ts:9:69",
                 "location": {
                   "file": "outcomes.spec.ts",
                   "line": 9,
@@ -14621,7 +14621,7 @@
           "errors": [
             {
               "message": "Error: fails on purpose so the next test is not run\n\nexpect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 0\n\n  Array [\n    \"draft\",\n-   \"published\",\n  ]",
-              "stack": "Error: fails on purpose so the next test is not run\n\nexpect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 0\n\n  Array [\n    \"draft\",\n-   \"published\",\n  ]\n    at <root>/fixtures/tests/outcomes.spec.ts:41:73",
+              "stack": "Error: fails on purpose so the next test is not run\n\nexpect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 0\n\n  Array [\n    \"draft\",\n-   \"published\",\n  ]\n    at outcomes.spec.ts:41:73",
               "location": {
                 "file": "outcomes.spec.ts",
                 "line": 41,
@@ -14649,7 +14649,7 @@
               "durationMs": 3,
               "error": {
                 "message": "Error: fails on purpose so the next test is not run\n\nexpect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 0\n\n  Array [\n    \"draft\",\n-   \"published\",\n  ]",
-                "stack": "Error: fails on purpose so the next test is not run\n\nexpect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 0\n\n  Array [\n    \"draft\",\n-   \"published\",\n  ]\n    at <root>/fixtures/tests/outcomes.spec.ts:41:73",
+                "stack": "Error: fails on purpose so the next test is not run\n\nexpect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 0\n\n  Array [\n    \"draft\",\n-   \"published\",\n  ]\n    at outcomes.spec.ts:41:73",
                 "location": {
                   "file": "outcomes.spec.ts",
                   "line": 41,
@@ -14727,7 +14727,7 @@
           "errors": [
             {
               "message": "Error: fails on purpose so the next test is not run\n\nexpect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 0\n\n  Array [\n    \"draft\",\n-   \"published\",\n  ]",
-              "stack": "Error: fails on purpose so the next test is not run\n\nexpect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 0\n\n  Array [\n    \"draft\",\n-   \"published\",\n  ]\n    at <root>/fixtures/tests/outcomes.spec.ts:41:73",
+              "stack": "Error: fails on purpose so the next test is not run\n\nexpect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 0\n\n  Array [\n    \"draft\",\n-   \"published\",\n  ]\n    at outcomes.spec.ts:41:73",
               "location": {
                 "file": "outcomes.spec.ts",
                 "line": 41,
@@ -14755,7 +14755,7 @@
               "durationMs": 3,
               "error": {
                 "message": "Error: fails on purpose so the next test is not run\n\nexpect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 0\n\n  Array [\n    \"draft\",\n-   \"published\",\n  ]",
-                "stack": "Error: fails on purpose so the next test is not run\n\nexpect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 0\n\n  Array [\n    \"draft\",\n-   \"published\",\n  ]\n    at <root>/fixtures/tests/outcomes.spec.ts:41:73",
+                "stack": "Error: fails on purpose so the next test is not run\n\nexpect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 0\n\n  Array [\n    \"draft\",\n-   \"published\",\n  ]\n    at outcomes.spec.ts:41:73",
                 "location": {
                   "file": "outcomes.spec.ts",
                   "line": 41,
@@ -15298,7 +15298,7 @@
           "errors": [
             {
               "message": "Error: Unexpected response: 404 Not Found for http://127.0.0.1:33695/api/invoices/7/pdf",
-              "stack": "Error: Unexpected response: 404 Not Found for http://127.0.0.1:33695/api/invoices/7/pdf\n    at checkResponse (<root>/fixtures/helpers/resources.ts:15:29)\n    at fetchResource (<root>/fixtures/helpers/resources.ts:21:3)\n    at <root>/fixtures/tests/resources/invoices.spec.ts:8:5",
+              "stack": "Error: Unexpected response: 404 Not Found for http://127.0.0.1:33695/api/invoices/7/pdf\n    at checkResponse (../helpers/resources.ts:15:29)\n    at fetchResource (../helpers/resources.ts:21:3)\n    at resources/invoices.spec.ts:8:5",
               "location": {
                 "file": "../helpers/resources.ts",
                 "line": 15,
@@ -15418,7 +15418,7 @@
           "errors": [
             {
               "message": "Error: Unexpected response: 404 Not Found for http://127.0.0.1:44057/api/invoices/7/pdf",
-              "stack": "Error: Unexpected response: 404 Not Found for http://127.0.0.1:44057/api/invoices/7/pdf\n    at checkResponse (<root>/fixtures/helpers/resources.ts:15:29)\n    at fetchResource (<root>/fixtures/helpers/resources.ts:21:3)\n    at <root>/fixtures/tests/resources/invoices.spec.ts:8:5",
+              "stack": "Error: Unexpected response: 404 Not Found for http://127.0.0.1:44057/api/invoices/7/pdf\n    at checkResponse (../helpers/resources.ts:15:29)\n    at fetchResource (../helpers/resources.ts:21:3)\n    at resources/invoices.spec.ts:8:5",
               "location": {
                 "file": "../helpers/resources.ts",
                 "line": 15,
@@ -15566,7 +15566,7 @@
           "errors": [
             {
               "message": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:34549/api/invoices?status=unpaid",
-              "stack": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:34549/api/invoices?status=unpaid\n    at checkResponse (<root>/fixtures/helpers/resources.ts:15:29)\n    at fetchResource (<root>/fixtures/helpers/resources.ts:21:3)\n    at <root>/fixtures/tests/resources/invoices.spec.ts:12:5",
+              "stack": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:34549/api/invoices?status=unpaid\n    at checkResponse (../helpers/resources.ts:15:29)\n    at fetchResource (../helpers/resources.ts:21:3)\n    at resources/invoices.spec.ts:12:5",
               "location": {
                 "file": "../helpers/resources.ts",
                 "line": 15,
@@ -15686,7 +15686,7 @@
           "errors": [
             {
               "message": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:35305/api/invoices?status=unpaid",
-              "stack": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:35305/api/invoices?status=unpaid\n    at checkResponse (<root>/fixtures/helpers/resources.ts:15:29)\n    at fetchResource (<root>/fixtures/helpers/resources.ts:21:3)\n    at <root>/fixtures/tests/resources/invoices.spec.ts:12:5",
+              "stack": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:35305/api/invoices?status=unpaid\n    at checkResponse (../helpers/resources.ts:15:29)\n    at fetchResource (../helpers/resources.ts:21:3)\n    at resources/invoices.spec.ts:12:5",
               "location": {
                 "file": "../helpers/resources.ts",
                 "line": 15,
@@ -15834,7 +15834,7 @@
           "errors": [
             {
               "message": "Error: Unexpected response: 404 Not Found for http://127.0.0.1:38567/api/orders/history",
-              "stack": "Error: Unexpected response: 404 Not Found for http://127.0.0.1:38567/api/orders/history\n    at checkResponse (<root>/fixtures/helpers/resources.ts:15:29)\n    at fetchResource (<root>/fixtures/helpers/resources.ts:21:3)\n    at <root>/fixtures/tests/resources/orders.spec.ts:8:5",
+              "stack": "Error: Unexpected response: 404 Not Found for http://127.0.0.1:38567/api/orders/history\n    at checkResponse (../helpers/resources.ts:15:29)\n    at fetchResource (../helpers/resources.ts:21:3)\n    at resources/orders.spec.ts:8:5",
               "location": {
                 "file": "../helpers/resources.ts",
                 "line": 15,
@@ -15964,7 +15964,7 @@
           "errors": [
             {
               "message": "Error: Unexpected response: 404 Not Found for http://127.0.0.1:37035/api/orders/history",
-              "stack": "Error: Unexpected response: 404 Not Found for http://127.0.0.1:37035/api/orders/history\n    at checkResponse (<root>/fixtures/helpers/resources.ts:15:29)\n    at fetchResource (<root>/fixtures/helpers/resources.ts:21:3)\n    at <root>/fixtures/tests/resources/orders.spec.ts:8:5",
+              "stack": "Error: Unexpected response: 404 Not Found for http://127.0.0.1:37035/api/orders/history\n    at checkResponse (../helpers/resources.ts:15:29)\n    at fetchResource (../helpers/resources.ts:21:3)\n    at resources/orders.spec.ts:8:5",
               "location": {
                 "file": "../helpers/resources.ts",
                 "line": 15,
@@ -16112,7 +16112,7 @@
           "errors": [
             {
               "message": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:37901/api/orders/42",
-              "stack": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:37901/api/orders/42\n    at checkResponse (<root>/fixtures/helpers/resources.ts:15:29)\n    at fetchResource (<root>/fixtures/helpers/resources.ts:21:3)\n    at <root>/fixtures/tests/resources/orders.spec.ts:12:5",
+              "stack": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:37901/api/orders/42\n    at checkResponse (../helpers/resources.ts:15:29)\n    at fetchResource (../helpers/resources.ts:21:3)\n    at resources/orders.spec.ts:12:5",
               "location": {
                 "file": "../helpers/resources.ts",
                 "line": 15,
@@ -16232,7 +16232,7 @@
           "errors": [
             {
               "message": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:43901/api/orders/42",
-              "stack": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:43901/api/orders/42\n    at checkResponse (<root>/fixtures/helpers/resources.ts:15:29)\n    at fetchResource (<root>/fixtures/helpers/resources.ts:21:3)\n    at <root>/fixtures/tests/resources/orders.spec.ts:12:5",
+              "stack": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:43901/api/orders/42\n    at checkResponse (../helpers/resources.ts:15:29)\n    at fetchResource (../helpers/resources.ts:21:3)\n    at resources/orders.spec.ts:12:5",
               "location": {
                 "file": "../helpers/resources.ts",
                 "line": 15,
@@ -16378,7 +16378,7 @@
           "errors": [
             {
               "message": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:41187/api/profile",
-              "stack": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:41187/api/profile\n    at checkResponse (<root>/fixtures/helpers/resources.ts:15:29)\n    at fetchResource (<root>/fixtures/helpers/resources.ts:21:3)\n    at <root>/fixtures/tests/resources/profiles.spec.ts:7:3",
+              "stack": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:41187/api/profile\n    at checkResponse (../helpers/resources.ts:15:29)\n    at fetchResource (../helpers/resources.ts:21:3)\n    at resources/profiles.spec.ts:7:3",
               "location": {
                 "file": "../helpers/resources.ts",
                 "line": 15,
@@ -16508,7 +16508,7 @@
           "errors": [
             {
               "message": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:40899/api/profile",
-              "stack": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:40899/api/profile\n    at checkResponse (<root>/fixtures/helpers/resources.ts:15:29)\n    at fetchResource (<root>/fixtures/helpers/resources.ts:21:3)\n    at <root>/fixtures/tests/resources/profiles.spec.ts:7:3",
+              "stack": "Error: Unexpected response: 503 Service Unavailable for http://127.0.0.1:40899/api/profile\n    at checkResponse (../helpers/resources.ts:15:29)\n    at fetchResource (../helpers/resources.ts:21:3)\n    at resources/profiles.spec.ts:7:3",
               "location": {
                 "file": "../helpers/resources.ts",
                 "line": 15,
@@ -16870,7 +16870,7 @@
           "errors": [
             {
               "message": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n",
-              "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at <root>/fixtures/tests/structure.spec.ts:23:46\n    at <root>/fixtures/tests/structure.spec.ts:22:7\n    at <root>/fixtures/tests/structure.spec.ts:20:5",
+              "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at structure.spec.ts:23:46\n    at structure.spec.ts:22:7\n    at structure.spec.ts:20:5",
               "location": {
                 "file": "structure.spec.ts",
                 "line": 23,
@@ -16956,7 +16956,7 @@
               "durationMs": 321,
               "error": {
                 "message": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n",
-                "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at <root>/fixtures/tests/structure.spec.ts:23:46\n    at <root>/fixtures/tests/structure.spec.ts:22:7\n    at <root>/fixtures/tests/structure.spec.ts:20:5",
+                "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at structure.spec.ts:23:46\n    at structure.spec.ts:22:7\n    at structure.spec.ts:20:5",
                 "location": {
                   "file": "structure.spec.ts",
                   "line": 23,
@@ -16992,7 +16992,7 @@
                   "durationMs": 309,
                   "error": {
                     "message": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n",
-                    "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at <root>/fixtures/tests/structure.spec.ts:23:46\n    at <root>/fixtures/tests/structure.spec.ts:22:7\n    at <root>/fixtures/tests/structure.spec.ts:20:5",
+                    "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at structure.spec.ts:23:46\n    at structure.spec.ts:22:7\n    at structure.spec.ts:20:5",
                     "location": {
                       "file": "structure.spec.ts",
                       "line": 23,
@@ -17015,7 +17015,7 @@
                       "durationMs": 304,
                       "error": {
                         "message": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n",
-                        "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at <root>/fixtures/tests/structure.spec.ts:23:46\n    at <root>/fixtures/tests/structure.spec.ts:22:7\n    at <root>/fixtures/tests/structure.spec.ts:20:5",
+                        "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    6 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at structure.spec.ts:23:46\n    at structure.spec.ts:22:7\n    at structure.spec.ts:20:5",
                         "location": {
                           "file": "structure.spec.ts",
                           "line": 23,
@@ -17139,7 +17139,7 @@
           "errors": [
             {
               "message": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    7 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n",
-              "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    7 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at <root>/fixtures/tests/structure.spec.ts:23:46\n    at <root>/fixtures/tests/structure.spec.ts:22:7\n    at <root>/fixtures/tests/structure.spec.ts:20:5",
+              "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    7 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at structure.spec.ts:23:46\n    at structure.spec.ts:22:7\n    at structure.spec.ts:20:5",
               "location": {
                 "file": "structure.spec.ts",
                 "line": 23,
@@ -17225,7 +17225,7 @@
               "durationMs": 319,
               "error": {
                 "message": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    7 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n",
-                "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    7 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at <root>/fixtures/tests/structure.spec.ts:23:46\n    at <root>/fixtures/tests/structure.spec.ts:22:7\n    at <root>/fixtures/tests/structure.spec.ts:20:5",
+                "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    7 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at structure.spec.ts:23:46\n    at structure.spec.ts:22:7\n    at structure.spec.ts:20:5",
                 "location": {
                   "file": "structure.spec.ts",
                   "line": 23,
@@ -17261,7 +17261,7 @@
                   "durationMs": 309,
                   "error": {
                     "message": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    7 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n",
-                    "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    7 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at <root>/fixtures/tests/structure.spec.ts:23:46\n    at <root>/fixtures/tests/structure.spec.ts:22:7\n    at <root>/fixtures/tests/structure.spec.ts:20:5",
+                    "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    7 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at structure.spec.ts:23:46\n    at structure.spec.ts:22:7\n    at structure.spec.ts:20:5",
                     "location": {
                       "file": "structure.spec.ts",
                       "line": 23,
@@ -17284,7 +17284,7 @@
                       "durationMs": 305,
                       "error": {
                         "message": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    7 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n",
-                        "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    7 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at <root>/fixtures/tests/structure.spec.ts:23:46\n    at <root>/fixtures/tests/structure.spec.ts:22:7\n    at <root>/fixtures/tests/structure.spec.ts:20:5",
+                        "stack": "Error: expect(locator).toHaveText(expected) failed\n\nLocator:  locator('#total')\nExpected: \"15.00\"\nReceived: \"12.00\"\nTimeout:  300ms\n\nCall log:\n  - Expect \"toHaveText\" locator('#total') with timeout 300ms\n  - waiting for locator('#total')\n    7 × locator resolved to <p id=\"total\">12.00</p>\n      - unexpected value \"12.00\"\n\n    at structure.spec.ts:23:46\n    at structure.spec.ts:22:7\n    at structure.spec.ts:20:5",
                         "location": {
                           "file": "structure.spec.ts",
                           "line": 23,

@@ -1,5 +1,8 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { createPathRewriter, rootsFromStack } from '../src/core/paths.js';
+import { derivedRoots, locationFile } from '../src/core/build.js';
+import { createPathRewriter, isStrictlyUnder, rootsFromStack } from '../src/core/paths.js';
 
 const posixRewriter = createPathRewriter({ roots: ['/home/alice/shop/tests'], home: '/home/alice' });
 const winRewriter = createPathRewriter({ roots: ['C:\\Users\\Alice\\shop\\tests'], home: 'C:\\Users\\Alice' });
@@ -280,5 +283,106 @@ describe('rootsFromStack', () => {
         '    at node:internal/process/task_queues:95:5',
       ].join('\n'),
     );
+  });
+});
+
+describe('isStrictlyUnder', () => {
+  it('is true for a directory strictly inside another, false for the same one', () => {
+    expect(isStrictlyUnder('/r/tests/lib', '/r/tests')).toBe(true);
+    expect(isStrictlyUnder('/r/tests/', '/r/tests')).toBe(false);
+    expect(isStrictlyUnder('/r/tests-old', '/r/tests')).toBe(false);
+    expect(isStrictlyUnder('/r', '/r/tests')).toBe(false);
+  });
+
+  it('compares Windows paths case-insensitively, and never mixes POSIX and Windows', () => {
+    expect(isStrictlyUnder('c:\\R\\Tests\\lib', 'C:\\r\\tests')).toBe(true);
+    expect(isStrictlyUnder('D:\\r\\tests\\lib', 'C:\\r\\tests')).toBe(false);
+    expect(isStrictlyUnder('/r/tests/lib', 'C:\\r\\tests')).toBe(false);
+  });
+});
+
+describe('derivedRoots', () => {
+  const at = (file: string) => `Error: x\n    at ${file}:1:1`;
+
+  it('gives the roots the stacks show, by votes, then shortest', () => {
+    const sources = [
+      { file: 'a.spec.ts', stacks: [at('/ci/tests/a.spec.ts'), at('/ci/tests/a.spec.ts')] },
+      { file: 'b.spec.ts', stacks: [at('/other/tests/b.spec.ts')] },
+    ];
+    expect(derivedRoots(sources, '/merge/tests')).toEqual(['/ci/tests', '/other/tests']);
+  });
+
+  it('keeps a root shown by a single stack', () => {
+    expect(derivedRoots([{ file: 'a.spec.ts', stacks: [at('/ci/tests/a.spec.ts')] }], '/merge/tests')).toEqual(['/ci/tests']);
+  });
+
+  it('gives the root dir itself in a direct run', () => {
+    expect(derivedRoots([{ file: 'web/a.spec.ts', stacks: [at('/r/tests/web/a.spec.ts')] }], '/r/tests')).toEqual(['/r/tests']);
+  });
+
+  it('discards a root strictly inside the root dir or inside another derived root', () => {
+    // `lib/a.spec.ts` is not the test file `a.spec.ts`, but is named like it.
+    const sources = [
+      { file: 'a.spec.ts', stacks: [`Error: x\n    at helper (/r/tests/lib/a.spec.ts:1:1)\n    at /r/tests/a.spec.ts:2:2`] },
+      { file: 'b.spec.ts', stacks: [at('/ci/tests/b.spec.ts'), at('/ci/tests/sub/b.spec.ts')] },
+    ];
+    expect(derivedRoots(sources, '/r/tests')).toEqual(['/r/tests', '/ci/tests']);
+  });
+});
+
+describe('locationFile', () => {
+  const win = createPathRewriter({ roots: ['C:\\r\\tests'], home: 'C:\\Users\\alice' });
+  const posix = createPathRewriter({ roots: ['/r/tests'], home: '/home/alice' });
+  const winFile = (file: string) => locationFile(file, 'C:\\r\\tests', win, path.win32);
+  const posixFile = (file: string) => locationFile(file, '/r/tests', posix, path.posix);
+
+  it('is relative to the root dir, `../` outside it', () => {
+    expect(winFile('C:\\r\\tests\\web\\a.spec.ts')).toBe('web/a.spec.ts');
+    expect(winFile('c:\\R\\lib\\h.ts')).toBe('../lib/h.ts');
+    expect(posixFile('/r/lib/h.ts')).toBe('../lib/h.ts');
+  });
+
+  it('masks a home outside the root as `~/`', () => {
+    expect(winFile('D:\\Users\\bob\\h.ts')).toBe('~/h.ts');
+    expect(posixFile('/home/bob/h.ts')).toBe('~/h.ts');
+  });
+
+  it('falls back to the path relative to the root dir when the rules leave it absolute', () => {
+    expect(winFile('C:\\Windows\\x.ts')).toBe('../../Windows/x.ts');
+    expect(posixFile('/opt/shared/x.ts')).toBe('../../opt/shared/x.ts');
+  });
+
+  it('is null without a relative form: another drive, a UNC share, a path of the other kind', () => {
+    expect(winFile('D:\\shared\\h.ts')).toBeNull();
+    expect(winFile('\\\\server\\share\\h.ts')).toBeNull();
+    expect(posixFile('C:\\r\\tests\\a.spec.ts')).toBeNull();
+    expect(posixFile('D:/shared/h.ts')).toBeNull();
+  });
+});
+
+describe('the renderer dev sample', () => {
+  const text = readFileSync(new URL('../src/renderer/dev/sample.json', import.meta.url), 'utf8');
+  const absolute = /^(?:\/|[A-Za-z]:|\\)/;
+
+  it('holds no machine path: no placeholder, home, drive or file:// URL', () => {
+    expect(text).not.toMatch(/<root>|file:\/\/|\/(?:home|Users|root)\/|[A-Za-z]:\\\\/);
+  });
+
+  it('has relative stack frames and locations', () => {
+    const frames: string[] = [];
+    const files: string[] = [];
+    JSON.parse(text, (key: string, value: unknown) => {
+      if (key === 'stack' && typeof value === 'string') {
+        for (const line of value.split('\n')) {
+          const location = /^\s+at (?:.+? \()?(.+?)\)?$/.exec(line)?.[1];
+          if (location !== undefined) frames.push(location);
+        }
+      }
+      if (key === 'location' && value !== null && typeof value === 'object') files.push((value as { file: string }).file);
+      return value;
+    });
+    expect(frames.length).toBeGreaterThan(0);
+    expect(frames.filter((frame) => absolute.test(frame))).toEqual([]);
+    expect(files.filter((file) => absolute.test(file))).toEqual([]);
   });
 });

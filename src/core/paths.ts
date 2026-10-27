@@ -154,6 +154,19 @@ function home(separator: boolean): string {
   return separator ? '~/' : '~';
 }
 
+/**
+ * True when `directory` is strictly inside `ancestor`: both absolute, of the
+ * same kind (POSIX or Windows), with the same filesystem root, `ancestor`'s
+ * segments first. Windows paths are compared case-insensitively.
+ */
+export function isStrictlyUnder(directory: string, ancestor: string): boolean {
+  const inner = parseDirectory(directory);
+  const outer = parseDirectory(ancestor);
+  if (!inner || !outer || inner.flavor !== outer.flavor || inner.segments.length <= outer.segments.length) return false;
+  const fold = (text: string): string => (inner.flavor === 'win32' ? text.toLowerCase() : text);
+  return fold(inner.base) === fold(outer.base) && outer.segments.every((segment, index) => fold(segment) === fold(inner.segments[index] as string));
+}
+
 export interface PathRewriterOptions {
   /**
    * Absolute directories paths are made relative to, in priority order:
@@ -266,6 +279,30 @@ function compile(entries: readonly Entry[]): (text: string) => string {
       return owner.replacement(separator) + rest;
     });
   };
+}
+
+/**
+ * Keys whose values are never rewritten: identifiers and signatures, category
+ * names (computed from the original text), snippets (source code, already in
+ * the repository), attachment paths (files in the report folder) and
+ * locations (rewritten from their absolute file by the core).
+ */
+const KEPT_KEYS = new Set(['id', 'signature', 'errorSignature', 'category', 'categories', 'snippet', 'path', 'location']);
+
+/**
+ * Rewrites the paths of every string of a report: `stack` values as stacks,
+ * everything else as text, except under KEPT_KEYS. Returns a copy.
+ */
+export function rewriteReportPaths<T>(value: T, paths: PathRewriter): T {
+  const visit = (node: unknown, key: string | null): unknown => {
+    if (typeof node === 'string') return key === 'stack' ? paths.stack(node) : paths.text(node);
+    if (Array.isArray(node)) return node.map((child) => visit(child, key));
+    if (node !== null && typeof node === 'object') {
+      return Object.fromEntries(Object.entries(node).map(([name, child]) => [name, KEPT_KEYS.has(name) ? child : visit(child, name)]));
+    }
+    return node;
+  };
+  return visit(value, null) as T;
 }
 
 function decode(text: string): string {

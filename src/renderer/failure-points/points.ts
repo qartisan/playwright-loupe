@@ -1,6 +1,6 @@
 import type { TestCase } from '../../schema/v1.js';
 import { NO_CATEGORY, isFailingAttempt } from '../dashboard.js';
-import { isLibraryFrame, parseStack, relativeToRoot } from './frames.js';
+import { isLibraryFrame, parseStack } from './frames.js';
 import { MAX_POINTS, MIN_POINT_FILES, MIN_POINT_GROUPS, MIN_POINT_TESTS } from './thresholds.js';
 
 /**
@@ -12,6 +12,8 @@ import { MAX_POINTS, MIN_POINT_FILES, MIN_POINT_GROUPS, MIN_POINT_TESTS } from '
  * Input: every error of every failing attempt (the rule of the error groups
  * and the category facet, flaky tests and interrupted attempts included).
  * Derived from the report alone (no model change), computed once per report.
+ * Frame paths are already relative to the root dir (the core rewrites them,
+ * see src/core/paths.ts), so a frame path is a point's file as is.
  * See "Common failure points" in the README.
  *
  * Pure functions, no DOM: unit-tested in Node.
@@ -20,7 +22,7 @@ import { MAX_POINTS, MIN_POINT_FILES, MIN_POINT_GROUPS, MIN_POINT_TESTS } from '
 export interface FailurePointRef {
   /** `<path relative to the root dir>#<function>`: the facet value. */
   key: string;
-  /** Relative to the root dir, `../` segments when outside it. */
+  /** Relative to the root dir, `../` segments when outside it; absolute when it shares no named directory with it (`/opt/…`). */
   file: string;
   fn: string;
 }
@@ -44,15 +46,13 @@ export interface FailurePoint extends FailurePointRef {
 }
 
 export interface FailurePoints {
-  /** The directory the report's test files are relative to; null when no frame shows it. */
-  root: string | null;
   /** Shown points, after thresholds and folding, ranked, at most `MAX_POINTS`. */
   points: FailurePoint[];
   /** For each test with a shown point in the stack of one of its failing attempts, those point keys. */
   byTest: ReadonlyMap<TestCase, readonly string[]>;
 }
 
-export const NO_FAILURE_POINTS: FailurePoints = { root: null, points: [], byTest: new Map() };
+export const NO_FAILURE_POINTS: FailurePoints = { points: [], byTest: new Map() };
 
 export function identityKey(test: Pick<TestCase, 'file' | 'suitePath' | 'title'>): string {
   return [test.file, ...test.suitePath, test.title].join('\u0000');
@@ -78,35 +78,6 @@ function failingErrors(tests: readonly TestCase[]): ErrorFrames[] {
   return errors;
 }
 
-/**
- * The root dir: frame paths that end with the failing test's own `file`,
- * minus that `file`. The most common candidate over the report; on a tie,
- * the shortest, then the first in code point order. Null when no frame
- * points at its test's file.
- */
-export function deriveRoot(errors: ReadonlyArray<Pick<ErrorFrames, 'test' | 'frames'>>): string | null {
-  const votes = new Map<string, number>();
-  for (const { test, frames } of errors) {
-    const suffix = `/${test.file}`;
-    for (const frame of frames) {
-      if (!frame.path.endsWith(suffix)) continue;
-      const root = frame.path.slice(0, frame.path.length - test.file.length);
-      votes.set(root, (votes.get(root) ?? 0) + 1);
-    }
-  }
-  let best: [string, number] | null = null;
-  for (const entry of votes) {
-    if (
-      best === null ||
-      entry[1] > best[1] ||
-      (entry[1] === best[1] && (entry[0].length < best[0].length || (entry[0].length === best[0].length && entry[0] < best[0])))
-    ) {
-      best = entry;
-    }
-  }
-  return best?.[0] ?? null;
-}
-
 interface Candidate extends FailurePointRef {
   lines: Set<number>;
   /** Identity → failed, flaky or other. */
@@ -127,8 +98,6 @@ const OUTCOME_RANK = { failed: 0, flaky: 1, other: 2 } as const;
 /** Computes the common failure points of a report. Prefer `failurePoints`, which caches them. */
 export function computeFailurePoints(report: { tests: readonly TestCase[] }): FailurePoints {
   const errors = failingErrors(report.tests);
-  const root = deriveRoot(errors);
-  if (root === null) return { ...NO_FAILURE_POINTS, root: null };
   const testFiles = new Set(report.tests.map((test) => test.file));
 
   const candidates = new Map<string, Candidate>();
@@ -141,7 +110,7 @@ export function computeFailurePoints(report: { tests: readonly TestCase[] }): Fa
     const stackIndex = stacks.length;
     frames.forEach((frame, index) => {
       if (frame.fn === null || isLibraryFrame(frame.path)) return;
-      const file = relativeToRoot(frame.path, root);
+      const file = frame.path;
       if (testFiles.has(file)) return;
       const key = `${file}#${frame.fn}`;
       let candidate = candidates.get(key);
@@ -226,7 +195,7 @@ export function computeFailurePoints(report: { tests: readonly TestCase[] }): Fa
     const values = shownKeys.filter((key) => keys.has(key));
     if (values.length > 0) byTest.set(test, values);
   }
-  return { root, points, byTest };
+  return { points, byTest };
 }
 
 // Tests are immutable once loaded: their points are computed once.

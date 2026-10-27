@@ -24,6 +24,8 @@ This Playwright suite exists to feed the Loupe reporter with realistic results. 
 
 Everything runs offline, through `page.setContent` and local servers on 127.0.0.1. Two Chromium projects (`chromium-a`, `chromium-b`) run the same tests so the report has more than one project. `snapshotPathTemplate` uses one baseline for every project and platform.
 
+`paths/` is a small suite of its own for the paths written in the report (see `test/paths.integration.test.ts`): a failure in a helper outside its `testDir`, missing files under the root dir and in the home directory, an error without frames, and a test printing paths to stdout, an annotation and a text attachment. The test copies it under fake absolute roots; its failures are intentional too. It needs no browser. `paths/roots-reporter.ts`, added when `LOUPE_FIXTURE_ROOTS` is set, writes the roots Loupe derives from the stacks, so the test can check that a direct run derives no root but the root dir.
+
 `merge.config.ts` is the config for `playwright merge-reports` on blob reports of a sharded run (see `test/merge.integration.test.ts`). It uses the same `testDir` so merged paths and test ids match an unsharded run.
 
 ## Loupe config

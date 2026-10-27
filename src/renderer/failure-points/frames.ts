@@ -1,9 +1,13 @@
 /**
  * Stack frames of an error, as V8 prints them: `at fn (path:line:col)` and
  * `at path:line:col`, with `async `, `new ` and `[as alias]` variants.
- * Playwright already strips `node_modules`, `node:` internals and its own
- * frames from the stacks it reports; they are excluded here too, for stacks
- * that kept them.
+ * Playwright strips its own frames from the stacks it reports, but keeps
+ * third-party ones (`node_modules`) and may keep `node:` internals: library
+ * frames are excluded here (`isLibraryFrame`).
+ *
+ * The core writes frame paths relative to the Playwright root dir (`../` when
+ * outside it, see src/core/paths.ts); a path outside every root and home stays
+ * absolute.
  *
  * Pure functions, no DOM: unit-tested in Node.
  */
@@ -86,20 +90,4 @@ export function isLibraryFrame(path: string): boolean {
     path === 'native' ||
     path === '<anonymous>'
   );
-}
-
-/**
- * `path` relative to `root` (an absolute directory with a trailing `/`),
- * with `../` segments when it is outside: `../pages/login.page.ts`. A path
- * that shares nothing with the root (another drive) stays absolute.
- */
-export function relativeToRoot(path: string, root: string): string {
-  if (path.startsWith(root)) return path.slice(root.length);
-  // POSIX roots start with an empty segment, Windows ones with the drive (`C:`).
-  const from = root.replace(/\/$/, '').split('/');
-  const to = path.split('/');
-  let common = 0;
-  while (common < from.length && common < to.length - 1 && from[common] === to[common]) common += 1;
-  if (common === 0) return path;
-  return [...Array<string>(from.length - common).fill('..'), ...to.slice(common)].join('/');
 }

@@ -11,9 +11,9 @@
 // - `heavy`: six more tags and two `area` values per test (7 to 8 chips per row);
 // - `cascade`: the sample's tests spread over 50 spec files, every failing
 //   error with a realistic stack: 4 to 8 frames through invented helpers
-//   (named, `Object.` and `async` frames), some inside the synthetic testDir
-//   and some outside it (`../fixtures/…`), so the common failure points have
-//   real work to do.
+//   (named, `Object.` and `async` frames), some inside the testDir and some
+//   outside it (`../fixtures/…`), relative to it as the core writes them, so
+//   the common failure points have real work to do.
 // Each is written to loupe-perf/<dataset>/ (report.json and index.html).
 //
 // --measure opens each report from file:// in Chromium, RUNS times, and prints
@@ -42,8 +42,6 @@ const output = `${root}loupe-perf/`;
 const renderer = readFileSync(options.renderer ?? `${root}dist/renderer/index.html`, 'utf8');
 const sample = JSON.parse(readFileSync(`${root}src/renderer/dev/sample.json`, 'utf8'));
 
-/** The synthetic testDir of the `cascade` dataset: helpers live inside and outside it. */
-const CASCADE_TEST_DIR = '/ci/workspace/storefront/tests/';
 /** Invented helpers, innermost first within each chain: [frame function, path relative to the testDir]. */
 const CASCADE_HELPERS = [
   ['ApiClient.request', '../lib/api-client.ts'],
@@ -64,19 +62,15 @@ const CASCADE_HELPERS = [
 ];
 const CASCADE_FILES = 50;
 
-function cascadePath(relative) {
-  return new URL(relative, `file://${CASCADE_TEST_DIR}`).pathname;
-}
-
 /** A stack for a failing error: 4 to 8 helper frames picked from the test index, then the test file. */
 function cascadeStack(message, file, index) {
   const depth = 4 + (index % 5);
   const start = (index * 7) % CASCADE_HELPERS.length;
   const frames = Array.from({ length: depth }, (_, step) => {
     const [fn, relative] = CASCADE_HELPERS[(start + step * 3) % CASCADE_HELPERS.length];
-    return `    at ${fn} (${cascadePath(relative)}:${10 + ((index + step) % 40)}:${3 + step})`;
+    return `    at ${fn} (${relative}:${10 + ((index + step) % 40)}:${3 + step})`;
   });
-  return [message, ...frames, `    at ${CASCADE_TEST_DIR}${file}:${12 + (index % 30)}:5`].join('\n');
+  return [message, ...frames, `    at ${file}:${12 + (index % 30)}:5`].join('\n');
 }
 
 function dataset(kind) {

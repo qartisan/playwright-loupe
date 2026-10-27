@@ -5,7 +5,8 @@
 // global teardown failure) and `--grep-invert` (which also skips the slow
 // test), so the sample covers what the renderer must show: failed, flaky and
 // skipped tests, a partial run and a run error. The script checks that before
-// writing. Absolute paths of this machine (in stack traces) are replaced by `<root>/`.
+// writing. The reporter writes paths relative to the root dir, so the sample
+// holds none of this machine's paths (checked by test/paths.test.ts).
 // The attachment files are copied to src/renderer/dev/data/ (gitignored: videos
 // and traces would bloat the repository), where the dev server serves them at
 // `data/`, so attachment links work in the dev server too.
@@ -15,7 +16,6 @@ import { spawnSync } from 'node:child_process';
 import { cpSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-const root = fileURLToPath(new URL('../', import.meta.url));
 const outputFolder = fileURLToPath(new URL('../loupe-report-sample/', import.meta.url));
 const source = `${outputFolder}report.json`;
 const target = new URL('../src/renderer/dev/sample.json', import.meta.url);
@@ -48,8 +48,7 @@ if (problems.length > 0) {
   process.exit(1);
 }
 
-const json = JSON.stringify(report, null, 2).replaceAll(JSON.stringify(root).slice(1, -1), '<root>/');
-writeFileSync(target, `${json}\n`);
+writeFileSync(target, `${JSON.stringify(report, null, 2)}\n`);
 rmSync(dataTarget, { recursive: true, force: true });
 if (existsSync(`${outputFolder}data`)) cpSync(`${outputFolder}data`, dataTarget, { recursive: true });
 console.log(`\nupdate-sample: wrote ${fileURLToPath(target)} (${report.tests.length} tests, ${report.run.errors.length} run error) and its attachments.`);

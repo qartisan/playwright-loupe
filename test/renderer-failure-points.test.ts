@@ -1,17 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { cleanFunctionName, isLibraryFrame, normalizeFramePath, parseStack, relativeToRoot } from '../src/renderer/failure-points/frames.js';
-import { computeFailurePoints, deriveRoot, failurePoints } from '../src/renderer/failure-points/points.js';
+import { cleanFunctionName, isLibraryFrame, normalizeFramePath, parseStack } from '../src/renderer/failure-points/frames.js';
+import { computeFailurePoints, failurePoints } from '../src/renderer/failure-points/points.js';
 import { MAX_POINTS, MIN_POINT_FILES, MIN_POINT_GROUPS, MIN_POINT_TESTS } from '../src/renderer/failure-points/thresholds.js';
 import { facetCounts, filterContext, filterDomain, filterTests, testFacetValues } from '../src/renderer/filters/match.js';
 import { EMPTY_FILTERS, parseFilters, serializeFilters } from '../src/renderer/filters/url.js';
 import type { Attempt, AttemptStatus, LoupeError, Outcome, TestCase } from '../src/schema/v1.js';
-import { CASCADE_ROOT, cascadeReport } from './helpers/cascade.js';
+import { cascadeReport } from './helpers/cascade.js';
 import { schemaErrors } from './helpers/schema.js';
 
-const ROOT = '/repo/app/';
-
+/** A frame as the core writes it: `file` relative to the root dir, or absolute when it shares no named directory with it. */
 function frame(fn: string | null, file: string, line = 10): string {
-  const location = `${file.startsWith('/') || file.startsWith('node:') ? file : `${ROOT}${file}`}:${line}:5`;
+  const location = `${file}:${line}:5`;
   return fn === null ? `    at ${location}` : `    at ${fn} (${location})`;
 }
 
@@ -157,57 +156,6 @@ describe('isLibraryFrame', () => {
   });
 });
 
-describe('relativeToRoot', () => {
-  it('gives a path inside the root dir without `../`', () => {
-    expect(relativeToRoot('/repo/app/fixtures/auth.ts', '/repo/app/')).toBe('fixtures/auth.ts');
-  });
-
-  it('climbs to a sibling directory', () => {
-    expect(relativeToRoot('/repo/helpers/resources.ts', '/repo/app/')).toBe('../helpers/resources.ts');
-  });
-
-  it('climbs several levels', () => {
-    expect(relativeToRoot('/repo/packages/client/src/send.ts', '/repo/app/tests/e2e/')).toBe('../../../packages/client/src/send.ts');
-    expect(relativeToRoot('/opt/shared/x.ts', '/repo/app/')).toBe('../../opt/shared/x.ts');
-    expect(relativeToRoot('C:/work/lib/x.ts', 'C:/work/app/tests/')).toBe('../../lib/x.ts');
-  });
-
-  it('keeps a path on another drive absolute', () => {
-    expect(relativeToRoot('D:/shared/x.ts', 'C:/work/app/')).toBe('D:/shared/x.ts');
-  });
-});
-
-describe('deriveRoot', () => {
-  const entry = (file: string, path: string) => ({ test: { file } as TestCase, frames: [{ fn: null, path, line: 1 }] });
-
-  it('is the frame path minus the test file', () => {
-    expect(deriveRoot([entry('tests/a.spec.ts', '/repo/app/tests/a.spec.ts')])).toBe('/repo/app/');
-  });
-
-  it('takes the most common candidate; on a tie, the shortest', () => {
-    // `b.spec.ts` in `/repo/app/tests/` also ends with `tests/b.spec.ts`, but only the test's own file counts.
-    const majority = [
-      entry('tests/a.spec.ts', '/repo/app/tests/a.spec.ts'),
-      entry('tests/b.spec.ts', '/repo/app/tests/b.spec.ts'),
-      entry('tests/c.spec.ts', '/shard/app/tests/c.spec.ts'),
-    ];
-    expect(deriveRoot(majority)).toBe('/repo/app/');
-    const tie = [entry('a.spec.ts', '/long/checkout/a.spec.ts'), entry('b.spec.ts', '/ci/b.spec.ts')];
-    expect(deriveRoot(tie)).toBe('/ci/');
-  });
-
-  it('is null when no frame points at its test file', () => {
-    expect(deriveRoot([entry('tests/a.spec.ts', '/repo/app/lib/other.ts')])).toBeNull();
-    expect(deriveRoot([])).toBeNull();
-  });
-
-  it('gives no point, and no error, without a root dir', () => {
-    const test = makeTest({ file: 'tests/a.spec.ts', errors: [['g1', [frame('helper', 'lib/h.ts')]]] });
-    for (const current of test.attempts) for (const failure of current.errors) failure.stack = 'Error: failed\n    at helper (/elsewhere/lib/h.ts:1:1)';
-    expect(computeFailurePoints({ tests: [test] })).toMatchObject({ root: null, points: [] });
-  });
-});
-
 describe('computeFailurePoints', () => {
   const helper = frame('checkResponse', 'lib/http.ts', 21);
 
@@ -258,12 +206,16 @@ describe('computeFailurePoints', () => {
   });
 
   it('keeps frames outside the root dir, with `../` in the key', () => {
-    expect(keys(through([frame('send', '/repo/packages/client.ts')], 5))).toEqual(['../packages/client.ts#send']);
+    expect(keys(through([frame('send', '../packages/client.ts')], 5))).toEqual(['../packages/client.ts#send']);
+  });
+
+  it('keys a frame left absolute by the core with its absolute path', () => {
+    expect(keys(through([frame('send', '/opt/shared/client.ts')], 5))).toEqual(['/opt/shared/client.ts#send']);
   });
 
   it('leaves out test files, anonymous frames and library frames', () => {
     const tests = through(
-      [frame('helperInSpec', 'tests/f0.spec.ts'), frame(null, 'lib/anon.ts'), frame('Object.<anonymous>', 'lib/anon.ts'), frame('lib', '/repo/app/node_modules/x/i.js'), frame('tick', 'node:internal/timers')],
+      [frame('helperInSpec', 'tests/f0.spec.ts'), frame(null, 'lib/anon.ts'), frame('Object.<anonymous>', 'lib/anon.ts'), frame('lib', 'node_modules/x/i.js'), frame('dep', '../node_modules/y/j.js'), frame('tick', 'node:internal/timers')],
       6,
     );
     expect(points(tests)).toEqual([]);
@@ -339,7 +291,6 @@ describe('the synthetic cascade sample', () => {
 
   it('gives the documented points', () => {
     const result = computeFailurePoints(report);
-    expect(result.root).toBe(CASCADE_ROOT);
     expect(result.points.map(({ key, tests, failed, flaky, files, signatures, via }) => ({ key, tests, failed, flaky, files, groups: signatures.length, via: via.map((inner) => inner.fn) }))).toEqual([
       { key: 'fixtures/session.fixtures.ts#signIn', tests: 10, failed: 8, flaky: 2, files: 8, groups: 3, via: ['AccountService.loginWith'] },
       { key: 'fixtures/data.fixtures.ts#readerFactory', tests: 6, failed: 6, flaky: 0, files: 5, groups: 2, via: [] },

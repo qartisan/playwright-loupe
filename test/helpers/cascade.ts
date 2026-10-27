@@ -6,7 +6,8 @@ import type { Attempt, AttemptStatus, LoupeError, LoupeReport, Outcome, Stats, T
  * sign-in fixture breaks most of a suite. The app (a library), the functions,
  * the files and the messages are invented. Used by the unit and browser tests
  * of the common failure points and of the error groups only seen after a test
- * timeout. Deterministic: the same report on every call.
+ * timeout. Deterministic: the same report on every call. Frame paths are
+ * relative to the root dir, as the core writes them.
  *
  * Expected, with the thresholds of src/renderer/failure-points/thresholds.ts:
  * - points, ranked: `fixtures/session.fixtures.ts#signIn` (10 tests, 8 failed
@@ -22,22 +23,21 @@ import type { Attempt, AttemptStatus, LoupeError, LoupeReport, Outcome, Stats, T
  *   Network has no visible group, only the folded `goto aborted`.
  */
 
-export const CASCADE_ROOT = '/ci/workspace/shelf-tests/';
-const OUTSIDE = '/ci/workspace/packages/';
+const OUTSIDE = '../packages/';
 
 const color = (name: string): string => BUILT_IN_RULES.find((rule) => rule.name === name)?.color ?? UNCATEGORIZED_COLOR;
 
 /** Stack frames, innermost first. */
 const FRAMES = {
-  loginWith: `    at AccountService.loginWith (${CASCADE_ROOT}services/account.service.ts:22:15)`,
-  signIn: (line: number) => `    at async signIn (${CASCADE_ROOT}fixtures/session.fixtures.ts:${line}:9)`,
-  readerFactory: (line: number) => `    at Object.readerFactory (${CASCADE_ROOT}fixtures/data.fixtures.ts:${line}:20)`,
+  loginWith: `    at AccountService.loginWith (services/account.service.ts:22:15)`,
+  signIn: (line: number) => `    at async signIn (fixtures/session.fixtures.ts:${line}:9)`,
+  readerFactory: (line: number) => `    at Object.readerFactory (fixtures/data.fixtures.ts:${line}:20)`,
   send: (line: number) => `    at ApiClient.send (${OUTSIDE}api-client/src/client.ts:${line}:11)`,
-  reserve: `    at ReservationService.reserve (${CASCADE_ROOT}services/reservation.service.ts:31:7)`,
-  catalog: `    at CatalogPage.open (${CASCADE_ROOT}pages/catalog.page.ts:14:5)`,
-  loans: `    at LoansPage.open (${CASCADE_ROOT}pages/loans.page.ts:9:5)`,
+  reserve: `    at ReservationService.reserve (services/reservation.service.ts:31:7)`,
+  catalog: `    at CatalogPage.open (pages/catalog.page.ts:14:5)`,
+  loans: `    at LoansPage.open (pages/loans.page.ts:9:5)`,
   // Playwright strips its own frames; a stack that kept them must not count them.
-  library: '    at ApiRequestContext.post (/ci/workspace/shelf-tests/node_modules/playwright-core/lib/client/fetch.js:58:11)',
+  library: '    at ApiRequestContext.post (node_modules/playwright-core/lib/client/fetch.js:58:11)',
 } as const;
 
 interface ErrorKind {
@@ -63,7 +63,7 @@ type Kind = keyof typeof CASCADE_ERRORS;
 
 function error(kind: Kind, file: string, frames: Frames = []): LoupeError {
   const { signature, category, message } = CASCADE_ERRORS[kind];
-  const stack = kind === 'testTimeout' ? message : [message, ...frames, `    at ${CASCADE_ROOT}${file}:12:5`].join('\n');
+  const stack = kind === 'testTimeout' ? message : [message, ...frames, `    at ${file}:12:5`].join('\n');
   return { message, stack, location: null, snippet: null, signature, category };
 }
 

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import path from 'node:path';
 import type { FullConfig, FullResult, Reporter, Suite, TestError } from '@playwright/test/reporter';
 import { loadConfig } from '../config/index.js';
@@ -89,6 +90,7 @@ export class LoupeReporter implements Reporter {
       dimensions: this.loupeConfig.dimensions,
       runErrors: this.runErrors,
       redact: { mode: this.loupeConfig.redact.mode, patterns: this.loupeConfig.redact.patterns, values: this.secretValues },
+      home: homedir(),
       ...(this.localGit ? { localGit: { git: await this.localGit, merged: this.merged } } : {}),
     });
     const settings: RendererSettings = {

@@ -39,6 +39,7 @@ import { DEFAULT_DIMENSIONS, createDimensions, type DimensionsOptions } from './
 import { computeTestId, relativePosix } from './identity.js';
 import { detectEnvironment, detectGit, type LocalGitSource } from './metadata.js';
 import { collectOutput } from './output.js';
+import { createPathRewriter, isStrictlyUnder, rewriteReportPaths, rootsFromStack, type PathRewriter } from './paths.js';
 import { esmImportLocation, isUsableLocation } from './runErrors.js';
 import { detectScopeReasons, resolveScope } from './scope.js';
 import { DEFAULT_REDACT, createRedactor, mapReportStrings, type AttemptRedactor, type RedactOptions } from './redact.js';
@@ -64,6 +65,8 @@ export interface BuildOptions {
   redact?: RedactOptions;
   /** Local repository state, the last source of `run.git`; omitted when the local read is off (`git.local`). */
   localGit?: LocalGitSource;
+  /** Home directory of the machine writing the report (`os.homedir()`), masked as `~`; default: null, generic home forms only. */
+  home?: string | null;
 }
 
 const OUTCOMES: Record<ReturnType<PwTestCase['outcome']>, Outcome> = {
@@ -127,6 +130,82 @@ class AttachmentStore {
     }
     return `${folder}/${unique}`;
   }
+}
+
+/** A test as `derivedRoots` reads it: its file, relative to the root dir, and the stacks of its errors. */
+export interface StackSource {
+  file: string;
+  stacks: readonly string[];
+}
+
+/** The stacks of every error of a test: attempts and steps, at any depth. */
+export function stackSource(test: TestCase): StackSource {
+  const stacks: string[] = [];
+  const add = (error: LoupeError | null): void => {
+    if (error?.stack) stacks.push(error.stack);
+  };
+  const visitSteps = (steps: readonly Step[]): void => {
+    for (const step of steps) {
+      add(step.error);
+      visitSteps(step.steps);
+    }
+  };
+  for (const attempt of test.attempts) {
+    attempt.errors.forEach(add);
+    visitSteps(attempt.steps);
+  }
+  return { file: test.file, stacks };
+}
+
+/**
+ * Roots shown by the stacks of the tests' own files (see `rootsFromStack`).
+ * They differ from `rootDir` when the stacks were recorded on another
+ * machine (`merge-reports` with a merge config); in a direct run, they equal
+ * it.
+ *
+ * Each stack votes once for each root it shows. A single vote is enough: a
+ * root needs a frame ending in `/<test file>`, the test's own file. The
+ * order (most votes, then shortest, then code point order) only decides,
+ * after `rootDir`, which root an ancestor shared by several roots is
+ * relative to (rule 2 of src/core/paths.ts).
+ *
+ * A root strictly inside `rootDir` or inside another derived root is
+ * discarded: the longest root wins, so it would cut the segments between
+ * the two out of every path under it. It can only come from a file of
+ * another directory named like the test file.
+ */
+export function derivedRoots(sources: readonly StackSource[], rootDir: string): string[] {
+  const votes = new Map<string, number>();
+  for (const { file, stacks } of sources) {
+    for (const stack of stacks) {
+      for (const root of rootsFromStack(stack, file)) votes.set(root, (votes.get(root) ?? 0) + 1);
+    }
+  }
+  const pool = [rootDir, ...votes.keys()];
+  return [...votes]
+    .filter(([root]) => !pool.some((other) => isStrictlyUnder(root, other)))
+    .sort(([a, aVotes], [b, bVotes]) => bVotes - aVotes || a.length - b.length || (a < b ? -1 : a > b ? 1 : 0))
+    .map(([root]) => root);
+}
+
+/** A relative path with POSIX separators, as the schema's `RelativePath` accepts it. */
+function isRelativePath(file: string): boolean {
+  return file !== '' && !file.includes('\\') && !file.startsWith('/') && !/^[A-Za-z]:/.test(file);
+}
+
+/**
+ * `location.file` from the absolute `file` of a location: the file rules of
+ * `paths` (rules 1 to 3 of src/core/paths.ts); when they leave it absolute
+ * (`/opt/x.ts`), the path relative to `rootDir` (`../../opt/x.ts`). Null when
+ * neither is a relative POSIX path, as the schema requires: another drive or
+ * a UNC share on Windows. The stack frame still shows the path.
+ */
+export function locationFile(file: string, rootDir: string, paths: PathRewriter, pathImpl: path.PlatformPath = path): string | null {
+  const rewritten = paths.file(file);
+  if (isRelativePath(rewritten)) return rewritten;
+  if (!pathImpl.isAbsolute(file) || !pathImpl.isAbsolute(rootDir)) return null;
+  const relative = relativePosix(rootDir, file, pathImpl);
+  return isRelativePath(relative) ? relative : null;
 }
 
 /** Playwright reports -1 for steps and attempts that never finished. */
@@ -231,11 +310,15 @@ export async function buildReport(
   const categories = new Set<string>();
   const usedDimensions = new Set<string>();
 
+  /** Absolute file of every location, rewritten once every stack is known (see the end). */
+  const locationFiles = new Map<SourceLocation, string>();
   // `<anonymous>` and other non-paths are not locations.
-  const toLocation = (location: Location | undefined): SourceLocation | null =>
-    isUsableLocation(location)
-      ? { file: relativePosix(rootDir, location.file), line: location.line, column: location.column }
-      : null;
+  const toLocation = (location: Location | undefined): SourceLocation | null => {
+    if (!isUsableLocation(location)) return null;
+    const result = { file: relativePosix(rootDir, location.file), line: location.line, column: location.column };
+    locationFiles.set(result, location.file);
+    return result;
+  };
 
   /**
    * `steps`: titles of the failing steps leading to the error, outermost first.
@@ -421,6 +504,33 @@ export async function buildReport(
     categories: categorizer.definitions(categories),
     dimensions: dimensionSet.definitions(usedDimensions),
   };
+
+  // Absolute paths, last: ids, signatures and categories are computed from the original text, and
+  // redaction sees it too. Roots: the root dir, then those the stacks show (merge-reports -c).
+  const paths = createPathRewriter({ roots: [rootDir, ...derivedRoots(tests.map(stackSource), rootDir)], home: options.home ?? null });
+  // Merged reports: Playwright does not rebase error locations, which point to the blob's machine.
+  const relocate = (holder: { location: SourceLocation | null }): void => {
+    const file = holder.location ? locationFiles.get(holder.location) : undefined;
+    if (!holder.location || file === undefined) return;
+    const relative = locationFile(file, rootDir, paths);
+    if (relative === null) holder.location = null;
+    else holder.location.file = relative;
+  };
+  const relocateSteps = (steps: readonly Step[]): void => {
+    for (const step of steps) {
+      relocate(step);
+      if (step.error) relocate(step.error);
+      relocateSteps(step.steps);
+    }
+  };
+  for (const test of tests) {
+    for (const attempt of test.attempts) {
+      attempt.errors.forEach(relocate);
+      relocateSteps(attempt.steps);
+    }
+  }
+  errors.forEach(relocate);
   // URL parameters and env values (redact.env) are redacted in every other string: test titles, annotations, outputs, attachment bodies...
-  return redactor.rewritesStrings ? mapReportStrings(report, redactor.strings) : report;
+  const redacted = redactor.rewritesStrings ? mapReportStrings(report, redactor.strings) : report;
+  return rewriteReportPaths(redacted, paths);
 }
