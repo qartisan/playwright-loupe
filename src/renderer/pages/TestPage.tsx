@@ -1,6 +1,7 @@
 import { useLayoutEffect, useMemo, useRef } from 'preact/hooks';
 import type { RendererSettings } from '../../core/inject.js';
 import type { Annotation, Attempt, LoupeReport, TestCase } from '../../schema/v1.js';
+import { mergeAnnotations } from '../../shared/annotations.js';
 import { categoryColorMap } from '../categoryColors.js';
 import { CategoryBadge } from '../components/CategoryBadge.js';
 import { CopyButton } from '../components/CopyButton.js';
@@ -137,8 +138,8 @@ function AttemptContent({ test, attempt, params, groups, colors, playwrightVersi
   colors: ReadonlyMap<string, string>;
 }) {
   const mode = params.allSteps ? 'all' : 'default';
-  const known = new Set(test.annotations.map(annotationText));
-  const ownAnnotations = attempt.annotations.filter((annotation) => !known.has(annotationText(annotation)));
+  // The merge keeps the test's annotations first: what follows them is the attempt's own.
+  const ownAnnotations = mergeAnnotations(test.annotations, attempt.annotations).slice(mergeAnnotations(test.annotations).length);
   return (
     <>
       {attempt.errors.length > 0 && (

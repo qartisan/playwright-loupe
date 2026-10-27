@@ -252,6 +252,28 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     await page.close();
   });
 
+  it("shows an attempt's own annotations only, each once", async () => {
+    const failing = find('fails on a wrong heading (intentional)');
+    const section = (page: Page) => page.getByRole('region', { name: 'Annotations of this attempt' });
+    const first = await open(testHash(failing));
+    await first.page.getByRole('heading', { name: 'Error' }).waitFor();
+    // The attempt's copy of the test's annotation is not its own.
+    expect(await section(first.page).count()).toBe(0);
+    await first.page.close();
+
+    const runtime = { type: 'runtime', description: 'added' };
+    const annotated = {
+      ...report,
+      tests: report.tests.map((test) =>
+        test === failing ? { ...test, attempts: test.attempts.map((attempt) => ({ ...attempt, annotations: [...attempt.annotations, runtime, runtime] })) } : test,
+      ),
+    };
+    const second = await open(testHash(failing), { reportUrl: writeReport('annotated', annotated) });
+    await expect.poll(() => section(second.page).count()).toBe(1);
+    expect(await section(second.page).getByRole('listitem').allTextContents()).toEqual(['runtime: added']);
+    await second.page.close();
+  });
+
   it('copies the rerun commands and the AI prompt, and announces it', async () => {
     const failing = find('fails on a wrong heading (intentional)');
     const { page, errors } = await open(testHash(failing), { init: CLIPBOARD_STUB });
@@ -274,6 +296,8 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     const prompt = (await copied())[1] ?? '';
     expect(prompt).toContain('Expected: "Wrong heading"');
     expect(prompt).toContain('Stack:');
+    // Each attempt holds a copy of the test's annotation: listed once.
+    expect(prompt).toContain('- Annotations: bug: BUG-1\n');
     expect(errors).toEqual([]);
     await page.close();
   });

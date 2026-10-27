@@ -23,6 +23,7 @@ No change to the JSON shape: `schemaVersion` stays 1. The content of `stack`, `m
 
 - **Error locations in merged reports point to the right file.** `merge-reports` does not rebase error locations, so with a merge config they pointed to the shard's file, relative to the merge root dir (`../../../runner/work/shop/shared/helper.ts` for a merge root dir `/home/alice/merge/tests`, instead of `../shared/helper.ts`), sometimes with that machine's user name. Loupe now finds the shard's root from the stacks.
 - **On Windows, a location on another drive or a UNC share is `null`** instead of an absolute path, which the schema rejects. The stack still shows it.
+- **The AI prompt lists each annotation once.** Since Playwright 1.52, each attempt's annotations start with a copy of the test's, and the prompt joined both lists: `bug: BUG-1; bug: BUG-1`. The test detail, the skip reason and annotation dimensions now merge the two lists the same way; they showed no duplicate. The JSON still holds both lists as Playwright gives them ([Annotation](docs/schema/v1.md#annotation)).
 
 ## [0.1.7] - 2026-10-26
 

@@ -1,4 +1,5 @@
 import type { Attempt, LoupeError, Step, TestCase } from '../../schema/v1.js';
+import { mergeAnnotations } from '../../shared/annotations.js';
 import { NO_CATEGORY } from '../dashboard.js';
 import { attemptLabel } from './attempts.js';
 import { failingStepContext } from './steps.js';
@@ -60,7 +61,7 @@ export function buildAiPrompt(test: TestCase, attempt: Attempt, options: AiPromp
     `- Error category: ${attempt.errors[0]?.category ?? test.category ?? 'none'}`,
   ];
   if (test.tags.length > 0) lines.push(`- Tags: ${test.tags.join(', ')}`);
-  const annotations = [...test.annotations, ...attempt.annotations];
+  const annotations = mergeAnnotations(test.annotations, attempt.annotations);
   if (annotations.length > 0) {
     lines.push(`- Annotations: ${annotations.map(({ type, description }) => (description ? `${type}: ${description}` : type)).join('; ')}`);
   }

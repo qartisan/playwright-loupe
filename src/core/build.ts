@@ -25,6 +25,7 @@ import type {
   Step,
   TestCase,
 } from '../schema/v1.js';
+import { mergeAnnotations } from '../shared/annotations.js';
 import {
   INLINE_TEXT_LIMIT,
   attachmentKind,
@@ -399,10 +400,7 @@ export async function buildReport(
     const attempts: Attempt[] = [];
     for (const attempt of test.results) attempts.push(await toAttempt(attempt, folder));
 
-    const annotations = [
-      ...test.annotations.map(toAnnotation),
-      ...attempts.flatMap((attempt) => attempt.annotations),
-    ];
+    const annotations = mergeAnnotations(test.annotations.map(toAnnotation), ...attempts.map((attempt) => attempt.annotations));
     const dimensions = dimensionSet.of(test.tags, annotations);
     for (const name of Object.keys(dimensions)) usedDimensions.add(name);
 

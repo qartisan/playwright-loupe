@@ -1,4 +1,5 @@
 import type { Annotation, TestCase } from '../schema/v1.js';
+import { mergeAnnotations } from '../shared/annotations.js';
 
 /**
  * Why a test was skipped, from the annotations Playwright records (no model
@@ -34,7 +35,7 @@ function isSkipAnnotation(annotation: Annotation): annotation is Annotation & { 
  */
 export function skipReason(test: Pick<TestCase, 'outcome' | 'annotations' | 'attempts'>): SkipReason | null {
   if (test.outcome !== 'skipped') return null;
-  const skips = [...(test.attempts.at(-1)?.annotations ?? []), ...test.annotations].filter(isSkipAnnotation);
+  const skips = mergeAnnotations(test.attempts.at(-1)?.annotations ?? [], test.annotations).filter(isSkipAnnotation);
   if (skips.length === 0) return { kind: 'notRun', text: null };
   const described = skips.find((annotation) => annotation.description?.trim());
   const chosen = described ?? skips[0]!;

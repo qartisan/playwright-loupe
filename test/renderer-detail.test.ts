@@ -370,6 +370,12 @@ describe('AI prompt', () => {
     expect(prompt).toContain('open the cart › check the total › Expect "toHaveText" (locator(\'#total\'))');
   });
 
+  it("lists each annotation once, though the attempt holds a copy of the test's", () => {
+    const annotated = attempt(0, 'failed', { annotations: [{ type: 'issue', description: 'CART-12' }, { type: 'slow', description: null }] });
+    const prompt = buildAiPrompt({ ...test, attempts: [annotated] }, annotated, { includeStack: false });
+    expect(prompt).toContain('- Annotations: issue: CART-12; slow\n');
+  });
+
   it('uses a fence longer than any backtick run of the message', () => {
     const attemptWithFence = attempt(0, 'failed', { errors: [error('Expected: ```code```')] });
     expect(buildAiPrompt(makeTest({ attempts: [attemptWithFence] }), attemptWithFence, { includeStack: true })).toContain('````\nExpected: ```code```\n````');
