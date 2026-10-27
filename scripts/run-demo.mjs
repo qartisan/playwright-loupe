@@ -10,17 +10,19 @@
 //   - skip reasons, "Not run", an error group shared by several tests, the
 //     error categories, the dimensions, nested steps and the attachments are there;
 //   - the rendered report shows exactly one common failure point, `signIn`;
-//   - the report folder stays under the size ceiling of the live demo.
+//   - the report folder stays under the size ceiling of the live demo;
+//   - report.json and index.html hold no home directory path, here or in CI:
+//     the report is published (live demo, CI artifact, README images).
 // Anything else exits with an error.
 //
 // Usage: node scripts/run-demo.mjs [--open]   (`npm run demo` builds first)
 
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { chromium } from '@playwright/test';
+import { homePaths } from './home-paths.mjs';
 
 const reportDir = fileURLToPath(new URL('../demo-report/', import.meta.url));
 const reportFile = join(reportDir, 'report.json');
@@ -159,6 +161,12 @@ const folderSize = (dir) =>
 const bytes = folderSize(reportDir);
 check(bytes <= MAX_BYTES, `report folder is ${(bytes / 1024 / 1024).toFixed(1)} MB, ceiling ${MAX_BYTES / 1024 / 1024} MB`);
 
+// No home directory path (src/core/paths.ts rewrites them).
+for (const file of [reportFile, indexFile]) {
+  const found = homePaths(readFileSync(file, 'utf8'));
+  if (found.length > 0) problems.push(`${file} holds ${found.length} home directory path(s), such as ${found[0]}`);
+}
+
 // The rendered report: it loads, and shows exactly one common failure point.
 const browser = await chromium.launch();
 try {
@@ -181,15 +189,6 @@ if (problems.length > 0) {
 }
 
 console.log(`\nrun-demo: the demo suite failed as intended. ${report.tests.length} tests, report ${(bytes / 1024 / 1024).toFixed(1)} MB.`);
-
-// A report built here holds this machine's paths in its stack traces: fine to
-// look at, not to publish. The live demo is built in CI only.
-if (!process.env.CI) {
-  const home = homedir();
-  if ([reportFile, indexFile].some((file) => readFileSync(file, 'utf8').includes(home))) {
-    console.warn(`run-demo: this report contains your home directory (${home}) in stack traces. Do not publish it or take README screenshots from it.`);
-  }
-}
 
 console.log(`Open ${pathToFileURL(indexFile).href}`);
 if (process.argv.includes('--open')) {

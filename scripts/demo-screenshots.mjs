@@ -2,18 +2,19 @@
 // report in demo-report/, in light and dark: five views, Chromium from
 // @playwright/test, the report opened over file://.
 //
-// The report must be built in CI: a local one holds this machine's paths in
-// its stack traces, and this script refuses it. Download the `demo-report`
+// The report must be built in CI (`run.environment.ci`), so README images do
+// not depend on the machine of whoever runs this script, and hold no home
+// directory path; this script refuses any other. Download the `demo-report`
 // artifact of a green "Demo suite" job (ci.yml) into demo-report/, or the
 // files of the live demo, then run `npm run demo:screenshots`.
 //
 // Usage: node scripts/demo-screenshots.mjs
 
 import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { chromium } from '@playwright/test';
+import { homePaths } from './home-paths.mjs';
 
 const reportDir = fileURLToPath(new URL('../demo-report/', import.meta.url));
 const imagesDir = fileURLToPath(new URL('../docs/images/', import.meta.url));
@@ -37,14 +38,17 @@ if (!existsSync(indexFile) || !existsSync(reportFile)) fail(`no demo report in $
 
 const html = readFileSync(indexFile, 'utf8');
 const json = readFileSync(reportFile, 'utf8');
-const home = homedir();
-if (html.includes(home) || json.includes(home)) {
-  fail(`the report in ${reportDir} contains your home directory (${home}): it was built on this machine. README images come from a CI-built report only (see the top of this script).`);
+const found = homePaths(`${html}\n${json}`);
+if (found.length > 0) {
+  fail(`the report in ${reportDir} holds ${found.length} home directory path(s), such as ${found[0]}. README images come from a CI-built report without one (see the top of this script).`);
 }
 const settings = JSON.parse(/<script id="loupe-settings" type="application\/json">(.*?)<\/script>/s.exec(html)?.[1] ?? '{}');
 if (settings.theme !== 'system') fail(`the report's theme is "${settings.theme}", expected "system": both themes come from the browser's color scheme.`);
 
 const report = JSON.parse(json);
+if (report.run.environment.ci !== true) {
+  fail(`the report in ${reportDir} was not built in CI (run.environment.ci is ${report.run.environment.ci}). README images come from a CI-built report only (see the top of this script).`);
+}
 /** The test detail shown: the screenshot comparison failure, for its comparison viewer. */
 const visual = report.tests.find((test) => test.category === 'Visual regression');
 if (!visual) fail('no test in category "Visual regression"');
