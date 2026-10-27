@@ -68,7 +68,7 @@ Merging is done key by key for nested objects (`categories`, `dimensions`, `scre
 | `dimensions.definitions` | `Dimension[]` | `[]` | See [Dimensions](#dimensions). |
 | `screenshots.defaultView` | `'side-by-side' \| 'slider' \| 'overlay' \| 'diff'` | `'side-by-side'` | Default view of screenshot comparisons. [Renderer setting](#renderer-settings). |
 | `theme` | `'system' \| 'light' \| 'dark'` | `'system'` | Default theme. The viewer can switch it; their choice is remembered in the browser. [Renderer setting](#renderer-settings). |
-| `aiPrompt.includeStack` | `boolean` | `true` | Include each error's stack trace in the AI prompt the test detail copies to the clipboard. Turn it off when stacks are long or reveal paths you do not want to paste. [Renderer setting](#renderer-settings). |
+| `aiPrompt.includeStack` | `boolean` | `true` | Include each error's stack trace in the AI prompt the test detail copies to the clipboard. Turn it off when stacks are long. [Renderer setting](#renderer-settings). |
 | `redact.patterns` | `(string \| RegExp)[]` | `[]` | Secret-looking names, added to the defaults. See [Secret redaction](#secret-redaction). |
 | `redact.mode` | `'extend' \| 'replace'` | `'extend'` | `replace`: only `redact.patterns`; `[]` turns name-based redaction off. |
 | `redact.env` | `string[]` | `[]` | Names of environment variables whose values are redacted everywhere. `LOUPE_REDACT_ENV` adds to it. |
@@ -103,6 +103,8 @@ categories: {
 - `stack`: the stack trace.
 - `step`: the titles of the failing steps, outermost first, **one per line**: for an `expect` failing inside `test.step('pay')`, the text is `pay\nExpect "toHaveText"`. Use `m` to anchor a pattern on one title (`/^pay$/m`). Errors outside any step, and run errors, have no step text: a `step` rule never matches them.
 - `all`: any of the three.
+
+Targets hold the original text, after [secret redaction](#secret-redaction) but before Loupe [rewrites paths](schema/v1.md#paths-in-text): stack frames hold absolute paths (`/home/ci/shop/tests/cart.spec.ts`) where the report shows relative ones (`cart.spec.ts`). A path copied from the report still matches without an anchor (`/helpers\/api\.ts/`); anchored on the relative form (`/^tests\//`) or written with the `../` of the report, it does not.
 
 **Modes.**
 

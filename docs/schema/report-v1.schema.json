@@ -161,7 +161,7 @@
       }
     },
     "RelativePath": {
-      "description": "Relative to the Playwright root dir, POSIX separators.",
+      "description": "Relative to the Playwright root dir, POSIX separators. May start with ../ (outside the root dir); an error or step location may also start with ~/ (in a home directory sharing no directory with the root dir).",
       "type": "string",
       "minLength": 1,
       "not": { "anyOf": [{ "pattern": "\\\\" }, { "pattern": "^/" }, { "pattern": "^[A-Za-z]:" }] }

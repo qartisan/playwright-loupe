@@ -52,7 +52,7 @@ The JSON model is designed for the full roadmap, even if phase 1 renders only pa
 
 The schema is documented and public. Its shape never changes without a version bump. Schema v1 is specified in [`docs/schema/v1.md`](schema/v1.md), with a [JSON Schema](schema/report-v1.schema.json).
 
-Paths in the model are relative to Playwright's root dir (`config.rootDir`) rather than to the config file, because that is the base `merge-reports` uses: a merged sharded run then has the same paths and test ids as a normal run.
+Paths in the model are relative to Playwright's root dir (`config.rootDir`) rather than to the config file, because that is the base `merge-reports` uses: a merged sharded run then has the same paths and test ids as a normal run. The report holds no absolute path of the machine that wrote it: paths in stacks, messages and every other string are rewritten relative to the root dir, or masked as `~` under a home directory, after ids, signatures and categories are computed from the original text ([Paths in text](schema/v1.md#paths-in-text)). Failure-point keys and locations therefore do not depend on where the report was written, which phase 2 needs to compare runs across environments.
 
 **Run-level errors are part of the model.** A spec file that fails to import makes Playwright run no test at all; a failing global setup does the same. Such a run has errors but no failed test, and a project can silently disappear from the report. Loupe records these errors in `run.errors`, keeps them through `merge-reports`, and the dashboard must show them prominently, above everything else.
 

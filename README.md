@@ -102,10 +102,10 @@ The search matches the reason's text (not the `Skipped` or `Not run` labels). Re
 
 When one problem breaks many tests, their errors rarely share a message: the same function fails at different lines, with different errors, in different categories. The Overview card **Common failure points** lists the functions of your code that appear in the stack of several failures, in different spec files and error groups. **It is a lead, not a diagnosis:** a shared helper also shows up when unrelated failures go through it.
 
-- **What is counted:** every error of every failing attempt, flaky tests included (the card gives the failed / flaky split), read from its stack trace. A point is a function in a file, whatever the line: `fixtures/session.ts#signIn`, with the lines seen. Paths are relative to the Playwright root dir, with `../` for helpers outside it (`../helpers/api.ts`). Spec files (any file holding a test of the report), anonymous functions, `node_modules`, Node internals and Playwright's own frames are left out.
+- **What is counted:** every error of every failing attempt, flaky tests included (the card gives the failed / flaky split), read from its stack trace. A point is a function in a file, whatever the line: `fixtures/session.ts#signIn`, with the lines seen. Paths are relative to the Playwright root dir, with `../` for helpers outside it (`../helpers/api.ts`); a file sharing no directory with it keeps its absolute path (`/opt/shared/api.ts`). Spec files (any file holding a test of the report), anonymous functions, `node_modules`, Node internals and Playwright's own frames are left out.
 - **Thresholds:** a point is shown when at least **5** distinct tests (a test run in several projects counts once), **3** spec files and **2** error groups go through it. At most **5** points, the most tests first. A point below a threshold is shown nowhere.
 - **Folding:** a function only reached through another one, by some of its tests, is listed under it (`via checkResponse`) rather than on its own. When their tests only partly overlap, both are shown.
-- Each point opens its tests in the Tests view (the Failure point filter). The root dir is found from the stacks (the frames of each test's own file); when no stack shows it, the card is hidden.
+- Each point opens its tests in the Tests view (the Failure point filter). Loupe writes stack frames relative to the root dir (see [Security](#security)), so a merged report gives the same points.
 
 Nothing is configured and nothing changes in your tests: the points are derived when the report opens, from the stacks Playwright records. The thresholds may change while the heuristic is tuned.
 
@@ -188,7 +188,15 @@ redact: { env: ['E2E_PASSWORD', 'API_TOKEN'] },
 
 **Git information** is limited to the commit hash, the branch name and the repository URL with its credentials removed, whatever the source; a URL that cannot be cleaned safely is dropped.
 
-**Attachments are not altered**: traces, screenshots and videos contain typed values and visible secrets, so a report with traces must be treated as private. Snippets (source excerpts around errors) are left as they are: they come from your repository. See [Secret redaction](docs/config.md#secret-redaction).
+**Machine paths** are removed from `report.json` and `index.html`, so a report does not reveal where it was written (home directory, user name, project location). In stacks, error messages, stdout and stderr, titles, annotations and text attachments, a path under the Playwright root dir becomes relative to it (`cart.spec.ts:12:5`), a stack frame or location outside it becomes `../` relative when it shares a directory with it (`../support/session.ts`), and any other home directory path becomes `~/…`; other paths (`/opt/data/x.json`) are kept. Nothing changes in your tests, and error signatures, categories and test ids are computed from the original text, as before. Limits:
+
+- With `merge-reports -c`, the shards' paths are rewritten with the root their stacks show; a blob whose stacks never show its own test files (only a load error) gets home directory masking only.
+- With a root dir of one segment (a `testDir` at `/app`), a URL path in a message that starts the same way (`GET /app/items`) is rewritten too (`GET items`).
+- On macOS, a path written with another case than the root dir is not recognized as under it.
+
+The rules are in [Paths in text](docs/schema/v1.md#paths-in-text).
+
+**Attachments are not altered**: traces, screenshots and videos contain typed values and visible secrets, and traces keep the absolute paths they recorded, so a report with traces must be treated as private. Snippets (source excerpts around errors) are left as they are: they come from your repository. See [Secret redaction](docs/config.md#secret-redaction).
 
 ## Accessibility
 

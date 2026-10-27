@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+No change to the JSON shape: `schemaVersion` stays 1. The content of `stack`, `message` and the other strings changed: they no longer hold absolute paths.
+
+### Changed
+
+- **A report no longer reveals the machine that wrote it.** Reports up to 0.1.7 held absolute paths, with the home directory and the user name, in every stack trace, in error messages, and in the AI prompt copied from the test detail. Loupe now rewrites them in every string of the report: stacks, error messages, stdout and stderr, test and step titles, annotations and text attachment bodies.
+  - A path under the Playwright root dir becomes relative to it (`cart.spec.ts:12:5`).
+  - In stack frames and locations, a path sharing a directory with the root dir becomes `../` relative (`../support/session.ts`).
+  - Any other home directory path becomes `~/…`; other paths are kept.
+
+  Error signatures, categories and test ids are still computed from the original text: none changes. Category rules match the original text too, so a rule anchored on a relative path copied from the report (`^tests/`) does not match. Attachments (traces, screenshots, videos) are not altered. The rules and their limits (`merge-reports` blobs whose stacks never show their own test files, a root dir of one segment) are in [Paths in text](docs/schema/v1.md#paths-in-text).
+- **`location.file` may start with `~/`**, for a location in a home directory that shares no directory with the root dir.
+- **Common failure points read the frame paths of the report as they are.** Keys are unchanged, except for a function in a file sharing no directory with the root dir, which keeps its absolute path (`/opt/shared/x.ts#send`, before `../../opt/shared/x.ts#send`).
+
+### Fixed
+
+- **Error locations in merged reports point to the right file.** `merge-reports` does not rebase error locations, so with a merge config they pointed to the shard's file, relative to the merge root dir (`../../../runner/work/shop/shared/helper.ts` for a merge root dir `/home/alice/merge/tests`, instead of `../shared/helper.ts`), sometimes with that machine's user name. Loupe now finds the shard's root from the stacks.
+- **On Windows, a location on another drive or a UNC share is `null`** instead of an absolute path, which the schema rejects. The stack still shows it.
+
 ## [0.1.7] - 2026-10-26
 
 No change to the JSON shape: `schemaVersion` stays 1.

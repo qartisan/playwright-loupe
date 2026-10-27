@@ -125,7 +125,7 @@ export interface Project {
 }
 
 export interface SourceLocation {
-  /** Relative to the Playwright root dir, POSIX separators. */
+  /** Relative to the Playwright root dir, POSIX separators: `../` outside it, `~/` in a home directory sharing no directory with it. */
   file: string;
   line: number;
   column: number;
