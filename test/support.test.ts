@@ -82,4 +82,24 @@ describe('Playwright floors', () => {
     expect(ci).toMatch(job(MIN_PLAYWRIGHT_INSTALLABLE, 'minimum installable'));
     expect(ci).toMatch(job(MIN_PLAYWRIGHT_SUPPORTED, 'minimum supported'));
   });
+
+  it('shows both floors in the README and the support documentation', () => {
+    const readme = readFileSync(path.join(ROOT, 'README.md'), 'utf8');
+    const support = readFileSync(path.join(ROOT, 'docs/support.md'), 'utf8');
+    const warning = `minimum supported version (${MIN_PLAYWRIGHT_SUPPORTED})`;
+    // Right under the title: a static badge (never the peer dependency, which is the technical floor) and one line.
+    expect(readme).toMatch(
+      new RegExp(
+        `^# playwright-loupe\\n\\n\\[!\\[Playwright ≥ ${MIN_PLAYWRIGHT_SUPPORTED}\\]\\(https://img\\.shields\\.io/badge/Playwright-%E2%89%A5%20${MIN_PLAYWRIGHT_SUPPORTED}-blue\\)\\]\\(docs/support\\.md\\)\\n\\n` +
+          `Supports \\[Playwright ${MIN_PLAYWRIGHT_SUPPORTED} and later\\]\\(docs/support\\.md\\) `,
+      ),
+    );
+    expect(readme).toContain(`| Supported floor | ${MIN_PLAYWRIGHT_SUPPORTED} |`);
+    expect(readme).toContain(`| Minimum installable | ${MIN_PLAYWRIGHT_INSTALLABLE} |`);
+    expect(readme).toContain(warning);
+    expect(support).toContain(`| Supported floor | **${MIN_PLAYWRIGHT_SUPPORTED}** |`);
+    expect(support).toContain(`| Minimum installable (technical floor) | **${MIN_PLAYWRIGHT_INSTALLABLE}** |`);
+    expect(support).toContain(warning);
+    expect(support).toContain(SUPPORT_URL);
+  });
 });

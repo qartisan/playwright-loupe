@@ -55,6 +55,8 @@ Out of scope for phase 1 (prepare in the data model, do not implement): history,
 
 - TypeScript strict, ESM.
 - `@playwright/test` is a `peerDependency`.
+- Two Playwright floors, both in `src/core/support.ts`: the **supported floor** (`MIN_PLAYWRIGHT_SUPPORTED`, 1.57; policy: minor versions released in the 12 months before a Loupe release, raised only in a minor release; a stderr warning below it) and the **technical floor** (`MIN_PLAYWRIGHT_INSTALLABLE`, 1.52, the peer dependency lower bound, raised only when it must be). Each has a CI job; `test/support.test.ts` keeps `package.json`, `ci.yml`, the README and `docs/support.md` in line. See [`docs/support.md`](docs/support.md).
+- Reads of Playwright internals (`_only`, `configInternalSymbol`, `_mode`, `configDir`, `metadata.actualWorkers`) must never throw: degrade instead (`test/internals.integration.test.ts`).
 - `package.json` `files` ships only the build output plus README, LICENSE, CHANGELOG and `licenses/` (third-party licenses, e.g. the embedded DM Sans font).
 - Code, comments, README, docs and commit messages in English.
 - Config is validated at startup with explicit error messages; an invalid config must never fail silently.
@@ -89,6 +91,9 @@ Claude Code prepares and verifies a release; the maintainer runs `npm version`, 
 
 - **Choosing the version.** Patch for fixes and improvements, minor for a new version line, as practiced since 0.1.0. `1.0.0` is not on the table until the history design (phase 2) is settled.
 - **`schemaVersion` is independent** from the package version (`src/schema/v1.ts`, policy in `docs/schema/v1.md`). It changes only with the JSON shape, noted in the CHANGELOG. A change in how signatures are computed keeps `schemaVersion` but always gets a CHANGELOG note.
+- **CI**: six jobs in `ci.yml` (lockfile Playwright on Node 22 and 24, 1.52 and 1.57 on Node 22, latest on Node 24, demo), all green before a release, even when a job is red for an environment reason; `weekly.yml` runs the latest Playwright every week. Both call `checks.yml`.
+- **Minor release**: check the supported floor against the policy with the npm `time` field before preparing it (`docs/releasing.md`, step 4).
+- **Patch from an older tag** (as 0.1.9): a `release/<version>` branch cut at the tag in a worktree, released from it, then merged into `main`.
 - **What Claude Code prepares**, left in the working tree:
   - the CHANGELOG: `## [Unreleased]` becomes `## [<version>] - <YYYY-MM-DD>` under a new empty `## [Unreleased]`; at the bottom, `[Unreleased]` compares `v<version>...HEAD` and a new `[<version>]` line compares `v<previous>...v<version>`. It proposes the commit `docs: prepare <version>`, which the maintainer commits and pushes before `npm version`;
   - when the UI visibly changed, the README screenshots (`npm run demo:screenshots`), from the CI `demo-report` artifact the maintainer downloads into `demo-report/`, for a `docs: refresh the README screenshots` commit;

@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- **Support policy for Playwright versions.** Loupe supports every Playwright minor version released in the twelve months before a Loupe release. **The minimum supported version is now Playwright 1.57.** Playwright 1.52 to 1.56 still install and run, with a warning. The peer dependency stays `^1.52.0`: **installing or upgrading Loupe does not change your Playwright version** when it is 1.52 or later. The supported floor is raised only in a minor release of Loupe, announced here. See [Supported Playwright versions](docs/support.md).
+
+### Added
+
+- A warning below the minimum supported Playwright version: at the start of the run, one line on stderr, `Loupe: Playwright 1.55.0 is below the minimum supported version (1.57). …`. The run, its exit code and the report are unchanged. Under `merge-reports`, the version judged is the one recorded in the blob reports.
+- CI tests Playwright 1.57, the supported floor, next to 1.52, the minimum installable version; a weekly job runs the tests against the latest Playwright, so a release that breaks Loupe is caught even without a push.
+- [`docs/support.md`](docs/support.md): the policy, what installing does to Playwright, the features of newer Playwright versions, the Playwright messages and internals Loupe depends on, and known Playwright issues.
+
+### Fixed
+
+- A Playwright internal Loupe reads that is missing or has an unexpected shape no longer makes the reporter throw. A non-object entry in the projects of Playwright's internal config threw; run scope now falls back to the public config.
+
 ## [0.1.9] - 2026-10-28
 
 No change to the JSON shape: `schemaVersion` stays 1.

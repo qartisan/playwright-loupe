@@ -1,4 +1,9 @@
 # playwright-loupe
+
+[![Playwright ≥ 1.57](https://img.shields.io/badge/Playwright-%E2%89%A5%201.57-blue)](docs/support.md)
+
+Supports [Playwright 1.57 and later](docs/support.md) (versions released in the last twelve months).
+
 Loupe — an HTML reporter for Playwright: a dashboard that shows what failed and why, error groups by normalized signature, tests grouped by project, file and describe block, and dimensions from tags and annotations. Native Playwright APIs only.
 
 > **Status: work in progress — the JSON schema will change before 1.0.**
@@ -18,7 +23,7 @@ Loupe is a reporter for Playwright, not affiliated with Microsoft.
 npm install --save-dev @qartisan/playwright-loupe
 ```
 
-Requires Node.js 22.12 or later and `@playwright/test` 1.52 or later. See [Compatibility](#compatibility).
+Requires Node.js 22.12 or later and `@playwright/test`. Installing Loupe does not change your Playwright version; see [Supported Playwright versions](#supported-playwright-versions).
 
 ## Usage
 
@@ -226,11 +231,22 @@ Found a barrier? [Open an issue](https://github.com/qartisan/playwright-loupe/is
 | | Supported | Tested in CI |
 | --- | --- | --- |
 | Node.js | 22.12 or later | latest 22.x and 24.x |
-| `@playwright/test` | 1.52 or later | 1.52 (on Node.js 22) and the latest version |
+| `@playwright/test` | See [below](#supported-playwright-versions) | Both floors (on Node.js 22), the version of the lockfile (on Node.js 22 and 24) and the latest version, also weekly |
 
 Node.js 22.12 is the minimum because ES module config files are loaded with `require(esm)`, see [`docs/config.md`](docs/config.md#how-config-files-are-loaded).
 
-> **Playwright 1.52 hangs on recent Node.js 24 releases.** `playwright test` never exits, even for a single passing test with the built-in `list` reporter and without Loupe: this is not caused by Loupe. Reproduced with Node.js 24.17.0; Node.js 24.11.1 is not affected, nor is Playwright 1.53 or later on Node.js 24.17.0. With Playwright 1.52, use Node.js 22, or upgrade Playwright.
+### Supported Playwright versions
+
+Loupe supports every Playwright minor version released in the twelve months before a Loupe release. The details are in [`docs/support.md`](docs/support.md).
+
+| | Version | Meaning |
+| --- | --- | --- |
+| Supported floor | 1.57 | Supported and tested. Raised only in a minor release of Loupe, announced in the CHANGELOG. |
+| Minimum installable | 1.52 | The peer dependency, `^1.52.0`. Loupe runs on it, tested, but writes one line to stderr at the start of the run: `Loupe: Playwright 1.55.0 is below the minimum supported version (1.57). …`. The run, its exit code and the report are unchanged. |
+
+**Installing Loupe does not change your Playwright version** when it is 1.52 or later. Below 1.52, npm upgrades Playwright within your own range (a caret range such as `^1.50.0`) or refuses to install with `ERESOLVE` (an exact version or a tilde range); `--legacy-peer-deps` installs anyway, but leaves an invalid tree that a later `npm ci` rejects. Upgrade Playwright deliberately first, check the lockfile diff and run `npx playwright install`.
+
+> **Playwright 1.52 hangs on Node.js 24.17 in ES module packages.** `playwright test` never exits, even for a single passing test with the built-in `list` reporter and without Loupe: this is not caused by Loupe. Node.js 24.11.1 is not affected, nor are CommonJS packages, nor Playwright 1.53 or later. With Playwright 1.52, use Node.js 22, or upgrade Playwright. Other known issues of some Playwright versions: [Known Playwright issues](docs/support.md#known-playwright-issues).
 
 ## Development
 

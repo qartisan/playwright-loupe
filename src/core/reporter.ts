@@ -79,7 +79,7 @@ export class LoupeReporter implements Reporter {
     }
   }
 
-  /** Errors outside tests: load errors, global setup / teardown, worker teardown. Playwright 1.52 does not pass `workerInfo`; recent versions do. */
+  /** Errors outside tests: load errors, global setup / teardown, worker teardown. Playwright passes `workerInfo` from 1.60; before, run errors have no project. */
   onError(error: TestError, workerInfo?: ErrorWorkerInfo): void {
     this.runErrors.push({ error, project: workerInfo?.project.name ?? null });
   }
