@@ -360,8 +360,8 @@ export async function buildReport(
     const title = redact.title(step);
     const chain = [...parents, title];
     // `subtitle` exists from Playwright 1.63. Before, the target of an action is in
-    // the title on 1.52 (`locator.getByRole('button').click`), and nowhere on
-    // 1.53–1.62 (`Click`, `Fill "<value>"`).
+    // the title: `locator.getByRole('button').click` on 1.52, `Click getByRole('button')`
+    // on 1.53–1.62.
     const subtitle = (step as { subtitle?: string }).subtitle;
     return {
       title,

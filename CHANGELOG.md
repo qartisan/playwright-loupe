@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-10-28
+
+No change to the JSON shape: `schemaVersion` stays 1.
+
+### Security
+
+- **Input values are now redacted on Playwright 1.53 to 1.62.** In those versions, the target locator follows the value in the step title (`Fill "<value>" getByLabel('Password')`), and Loupe only recognized `Fill "<value>"` with nothing after it: the value stayed in clear in the step title, and was not redacted in that attempt's errors and call logs either. Loupe now reads the target after the value, a locator or the text given to `locator.describe()`, and checks it for a secret-looking name, as on 1.52 and 1.63+. Affects 0.1.2 to 0.1.8; Playwright 1.52 and 1.63+ were not affected.
+- **Reports generated with Loupe 0.1.2 to 0.1.8 on Playwright 1.53 to 1.62 may contain input values (passwords) in step titles, and in the call logs of failed actions. Treat them as sensitive; do not publish them; rotate any credential they expose.** Reports already written are not rewritten.
+- Known limit: on Playwright 1.53 and 1.54, `type` and `pressSequentially` titles carry no value, so the value a failing call prints in its call log (`elementHandle.type("<value>")`) cannot be redacted; use `fill`, or Playwright 1.55 or later.
+- Correction: the 0.1.2 entry stated that Playwright 1.53 to 1.62 leave the target out of step titles; that was wrong. [Secret redaction](docs/config.md#secret-redaction) and [`Step.subtitle`](docs/schema/v1.md#step) are corrected.
+
+## [0.1.8] - 2026-10-28
+
 No change to the JSON shape: `schemaVersion` stays 1. The content of `stack`, `message` and the other strings changed: they no longer hold absolute paths.
 
 ### Changed
@@ -299,7 +312,9 @@ First public release. Work in progress: the reporter and its JSON model are usab
 - Node.js **22.12 or later** (`engines.node`), needed to load ES module config files. CI tests the latest Node.js 22.x and 24.x.
 - `@playwright/test` **1.52 or later** (peer dependency). CI tests 1.52 (on Node.js 22) and the latest version. Playwright 1.52 hangs on recent Node.js 24 releases, independently of Loupe: see [Compatibility](README.md#compatibility).
 
-[Unreleased]: https://github.com/qartisan/playwright-loupe/compare/v0.1.7...HEAD
+[Unreleased]: https://github.com/qartisan/playwright-loupe/compare/v0.1.9...HEAD
+[0.1.9]: https://github.com/qartisan/playwright-loupe/compare/v0.1.8...v0.1.9
+[0.1.8]: https://github.com/qartisan/playwright-loupe/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/qartisan/playwright-loupe/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/qartisan/playwright-loupe/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/qartisan/playwright-loupe/compare/v0.1.4...v0.1.5
