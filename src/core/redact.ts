@@ -8,9 +8,10 @@ import type { RedactMode } from '../config/types.js';
  *
  * - A, input steps: the value typed by `fill`, `type`, `pressSequentially`,
  *   `keyboard.type` or `keyboard.insertText` is replaced when the target
- *   (step subtitle, from Playwright 1.63) or the source line of the call has a
- *   secret-looking name. The same value is then redacted in the attempt's
- *   errors (Playwright repeats it in the call log: `fill("<value>")`).
+ *   (step subtitle from Playwright 1.63, step title before) or the source
+ *   line of the call has a secret-looking name. The same value is then
+ *   redacted in the attempt's errors (Playwright repeats it in the call log:
+ *   `fill("<value>")`).
  * - C, HTTP headers and URL parameters: values of header lines with a
  *   secret-looking name, as Playwright prints them in call logs
  *   (`- cookie: <value>`), and of URL query or fragment parameters with a
@@ -99,33 +100,74 @@ export function createNameMatcher(patterns: ReadonlyArray<string | RegExp>): (te
 
 /**
  * Value input steps, as Playwright titles them:
- * - 1.53+: `Fill "<value>"`, `Type "<value>"` (`type`, `pressSequentially`,
- *   `keyboard.type`), `Insert "<value>"` (`keyboard.insertText`). Quotes in
- *   the value are not escaped, so the value runs to the last quote; newlines
- *   are written `\n`.
+ * - 1.63+: `Fill "<value>"`, `Type "<value>"` (`type`, `pressSequentially`,
+ *   `keyboard.type`), `Insert "<value>"` (`keyboard.insertText`); the target
+ *   is in the subtitle.
+ * - 1.53 to 1.62: the same, followed by the target when the call has one
+ *   (not `keyboard.*`, not an element handle): `Fill "<value>" getByLabel('Password')`,
+ *   or the text given to `locator.describe()`: `Fill "<value>" Password field`.
+ *   On 1.53 and 1.54, `type` and `pressSequentially` have no value in the
+ *   title (`Type getByLabel('Password')`).
  * - 1.52: `locator.fill(<value>)`, `locator.getByLabel('Password').type(<value>)`,
  *   `locator.getByLabel('Password').pressSequentially(<value>)`,
  *   `keyboard.type(<value>)`, `keyboard.insertText(<value>)`. The target is
  *   part of the title for `type` and `pressSequentially` only.
+ *
+ * Quotes in the value are not escaped. Newlines are written `\n` from 1.57,
+ * kept as is before.
  */
-const INPUT_TITLE = /^(Fill|Type|Insert) "([\s\S]*)"$/;
+const INPUT_TITLE = /^(Fill|Type|Insert) "([\s\S]*)$/;
 const LEGACY_INPUT_TITLE = /^((?:locator|page|frame|keyboard|elementHandle)\b.*?)\.(fill|type|pressSequentially|insertText)\(([\s\S]*)\)$/;
+
+/**
+ * The start of a target locator after the value (1.53 to 1.62), as Playwright
+ * writes it for JavaScript; `internal:` when it falls back on the raw selector.
+ * The value runs to the last match, so a value containing `" getByLabel(` is
+ * not cut short. A locator ends with `)`, never with a quote.
+ */
+const TARGET_START = /" (?=(?:locator|frameLocator|getBy(?:Role|Text|Label|Placeholder|AltText|Title|TestId))\(|internal:)/g;
 
 export interface InputStep {
   /** The title with the value replaced by `[redacted]`. */
   redacted: string;
-  value: string;
-  /** Target written in the title (Playwright 1.52), null otherwise. */
+  /** The value, or every value the title allows when it is ambiguous, longest first. */
+  values: string[];
+  /** Target written in the title (Playwright 1.52 to 1.62), null otherwise. */
   target: string | null;
+}
+
+/** `rest`: the title after `Fill "`. */
+function parseCurrentInput(action: string, rest: string): InputStep | null {
+  const prefix = `${action} "`;
+  // No target (1.63+, keyboard, element handle): the value runs to the last quote.
+  if (rest.endsWith('"')) return { redacted: `${prefix}${REDACTED}"`, values: [rest.slice(0, -1)], target: null };
+  const locator = [...rest.matchAll(TARGET_START)].at(-1);
+  if (locator) {
+    const target = rest.slice(locator.index + 2);
+    return { redacted: `${prefix}${REDACTED}" ${target}`, values: [rest.slice(0, locator.index)], target };
+  }
+  // A `locator.describe()` text, which may contain quotes too, so the value may
+  // end at any `" `. The title is redacted up to the last one (over-redaction is
+  // the safe side), every cut is a candidate value for errors and call logs, and
+  // the name check reads everything after the first one, so a secret-looking
+  // word is never lost.
+  const cuts = [...rest.matchAll(/" /g)].map((match) => match.index);
+  const last = cuts.at(-1);
+  if (last === undefined) return null;
+  return {
+    redacted: `${prefix}${REDACTED}" ${rest.slice(last + 2)}`,
+    values: cuts.map((cut) => rest.slice(0, cut)).reverse(),
+    target: rest.slice((cuts[0] as number) + 2),
+  };
 }
 
 export function parseInputStep(title: string): InputStep | null {
   const current = INPUT_TITLE.exec(title);
-  if (current) return { redacted: `${current[1]} "${REDACTED}"`, value: current[2] as string, target: null };
+  if (current) return parseCurrentInput(current[1] as string, current[2] as string);
   const legacy = LEGACY_INPUT_TITLE.exec(title);
   if (legacy) {
     const [, target, action, value] = legacy as unknown as [string, string, string, string];
-    return { redacted: `${target}.${action}(${REDACTED})`, value, target };
+    return { redacted: `${target}.${action}(${REDACTED})`, values: [value], target };
   }
   return null;
 }
@@ -228,7 +270,7 @@ export function createRedactor(options: RedactOptions = DEFAULT_REDACT): Redacto
   const urlParams = (text: string): string =>
     text.replace(URL_PARAM, (param, separator: string, name: string) => (names(name) ? `${separator}${name}=${REDACTED}` : param));
 
-  /** A: the target (subtitle from 1.63, title on 1.52), else the source line of the call, has a secret-looking name. */
+  /** A: the target (subtitle from 1.63, title on 1.52 to 1.62), else the source line of the call, has a secret-looking name. */
   const isSecret = (step: StepLike, input: InputStep): boolean => {
     const subtitle = (step as { subtitle?: unknown }).subtitle;
     if (typeof subtitle === 'string' && names(subtitle)) return true;
@@ -250,9 +292,11 @@ export function createRedactor(options: RedactOptions = DEFAULT_REDACT): Redacto
           const input = step.category === 'pw:api' ? parseInputStep(step.title) : null;
           if (input && isSecret(step, input)) {
             titles.set(step, input.redacted);
-            typed.add(input.value);
-            // Titles from 1.53 write newlines as `\n`; call logs keep the real ones.
-            typed.add(input.value.replaceAll('\\n', '\n'));
+            for (const value of input.values) {
+              typed.add(value);
+              // Titles from 1.57 write newlines as `\n`; call logs keep the real ones.
+              typed.add(value.replaceAll('\\n', '\n'));
+            }
           }
           visit(step.steps);
         }

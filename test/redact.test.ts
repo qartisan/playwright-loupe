@@ -102,6 +102,29 @@ describe('parseInputStep', () => {
     ['Fill ""', '', `Fill "${REDACTED}"`],
     ['Type "typed-V4lue"', 'typed-V4lue', `Type "${REDACTED}"`],
     ['Insert "kbd-insert-V4lue"', 'kbd-insert-V4lue', `Insert "${REDACTED}"`],
+    // Playwright 1.53 to 1.62: the target follows the value (titles copied from 1.53, 1.57 and 1.62).
+    ["Fill \"Plain-Pa55word\" getByLabel('Password')", 'Plain-Pa55word', `Fill "${REDACTED}" getByLabel('Password')`],
+    ["Fill \"Quo\"ted-Pa55word\" getByLabel('Password')", 'Quo"ted-Pa55word', `Fill "${REDACTED}" getByLabel('Password')`],
+    ["Fill \"Space getByLabel('Decoy') value\" getByLabel('Password')", "Space getByLabel('Decoy') value", `Fill "${REDACTED}" getByLabel('Password')`],
+    ["Fill \"Tricky\" getByLabel('Decoy') value\" getByLabel('Password')", "Tricky\" getByLabel('Decoy') value", `Fill "${REDACTED}" getByLabel('Password')`],
+    ["Fill \"line-one\\nline-two\" getByLabel('Password')", 'line-one\\nline-two', `Fill "${REDACTED}" getByLabel('Password')`], // 1.57+
+    ["Fill \"line-one\nline-two\" getByLabel('Password')", 'line-one\nline-two', `Fill "${REDACTED}" getByLabel('Password')`], // 1.53 to 1.56
+    ["Fill \"\" getByLabel('Password')", '', `Fill "${REDACTED}" getByLabel('Password')`],
+    ["Fill \"raw-selector-V4lue\" locator('#email')", 'raw-selector-V4lue', `Fill "${REDACTED}" locator('#email')`],
+    ["Fill \"first-V4lue\" locator('input').first()", 'first-V4lue', `Fill "${REDACTED}" locator('input').first()`],
+    [
+      "Fill \"filter-V4lue\" locator('label').filter({ hasText: 'Password' }).locator('input')",
+      'filter-V4lue',
+      `Fill "${REDACTED}" locator('label').filter({ hasText: 'Password' }).locator('input')`,
+    ],
+    [
+      "Fill \"frame-V4lue\" locator('iframe').contentFrame().getByLabel('Password')",
+      'frame-V4lue',
+      `Fill "${REDACTED}" locator('iframe').contentFrame().getByLabel('Password')`,
+    ],
+    ["Type \"type-V4lue\" getByLabel('Password')", 'type-V4lue', `Type "${REDACTED}" getByLabel('Password')`], // type, pressSequentially: 1.55+
+    // A `locator.describe()` text.
+    ['Fill "described-V4lue" Password field', 'described-V4lue', `Fill "${REDACTED}" Password field`],
     // Playwright 1.52.
     [`locator.fill(${SECRET})`, SECRET, `locator.fill(${REDACTED})`],
     ["locator.getByLabel('Password').type(typed-V4lue)", 'typed-V4lue', `locator.getByLabel('Password').type(${REDACTED})`],
@@ -109,20 +132,39 @@ describe('parseInputStep', () => {
     ['keyboard.type(kbd-type-V4lue)', 'kbd-type-V4lue', `keyboard.type(${REDACTED})`],
     ['keyboard.insertText(a(b)c)', 'a(b)c', `keyboard.insertText(${REDACTED})`],
   ])('reads %s', (title, value, redacted) => {
-    expect(parseInputStep(title)).toMatchObject({ value, redacted });
+    expect(parseInputStep(title)).toMatchObject({ values: [value], redacted });
   });
 
-  it('keeps the 1.52 target, and has none from 1.53', () => {
+  it('keeps every candidate value when a description text has quotes, longest first', () => {
+    expect(parseInputStep('Fill "described-quoted-V4lue" the "secret" box')).toMatchObject({
+      values: ['described-quoted-V4lue" the "secret', 'described-quoted-V4lue'],
+      redacted: `Fill "${REDACTED}" box`,
+    });
+  });
+
+  it('keeps the target of the title (1.52 to 1.62), and has none from 1.63', () => {
     expect(parseInputStep("locator.getByLabel('Password').type(x)")?.target).toBe("locator.getByLabel('Password')");
+    expect(parseInputStep("Fill \"Tricky\" getByLabel('Decoy') value\" getByLabel('Email')")?.target).toBe("getByLabel('Email')");
     expect(parseInputStep('Fill "x"')?.target).toBeNull();
   });
 
-  it.each(['Click', 'Press "Enter"', 'Select option', 'elementHandle.fill', "locator.getByLabel('Email').press(Enter)", 'Expect "toHaveValue"', 'Fill form'])(
-    'ignores %s',
-    (title) => {
-      expect(parseInputStep(title)).toBeNull();
-    },
-  );
+  it('reads the whole description text for the name check', () => {
+    expect(parseInputStep('Fill "described-quoted-V4lue" the "secret" box')?.target).toBe('the "secret" box');
+  });
+
+  it.each([
+    'Click',
+    'Press "Enter"',
+    "Press \"Enter\" getByLabel('Password')",
+    "Type getByLabel('Password')", // type, pressSequentially: 1.53 and 1.54 leave the value out
+    'Select option',
+    'elementHandle.fill',
+    "locator.getByLabel('Email').press(Enter)",
+    'Expect "toHaveValue"',
+    'Fill form',
+  ])('ignores %s', (title) => {
+    expect(parseInputStep(title)).toBeNull();
+  });
 });
 
 describe('mechanism A: input steps on secret-looking targets', () => {
@@ -139,6 +181,39 @@ describe('mechanism A: input steps on secret-looking targets', () => {
     expect(redactor().attempt([type]).title(type)).toBe(`locator.getByLabel('Password').type(${REDACTED})`);
   });
 
+  it('uses the target after the value (Playwright 1.53 to 1.62)', () => {
+    const fill = step(`Fill "${SECRET}" getByLabel('Password')`);
+    const email = step("Fill \"qa.user@example.test\" getByLabel('Email')");
+    // A value that looks like a secret field does not make its own field secret.
+    const decoy = step("Fill \"Tricky\" getByLabel('Password') value\" getByLabel('Email')");
+    const described = step('Fill "described-V4lue" Password field');
+    const scope = redactor().attempt([fill, email, decoy, described]);
+    expect(scope.title(fill)).toBe(`Fill "${REDACTED}" getByLabel('Password')`);
+    expect(scope.title(email)).toBe("Fill \"qa.user@example.test\" getByLabel('Email')");
+    expect(scope.title(decoy)).toBe("Fill \"Tricky\" getByLabel('Password') value\" getByLabel('Email')");
+    expect(scope.title(described)).toBe(`Fill "${REDACTED}" Password field`);
+    const message = [
+      'TimeoutError: locator.fill: Timeout 1500ms exceeded.',
+      'Call log:',
+      "  - waiting for getByLabel('Password')",
+      `    - fill("${SECRET}")`,
+    ].join('\n');
+    expect(scope.text(message)).not.toContain(SECRET);
+  });
+
+  it('redacts the real value in the call log when a description text has quotes', () => {
+    const fill = step('Fill "described-quoted-V4lue" the "secret" box');
+    const message = [
+      'TimeoutError: locator.fill: Timeout 1500ms exceeded.',
+      'Call log:',
+      '    - fill("described-quoted-V4lue")',
+    ].join('\n');
+    const scope = redactor().attempt([fill]);
+    expect(scope.title(fill)).toBe(`Fill "${REDACTED}" box`);
+    expect(scope.text(message)).not.toContain('described-quoted-V4lue');
+    expect(scope.text(message)).toContain(`    - fill("${REDACTED}")`);
+  });
+
   it('falls back on the source line of the call, on every version', () => {
     const sources = {
       [SOURCE]: [
@@ -153,7 +228,7 @@ describe('mechanism A: input steps on secret-looking targets', () => {
     const keyboard = step('Type "kbd-type-V4lue"', at(2)); // no target on any version
     const neutral = step('Fill "plain notes"', { subtitle: "locator('#field-3')", ...at(3) });
     const legacyFill = step('locator.fill(legacy-V4lue)', at(4)); // 1.52: no target in a fill title
-    const noTarget = step('Fill "range-V4lue"', at(4)); // 1.53–1.62: no subtitle
+    const noTarget = step('Fill "range-V4lue"', at(4)); // element handle: no target on any version
     const scope = redactor({}, sources).attempt([neutralLocator, keyboard, neutral, legacyFill, noTarget]);
     expect(scope.title(neutralLocator)).toBe(`Fill "${REDACTED}"`);
     expect(scope.title(keyboard)).toBe(`Type "${REDACTED}"`);

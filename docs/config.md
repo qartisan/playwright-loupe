@@ -173,8 +173,8 @@ redact: {
 
 **Input steps (on by default).** The value typed by `fill`, `type`, `pressSequentially`, `keyboard.type` or `keyboard.insertText` is redacted in the step title when the target has a secret-looking name: `Fill "[redacted]"` with the subtitle `getByLabel('Password')`. Loupe looks at:
 
-- the step subtitle (the locator), from Playwright 1.63, and the locator Playwright 1.52 writes in `type` and `pressSequentially` titles;
-- otherwise, **the source line of the call**, read from disk, on every version. It catches `keyboard.*` (which never has a locator), the versions without a locator in the step (`fill` on 1.52 to 1.62), and neutral locators when the code names the value: `await page.locator('#field-3').fill(password)`. A line that mentions a secret-looking name redacts its value even when the field is not secret; over-redaction is the safe side. When the source file cannot be read (`merge-reports` on a machine without the code), this fallback is skipped.
+- the step subtitle (the locator), from Playwright 1.63; the locator (or the `locator.describe()` text) Playwright 1.53 to 1.62 write after the value, `Fill "[redacted]" getByLabel('Password')`; the locator Playwright 1.52 writes in `type` and `pressSequentially` titles;
+- otherwise, **the source line of the call**, read from disk, on every version. It catches `keyboard.*` (which never has a locator), `fill` on 1.52 (no locator in the step), and neutral locators when the code names the value: `await page.locator('#field-3').fill(password)`. A line that mentions a secret-looking name redacts its value even when the field is not secret; over-redaction is the safe side. When the source file cannot be read (`merge-reports` on a machine without the code), this fallback is skipped.
 
 The same value is then redacted where Playwright repeats it in that attempt: the call log of a failing action (`- fill("[redacted]")`), `Expected` / `Received` lines of an assertion on the field, other step titles. A value shorter than 6 characters (a PIN) is only redacted in its quoted form there, so line numbers in stacks stay intact.
 
