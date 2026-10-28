@@ -1,0 +1,66 @@
+name: Checks
+
+# The checks of one Node.js and Playwright combination: typecheck, build, the
+# Vitest suite and the fixture suite. Called by ci.yml for each job of its
+# matrix, and by weekly.yml on the latest Playwright, so both run the same steps.
+
+on:
+  workflow_call:
+    inputs:
+      node:
+        description: Node.js version given to actions/setup-node.
+        type: string
+        required: true
+      playwright:
+        description: "`current` (the lockfile version) or a version or dist-tag of @playwright/test."
+        type: string
+        required: true
+      os:
+        description: Runner image.
+        type: string
+        default: ubuntu-latest
+
+# Only reads the repository.
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ${{ inputs.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Playwright ${{ inputs.playwright }}
+        if: ${{ inputs.playwright != 'current' }}
+        run: npm install --no-save @playwright/test@${{ inputs.playwright }}
+
+      - name: Playwright version
+        run: npx playwright --version
+
+      # Needed by the fixture integration tests in `npm test`, so installed before it.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test
+
+      # Exits 0 only when the suite fails in the intended way (see scripts/run-fixtures.mjs).
+      - name: Run fixture suite
+        run: npm run fixtures
+
+      - name: Upload Loupe report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: loupe-report-node-${{ inputs.node }}-playwright-${{ inputs.playwright }}
+          path: loupe-report
+          if-no-files-found: error

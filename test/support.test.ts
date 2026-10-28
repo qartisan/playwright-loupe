@@ -34,7 +34,7 @@ describe('playwrightVersionWarning', () => {
   it('warns below the supported floor', () => {
     expect(playwrightVersionWarning('1.55.0')).toBe(
       `Loupe: Playwright 1.55.0 is below the minimum supported version (${MIN_PLAYWRIGHT_SUPPORTED}). ` +
-        `The report is generated, but some data may be missing or wrong. See ${SUPPORT_URL}.`,
+        `The report is generated, but some data may be missing or wrong. See ${SUPPORT_URL}`,
     );
     expect(playwrightVersionWarning('1.52.0')).not.toBeNull();
     expect(playwrightVersionWarning('0.99.0')).not.toBeNull();
@@ -74,5 +74,12 @@ describe('Playwright floors', () => {
     // `^1.52.0` or `>=1.52.0 <2`: the lower bound is the first version of the range.
     const lower = /^(?:\^|>=\s*)(\d+\.\d+\.\d+)\b/.exec(range)?.[1];
     expect(lower, `peerDependencies["@playwright/test"] is "${range}"`).toBe(`${MIN_PLAYWRIGHT_INSTALLABLE}.0`);
+  });
+
+  it('has a CI job on each floor', () => {
+    const ci = readFileSync(path.join(ROOT, '.github/workflows/ci.yml'), 'utf8');
+    const job = (version: string, role: string) => new RegExp(`playwright: ${version.replace('.', '\\.')}\\.0\\n\\s+role: ${role}\\n`);
+    expect(ci).toMatch(job(MIN_PLAYWRIGHT_INSTALLABLE, 'minimum installable'));
+    expect(ci).toMatch(job(MIN_PLAYWRIGHT_SUPPORTED, 'minimum supported'));
   });
 });

@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -102,6 +102,26 @@ describe('sources of run.git in a real run', () => {
     ['false', false],
   ])('accepts LOUPE_GIT_LOCAL=%s', (value, reads) => {
     expect(run(`list-${value}`, { LOUPE_GIT_LOCAL: value }, true).run.git).toEqual(reads ? local : NOTHING);
+  }, 120_000);
+
+  // `merge-reports` is detected through Playwright's internal `_mode` reporter
+  // option: without it, a merged report would take this checkout's HEAD.
+  it('takes no local commit in a report written by merge-reports', (context) => {
+    if (local.commit === null) context.skip('not in a git checkout: a local commit could not show');
+    const blobFolder = path.join(workDir, 'blob');
+    const blob = playwright(['test', '--config', GIT_CONFIG, '--reporter', 'blob'], { ...NO_CI, PLAYWRIGHT_BLOB_OUTPUT_DIR: blobFolder });
+    const zips = existsSync(blobFolder) ? readdirSync(blobFolder).filter((file) => file.endsWith('.zip')) : [];
+    if (zips.length === 0) throw new Error(`No blob produced (exit code ${blob.status}).\n${blob.output}`);
+    const blobs = path.join(workDir, 'blobs');
+    mkdirSync(blobs);
+    for (const zip of zips) copyFileSync(path.join(blobFolder, zip), path.join(blobs, zip));
+
+    const outputFolder = path.join(workDir, 'merged');
+    const merge = playwright(['merge-reports', '--config', GIT_CONFIG, blobs], { ...NO_CI, LOUPE_FIXTURE_OUTPUT: outputFolder });
+    const report = readReport(outputFolder, `merge-reports exit code ${merge.status}.\n${merge.output}`);
+    expect(merge.status, merge.output).toBe(0);
+    expect(schemaErrors(report)).toEqual([]);
+    expect(report.run.git).toEqual(NOTHING);
   }, 120_000);
 
   it('stops the run on any other LOUPE_GIT_LOCAL value', () => {

@@ -75,7 +75,17 @@ describe('run scope with a real Playwright run', () => {
     expect(report.run.scopeReasons).toEqual(['file-filter', 'project-filter']);
   }, 60_000);
 
-  describe.runIf(SUPPORTS_DEFAULT_PROJECTS)('with a default: false project', () => {
+  // Skipped below Playwright 1.64, where `default` does not exist.
+  describe.runIf(SUPPORTS_DEFAULT_PROJECTS)('with a default: false project (Playwright 1.64+)', () => {
+    // The only case that tells Playwright's internal `default` flag from its
+    // fallback: without the flag, the missing `nightly` makes the run partial.
+    it('reports the default projects selected with --project as full: the non-default one is not a reference', () => {
+      const report = run('default-main', ['--project', 'main'], SCOPE_DEFAULT_CONFIG);
+      expect(ran(report)).toEqual(['main > runs when selected', 'setup > prepares']);
+      expect(report.run.scope).toBe('full');
+      expect(report.run.scopeReasons).toEqual([]);
+    }, 60_000);
+
     it('reports a plain run as full although the non-default project did not run', () => {
       const report = run('default-plain', [], SCOPE_DEFAULT_CONFIG);
       expect(ran(report)).toEqual(['main > runs when selected', 'setup > prepares']);

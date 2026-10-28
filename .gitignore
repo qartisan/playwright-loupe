@@ -159,6 +159,7 @@ playwright-report
 loupe-report-load-error
 loupe-report-scope
 loupe-report-version
+loupe-report-internals
 loupe-report-sample
 # Demo suite report, written by `npm run demo`
 demo-report

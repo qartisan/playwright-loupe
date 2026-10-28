@@ -52,6 +52,10 @@ Everything runs offline, through `page.setContent` and local servers on 127.0.0.
 
 `version.config.ts` runs `scope/plain.spec.ts` alone, for the run-time warning below the supported Playwright version (see `test/support.integration.test.ts`). A test-only reporter listed before Loupe, `helpers/playwright-version.ts`, replaces `config.version` with `LOUPE_FIXTURE_PLAYWRIGHT_VERSION`, so the warning is checked on every Playwright version CI runs.
 
+## Playwright internals
+
+`internals.config.ts` runs `scope/` like `scope.config.ts`, its intentional `test.only` included, to check that Loupe still produces its report when the Playwright internals it reads are missing or reshaped (see `test/internals.integration.test.ts`). With `LOUPE_FIXTURE_INTERNALS=missing` or `reshaped`, a test-only reporter listed before Loupe, `helpers/internals.ts`, removes or reshapes `_only`, the internal config under `configInternalSymbol` and `metadata.actualWorkers` just before Loupe reads them, and the config file overrides the `_mode` and `configDir` reporter options.
+
 ## Git
 
 `git.config.ts` runs `git/`, a single passing browserless test, for the sources of `run.git` (see `test/git.integration.test.ts`). Playwright's own capture is off unless `LOUPE_FIXTURE_CAPTURE_GIT=commit`, even on CI; `LOUPE_FIXTURE_GIT_COMMIT` puts a commit hash in the metadata, as `metadata.gitCommit`. The test empties the CI variables, so the values come from the metadata or from this repository.

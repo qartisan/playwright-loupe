@@ -9,60 +9,51 @@ permissions:
   contents: read
 
 jobs:
+  # The steps are in checks.yml, shared with the weekly job (weekly.yml).
   ci:
-    name: Node ${{ matrix.node }} · Playwright ${{ matrix.playwright }}
-    runs-on: ${{ matrix.os || 'ubuntu-latest' }}
+    name: Node ${{ matrix.node }} · Playwright ${{ matrix.playwright }}${{ matrix.role && format(' ({0})', matrix.role) || '' }}
     strategy:
       fail-fast: false
       matrix:
         # `22` resolves to the latest 22.x, which satisfies engines.node (>=22.12).
         node: [22, 24]
         playwright: [current]
+        # The two floors are defined in src/core/support.ts (docs/support.md);
+        # test/support.test.ts keeps these versions in line with them.
         include:
-          # Minimum supported version (peerDependency), see docs/schema/v1.md:
-          # exercises the pre-1.61 (`process.argv`) and pre-1.64 (no
-          # `filteredProjects`) paths of run scope detection.
+          # Technical floor (peerDependency lower bound): exercises the 1.52
+          # step titles in redaction and the pre-1.60, pre-1.61 and pre-1.64
+          # fallbacks. Node 22: Playwright 1.52 hangs on Node 24 in ES module
+          # packages.
           - node: 22
             playwright: 1.52.0
-            # Playwright 1.52 cannot install Chromium on Ubuntu 26.04 (ubuntu-latest): pinned to 24.04.
+            role: minimum installable
+            # Playwright knows Ubuntu 26.04 (ubuntu-latest) from 1.61 only: pinned
+            # to 24.04 until this floor is 1.61 or newer.
+            os: ubuntu-24.04
+          # Supported floor (support policy): the oldest version the run-time
+          # warning does not flag. Node 22: on 1.53 to 1.57, in ES module
+          # packages under Node 24, Playwright reports wrong test and step
+          # lines (fixed in 1.58), which also misleads the source-line
+          # fallback of redaction; and installing 1.57's Chromium hung under
+          # Node 24.17.
+          - node: 22
+            playwright: 1.57.0
+            role: minimum supported
+            # Playwright knows Ubuntu 26.04 (ubuntu-latest) from 1.61 only: pinned
+            # to 24.04 until this floor is 1.61 or newer.
             os: ubuntu-24.04
           # Latest release, ahead of the lockfile: catches changes to the
-          # internals Loupe reads (`_only`, see test/scope.integration.test.ts).
+          # internals Loupe reads (test/internals.integration.test.ts,
+          # test/scope.integration.test.ts, test/git.integration.test.ts).
+          # weekly.yml runs it too, without a push.
           - node: 24
             playwright: latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ matrix.node }}
-          cache: npm
-
-      - run: npm ci
-
-      - name: Install Playwright ${{ matrix.playwright }}
-        if: ${{ matrix.playwright != 'current' }}
-        run: npm install --no-save @playwright/test@${{ matrix.playwright }}
-
-      # Needed by the fixture integration tests in `npm test`, so installed before it.
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
-
-      - run: npm run typecheck
-      - run: npm run build
-      - run: npm test
-
-      # Exits 0 only when the suite fails in the intended way (see scripts/run-fixtures.mjs).
-      - name: Run fixture suite
-        run: npm run fixtures
-
-      - name: Upload Loupe report
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: loupe-report-node-${{ matrix.node }}-playwright-${{ matrix.playwright }}
-          path: loupe-report
-          if-no-files-found: error
+    uses: ./.github/workflows/checks.yml
+    with:
+      node: ${{ format('{0}', matrix.node) }}
+      playwright: ${{ matrix.playwright }}
+      os: ${{ matrix.os || 'ubuntu-latest' }}
 
   # The demo suite behind the live demo report (demo/README.md): checks on
   # every push that it still fails exactly as intended. No deployment here.
