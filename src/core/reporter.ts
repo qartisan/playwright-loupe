@@ -11,6 +11,7 @@ import { LOCAL_GIT_TIMEOUT_MS, readLocalGit, type LocalGit } from './git.js';
 import { injectData, injectSettings, type RendererSettings } from './inject.js';
 import { secretValues } from './redact.js';
 import { SCOPE_ENV, parseScopeOverride } from './scope.js';
+import { playwrightVersionWarning } from './support.js';
 import { generatorVersion } from './version.js';
 
 /**
@@ -38,6 +39,8 @@ export class LoupeReporter implements Reporter {
   private config: FullConfig | undefined;
   private suite: Suite | undefined;
   private runId = '';
+  /** The Playwright version warning is written once per reporter, even if `onBegin` runs again. */
+  private versionChecked = false;
 
   constructor(options: LoupeReporterOptions = {}) {
     // Everything is validated here: an error thrown by the constructor stops the
@@ -60,6 +63,12 @@ export class LoupeReporter implements Reporter {
     this.config = config;
     this.suite = suite;
     this.runId = randomUUID();
+    // Below the supported floor, one line on stderr; the run and the report are unchanged.
+    if (!this.versionChecked) {
+      this.versionChecked = true;
+      const warning = playwrightVersionWarning(config.version);
+      if (warning) console.warn(warning);
+    }
     // One batch of read-only git commands per run, started now and awaited in onEnd.
     if (this.loupeConfig.git.local) {
       this.localGit = readLocalGit({

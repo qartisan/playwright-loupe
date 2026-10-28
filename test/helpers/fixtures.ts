@@ -10,6 +10,7 @@ export const FIXTURE_CONFIG = 'fixtures/playwright.config.ts';
 export const LOAD_ERROR_CONFIG = 'fixtures/load-error.config.ts';
 export const SCOPE_CONFIG = 'fixtures/scope.config.ts';
 export const SCOPE_DEFAULT_CONFIG = 'fixtures/scope-default.config.ts';
+export const VERSION_CONFIG = 'fixtures/version.config.ts';
 
 /** Fails early with a clear message when the reporter was not built. */
 export function assertBuilt(): void {
