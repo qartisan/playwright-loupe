@@ -33,7 +33,7 @@ describe('parseMinorVersion', () => {
 describe('playwrightVersionWarning', () => {
   it('warns below the supported floor', () => {
     expect(playwrightVersionWarning('1.55.0')).toBe(
-      `[loupe] Playwright 1.55.0 is below the minimum supported version (${MIN_PLAYWRIGHT_SUPPORTED}). ` +
+      `Loupe: Playwright 1.55.0 is below the minimum supported version (${MIN_PLAYWRIGHT_SUPPORTED}). ` +
         `The report is generated, but some data may be missing or wrong. See ${SUPPORT_URL}.`,
     );
     expect(playwrightVersionWarning('1.52.0')).not.toBeNull();
@@ -49,7 +49,7 @@ describe('playwrightVersionWarning', () => {
   it('compares prereleases by their minor version', () => {
     expect(playwrightVersionWarning('1.57.0-alpha-2025-11-01')).toBeNull();
     expect(playwrightVersionWarning('1.65.0-alpha-2026-10-28')).toBeNull();
-    expect(playwrightVersionWarning('1.56.0-beta-1759000000000')).toMatch(/^\[loupe\] Playwright 1\.56\.0-beta-1759000000000 is below/);
+    expect(playwrightVersionWarning('1.56.0-beta-1759000000000')).toMatch(/^Loupe: Playwright 1\.56\.0-beta-1759000000000 is below/);
   });
 
   it('does not warn when the version is missing or unreadable', () => {

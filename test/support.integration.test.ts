@@ -24,7 +24,7 @@ function outcome({ status, report }: VersionRun): unknown {
   };
 }
 
-const warnings = (output: string): string[] => output.split('\n').filter((line) => line.startsWith('[loupe] Playwright'));
+const warnings = (output: string): string[] => output.split('\n').filter((line) => line.startsWith('Loupe: Playwright'));
 
 /**
  * The run-time warning below the supported Playwright version, in real runs of
@@ -62,7 +62,7 @@ describe('Playwright version warning in a real run', () => {
     const below = run('1.55.0');
     expect(below.status, below.output).toBe(0);
     expect(warnings(below.output)).toEqual([
-      expect.stringMatching(/^\[loupe\] Playwright 1\.55\.0 is below the minimum supported version \(1\.\d+\)\. The report is generated/),
+      expect.stringMatching(/^Loupe: Playwright 1\.55\.0 is below the minimum supported version \(1\.\d+\)\. The report is generated/),
     ]);
   }, 60_000);
 

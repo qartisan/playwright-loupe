@@ -43,7 +43,7 @@ export function isBelow(version: unknown, floor: string): boolean {
 export function playwrightVersionWarning(version: unknown): string | null {
   if (!isBelow(version, MIN_PLAYWRIGHT_SUPPORTED)) return null;
   return (
-    `[loupe] Playwright ${String(version).trim()} is below the minimum supported version (${MIN_PLAYWRIGHT_SUPPORTED}). ` +
-    `The report is generated, but some data may be missing or wrong. See ${SUPPORT_URL}.`
+    `Loupe: Playwright ${String(version).trim()} is below the minimum supported version (${MIN_PLAYWRIGHT_SUPPORTED}). ` +
+    `The report is generated, but some data may be missing or wrong. See ${SUPPORT_URL}`
   );
 }
