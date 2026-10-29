@@ -206,6 +206,8 @@ A runner image change, a registry outage or a browser download failure can turn 
 2. Read the log and identify the cause. Re-run the job once. If it is still red, fix the CI in a separate `ci:` commit, which does not go in the CHANGELOG, and wait for every job to be green before resuming the procedure at the step where it stopped.
 3. If the version is already published when a job turns red, fix the CI after the fact with a `ci:` commit. No new release unless the published package itself is affected.
 
+An intermittent failure is not an environment failure until it is explained, and re-running until green is not a fix: the 1.57 job that failed twice on wrong test lines before 0.2.0 was caused by two Playwright races, which also affect user reports (see [Known Playwright issues](support.md#known-playwright-issues)).
+
 ## Weekly job on the latest Playwright
 
 `.github/workflows/weekly.yml` (**Weekly latest Playwright**) runs the checks of the `Node 24 · Playwright latest` job every Monday at 05:17 UTC, and on demand from the Actions tab (**Run workflow**). Both use `.github/workflows/checks.yml`. It catches a Playwright release that breaks Loupe even when nobody pushes: a changed message format or internal (see [`docs/support.md`](support.md#where-a-playwright-change-can-degrade-the-report)).
