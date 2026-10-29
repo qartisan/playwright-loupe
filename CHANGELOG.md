@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-29
+
+No change to the JSON shape: `schemaVersion` stays 1.
+
 ### Changed
 
 - **Support policy for Playwright versions.** Loupe supports every Playwright minor version released in the twelve months before a Loupe release. **The minimum supported version is now Playwright 1.57.** Playwright 1.52 to 1.56 still install and run, with a warning. The peer dependency stays `^1.52.0`: **installing or upgrading Loupe does not change your Playwright version** when it is 1.52 or later. The supported floor is raised only in a minor release of Loupe, announced here. See [Supported Playwright versions](docs/support.md).
@@ -326,7 +330,8 @@ First public release. Work in progress: the reporter and its JSON model are usab
 - Node.js **22.12 or later** (`engines.node`), needed to load ES module config files. CI tests the latest Node.js 22.x and 24.x.
 - `@playwright/test` **1.52 or later** (peer dependency). CI tests 1.52 (on Node.js 22) and the latest version. Playwright 1.52 hangs on recent Node.js 24 releases, independently of Loupe: see [Compatibility](README.md#compatibility).
 
-[Unreleased]: https://github.com/qartisan/playwright-loupe/compare/v0.1.9...HEAD
+[Unreleased]: https://github.com/qartisan/playwright-loupe/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/qartisan/playwright-loupe/compare/v0.1.9...v0.2.0
 [0.1.9]: https://github.com/qartisan/playwright-loupe/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/qartisan/playwright-loupe/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/qartisan/playwright-loupe/compare/v0.1.6...v0.1.7
