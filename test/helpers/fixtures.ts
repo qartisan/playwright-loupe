@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ConsoleMessage, Page } from '@playwright/test';
@@ -22,19 +23,35 @@ export function assertBuilt(): void {
   }
 }
 
-/** Runs `npx playwright <args>`, from the repository root unless `cwd` is given. */
+/**
+ * Runs `npx playwright <args>`, from the repository root unless `cwd` is given.
+ *
+ * Each run gets its own transform cache, removed afterwards. Vitest runs test
+ * files in parallel, so several runs compile the same fixture files at once;
+ * from Playwright 1.56, a run that compiles a file deletes the cached entries
+ * of that file, including the source map another run has just written, and
+ * that run then reports test lines of the compiled file
+ * (https://github.com/microsoft/playwright/issues/43601). `PWTEST_CACHE_DIR`
+ * is undocumented, but it is the workaround the Playwright maintainers advise
+ * there.
+ */
 export function playwright(
   args: string[],
   env: Record<string, string> = {},
   cwd: string = ROOT,
 ): { status: number | null; output: string } {
-  const result = spawnSync('npx', ['playwright', ...args], {
-    cwd,
-    env: { ...process.env, ...env },
-    encoding: 'utf8',
-    shell: process.platform === 'win32',
-  });
-  return { status: result.status, output: `${result.stdout}\n${result.stderr}` };
+  const cacheDir = mkdtempSync(path.join(tmpdir(), 'loupe-pw-cache-'));
+  try {
+    const result = spawnSync('npx', ['playwright', ...args], {
+      cwd,
+      env: { ...process.env, PWTEST_CACHE_DIR: cacheDir, ...env },
+      encoding: 'utf8',
+      shell: process.platform === 'win32',
+    });
+    return { status: result.status, output: `${result.stdout}\n${result.stderr}` };
+  } finally {
+    rmSync(cacheDir, { recursive: true, force: true });
+  }
 }
 
 export function readReport(outputFolder: string, context: string): LoupeReport {

@@ -33,9 +33,9 @@ jobs:
             os: ubuntu-24.04
           # Supported floor (support policy): the oldest version the run-time
           # warning does not flag. Node 22: on 1.53 to 1.57, in ES module
-          # packages under Node 24, Playwright reports wrong test and step
-          # lines (fixed in 1.58), which also misleads the source-line
-          # fallback of redaction; and installing 1.57's Chromium hung under
+          # packages, Playwright reports wrong test lines on every run under
+          # Node 24 (intermittently under Node 22, see wait_for_source_maps
+          # below; fixed in 1.58); and installing 1.57's Chromium hung under
           # Node 24.17.
           - node: 22
             playwright: 1.57.0
@@ -43,6 +43,14 @@ jobs:
             # Playwright knows Ubuntu 26.04 (ubuntu-latest) from 1.61 only: pinned
             # to 24.04 until this floor is 1.61 or newer.
             os: ubuntu-24.04
+            # On 1.53 to 1.57, in ES module packages, the ESM loader registers a
+            # test file's source map without waiting, so on a loaded machine the
+            # file can run first and its tests get lines of the compiled file
+            # (fixed in 1.58). This undocumented variable restores the awaited
+            # registration. It is gone in 1.58 and deadlocks Playwright on
+            # Node 24: never set it on another job (1.52 is not affected).
+            # Remove it when the supported floor reaches 1.58.
+            wait_for_source_maps: true
           # Latest release, ahead of the lockfile: catches changes to the
           # internals Loupe reads (test/internals.integration.test.ts,
           # test/scope.integration.test.ts, test/git.integration.test.ts).
@@ -54,6 +62,7 @@ jobs:
       node: ${{ format('{0}', matrix.node) }}
       playwright: ${{ matrix.playwright }}
       os: ${{ matrix.os || 'ubuntu-latest' }}
+      wait-for-source-maps: ${{ matrix.wait_for_source_maps || false }}
 
   # The demo suite behind the live demo report (demo/README.md): checks on
   # every push that it still fails exactly as intended. No deployment here.

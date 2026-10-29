@@ -19,6 +19,10 @@ on:
         description: Runner image.
         type: string
         default: ubuntu-latest
+      wait-for-source-maps:
+        description: Sets PLAYWRIGHT_WAIT_FOR_SOURCE_MAPS=1 (Playwright 1.53 to 1.57 on Node 22 only; see ci.yml).
+        type: boolean
+        default: false
 
 # Only reads the repository.
 permissions:
@@ -28,6 +32,9 @@ jobs:
   checks:
     name: Checks
     runs-on: ${{ inputs.os }}
+    env:
+      # Playwright reads the variable as a boolean: the empty string leaves it off.
+      PLAYWRIGHT_WAIT_FOR_SOURCE_MAPS: ${{ inputs.wait-for-source-maps && '1' || '' }}
     steps:
       - uses: actions/checkout@v7
 
