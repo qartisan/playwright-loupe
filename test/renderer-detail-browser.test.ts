@@ -6,6 +6,7 @@ import { chromium, type Browser, type Page } from '@playwright/test';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DEFAULT_RENDERER_SETTINGS, injectData, injectSettings, type RendererSettings } from '../src/core/inject.js';
 import { errorGroups, rankGroups } from '../src/renderer/dashboard.js';
+import { rerunCommand } from '../src/renderer/detail/rerun.js';
 import type { LoupeReport, TestCase } from '../src/schema/v1.js';
 import { ROOT, assertBuilt, isMissingAttachmentFile } from './helpers/fixtures.js';
 
@@ -281,7 +282,7 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     const button = page.getByRole('button', { name: 'Copy rerun command', exact: true });
     expect(await button.getAttribute('title')).toContain('Playwright root directory');
     await button.click();
-    await expect.poll(copied).toEqual([`npx playwright test ${failing.file}:${failing.line} --project=chromium-a`]);
+    await expect.poll(copied).toEqual([rerunCommand([failing])]);
     await expect.poll(() => page.getByRole('status').textContent()).toContain('Rerun command copied to the clipboard.');
     // It says so on screen, its accessible name unchanged: the live region is what announces the copy.
     expect(await page.locator('.test-actions .copy-button').first().textContent()).toBe('Copy rerun command · Copied');
@@ -345,9 +346,8 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     const lines = [...new Set(report.tests.filter((test) => test.file === timeout.file && test.outcome === 'failed').map((test) => test.line))].sort((a, b) => a - b);
     const fileButton = page.getByRole('button', { name: `Copy rerun command · ${lines.length} failed tests in this file, in chromium-a, chromium-b` });
     await fileButton.click();
-    await expect.poll(async () => (await page.evaluate<string[]>('window.__copied'))[0]).toBe(
-      `npx playwright test ${lines.map((line) => `${timeout.file}:${line}`).join(' ')} --project=chromium-a --project=chromium-b`,
-    );
+    const failedInFile = report.tests.filter((test) => test.file === timeout.file && test.outcome === 'failed');
+    await expect.poll(async () => (await page.evaluate<string[]>('window.__copied'))[0]).toBe(rerunCommand(failedInFile));
     await page.close();
   });
 
@@ -377,7 +377,7 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     const dialog = page.getByRole('dialog', { name: 'Copy rerun command' });
     await dialog.waitFor();
     const area = dialog.getByRole('textbox');
-    expect(await area.inputValue()).toBe(`npx playwright test ${failing.file}:${failing.line} --project=chromium-a`);
+    expect(await area.inputValue()).toBe(rerunCommand([failing]));
     expect(await area.evaluate((element) => element === element.ownerDocument.activeElement && (element as unknown as { selectionEnd: number }).selectionEnd > 0)).toBe(true);
     await page.keyboard.press('Escape');
     await dialog.waitFor({ state: 'hidden' });
@@ -392,11 +392,11 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     const button = page.getByRole('button', { name: new RegExp(`^Copy rerun command · ${failed.length} failed tests`) });
     await button.click();
     const command = (await page.evaluate<string[]>('window.__copied'))[0] ?? '';
-    // Both projects failed on the same lines: one command with both projects. Flaky tests left out.
-    expect(command).not.toContain(' && ');
-    expect(command).toMatch(/ --project=chromium-a --project=chromium-b$/);
-    const flaky = find('is flaky: fails on the first attempt, passes on retry (intentional)');
-    expect(command.split(' ')).not.toContain(`${flaky.file}:${flaky.line}`);
+    // Both projects failed on the same tests: one command with both projects. Flaky tests left out.
+    expect(command).toBe(rerunCommand(failed));
+    expect(command).toContain(' --project=chromium-a --project=chromium-b -g ');
+    expect(command).toContain('(chromium-a|chromium-b)');
+    expect(command).not.toContain('is flaky');
 
     await page.goto(`${url}#/tests?project=chromium-b`);
     const projectFailed = failed.filter((test) => test.project === 'chromium-b');

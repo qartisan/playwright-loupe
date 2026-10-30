@@ -3,7 +3,7 @@ import { errorGroups } from '../src/renderer/dashboard.js';
 import { buildAiPrompt } from '../src/renderer/detail/aiPrompt.js';
 import { attemptLabel, defaultAttempt, selectAttempt } from '../src/renderer/detail/attempts.js';
 import { joinQuery, parseDetailParams, serializeDetailParams } from '../src/renderer/detail/params.js';
-import { failedTests, failedTestsInFile, fileRerun, rerunCommand, shellQuote } from '../src/renderer/detail/rerun.js';
+import { LINUX_COMMAND_LENGTH, WINDOWS_COMMAND_LENGTH, commandLimit, failedTests, failedTestsInFile, fileRerun, rerunCommand, shellQuote, type RerunTarget } from '../src/renderer/detail/rerun.js';
 import { groupNavigation, groupSequence, neighbors, testSequence } from '../src/renderer/detail/sequence.js';
 import { failingPath, failingStepContext, stepTree, type StepNode } from '../src/renderer/detail/steps.js';
 import { NO_FILTER_CONTEXT } from '../src/renderer/filters/match.js';
@@ -192,75 +192,244 @@ describe('steps', () => {
 });
 
 describe('rerun commands', () => {
-  it('reruns one test by file:line and project', () => {
-    expect(rerunCommand([{ file: 'tests/login.spec.ts', line: 12, project: 'chromium' }])).toBe(
-      'npx playwright test tests/login.spec.ts:12 --project=chromium',
+  const target = (title: string, fields: Partial<RerunTarget> = {}): RerunTarget => ({ file: 'a.spec.ts', project: 'chromium', suitePath: [], tags: [], title, ...fields });
+  const grepOf = (command: string): string => command.match(/ -g "(.*)"$/)?.[1] ?? '';
+  /** As Playwright reads `-g`: a regular expression with the `gi` flags, tested on the string of a test. */
+  const selects = (tests: readonly RerunTarget[], grepString: string): boolean => new RegExp(grepOf(rerunCommand(tests)), 'gi').test(grepString);
+
+  it('reruns one test by file, project and title, with no line', () => {
+    expect(rerunCommand([target('logs in', { file: 'tests/login.spec.ts' })])).toBe(
+      'npx playwright test tests.login.spec.ts --project=chromium -g "^ *chromium tests.login.spec.ts logs in$"',
     );
   });
 
-  it('leaves out --project for an unnamed project', () => {
-    expect(rerunCommand([{ file: 'login.spec.ts', line: 3, project: '' }])).toBe('npx playwright test login.spec.ts:3');
+  it('gives the same command whatever the line of the test', () => {
+    const test = makeTest({ line: 12 });
+    expect(rerunCommand([makeTest({ ...test, line: 4021 })])).toBe(rerunCommand([test]));
+  });
+
+  it('leaves out --project for an unnamed project, whose string starts with a space', () => {
+    const command = rerunCommand([target('alpha', { file: 'u.spec.ts', project: '' })]);
+    expect(command).toBe('npx playwright test u.spec.ts -g "^ *u.spec.ts alpha$"');
+    expect(selects([target('alpha', { file: 'u.spec.ts', project: '' })], ' u.spec.ts alpha')).toBe(true);
   });
 
   it('reruns only the test itself in a multi-project run, not its twin in the other project', () => {
-    const tests = [makeTest({ project: 'chromium-a', outcome: 'failed', line: 34 }), makeTest({ project: 'chromium-b', outcome: 'failed', line: 34 })];
-    expect(rerunCommand([tests[0]!])).toBe('npx playwright test a.spec.ts:34 --project=chromium-a');
+    const tests = [makeTest({ project: 'chromium-a', title: 't' }), makeTest({ project: 'chromium-b', title: 't' })];
+    expect(rerunCommand([tests[0]!])).toBe('npx playwright test a.spec.ts --project=chromium-a -g "^ *chromium-a a.spec.ts t$"');
   });
 
-  it('gives one command with repeated --project flags when projects have the same arguments', () => {
-    const command = rerunCommand([
-      { file: 'a.spec.ts', line: 3, project: 'chromium' },
-      { file: 'b.spec.ts', line: 9, project: 'chromium' },
-      { file: 'b.spec.ts', line: 9, project: 'firefox' },
-      { file: 'a.spec.ts', line: 3, project: 'firefox' },
-      { file: 'a.spec.ts', line: 3, project: 'chromium' },
-    ]);
-    expect(command).toBe('npx playwright test a.spec.ts:3 b.spec.ts:9 --project=chromium --project=firefox');
+  // The strings are those Playwright 1.52 to 1.64 match; the integration test checks them against the installed version.
+  it.each<[string, RerunTarget, string, string[]]>([
+    ['nested describes', target('same', { suitePath: ['outer', 'inner'] }), 'chromium a.spec.ts outer inner same', ['chromium a.spec.ts outer same', 'chromium a.spec.ts other inner same']],
+    ['a title that is a prefix of another', target('login'), 'chromium a.spec.ts login', ['chromium a.spec.ts login twice']],
+    ['a title that is a suffix of another', target('login'), 'chromium a.spec.ts login', ['chromium a.spec.ts first login']],
+    ['the same title in two describes', target('same', { suitePath: ['a'] }), 'chromium a.spec.ts a same', ['chromium a.spec.ts b same']],
+    ['the same title in two files', target('same'), 'chromium a.spec.ts same', ['chromium b.spec.ts same', 'chromium sub/a.spec.ts same', 'chromium aa.spec.ts same']],
+    ['the same title in two projects', target('same'), 'chromium a.spec.ts same', ['firefox a.spec.ts same']],
+    ['titles built in a loop', target('param 1'), 'chromium a.spec.ts param 1', ['chromium a.spec.ts param 10', 'chromium a.spec.ts param 2']],
+    ['a separator on Windows', target('t', { file: 'tests/sub/a.spec.ts' }), 'chromium tests\\sub\\a.spec.ts t', ['chromium tests\\sub\\b.spec.ts t']],
+    ['a tag in the title', target('adds @layer:api', { tags: ['@layer:api'] }), 'chromium a.spec.ts adds @layer:api', ['chromium a.spec.ts adds @layer:api more', 'chromium a.spec.ts adds']],
+    ['a tag from test({ tag })', target('t', { tags: ['@a', '@b:c'] }), 'chromium a.spec.ts t @a @b:c', ['chromium a.spec.ts t2 @a', 'chromium a.spec.ts t more']],
+    ['a tag from describe({ tag })', target('t', { suitePath: ['s'], tags: ['@d'] }), 'chromium a.spec.ts s @d t', ['chromium a.spec.ts s t2 @d', 'chromium a.spec.ts x @d t']],
+    ['tags from nested describes, the test and the title', target('z @inline', { suitePath: ['a', 'b'], tags: ['@1', '@2', '@inline', '@3'] }), 'chromium a.spec.ts a @1 b @2 z @inline @3', ['chromium a.spec.ts a @1 b @2 y @3']],
+    ['a tag from a describe without a title', target('t', { tags: ['@e'] }), 'chromium a.spec.ts @e t', ['chromium a.spec.ts @e t2']],
+    ['a tag both in the title and in { tag }', target('dup @x', { tags: ['@x', '@x'] }), 'chromium a.spec.ts dup @x @x', ['chromium a.spec.ts dup @x more']],
+    ['a word with @ in the title', target('foo@bar', { tags: ['@bar'] }), 'chromium a.spec.ts foo@bar', ['chromium a.spec.ts foo@bar2']],
+    ['regex metacharacters', target('regex .*+?^$()[]{}|\\ all'), 'chromium a.spec.ts regex .*+?^$()[]{}|\\ all', ['chromium a.spec.ts regex xxxxxxx^$()[]{}|\\ all']],
+    ['quotes', target(`double "q" single 'q'`), `chromium a.spec.ts double "q" single 'q'`, []],
+    ['shell expansions', target('$HOME $(id) ${x} `id` %PATH% !! end$'), 'chromium a.spec.ts $HOME $(id) ${x} `id` %PATH% !! end$', []],
+    ['comparison signs', target('value >= 10'), 'chromium a.spec.ts value >= 10', ['chromium a.spec.ts value <= 10']],
+    ['symbols of the same length', target('price €10'), 'chromium a.spec.ts price €10', ['chromium a.spec.ts price $10']],
+    ['a slash and a backslash', target('a/b\\c'), 'chromium a.spec.ts a/b\\c', []],
+    ['accented letters', target('accents éàü'), 'chromium a.spec.ts accents éàü', ['chromium a.spec.ts accents eau']],
+    ['CJK letters', target('日本語のタイトル'), 'chromium a.spec.ts 日本語のタイトル', ['chromium a.spec.ts 日本語のテスト名']],
+    ['an emoji', target('emoji 🚀 ok'), 'chromium a.spec.ts emoji 🚀 ok', ['chromium a.spec.ts emoji 🎉 ok']],
+    ['a joined emoji', target('👩‍💻'), 'chromium a.spec.ts 👩‍💻', ['chromium a.spec.ts 👩']],
+    ['a tab and a line break', target('a\tb\nc'), 'chromium a.spec.ts a\tb\nc', []],
+    ['spaces at the end and in a row', target('a  b '), 'chromium a.spec.ts a  b ', ['chromium a.spec.ts a b', 'chromium a.spec.ts a  b']],
+    ['a leading dash', target('-x'), 'chromium a.spec.ts -x', []],
+    ['a very long title', target(`L${'o'.repeat(1500)}ng`), `chromium a.spec.ts L${'o'.repeat(1500)}ng`, [`chromium a.spec.ts L${'o'.repeat(1500)}ng2`]],
+    ['a project name with metacharacters', target('t', { project: 'mobile (iOS) + $x' }), 'mobile (iOS) + $x a.spec.ts t', ['mobile a.spec.ts t']],
+    ['a non-ASCII project name', target('t', { project: 'été' }), 'été a.spec.ts t', ['ete a.spec.ts t']],
+  ])('selects exactly the test with %s', (_case, test, itself, others) => {
+    expect(selects([test], itself)).toBe(true);
+    for (const other of others) expect(selects([test], other)).toBe(false);
   });
 
-  it('splits into one command per project, joined with &&, when the arguments differ', () => {
-    const command = rerunCommand([
-      { file: 'a.spec.ts', line: 3, project: 'chromium' },
-      { file: 'b.spec.ts', line: 9, project: 'firefox' },
-      { file: 'a.spec.ts', line: 12, project: 'chromium' },
-      { file: 'b.spec.ts', line: 9, project: 'chromium' },
-      { file: 'a.spec.ts', line: 3, project: 'webkit' },
-      { file: 'b.spec.ts', line: 9, project: 'webkit' },
-      { file: 'a.spec.ts', line: 12, project: 'webkit' },
-    ]);
-    expect(command).toBe(
-      'npx playwright test a.spec.ts:3 a.spec.ts:12 b.spec.ts:9 --project=chromium --project=webkit && npx playwright test b.spec.ts:9 --project=firefox',
+  it('ignores case and cannot separate the tests with the same string, which run together', () => {
+    expect(selects([target('Login')], 'chromium a.spec.ts login')).toBe(true);
+    expect(selects([target('same', { suitePath: ['outer'] })], 'chromium a.spec.ts outer same')).toBe(true);
+    expect(selects([target('outer same')], 'chromium a.spec.ts outer same')).toBe(true);
+    expect(selects([target('tail @smoke', { tags: ['@smoke'] })], 'chromium a.spec.ts tail @smoke')).toBe(true);
+    expect(selects([target('tail', { tags: ['@smoke'] })], 'chromium a.spec.ts tail @smoke')).toBe(true);
+  });
+
+  it('never uses the /.../ form, which Git Bash rewrites as a path', () => {
+    expect(grepOf(rerunCommand([target('t')])).startsWith('^')).toBe(true);
+  });
+
+  it.each<[string, RerunTarget]>([
+    ['every ASCII character', target(Array.from({ length: 95 }, (_, index) => String.fromCharCode(32 + index)).join(''), { suitePath: ['"$`%!\\^&|<>'], tags: ['@a'] })],
+    ['non-ASCII text', target('é 日本 🚀 — ’', { suitePath: ['«s»'] })],
+    ['a difficult path', target('t', { file: 'tests/[id]/(g)/a+b c$%é`!"&.spec.ts' })],
+    ['a difficult project', target('t', { project: `Gilles's "$x" %y% \`z\` é!^&|<>\\` })],
+  ])('gives a command no shell acts on, for %s', (_case, test) => {
+    const command = rerunCommand([test, target('other', { file: test.file, project: test.project })]);
+    expect(command).toMatch(/^[\x20-\x7e]+$/);
+    const quoted = [...command.matchAll(/"([^"]*)"/g)].map((match) => match[1] ?? '');
+    expect(quoted.join('')).not.toMatch(/[`%!&<>]/);
+    const grep = grepOf(command);
+    // Each `$`, `^`, `|`... is the regular expression's: anchors at the ends, alternation in between.
+    expect(grep.slice(1, -1)).not.toMatch(/[$^]/);
+    expect(grep.at(-1)).toBe('$');
+    expect(quoted.slice(0, -1).join('')).not.toMatch(/[$^|]/);
+    // A backslash never comes before what POSIX double quotes unescape, nor before a closing quote.
+    for (const value of quoted) {
+      expect(value).not.toMatch(/\\[$`"\\\n]/);
+      expect(value).not.toMatch(/\\$/);
+    }
+    // Outside the double quotes: nothing but plain words, so no glob, no expansion.
+    expect(command.replace(/"[^"]*"/g, '')).toMatch(/^[\w. =-]*$/);
+  });
+
+  it('escapes shell characters in hexadecimal, regex metacharacters with a backslash, non-ASCII by UTF-16 code unit', () => {
+    expect(grepOf(rerunCommand([target('$ " ` % ! \\ ^ & | < > /')]))).toBe('^ *chromium a.spec.ts \\x24 \\x22 \\x60 \\x25 \\x21 \\x5c \\x5e \\x26 \\x7c \\x3c \\x3e \\x2f$');
+    expect(grepOf(rerunCommand([target('. * + ? ( ) [ ] { }')]))).toBe('^ *chromium a.spec.ts \\. \\* \\+ \\? \\( \\) \\[ \\] \\{ \\}$');
+    expect(grepOf(rerunCommand([target('é 日 🚀')]))).toBe('^ *chromium a.spec.ts \\u00e9 \\u65e5 \\ud83d\\ude80$');
+  });
+
+  it('leaves a plain file or project bare, made only of letters, digits, dots, dashes and underscores', () => {
+    expect(rerunCommand([target('t', { file: 'tests/my_a-b.spec.ts', project: 'chromium_a-b' })])).toBe(
+      'npx playwright test tests.my_a-b.spec.ts --project=chromium_a-b -g "^ *chromium_a-b tests.my_a-b.spec.ts t$"',
     );
   });
 
-  it('sorts arguments by file, then by line, whatever the order of the tests', () => {
-    const command = rerunCommand([
-      { file: 'tests/z.spec.ts', line: 2, project: 'p' },
-      { file: 'tests/a.spec.ts', line: 100, project: 'p' },
-      { file: 'tests/a.spec.ts', line: 9, project: 'p' },
-      { file: 'tests/a/b.spec.ts', line: 1, project: 'p' },
-    ]);
-    expect(command).toBe('npx playwright test tests/a.spec.ts:9 tests/a.spec.ts:100 tests/a/b.spec.ts:1 tests/z.spec.ts:2 --project=p');
+  it('quotes a project name with a dot: Windows PowerShell can split an unquoted dashed argument there', () => {
+    expect(rerunCommand([target('t', { project: 'v1.2' })])).toBe('npx playwright test a.spec.ts "--project=v1.2" -g "^ *v1\\.2 a.spec.ts t$"');
   });
 
-  it('keeps an unnamed project in its own command, without --project', () => {
-    expect(rerunCommand([{ file: 'a.spec.ts', line: 1, project: '' }, { file: 'a.spec.ts', line: 1, project: 'named' }])).toBe(
-      'npx playwright test a.spec.ts:1 && npx playwright test a.spec.ts:1 --project=named',
+  it('quotes any other file, with the escaping of -g: it is a regular expression too', () => {
+    expect(rerunCommand([target('t', { file: 'tests/[id]/(group)/a+b c.spec.ts' })])).toBe(
+      'npx playwright test "tests.\\[id\\].\\(group\\).a\\+b c.spec.ts" --project=chromium -g "^ *chromium tests.\\[id\\].\\(group\\).a\\+b c.spec.ts t$"',
     );
+    expect(rerunCommand([target('t', { file: 'tests/[id]/a.spec.ts' })])).toContain('npx playwright test "tests.\\[id\\].a.spec.ts" --project');
+    expect(rerunCommand([target('t', { file: 'tests/été.spec.ts' })])).toContain('npx playwright test "tests.\\u00e9t\\u00e9.spec.ts" --project');
+    expect(rerunCommand([target('t', { file: 'a $b %c% !d `e` &f.spec.ts' })])).toContain('npx playwright test "a \\x24b \\x25c\\x25 \\x21d \\x60e\\x60 \\x26f.spec.ts" --project');
+    expect(rerunCommand([target('t', { file: '-x.spec.ts' })])).toContain('npx playwright test .x.spec.ts --project');
   });
 
-  it('quotes paths and project names with spaces or shell-special characters', () => {
-    expect(shellQuote('tests/login.spec.ts:12')).toBe('tests/login.spec.ts:12');
-    expect(shellQuote('my tests/a b.spec.ts:1')).toBe("'my tests/a b.spec.ts:1'");
-    expect(shellQuote("it's $HOME;`x`")).toBe(`'it'\\''s $HOME;\`x\`'`);
-    expect(rerunCommand([{ file: 'a.spec.ts', line: 1, project: "Gilles's suite" }])).toBe(`npx playwright test a.spec.ts:1 --project='Gilles'\\''s suite'`);
-    expect(rerunCommand([{ file: 'e2e/a b.spec.ts', line: 4, project: 'Mobile Safari' }])).toBe(
-      "npx playwright test 'e2e/a b.spec.ts:4' --project='Mobile Safari'",
-    );
+  it('matches the path Playwright tests with the positional file, on any separator', () => {
+    const argument = (file: string): RegExp => new RegExp((rerunCommand([target('t', { file })]).match(/^npx playwright test "?(.*?)"? "?--project/)?.[1] ?? '').replace(/^"|"$/g, ''), 'gi');
+    expect(argument('tests/[id]/(group)/a+b c.spec.ts').test('/repo/tests/[id]/(group)/a+b c.spec.ts')).toBe(true);
+    expect(argument('tests/[id]/(group)/a+b c.spec.ts').test('C:\\repo\\tests\\[id]\\(group)\\a+b c.spec.ts')).toBe(true);
+    expect(argument('tests/été.spec.ts').test('/repo/tests/été.spec.ts')).toBe(true);
+    expect(argument('tests/été.spec.ts').test('/repo/tests/ete.spec.ts')).toBe(false);
+  });
+
+  it('quotes a project name when needed, with * for what a shell could act on: --project takes no regular expression', () => {
+    expect(rerunCommand([target('t', { project: 'Mobile Safari' })])).toContain('"--project=Mobile Safari" -g "^ *Mobile Safari a.spec.ts t$"');
+    expect(rerunCommand([target('t', { project: 'star*name' })])).toContain('"--project=star*name" -g "^ *star\\*name a.spec.ts t$"');
+    expect(rerunCommand([target('t', { project: 'mobile (iOS) + x' })])).toContain('"--project=mobile (iOS) + x" -g');
+    expect(rerunCommand([target('t', { project: 'a$b é' })])).toContain('"--project=a*b *" -g "^ *a\\x24b \\u00e9 a.spec.ts t$"');
+  });
+
+  it('tolerates tags after each segment only for a test with { tag } tags', () => {
+    expect(grepOf(rerunCommand([target('t', { suitePath: ['s'], tags: ['@a'] })]))).toBe('^ *chromium a.spec.ts( @\\S+)* s( @\\S+)* t( @\\S+)*$');
+    expect(grepOf(rerunCommand([target('t @a', { suitePath: ['s'], tags: ['@a'] })]))).toBe('^ *chromium a.spec.ts s t @a$');
+  });
+
+  it('writes one command for several tests, the same pattern as for one', () => {
+    const tests = [target('one'), target('two', { file: 'b.spec.ts' })];
+    expect(rerunCommand(tests)).toBe('npx playwright test a.spec.ts b.spec.ts --project=chromium -g "^ *chromium (a.spec.ts one|b.spec.ts two)$"');
+    expect(rerunCommand(tests)).not.toContain('&&');
+  });
+
+  it('does not share alternatives when the projects failed on different tests: no extra test is selected', () => {
+    const tests = [target('one'), target('two', { file: 'b.spec.ts', project: 'firefox' })];
+    expect(rerunCommand(tests)).toBe('npx playwright test a.spec.ts b.spec.ts --project=chromium --project=firefox -g "^ *(chromium a.spec.ts one|firefox b.spec.ts two)$"');
+    expect(selects(tests, 'chromium a.spec.ts one')).toBe(true);
+    expect(selects(tests, 'firefox b.spec.ts two')).toBe(true);
+    // The flags and files of the command would allow these two: only -g keeps them out.
+    expect(selects(tests, 'firefox a.spec.ts one')).toBe(false);
+    expect(selects(tests, 'chromium b.spec.ts two')).toBe(false);
+  });
+
+  it('does not share alternatives when one set of tests contains the other', () => {
+    const tests = [target('one'), target('two'), target('one', { project: 'firefox' })];
+    expect(grepOf(rerunCommand(tests))).toBe('^ *(chromium a.spec.ts (one|two)|firefox a.spec.ts one)$');
+    expect(selects(tests, 'chromium a.spec.ts two')).toBe(true);
+    expect(selects(tests, 'firefox a.spec.ts two')).toBe(false);
+  });
+
+  it('shares alternatives only between the projects with the same tests, a third one apart', () => {
+    const tests = [target('one'), target('one', { project: 'firefox' }), target('two', { project: 'webkit' })];
+    expect(grepOf(rerunCommand(tests))).toBe('^ *((chromium|firefox) a.spec.ts one|webkit a.spec.ts two)$');
+    expect(selects(tests, 'webkit a.spec.ts one')).toBe(false);
+    expect(selects(tests, 'chromium a.spec.ts two')).toBe(false);
+  });
+
+  it('writes shared prefixes once, a test ending where another goes on included', () => {
+    const tests = [target('x', { suitePath: ['s'] }), target('y', { suitePath: ['s'] }), target('s'), target('z', { suitePath: ['s', 't'] })];
+    const grep = grepOf(rerunCommand(tests));
+    expect(grep).toBe('^ *chromium a.spec.ts (s|s (t z|x|y))$');
+    for (const selected of ['s x', 's y', 's', 's t z']) expect(selects(tests, `chromium a.spec.ts ${selected}`)).toBe(true);
+    for (const other of ['s t', 's w', 't z', 'x']) expect(selects(tests, `chromium a.spec.ts ${other}`)).toBe(false);
+  });
+
+  it('shares the alternatives of projects with the same tests', () => {
+    const tests = ['chromium', 'firefox'].flatMap((project) => [target('two', { file: 'b.spec.ts', project }), target('one', { project })]);
+    expect(rerunCommand(tests)).toBe('npx playwright test a.spec.ts b.spec.ts --project=chromium --project=firefox -g "^ *(chromium|firefox) (a.spec.ts one|b.spec.ts two)$"');
+  });
+
+  it('gives the same command whatever the order of the tests', () => {
+    const tests = [target('b'), target('a'), target('c', { file: 'z.spec.ts' }), target('d', { file: 'y.spec.ts' })];
+    expect(rerunCommand([...tests].reverse())).toBe(rerunCommand(tests));
+  });
+
+  it('counts a test repeated with --repeat-each once', () => {
+    expect(rerunCommand([target('t'), target('t')])).toBe(rerunCommand([target('t')]));
+  });
+
+  it('selects an unnamed project next to a named one with -g alone: no flag can select it', () => {
+    const tests = [target('t', { project: '' }), target('t')];
+    expect(rerunCommand(tests)).toBe('npx playwright test a.spec.ts -g "^ *(chromium a.spec.ts t|a.spec.ts t)$"');
+    expect(selects(tests, ' a.spec.ts t')).toBe(true);
+    expect(selects(tests, 'chromium a.spec.ts t')).toBe(true);
+    expect(selects(tests, 'firefox a.spec.ts t')).toBe(false);
   });
 
   it('is empty for no test', () => {
     expect(rerunCommand([])).toBe('');
+  });
+
+  it('tells which limit a command is above: 8,000 characters for Windows, 131,072 for Linux', () => {
+    expect(commandLimit('x'.repeat(WINDOWS_COMMAND_LENGTH))).toBeNull();
+    expect(commandLimit('x'.repeat(WINDOWS_COMMAND_LENGTH + 1))).toBe('windows');
+    expect(commandLimit('x'.repeat(LINUX_COMMAND_LENGTH))).toBe('windows');
+    expect(commandLimit('x'.repeat(LINUX_COMMAND_LENGTH + 1))).toBe('linux');
+    expect(WINDOWS_COMMAND_LENGTH).toBe(8000);
+    expect(LINUX_COMMAND_LENGTH).toBe(131072);
+    expect(commandLimit(rerunCommand([target('t')]))).toBeNull();
+  });
+
+  it('keeps commands ASCII, so that their length is their size in bytes', () => {
+    const tests = Array.from({ length: 300 }, (_, index) => target(`é ${index} 日本語のタイトル`, { file: 'tests/été.spec.ts', project: 'Sécurité', suitePath: ['Émission'] }));
+    const command = rerunCommand(tests);
+    expect(Buffer.byteLength(command)).toBe(command.length);
+    expect(commandLimit(command)).toBe('windows');
+  });
+
+  it('shortens a long list by writing shared prefixes once', () => {
+    const tests = Array.from({ length: 100 }, (_, index) => target(`test ${index}`, { file: 'tests/some/long/path/to/a.spec.ts', suitePath: ['A rather long describe title'] }));
+    const flat = tests.map((test) => rerunCommand([test]).length).reduce((total, length) => total + length, 0);
+    expect(rerunCommand(tests).length).toBeLessThan(flat / 5);
+  });
+
+  it('keeps the trace quoting for POSIX shells', () => {
+    expect(shellQuote('tests/login.spec.ts:12')).toBe('tests/login.spec.ts:12');
+    expect(shellQuote('my tests/a b.spec.ts:1')).toBe("'my tests/a b.spec.ts:1'");
+    expect(shellQuote("it's $HOME;`x`")).toBe(`'it'\\''s $HOME;\`x\`'`);
   });
 
   it('offers the failed tests of the file only when another line failed, not the same test in another project', () => {
@@ -275,9 +444,13 @@ describe('rerun commands', () => {
     expect(fileRerun(one, one[0]!)?.label).toBe('2 failed tests in this file');
     const same = [...one, makeTest({ project: 'b', outcome: 'failed', line: 3 }), makeTest({ project: 'b', outcome: 'failed', line: 9 })];
     expect(fileRerun(same, same[0]!)).toMatchObject({ label: '2 failed tests in this file, in a, b' });
-    expect(rerunCommand(fileRerun(same, same[0]!)!.tests)).toBe('npx playwright test a.spec.ts:3 a.spec.ts:9 --project=a --project=b');
     const different = [...one, makeTest({ project: 'b', outcome: 'failed', line: 3 })];
     expect(fileRerun(different, different[0]!)?.label).toBe('failed tests in this file: 2 in a, 1 in b');
+  });
+
+  it('reruns the failed tests of the file with one command for the projects that share them', () => {
+    const tests = ['a', 'b'].flatMap((project) => [makeTest({ project, outcome: 'failed', line: 3, title: 'one' }), makeTest({ project, outcome: 'failed', line: 9, title: 'two' })]);
+    expect(rerunCommand(fileRerun(tests, tests[0]!)!.tests)).toBe('npx playwright test a.spec.ts --project=a --project=b -g "^ *(a|b) a.spec.ts (one|two)$"');
   });
 
   it('keeps failed tests only: flaky tests passed on a retry', () => {
