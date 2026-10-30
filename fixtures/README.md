@@ -48,6 +48,10 @@ Everything runs offline, through `page.setContent` and local servers on 127.0.0.
 
 `scope.config.ts` runs `scope/`, a browserless suite for run scope detection (see `test/scope.integration.test.ts`). **The `test.only` in `scope/focused.spec.ts` is intentional:** a plain run must be `partial` with the `only` reason alone, which checks that Playwright's internal `_only` flag still works. The `main` project depends on `setup`, to check `--project` and `--no-deps`. Other runs of this suite pass a file filter (`plain.spec.ts`) so the `test.only` does not apply. `scope-default.config.ts` runs the same folder without the `test.only` and adds a `nightly` project with `default: false` (Playwright 1.64+).
 
+## Rerun commands
+
+`rerun.config.ts` runs `rerun/`, a browserless suite for the rerun commands (see `test/rerun.integration.test.ts`): titles, tags, paths and project names that are hard to select with `-g` or to paste in a shell. **The odd file names under `rerun/hostile/` are intentional** (without `%`: Playwright itself crashes on it in ES module packages), and so are the pairs of tests in `rerun/twins.spec.ts`, which `-g` cannot tell apart. The test only lists this suite, it never runs it.
+
 ## Playwright version
 
 `version.config.ts` runs `scope/plain.spec.ts` alone, for the run-time warning below the supported Playwright version (see `test/support.integration.test.ts`). A test-only reporter listed before Loupe, `helpers/playwright-version.ts`, replaces `config.version` with `LOUPE_FIXTURE_PLAYWRIGHT_VERSION`, so the warning is checked on every Playwright version CI runs.
