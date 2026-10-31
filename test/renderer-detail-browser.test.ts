@@ -402,7 +402,7 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     const button = page.locator('.rerun-failed .copy-button');
     const note = page.locator('.rerun-failed .rerun-note');
     await note.waitFor();
-    expect(await note.textContent()).toBe('Too long for Windows, which accepts 8,191 characters: run it in bash or zsh on Linux or macOS, or rerun fewer tests.');
+    expect(await note.textContent()).toBe('Too long for Windows once npx escapes it (limit 8,191 characters): run it in bash or zsh on Linux or macOS, or rerun fewer tests.');
     // Read with the button, and not as an announcement.
     expect(await page.locator(`#${await button.getAttribute('aria-describedby')}`).textContent()).toContain('Too long for Windows');
     await button.click();

@@ -1,9 +1,12 @@
+import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { errorGroups } from '../src/renderer/dashboard.js';
 import { buildAiPrompt } from '../src/renderer/detail/aiPrompt.js';
 import { attemptLabel, defaultAttempt, selectAttempt } from '../src/renderer/detail/attempts.js';
 import { joinQuery, parseDetailParams, serializeDetailParams } from '../src/renderer/detail/params.js';
-import { LINUX_COMMAND_BYTES, WINDOWS_COMMAND_LENGTH, commandLimit, commandNotice, failedTests, failedTestsInFile, fileRerun, rerunCommand, shellQuote, type RerunTarget } from '../src/renderer/detail/rerun.js';
+import { LINUX_COMMAND_BYTES, WINDOWS_LINE_LENGTH, windowsLineLength, commandLimit, commandNotice, failedTests, failedTestsInFile, fileRerun, rerunCommand, shellQuote, type RerunTarget } from '../src/renderer/detail/rerun.js';
 import { groupNavigation, groupSequence, neighbors, testSequence } from '../src/renderer/detail/sequence.js';
 import { failingPath, failingStepContext, stepTree, type StepNode } from '../src/renderer/detail/steps.js';
 import { NO_FILTER_CONTEXT } from '../src/renderer/filters/match.js';
@@ -463,14 +466,73 @@ describe('rerun commands', () => {
     expect(rerunCommand([])).toBe('');
   });
 
-  it('tells which limit a command is above: 8,000 characters for Windows, 131,072 bytes for Linux', () => {
-    expect(commandLimit('x'.repeat(WINDOWS_COMMAND_LENGTH))).toBeNull();
-    expect(commandLimit('x'.repeat(WINDOWS_COMMAND_LENGTH + 1))).toBe('windows');
-    expect(commandLimit('x'.repeat(LINUX_COMMAND_BYTES))).toBe('windows');
-    expect(commandLimit('x'.repeat(LINUX_COMMAND_BYTES + 1))).toBe('linux');
-    expect(WINDOWS_COMMAND_LENGTH).toBe(8000);
+  describe('Windows limit', () => {
+    /** The commands of the Windows check's measure rows (fixtures/windows-check/long.spec.ts), at their lengths. */
+    const inLong = (title: string): RerunTarget => target(title, { file: 'long.spec.ts', project: 'main' });
+    const plain = (count: number): string =>
+      rerunCommand(Array.from({ length: count }, (_, index) => inLong(`long ${String(index).padStart(2, '0')} ${'x'.repeat(990)}`)));
+    const dense = (count: number): string => rerunCommand(Array.from({ length: count }, (_, index) => inLong(`dense ${index} ${'word '.repeat(198)}end`)));
+
+    it.each<[string, () => string, 'windows' | null]>([
+      ['dense 3,000', () => dense(3), null],
+      ['dense 4,000', () => dense(4), null],
+      ['dense 5,000', () => dense(5), null],
+      ['dense 6,000', () => dense(6), 'windows'],
+      ['dense 7,000', () => dense(7), 'windows'],
+      ['dense 8,000', () => dense(8), 'windows'],
+      ['plain 7,000', () => plain(7), null],
+      ['plain 9,000', () => plain(9), 'windows'],
+      ['plain 12,000', () => plain(12), 'windows'],
+      ['plain 20,000', () => plain(20), 'windows'],
+      ['plain 36,000', () => plain(36), 'windows'],
+    ])('predicts what was measured in every Windows shell: %s', (_row, command, limit) => {
+      expect(commandLimit(command())).toBe(limit);
+    });
+
+    it('computes the two lines of the model: the first has no path, the shim has one layer of carets less', () => {
+      // The first line: 5,079 pasted, 8,118 here, 8,125 with the --list the measure added.
+      expect(windowsLineLength(dense(5))).toBe(8118);
+      expect(windowsLineLength(dense(6))).toBe(9723);
+      // Few shell characters: the shim's line is the longer one. 7,069 pasted, 380 of overhead, a few carets.
+      expect(windowsLineLength(plain(7))).toBe(7463);
+    });
+
+    it('takes a quoted file and project as one argument, and counts their quotes', () => {
+      const bare = windowsLineLength(rerunCommand([target('t', { project: 'ab' })]));
+      const spaced = windowsLineLength(rerunCommand([target('t', { project: 'a b' })]));
+      // On the shim's line, one caret per character: in the flag a letter, its caret, two quotes and theirs; in -g a letter and its caret.
+      expect(spaced - bare).toBe(8);
+    });
+
+    const npmEscape = path.join(path.dirname(process.execPath), '../lib/node_modules/npm/node_modules/@npmcli/promise-spawn/lib/escape.js');
+    it.skipIf(!existsSync(npmEscape))('follows the escaping of the npm that is installed', () => {
+      const { cmd } = createRequire(import.meta.url)(npmEscape) as { cmd: (input: string, doubleEscape: boolean) => string };
+      const commands = [
+        rerunCommand([target('logs in', { file: 'tests/login.spec.ts' })]),
+        rerunCommand([target('t', { file: 'tests/[id]/(group)/a+b c.spec.ts', project: 'Mobile (iOS) + x' })]),
+        rerunCommand([target('$ " ` % ! \\ ^ & | < > / . * + ? ( ) [ ] { } é 🚀', { suitePath: ['s t'], tags: ['@a'], project: 'Sécu "q" $x' })]),
+        rerunCommand([target('one'), target('two', { file: 'b.spec.ts', project: 'firefox' })]),
+        dense(3),
+        plain(2),
+      ];
+      for (const command of commands) {
+        const args = (command.match(/"[^"]*"|[^ ]+/g) ?? []).map((token) => token.replace(/^"|"$/g, '')).slice(2);
+        const doubled = args.map((arg) => cmd(arg, true)).join(' ');
+        const once = args.map((arg) => cmd(arg, false)).join(' ');
+        // 10: `playwright`, and 380: the overhead of the shim, each followed by the space of the first argument.
+        expect(windowsLineLength(command)).toBe(Math.max(10 + 1 + doubled.length, 380 + 1 + once.length));
+      }
+    });
+  });
+
+  it('tells which limit a command is above: Windows from its escaped length, Linux from 131,072 bytes', () => {
+    expect(WINDOWS_LINE_LENGTH).toBe(8161);
     expect(LINUX_COMMAND_BYTES).toBe(131072);
     expect(commandLimit(rerunCommand([target('t')]))).toBeNull();
+    expect(commandLimit(`npx playwright ${'x'.repeat(WINDOWS_LINE_LENGTH - 380 - 1)}`)).toBeNull();
+    expect(commandLimit(`npx playwright ${'x'.repeat(WINDOWS_LINE_LENGTH - 380)}`)).toBe('windows');
+    expect(commandLimit(`npx playwright ${'x'.repeat(LINUX_COMMAND_BYTES - 'npx playwright '.length)}`)).toBe('windows');
+    expect(commandLimit(`npx playwright ${'x'.repeat(LINUX_COMMAND_BYTES)}`)).toBe('linux');
   });
 
   it('counts bytes for the Linux limit, now that letters are literal', () => {
@@ -483,9 +545,8 @@ describe('rerun commands', () => {
   });
 
   it('says nothing below the limits, gives the way out above the Windows one, explains and gives --last-failed above the Linux one', () => {
-    expect(commandNotice('x'.repeat(WINDOWS_COMMAND_LENGTH))).toBeNull();
-    expect(commandNotice('x'.repeat(WINDOWS_COMMAND_LENGTH + 1))).toBe('Too long for Windows, which accepts 8,191 characters: run it in bash or zsh on Linux or macOS, or rerun fewer tests.');
-    expect(commandNotice('x'.repeat(LINUX_COMMAND_BYTES))).toContain('Too long for Windows');
+    expect(commandNotice(rerunCommand([target('t')]))).toBeNull();
+    expect(commandNotice(`npx playwright ${'x'.repeat(WINDOWS_LINE_LENGTH)}`)).toBe('Too long for Windows once npx escapes it (limit 8,191 characters): run it in bash or zsh on Linux or macOS, or rerun fewer tests.');
     const linux = commandNotice('x'.repeat(LINUX_COMMAND_BYTES + 1));
     expect(linux).toContain('Too long to copy: 131,073 bytes');
     expect(linux).toContain('131,072 of a Linux argument');

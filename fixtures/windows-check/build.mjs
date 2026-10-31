@@ -55,19 +55,41 @@ const { version } = JSON.parse(readFileSync(path.join(repo, 'node_modules', '@pl
 // No `type`: CommonJS, which a `%` in a file name needs (see setup.mjs).
 writeFileSync(path.join(stage, 'package.json'), `${JSON.stringify({ name: 'loupe-windows-check', private: true, devDependencies: { '@playwright/test': version } }, null, 2)}\n`);
 
+const { WINDOWS_LINE_LENGTH, commandLimit, rerunCommand, windowsLineLength } = await import('../../src/renderer/detail/rerun.ts');
+const { expectedFor } = await import('../helpers/rerun-expected.ts');
+
+// Titles giving a line of a chosen length for windowsLineLength, at most: just under its limit they
+// must pass, so every run checks the calibration; above it, the measure rows show where the limit is.
+const calibrationCommand = (title) => rerunCommand([{ file: 'calibration.spec.ts', project: 'main', suitePath: [], title, tags: [] }]);
+function titleForLine(target, make) {
+  let count = 1;
+  while (windowsLineLength(calibrationCommand(make(count + 1))) <= target) count += 1;
+  return make(count);
+}
+const denseTitle = (count) => `dense ${'word '.repeat(count)}end`;
+const plainTitle = (count) => `plain ${'x'.repeat(count)}`;
+const calibration = [
+  { form: 'calibration, dense, just under the limit', title: titleForLine(WINDOWS_LINE_LENGTH, denseTitle), required: true },
+  { form: 'calibration, plain, just under the limit', title: titleForLine(WINDOWS_LINE_LENGTH, plainTitle), required: true },
+  ...[10, 20, 30, 40, 60, 100].map((above) => ({ form: `calibration, dense, ${above} above the limit`, title: titleForLine(WINDOWS_LINE_LENGTH + above, denseTitle), required: false })),
+  ...[50, 100, 150, 200, 250, 300, 350, 400].map((above) => ({ form: `calibration, plain, ${above} above the limit`, title: titleForLine(WINDOWS_LINE_LENGTH + above, plainTitle), required: false })),
+];
+writeFileSync(
+  path.join(stage, 'rerun', 'calibration.spec.ts'),
+  `import { test } from '@playwright/test';\n\nfor (const title of ${JSON.stringify(calibration.map(({ title }) => title))}) test(title, async () => {});\n`,
+);
+
 run('npm', ['install', '--no-audit', '--no-fund', '--silent']);
 run('node', ['setup.mjs']);
 run('npx', ['playwright', 'test', '--list'], { KIT_LOUPE: reporter, KIT_LOUPE_OUTPUT: reportDir });
 
-const { rerunCommand, WINDOWS_COMMAND_LENGTH } = await import('../../src/renderer/detail/rerun.ts');
-const { expectedFor } = await import('../helpers/rerun-expected.ts');
 const report = JSON.parse(readFileSync(path.join(reportDir, 'report.json'), 'utf8'));
 
 const commands = [];
-function add(form, tests, text = rerunCommand(tests), required = text.length <= WINDOWS_COMMAND_LENGTH) {
+function add(form, tests, text = rerunCommand(tests), required = commandLimit(text) === null) {
   commands.push({ form, required, expected: [...new Set(tests.flatMap(expectedFor))], text });
 }
-const tests = report.tests.filter((test) => test.file !== 'long.spec.ts');
+const tests = report.tests.filter((test) => test.file !== 'long.spec.ts' && test.file !== 'calibration.spec.ts');
 const inLong = report.tests.filter((test) => test.file === 'long.spec.ts' && test.project === 'main');
 const longs = inLong.filter((test) => test.title.startsWith('long '));
 const dense = inLong.filter((test) => test.title.startsWith('dense '));
@@ -98,17 +120,17 @@ add('many tests, hostile projects and paths', [
   ...tests.filter((test) => test.file.startsWith('hostile/') && test.project === 'main'),
 ]);
 
-// Below the notice's threshold a command must work; above it, what does the limit really allow?
-for (const count of [7, 9, 12, 20, 33, 36]) {
-  const list = longs.slice(0, count);
+// A command the notice says nothing about must work; above its limit, a measure. The length of the line is in the name.
+const lengthRows = (name, list) => {
   const text = rerunCommand(list);
-  add(`length about ${Math.round(text.length / 1000)},000`, list, text);
-}
-// With the spaces of real titles, which npx escapes with carets: measured, whatever their length.
-for (const count of [3, 4, 5, 6, 7, 8]) {
-  const list = dense.slice(0, count);
-  const text = rerunCommand(list);
-  add(`dense, length about ${Math.round(text.length / 1000)},000`, list, text, false);
+  add(`${name}, length about ${Math.round(text.length / 1000)},000, line ${windowsLineLength(text)}`, list, text);
+};
+for (const count of [7, 9, 12, 20, 33, 36]) lengthRows('plain', longs.slice(0, count));
+for (const count of [3, 4, 5, 6, 7, 8]) lengthRows('dense', dense.slice(0, count));
+for (const { form, title, required } of calibration) {
+  const test = report.tests.find((candidate) => candidate.file === 'calibration.spec.ts' && candidate.project === 'main' && candidate.title === title);
+  const text = rerunCommand([test]);
+  add(`${form}, line ${windowsLineLength(text)}`, [test], text, required);
 }
 writeFileSync(path.join(stage, 'commands.json'), JSON.stringify(commands, null, 1));
 

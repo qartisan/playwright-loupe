@@ -214,7 +214,7 @@ An intermittent failure is not an environment failure until it is explained, and
 
 - It checks that a fresh checkout has every tracked file, the non-ASCII file name of `fixtures/rerun/hostile/` included.
 - It generates the commands with the real builder (`fixtures/windows-check/build.mjs`) and runs each with `--list` in `cmd.exe`, PowerShell 5.1 and 7, both also through `npx.cmd`, and Git Bash (`check.mjs --require-all-shells`). A `REQUIRED` row with a bad result, or a missing shell, fails the job.
-- The **measure** rows never fail the job: commands from 9,000 to 36,000 characters, and dense commands, with the spaces of real titles. A push, a pull request or the weekly run never runs them. To run them: Actions, **Windows rerun commands**, **Run workflow**, tick **measure**; or `node check.mjs --measure` from the kit (`fixtures/README.md`). Results are in the job log and in the `windows-check-results` artifact.
+- The rows just under the Windows limit of `windowsLineLength` are `REQUIRED`, so every run checks its calibration. The **measure** rows, above that limit, never fail the job: they show where it really is, dense or plain, up to 36,000 characters. A push, a pull request or the weekly run never runs them. To run them: Actions, **Windows rerun commands**, **Run workflow**, tick **measure**; or `node check.mjs --measure` from the kit (`fixtures/README.md`). Results are in the job log and in the `windows-check-results` artifact.
 
 ## Weekly job on the latest Playwright
 

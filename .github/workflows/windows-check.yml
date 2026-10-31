@@ -42,7 +42,7 @@ on:
   workflow_dispatch:
     inputs:
       measure:
-        description: Also run the measure rows, which never fail the job (long and dense commands).
+        description: Also run the measure rows, which never fail the job (commands above the computed limit).
         type: boolean
         default: false
 

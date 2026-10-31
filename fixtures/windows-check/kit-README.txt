@@ -17,7 +17,7 @@ Needs: Node.js 22.12 or later. Git Bash and PowerShell 7 are tested when install
 
    The last line says PASS or FAIL. REQUIRED rows must have 0 bad.
    node check.mjs --measure adds rows that are information, not failures: commands
-   above 8,000 characters, and dense ones, with the spaces of real titles.
+   above the Windows limit Loupe computes, to see where the limit really is.
 
 3. By hand, in each shell: manual-paste.txt lists commands to paste as they are,
    adding " --list" at the end. A real clipboard paste is what users do. Open it in

@@ -7,7 +7,7 @@
 //   node check.mjs --require-all-shells   fails if a shell is missing, instead of skipping it
 //
 // Exit code 1 when a REQUIRED command selects anything else or cannot start, or when none ran.
-// Measure rows: commands above 8,000 characters, and dense ones. PowerShell gets its commands
+// Measure rows: commands above the limit of windowsLineLength. PowerShell gets its commands
 // through -EncodedCommand, 2.67 times longer: a row refused there above about 12,000 characters
 // says nothing about a pasted command.
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
