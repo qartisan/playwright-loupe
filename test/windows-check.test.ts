@@ -31,6 +31,15 @@ describe('windows-check workflow', () => {
     expect(workflow).toContain('runs-on: windows-latest');
   });
 
+  it('measures only in a manual run that asks for it, off by default', () => {
+    const parsed = workflow.match(/^ {2}workflow_dispatch:\n {4}inputs:\n {6}measure:\n(?: {8}.*\n)+/m)?.[0] ?? '';
+    expect(parsed).toContain('type: boolean');
+    expect(parsed).toContain('default: false');
+    // The flag once, behind the event: push, pull request and schedule cannot turn it on.
+    expect(workflow.match(/--measure/g)).toHaveLength(1);
+    expect(workflow).toContain("${{ github.event_name == 'workflow_dispatch' && inputs.measure && '--measure' || '' }}");
+  });
+
   it('runs a file the workflow names', () => {
     for (const file of ['check-checkout.mjs', 'build.mjs', 'check.mjs', 'harness.mjs', 'setup.mjs']) expect(existsSync(path.join(ROOT, 'fixtures/windows-check', file)), file).toBe(true);
   });

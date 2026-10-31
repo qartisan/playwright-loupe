@@ -40,6 +40,11 @@ on:
     # Mondays at 05:47 UTC.
     - cron: '47 5 * * 1'
   workflow_dispatch:
+    inputs:
+      measure:
+        description: Also run the measure rows, which never fail the job (long and dense commands).
+        type: boolean
+        default: false
 
 # Only reads the repository.
 permissions:
@@ -68,12 +73,11 @@ jobs:
       - name: Build the check from the real builder
         run: node fixtures/windows-check/build.mjs "${{ runner.temp }}/windows-check"
 
-      # Fails on a REQUIRED row with a bad result, or a missing shell. --measure adds
-      # the rows that never fail (literal letters, lengths above 8,000): remove the
-      # flag once they are answered.
+      # Fails on a REQUIRED row with a bad result, or a missing shell. A manual run can
+      # add the measure rows; a push, a pull request or the weekly run never does.
       - name: Run the commands in cmd.exe, PowerShell 5.1 and 7, Git Bash
         working-directory: ${{ runner.temp }}/windows-check/loupe-windows-check
-        run: node check.mjs --require-all-shells --measure
+        run: node check.mjs --require-all-shells ${{ github.event_name == 'workflow_dispatch' && inputs.measure && '--measure' || '' }}
 
       - name: Upload the results
         if: ${{ !cancelled() }}
