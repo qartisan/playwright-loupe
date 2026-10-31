@@ -49,7 +49,7 @@ function run(command, commandArgs, env = {}) {
 cpSync(path.join(repo, 'fixtures', 'rerun'), path.join(stage, 'rerun'), { recursive: true, filter: (source) => path.basename(source) !== 'hostile' });
 cpSync(path.join(repo, 'fixtures', 'redaction-values.ts'), path.join(stage, 'redaction-values.ts'));
 cpSync(path.join(here, 'long.spec.ts'), path.join(stage, 'rerun', 'long.spec.ts'));
-for (const file of ['check.mjs', 'setup.mjs', 'playwright.config.cjs', 'selection-reporter.cjs']) cpSync(path.join(here, file), path.join(stage, file));
+for (const file of ['check.mjs', 'harness.mjs', 'setup.mjs', 'playwright.config.cjs', 'selection-reporter.cjs']) cpSync(path.join(here, file), path.join(stage, file));
 cpSync(path.join(here, 'kit-README.txt'), path.join(stage, 'README.txt'));
 const { version } = JSON.parse(readFileSync(path.join(repo, 'node_modules', '@playwright', 'test', 'package.json'), 'utf8'));
 // No `type`: CommonJS, which a `%` in a file name needs (see setup.mjs).

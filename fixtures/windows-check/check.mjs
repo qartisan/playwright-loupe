@@ -6,11 +6,13 @@
 //   node check.mjs --shell=cmd.exe        one shell, a name as printed
 //   node check.mjs --require-all-shells   fails if a shell is missing, instead of skipping it
 //
-// Exit code 1 when a REQUIRED command selects anything else, or when none ran.
-import { spawn } from 'node:child_process';
+// Exit code 1 when a REQUIRED command selects anything else or cannot start, or when none ran.
+// PowerShell gets its commands through -EncodedCommand, 2.67 times longer: a measure row
+// refused there above about 12,000 characters says nothing about a pasted command.
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { countRequired, describeBad, runCommand, runRows } from './harness.mjs';
 
 const flag = (name) => process.argv.includes(`--${name}`);
 const onlyShell = process.argv.find((arg) => arg.startsWith('--shell='))?.slice('--shell='.length);
@@ -43,61 +45,34 @@ const SHELLS =
         { name: 'zsh', run: (text) => ['zsh', ['-c', text], {}] },
       ];
 
-function once(shell, text, cacheDir) {
-  return new Promise((resolve) => {
-    const [command, args, options] = shell.run(`${text} --list`);
-    const child = spawn(command, args, { ...options, env: { ...process.env, PWTEST_CACHE_DIR: cacheDir } });
-    let output = '';
-    child.stdout.on('data', (chunk) => (output += chunk));
-    child.stderr.on('data', (chunk) => (output += chunk));
-    child.on('error', (error) => resolve({ missing: true, raw: String(error) }));
-    child.on('close', () => {
-      const line = output.split(/\r?\n/).find((candidate) => candidate.startsWith('LOUPE_SELECTION '));
-      resolve(line ? { selected: JSON.parse(line.slice('LOUPE_SELECTION '.length)).map((parts) => JSON.stringify(parts)) } : { raw: output.slice(0, 400) });
-    });
-  });
-}
-
 const report = [];
 let failed = 0;
 let requiredRun = 0;
 const started = Date.now();
 for (const shell of SHELLS.filter((candidate) => !onlyShell || candidate.name === onlyShell)) {
   const shellStarted = Date.now();
-  const probeDir = mkdtempSync(path.join(tmpdir(), 'loupe-'));
-  const probe = await once(shell, commands[0].text, probeDir);
-  rmSync(probeDir, { recursive: true, force: true });
-  if (probe.missing) {
+  const worker = () => {
+    const cacheDir = mkdtempSync(path.join(tmpdir(), 'loupe-'));
+    return { env: { PWTEST_CACHE_DIR: cacheDir }, dispose: () => rmSync(cacheDir, { recursive: true, force: true }) };
+  };
+  const probeWorker = worker();
+  const probe = await runCommand(shell.run(`${commands[0].text} --list`), probeWorker.env);
+  probeWorker.dispose();
+  if (probe.code === 'ENOENT') {
     console.log(`\n=== ${shell.name}: not installed${requireAllShells ? '' : ', skipped'}`);
     if (requireAllShells) failed += 1;
     continue;
   }
   console.log(`\n=== ${shell.name}: ${commands.length} commands`);
-  const stats = {};
-  const queue = [...commands];
-  await Promise.all(
-    Array.from({ length: 4 }, async () => {
-      const cacheDir = mkdtempSync(path.join(tmpdir(), 'loupe-'));
-      for (let item = queue.shift(); item; item = queue.shift()) {
-        const { selected, raw } = await once(shell, item.text, cacheDir);
-        const stat = (stats[item.form] ??= { required: item.required, ok: 0, bad: [] });
-        // A dependency project selected for a project asked is expected.
-        const asked = new Set(item.expected.map((key) => JSON.parse(key)[0]));
-        const kept = selected?.filter((key) => asked.has(JSON.parse(key)[0]) || JSON.parse(key)[0] !== 'setup');
-        if (kept && kept.length === item.expected.length && item.expected.every((key) => kept.includes(key))) stat.ok += 1;
-        else stat.bad.push({ length: item.text.length, command: item.text.slice(0, 300), expected: item.expected.length, selected: kept ? kept.length : 'error', raw });
-      }
-      rmSync(cacheDir, { recursive: true, force: true });
-    }),
-  );
+  const stats = await runRows({ commands, toLaunch: shell.run, worker });
+  const counted = countRequired(stats);
+  failed += counted.bad;
+  requiredRun += counted.run;
   for (const [form, stat] of Object.entries(stats)) {
-    if (stat.required) {
-      failed += stat.bad.length;
-      requiredRun += stat.ok + stat.bad.length;
-    }
     console.log(`${stat.required ? 'REQUIRED' : 'measure '}  ${form.padEnd(48)} ok ${String(stat.ok).padStart(3)}  bad ${stat.bad.length}`);
-    for (const bad of stat.bad.slice(0, 3)) {
-      console.log(`    ${bad.command}\n    -> length ${bad.length}, selected ${bad.selected} of ${bad.expected}${bad.raw ? `: ${bad.raw.slice(0, 200).replace(/\s+/g, ' ')}` : ''}`);
+    // Every measure row is data; a broken REQUIRED form could print a lot.
+    for (const bad of stat.required ? stat.bad.slice(0, 3) : stat.bad) {
+      console.log(`    ${stat.required ? `${bad.command}\n    -> ` : ''}${describeBad(bad)}`);
     }
   }
   console.log(`${shell.name}: ${Math.round((Date.now() - shellStarted) / 1000)} s`);
