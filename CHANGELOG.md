@@ -20,7 +20,8 @@ No change to the JSON shape: `schemaVersion` stays 1.
 - Rerun commands can be pasted in bash, zsh, PowerShell, `cmd.exe` and Git Bash, from the folder that holds your Playwright config. Tests that read the same to `-g` run together: titles or project names differing only by case, `a › b` next to `a b`, an inline tag next to the same `{ tag }`.
 - The AI prompt says `- File: <file>` instead of `- Location: <file>:<line>`: that line could be wrong. The location of each error stays.
 - The "failed tests in this file" button counts tests, not locations, and appears as soon as another test of the file failed, even on the same line.
-- The notice about long rerun commands depends on their length, not on the number of tests. Above 8,000 characters, it mentions the Windows command-line limit. Above 131,072, the limit of an argument on Linux, nothing can be copied: the button stays focusable, explains why and mentions `--last-failed`, which reruns the failures of the last local run and can differ from the report.
+- The notice about long rerun commands depends on their length, not on the number of tests. Above 8,000 characters: "Too long for Windows, which accepts 8,191 characters: run it in bash or zsh on Linux or macOS, or rerun fewer tests." Above 131,072 bytes, the limit of an argument on Linux, nothing can be copied: the button stays focusable, explains why and mentions `--last-failed`, which reruns the failures of the last local run and can differ from the report.
+- Letters and combining marks stay readable in rerun commands, in every script, and pass through bash, zsh, PowerShell, `cmd.exe` and Git Bash. Other non-ASCII characters (emoji, dashes, symbols) are escaped, and so are invisible ones such as variation selectors, which a terminal or an editor may strip on paste.
 
 ## [0.2.0] - 2026-10-29
 

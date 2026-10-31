@@ -224,6 +224,12 @@ describe('rerun commands against the installed Playwright', () => {
       }, 120_000);
     });
 
+    it('escapes the variation selector of a title, and selects the test', async () => {
+      const test = inFile('main', 'titles.spec.ts', 'heart ❤\ufe0f with a variation selector');
+      expect(rerunCommand([test])).toContain('heart \\u2764\\ufe0f with a variation selector$');
+      expect(await selection(rerunCommand([test]), RERUN_CONFIG)).toContain(keyOf(test));
+    }, 120_000);
+
     it('selects a test of a project off by default through --project', async () => {
       // Plain `--list` leaves that project out from Playwright 1.64: it is not in the report, the command is.
       const test = { ...inFile('main', 'plain.spec.ts', 'alpha'), project: 'off-by-default' };

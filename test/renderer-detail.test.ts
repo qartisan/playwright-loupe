@@ -3,7 +3,7 @@ import { errorGroups } from '../src/renderer/dashboard.js';
 import { buildAiPrompt } from '../src/renderer/detail/aiPrompt.js';
 import { attemptLabel, defaultAttempt, selectAttempt } from '../src/renderer/detail/attempts.js';
 import { joinQuery, parseDetailParams, serializeDetailParams } from '../src/renderer/detail/params.js';
-import { LINUX_COMMAND_LENGTH, WINDOWS_COMMAND_LENGTH, commandLimit, commandNotice, failedTests, failedTestsInFile, fileRerun, rerunCommand, shellQuote, type RerunTarget } from '../src/renderer/detail/rerun.js';
+import { LINUX_COMMAND_BYTES, WINDOWS_COMMAND_LENGTH, commandLimit, commandNotice, failedTests, failedTestsInFile, fileRerun, rerunCommand, shellQuote, type RerunTarget } from '../src/renderer/detail/rerun.js';
 import { groupNavigation, groupSequence, neighbors, testSequence } from '../src/renderer/detail/sequence.js';
 import { failingPath, failingStepContext, stepTree, type StepNode } from '../src/renderer/detail/steps.js';
 import { NO_FILTER_CONTEXT } from '../src/renderer/filters/match.js';
@@ -297,10 +297,10 @@ describe('rerun commands', () => {
     ['every ASCII character', target(Array.from({ length: 95 }, (_, index) => String.fromCharCode(32 + index)).join(''), { suitePath: ['"$`%!\\^&|<>'], tags: ['@a'] })],
     ['non-ASCII text', target('é 日本 🚀 — ’', { suitePath: ['«s»'] })],
     ['a difficult path', target('t', { file: 'tests/[id]/(g)/a+b c$%é`!"&.spec.ts' })],
-    ['a difficult project', target('t', { project: `Gilles's "$x" %y% \`z\` é!^&|<>\\` })],
+    ['a difficult project', target('t', { project: `Gilles's "$x" %y% \`z\` é!^&|<>\\ 🚀` })],
   ])('gives a command no shell acts on, for %s', (_case, test) => {
     const command = rerunCommand([test, target('other', { file: test.file, project: test.project })]);
-    expect(command).toMatch(/^[\x20-\x7e]+$/);
+    expect(command).toMatch(/^[\x20-\x7e\p{L}\p{M}]+$/u);
     const quoted = [...command.matchAll(/"([^"]*)"/g)].map((match) => match[1] ?? '');
     expect(quoted.join('')).not.toMatch(/[`%!&<>]/);
     const grep = grepOf(command);
@@ -317,10 +317,46 @@ describe('rerun commands', () => {
     expect(command.replace(/"[^"]*"/g, '')).toMatch(/^[\w. =-]*$/);
   });
 
-  it('escapes shell characters in hexadecimal, regex metacharacters with a backslash, non-ASCII by UTF-16 code unit', () => {
+  it.each<[string, string, string]>([
+    ['accented letters', 'é à ü ñ Ç', 'é à ü ñ Ç'],
+    ['CJK letters', '日本語', '日本語'],
+    ['a letter outside the BMP', '𝒜', '𝒜'],
+    ['a decomposed letter: its combining mark', 'e\u0301', 'e\u0301'],
+    ['marks of an Indic script', 'हिन्दी', 'हिन्दी'],
+  ])('leaves %s literal', (_case, title, expected) => {
+    expect(grepOf(rerunCommand([target(title)]))).toBe(`^ *chromium a.spec.ts ${expected}$`);
+  });
+
+  it.each<[string, string, string]>([
+    ['an emoji', '🚀', '\\ud83d\\ude80'],
+    ['a joiner', '\u200d', '\\u200d'],
+    ['an emoji with a variation selector, a mark but invisible', '❤\ufe0f', '\\u2764\\ufe0f'],
+    ['a text variation selector', 'x\ufe0e', 'x\\ufe0e'],
+    ['a variation selector outside the BMP', 'x\u{e0100}', 'x\\udb40\\udd00'],
+    ['the last variation selector outside the BMP', 'x\u{e01ef}', 'x\\udb40\\uddef'],
+    ['a combining grapheme joiner, a mark but invisible', 'a\u034fb', 'a\\u034fb'],
+    ['a Hangul filler, a letter but invisible', '\u3164', '\\u3164'],
+    ['dashes', '— –', '\\u2014 \\u2013'],
+    ['curly quotes, which PowerShell reads as quotes', '“ ” ‘ ’', '\\u201c \\u201d \\u2018 \\u2019'],
+    ['symbols', '€ £ ©', '\\u20ac \\u00a3 \\u00a9'],
+    ['a non-breaking space', '\u00a0', '\\u00a0'],
+    ['a lone surrogate', '\ud83d', '\\ud83d'],
+  ])('escapes %s by UTF-16 code unit', (_case, title, expected) => {
+    expect(grepOf(rerunCommand([target(title)]))).toBe(`^ *chromium a.spec.ts ${expected}$`);
+  });
+
+  it('selects a title with a variation selector, none left in the command', () => {
+    const test = target('heart ❤\ufe0f ok', { suitePath: ['\u{e0100}s'], project: 'p\ufe0f', file: 'f\ufe0f.spec.ts' });
+    const command = rerunCommand([test]);
+    expect(command).not.toMatch(/\p{Default_Ignorable_Code_Point}/u);
+    expect(command).toContain('"--project=p*"');
+    expect(selects([test], 'p\ufe0f f\ufe0f.spec.ts \u{e0100}s heart ❤\ufe0f ok')).toBe(true);
+    expect(selects([test], 'p f.spec.ts s heart ❤ ok')).toBe(false);
+  });
+
+  it('escapes shell characters in hexadecimal, regex metacharacters with a backslash', () => {
     expect(grepOf(rerunCommand([target('$ " ` % ! \\ ^ & | < > /')]))).toBe('^ *chromium a.spec.ts \\x24 \\x22 \\x60 \\x25 \\x21 \\x5c \\x5e \\x26 \\x7c \\x3c \\x3e \\x2f$');
     expect(grepOf(rerunCommand([target('. * + ? ( ) [ ] { }')]))).toBe('^ *chromium a.spec.ts \\. \\* \\+ \\? \\( \\) \\[ \\] \\{ \\}$');
-    expect(grepOf(rerunCommand([target('é 日 🚀')]))).toBe('^ *chromium a.spec.ts \\u00e9 \\u65e5 \\ud83d\\ude80$');
   });
 
   it('leaves a plain file or project bare, made only of letters, digits, dots, dashes and underscores', () => {
@@ -338,7 +374,7 @@ describe('rerun commands', () => {
       'npx playwright test "tests.\\[id\\].\\(group\\).a\\+b c.spec.ts" --project=chromium -g "^ *chromium tests.\\[id\\].\\(group\\).a\\+b c.spec.ts t$"',
     );
     expect(rerunCommand([target('t', { file: 'tests/[id]/a.spec.ts' })])).toContain('npx playwright test "tests.\\[id\\].a.spec.ts" --project');
-    expect(rerunCommand([target('t', { file: 'tests/été.spec.ts' })])).toContain('npx playwright test "tests.\\u00e9t\\u00e9.spec.ts" --project');
+    expect(rerunCommand([target('t', { file: 'tests/été.spec.ts' })])).toContain('npx playwright test "tests.été.spec.ts" --project');
     expect(rerunCommand([target('t', { file: 'a $b %c% !d `e` &f.spec.ts' })])).toContain('npx playwright test "a \\x24b \\x25c\\x25 \\x21d \\x60e\\x60 \\x26f.spec.ts" --project');
     expect(rerunCommand([target('t', { file: '-x.spec.ts' })])).toContain('npx playwright test .x.spec.ts --project');
   });
@@ -355,7 +391,7 @@ describe('rerun commands', () => {
     expect(rerunCommand([target('t', { project: 'Mobile Safari' })])).toContain('"--project=Mobile Safari" -g "^ *Mobile Safari a.spec.ts t$"');
     expect(rerunCommand([target('t', { project: 'star*name' })])).toContain('"--project=star*name" -g "^ *star\\*name a.spec.ts t$"');
     expect(rerunCommand([target('t', { project: 'mobile (iOS) + x' })])).toContain('"--project=mobile (iOS) + x" -g');
-    expect(rerunCommand([target('t', { project: 'a$b é' })])).toContain('"--project=a*b *" -g "^ *a\\x24b \\u00e9 a.spec.ts t$"');
+    expect(rerunCommand([target('t', { project: 'a$b é' })])).toContain('"--project=a*b é" -g "^ *a\\x24b é a.spec.ts t$"');
   });
 
   it('tolerates tags after each segment only for a test with { tag } tags', () => {
@@ -427,35 +463,34 @@ describe('rerun commands', () => {
     expect(rerunCommand([])).toBe('');
   });
 
-  it('tells which limit a command is above: 8,000 characters for Windows, 131,072 for Linux', () => {
+  it('tells which limit a command is above: 8,000 characters for Windows, 131,072 bytes for Linux', () => {
     expect(commandLimit('x'.repeat(WINDOWS_COMMAND_LENGTH))).toBeNull();
     expect(commandLimit('x'.repeat(WINDOWS_COMMAND_LENGTH + 1))).toBe('windows');
-    expect(commandLimit('x'.repeat(LINUX_COMMAND_LENGTH))).toBe('windows');
-    expect(commandLimit('x'.repeat(LINUX_COMMAND_LENGTH + 1))).toBe('linux');
+    expect(commandLimit('x'.repeat(LINUX_COMMAND_BYTES))).toBe('windows');
+    expect(commandLimit('x'.repeat(LINUX_COMMAND_BYTES + 1))).toBe('linux');
     expect(WINDOWS_COMMAND_LENGTH).toBe(8000);
-    expect(LINUX_COMMAND_LENGTH).toBe(131072);
+    expect(LINUX_COMMAND_BYTES).toBe(131072);
     expect(commandLimit(rerunCommand([target('t')]))).toBeNull();
   });
 
-  it('says nothing below the limits, warns above the Windows one, explains and gives --last-failed above the Linux one', () => {
+  it('counts bytes for the Linux limit, now that letters are literal', () => {
+    // 50,000 characters, 150,000 bytes: too long for Linux, whatever its length in characters.
+    expect(commandLimit('日'.repeat(50_000))).toBe('linux');
+    expect(commandNotice('日'.repeat(50_000))).toContain('150,000 bytes');
+    const tests = Array.from({ length: 300 }, (_, index) => target(`é ${index} 日本語のタイトル`, { file: 'tests/été.spec.ts', project: 'Sécurité', suitePath: ['Émission'] }));
+    const command = rerunCommand(tests);
+    expect(Buffer.byteLength(command)).toBeGreaterThan(command.length);
+  });
+
+  it('says nothing below the limits, gives the way out above the Windows one, explains and gives --last-failed above the Linux one', () => {
     expect(commandNotice('x'.repeat(WINDOWS_COMMAND_LENGTH))).toBeNull();
-    const windows = commandNotice('x'.repeat(WINDOWS_COMMAND_LENGTH + 1));
-    expect(windows).toContain('8,001 characters');
-    expect(windows).toContain('this may exceed the Windows command-line limit (8,191 characters).');
-    expect(windows).not.toContain('--last-failed');
-    expect(commandNotice('x'.repeat(LINUX_COMMAND_LENGTH))).toContain('Windows');
-    const linux = commandNotice('x'.repeat(LINUX_COMMAND_LENGTH + 1));
-    expect(linux).toContain('Too long to copy: 131,073 characters');
+    expect(commandNotice('x'.repeat(WINDOWS_COMMAND_LENGTH + 1))).toBe('Too long for Windows, which accepts 8,191 characters: run it in bash or zsh on Linux or macOS, or rerun fewer tests.');
+    expect(commandNotice('x'.repeat(LINUX_COMMAND_BYTES))).toContain('Too long for Windows');
+    const linux = commandNotice('x'.repeat(LINUX_COMMAND_BYTES + 1));
+    expect(linux).toContain('Too long to copy: 131,073 bytes');
     expect(linux).toContain('131,072 of a Linux argument');
     expect(linux).toContain('npx playwright test --last-failed');
     expect(linux).toContain('last local run, which can differ from this report');
-  });
-
-  it('keeps commands ASCII, so that their length is their size in bytes', () => {
-    const tests = Array.from({ length: 300 }, (_, index) => target(`é ${index} 日本語のタイトル`, { file: 'tests/été.spec.ts', project: 'Sécurité', suitePath: ['Émission'] }));
-    const command = rerunCommand(tests);
-    expect(Buffer.byteLength(command)).toBe(command.length);
-    expect(commandLimit(command)).toBe('windows');
   });
 
   it('shortens a long list by writing shared prefixes once', () => {

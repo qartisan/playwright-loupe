@@ -22,39 +22,44 @@ import { REDACTED } from '../../shared/redaction.js';
  * secret in a title, so `.+` stands for it, and a title really containing the
  * marker runs with those it then matches.
  *
- * Commands are ASCII, and the text inside their double quotes has nothing a
- * shell acts on: backslashes only come before a letter or a regex
- * metacharacter, and the only `$` is the one before the last closing quote.
+ * The text inside the double quotes has nothing a shell acts on: backslashes
+ * only come before a letter or a regex metacharacter, and the only `$` is the
+ * one before the last closing quote. Apart from visible letters and combining
+ * marks, left readable (checked in every Windows shell, fixtures/windows-check/),
+ * commands are ASCII.
  *
  * Pure functions, no DOM: unit-tested in Node.
  */
 
 export type RerunTarget = Pick<TestCase, 'file' | 'project' | 'suitePath' | 'title' | 'tags'>;
 
-/** Above this length, a command may not fit the Windows command-line limit (8,191 characters). */
+/** Above this length, a command may not fit Windows: `npx` goes through cmd.exe in every shell, whose limit is 8,191 characters. */
 export const WINDOWS_COMMAND_LENGTH = 8000;
 
-/** Above this length, a command cannot run on Linux: it is the limit of a single argument, and `-g` is one. */
-export const LINUX_COMMAND_LENGTH = 131072;
+/** Above this size in bytes, a command cannot run on Linux: it is the limit of a single argument, and `-g` is one. */
+export const LINUX_COMMAND_BYTES = 131072;
 
-/** The limit a command is above, if any. Commands are ASCII: their length is their size in bytes. */
+function byteLength(text: string): number {
+  return new TextEncoder().encode(text).length;
+}
+
+/** The limit a command is above, if any. */
 export function commandLimit(command: string): 'windows' | 'linux' | null {
-  if (command.length > LINUX_COMMAND_LENGTH) return 'linux';
+  if (byteLength(command) > LINUX_COMMAND_BYTES) return 'linux';
   return command.length > WINDOWS_COMMAND_LENGTH ? 'windows' : null;
 }
 
-function formatLength(length: number): string {
-  return length.toLocaleString('en-US');
+function formatNumber(value: number): string {
+  return value.toLocaleString('en-US');
 }
 
 /** What to say about a command above a limit; null below them. Short: it sits next to the button. */
 export function commandNotice(command: string): string | null {
   const limit = commandLimit(command);
-  const length = formatLength(command.length);
   if (limit === 'linux') {
-    return `Too long to copy: ${length} characters, above the ${formatLength(LINUX_COMMAND_LENGTH)} of a Linux argument. npx playwright test --last-failed reruns the failures of the last local run, which can differ from this report.`;
+    return `Too long to copy: ${formatNumber(byteLength(command))} bytes, above the ${formatNumber(LINUX_COMMAND_BYTES)} of a Linux argument. npx playwright test --last-failed reruns the failures of the last local run, which can differ from this report.`;
   }
-  if (limit === 'windows') return `${length} characters: this may exceed the Windows command-line limit (8,191 characters).`;
+  if (limit === 'windows') return 'Too long for Windows, which accepts 8,191 characters: run it in bash or zsh on Linux or macOS, or rerun fewer tests.';
   return null;
 }
 
@@ -74,27 +79,35 @@ function compareText(a: string, b: string): number {
 /** Inert in every shell and in a regular expression. */
 const LITERAL = /[A-Za-z0-9 _:@,=~#'-]/;
 
+/**
+ * Letters and combining marks of every script: inert in every shell between double
+ * quotes, and readable. Not the invisible ones (variation selectors, fillers): a
+ * terminal or an editor may strip them on paste, and the command would match nothing.
+ */
+const READABLE = /(?!\p{Default_Ignorable_Code_Point})[\p{L}\p{M}]/u;
+
 /** Inert in every shell between double quotes, once escaped for the regular expression. */
 const REGEX_METACHARACTER = /[.*+?()[\]{}]/;
 
 function escapeText(text: string): string {
   let result = '';
-  for (let index = 0; index < text.length; index += 1) {
-    const char = text.charAt(index);
-    const code = text.charCodeAt(index);
-    if (LITERAL.test(char)) result += char;
+  for (const char of text) {
+    if (LITERAL.test(char) || READABLE.test(char)) result += char;
     else if (REGEX_METACHARACTER.test(char)) result += `\\${char}`;
-    else if (code < 0x80) result += `\\x${code.toString(16).padStart(2, '0')}`;
-    else result += `\\u${code.toString(16).padStart(4, '0')}`;
+    else {
+      // By UTF-16 code unit: `-g` has no `u` flag.
+      for (let index = 0; index < char.length; index += 1) {
+        const code = char.charCodeAt(index);
+        result += code < 0x80 ? `\\x${code.toString(16).padStart(2, '0')}` : `\\u${code.toString(16).padStart(4, '0')}`;
+      }
+    }
   }
   return result;
 }
 
 /**
  * `text` as a regular expression matching exactly it: the other characters
- * become hexadecimal escapes, by UTF-16 code unit since `-g` has no `u` flag.
- * Non-ASCII letters too, until the Windows shells are known to pass them intact.
- * A secret the report hid can be anything.
+ * become hexadecimal escapes. A secret the report hid can be anything.
  */
 function regexText(text: string): string {
   return text.split(REDACTED).map(escapeText).join('.+');
@@ -126,7 +139,7 @@ function fileArgument(file: string): string {
  * starting with a dash at a dot.
  */
 function projectFlag(project: string): string {
-  const name = project.split(REDACTED).join('*').replace(/["$`%!\\^&|<>]|[^\x20-\x7e]/g, '*');
+  const name = project.split(REDACTED).join('*').replace(/["$`%!\\^&|<>]|\p{Default_Ignorable_Code_Point}|[^\x20-\x7e\p{L}\p{M}]/gu, '*');
   return PLAIN.test(name) && !name.includes('.') ? `--project=${name}` : `"--project=${name}"`;
 }
 

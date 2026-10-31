@@ -402,9 +402,9 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     const button = page.locator('.rerun-failed .copy-button');
     const note = page.locator('.rerun-failed .rerun-note');
     await note.waitFor();
-    expect(await note.textContent()).toMatch(/^[\d,]+ characters: this may exceed the Windows command-line limit \(8,191 characters\)\.$/);
+    expect(await note.textContent()).toBe('Too long for Windows, which accepts 8,191 characters: run it in bash or zsh on Linux or macOS, or rerun fewer tests.');
     // Read with the button, and not as an announcement.
-    expect(await page.locator(`#${await button.getAttribute('aria-describedby')}`).textContent()).toContain('Windows command-line limit');
+    expect(await page.locator(`#${await button.getAttribute('aria-describedby')}`).textContent()).toContain('Too long for Windows');
     await button.click();
     await expect.poll(async () => (await page.evaluate<string[]>('window.__copied')).length).toBe(1);
     expect((await page.evaluate<string[]>('window.__copied'))[0]).toContain(failing.title.split(' ')[0]);
@@ -418,7 +418,7 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     const button = page.locator('.rerun-failed .copy-button');
     const note = page.locator('.rerun-failed .rerun-note');
     await note.waitFor();
-    expect(await note.textContent()).toMatch(/^Too long to copy: [\d,]+ characters, above the 131,072 of a Linux argument\. npx playwright test --last-failed reruns the failures of the last local run, which can differ from this report\.$/);
+    expect(await note.textContent()).toMatch(/^Too long to copy: [\d,]+ bytes, above the 131,072 of a Linux argument\. npx playwright test --last-failed reruns the failures of the last local run, which can differ from this report\.$/);
 
     // aria-disabled, not disabled: announced as unavailable, with its reason, and still in the tab order.
     expect(await button.getAttribute('aria-disabled')).toBe('true');

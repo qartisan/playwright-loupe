@@ -68,26 +68,20 @@ function add(form, tests, text = rerunCommand(tests), required = text.length <= 
   commands.push({ form, required, expected: [...new Set(tests.flatMap(expectedFor))], text });
 }
 const tests = report.tests.filter((test) => test.file !== 'long.spec.ts');
-const longs = report.tests.filter((test) => test.file === 'long.spec.ts' && test.project === 'main');
+const inLong = report.tests.filter((test) => test.file === 'long.spec.ts' && test.project === 'main');
+const longs = inLong.filter((test) => test.title.startsWith('long '));
+const dense = inLong.filter((test) => test.title.startsWith('dense '));
 const find = (project, title, file = 'plain.spec.ts') => {
   const test = tests.find((candidate) => candidate.project === project && candidate.title === title && candidate.file === file);
   if (!test) throw new Error(`No test "${title}" in ${file} of ${project}`);
   return test;
 };
 
-for (const test of tests) add('one test', [test]);
+// Commands are ASCII but for letters and marks left literal: their own rows, REQUIRED like the others.
+const lettersIn = (text) => /[^\x00-\x7f]/.test(text);
+for (const test of tests) add(lettersIn(rerunCommand([test])) ? 'one test, literal letters' : 'one test', [test]);
 // `--list` without --project leaves this project out of the report.
 add('one test', [{ ...find('main', 'alpha'), project: 'off-by-default' }]);
-
-// Literal letters instead of \uHHHH: could the escaping of letters stop?
-const withLiteralLetters = (text) => text.replace(/\\u([0-9a-f]{4})/g, (escape, hex) => {
-  const char = String.fromCharCode(Number.parseInt(hex, 16));
-  return /\p{L}/u.test(char) ? char : escape;
-});
-for (const test of tests.filter((candidate) => candidate.project === 'main')) {
-  const text = rerunCommand([test]);
-  if (withLiteralLetters(text) !== text) add('one test, literal letters', [test], withLiteralLetters(text), false);
-}
 
 const notLong = tests.filter((test) => [...test.suitePath, test.title].join('').length < 200);
 const groupsBy = (key) => [...Map.groupBy(notLong, key).values()];
@@ -110,6 +104,12 @@ for (const count of [7, 9, 12, 20, 33, 36]) {
   const text = rerunCommand(list);
   add(`length about ${Math.round(text.length / 1000)},000`, list, text);
 }
+// With the spaces of real titles, which npx escapes with carets: measured, whatever their length.
+for (const count of [3, 4, 5, 6, 7, 8]) {
+  const list = dense.slice(0, count);
+  const text = rerunCommand(list);
+  add(`dense, length about ${Math.round(text.length / 1000)},000`, list, text, false);
+}
 writeFileSync(path.join(stage, 'commands.json'), JSON.stringify(commands, null, 1));
 
 const pick = (fragments, form = 'one test') => {
@@ -119,9 +119,11 @@ const pick = (fragments, form = 'one test') => {
 };
 const manual = [
   ['A plain test', pick(['plain.spec.ts', '--project=main', ' alpha$'])],
-  ['The non-ASCII file name, full of shell characters', pick(['in a path with shell characters', '--project=main'])],
+  ['The non-ASCII file name, full of shell characters', pick(['in a path with shell characters', '--project=main'], 'one test, literal letters')],
   ['A percent sign in a file name', pick(['in a path with a percent sign', '--project=main'])],
   ['Regex characters and a space in a path', pick(['in a path with regex characters', '--project=main'])],
+  ['Accented letters left literal, in a title', pick(['accents éàü', '--project=main'], 'one test, literal letters')],
+  ['Letters left literal, in a project name', pick(['"--project=Sécu', ' alpha$'], 'one test, literal letters')],
   ['The v1.2 project, quoted', pick(['"--project=v1.2"', ' alpha$'])],
   ['A title with every shell character', pick(['caret', '--project=main'])],
   ['Tags from a describe and from the test', pick(['nested', 'three', '--project=main'])],

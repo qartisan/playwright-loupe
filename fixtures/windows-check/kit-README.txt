@@ -13,10 +13,12 @@ Needs: Node.js 22.12 or later. Git Bash and PowerShell 7 are tested when install
 
 2. Automatic check, in every shell found:
 
-     node check.mjs --measure
+     node check.mjs
 
-   The last line says PASS or FAIL. REQUIRED rows must have 0 bad. "measure" rows are
-   information, not failures: literal letters, and commands above 8,000 characters.
+   The last line says PASS or FAIL. REQUIRED rows must have 0 bad.
+   node check.mjs --measure adds rows that are information, not failures: commands
+   above 8,000 characters, and dense ones, with the spaces of real titles.
 
 3. By hand, in each shell: manual-paste.txt lists commands to paste as they are,
-   adding " --list" at the end. A real clipboard paste is what users do.
+   adding " --list" at the end. A real clipboard paste is what users do. Open it in
+   Notepad: it holds accented letters, which `type` in cmd.exe can garble.
