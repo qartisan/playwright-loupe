@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -13,6 +13,7 @@ export const SCOPE_CONFIG = 'fixtures/scope.config.ts';
 export const SCOPE_DEFAULT_CONFIG = 'fixtures/scope-default.config.ts';
 export const VERSION_CONFIG = 'fixtures/version.config.ts';
 export const INTERNALS_CONFIG = 'fixtures/internals.config.ts';
+export const RERUN_CONFIG = 'fixtures/rerun.config.ts';
 
 /** Fails early with a clear message when the reporter was not built. */
 export function assertBuilt(): void {
@@ -49,6 +50,31 @@ export function playwright(
       shell: process.platform === 'win32',
     });
     return { status: result.status, output: `${result.stdout}\n${result.stderr}` };
+  } finally {
+    rmSync(cacheDir, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Runs `command` as pasted in a shell (bash; cmd.exe on Windows), from the
+ * repository root. Asynchronous, so that several can run at once, each with
+ * its own transform cache (see `playwright`).
+ */
+export async function pasteInShell(command: string, env: Record<string, string> = {}): Promise<{ status: number | null; output: string }> {
+  const cacheDir = mkdtempSync(path.join(tmpdir(), 'loupe-pw-cache-'));
+  try {
+    return await new Promise((resolve, reject) => {
+      const child = spawn(command, {
+        cwd: ROOT,
+        env: { ...process.env, PWTEST_CACHE_DIR: cacheDir, ...env },
+        shell: process.platform === 'win32' ? true : 'bash',
+      });
+      let output = '';
+      child.stdout.on('data', (chunk: Buffer) => (output += chunk.toString()));
+      child.stderr.on('data', (chunk: Buffer) => (output += chunk.toString()));
+      child.on('error', reject);
+      child.on('close', (status) => resolve({ status, output }));
+    });
   } finally {
     rmSync(cacheDir, { recursive: true, force: true });
   }

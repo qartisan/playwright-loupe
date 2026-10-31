@@ -73,7 +73,7 @@ export function buildAiPrompt(test: TestCase, attempt: Attempt, options: AiPromp
     '## Test',
     '',
     `- Title: ${[...test.suitePath, test.title].join(' › ')}`,
-    `- Location: ${test.file}:${test.line}`,
+    `- File: ${test.file}`,
     `- Project: ${test.project || '(unnamed)'}`,
     `- Outcome: ${test.outcome}`,
     `- Attempt: ${position} of ${test.attempts.length} (${attemptLabel(attempt.index).toLowerCase()}), status ${attempt.status}`,

@@ -962,6 +962,9 @@ span.dimension-tile { cursor: default; }
 .copy-done { color: var(--fg-secondary); }
 .rerun-failed { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
 .rerun-note { margin: 0; color: var(--fg-secondary); font-size: 13px; }
+.test-actions .rerun-note { flex-basis: 100%; }
+.copy-button[aria-disabled="true"] { color: var(--fg-secondary); cursor: default; }
+.copy-button[aria-disabled="true"]:hover { background: var(--bg-card); }
 .widget-verdict .rerun-failed { margin-top: 12px; }
 
 /* Previous / next */

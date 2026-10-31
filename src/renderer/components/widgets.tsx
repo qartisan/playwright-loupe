@@ -1,6 +1,6 @@
 import { signal } from '@preact/signals';
 import type { ComponentChildren } from 'preact';
-import { useEffect } from 'preact/hooks';
+import { useEffect, useId, useMemo } from 'preact/hooks';
 import type { CategoryDefinition, LoupeReport, RunError, TestCase } from '../../schema/v1.js';
 import { categoryStyle } from '../categoryColors.js';
 import {
@@ -34,12 +34,12 @@ import { foldedGroupsText, groupCountText } from '../secondary.js';
 import { revealInSidebar } from '../layout.js';
 import { hrefTo } from '../navigation.js';
 import { UNNAMED_PROJECT, projectKey } from '../tree.js';
-import { LONG_COMMAND_TESTS, RERUN_HELP, failedTests, rerunCommand } from '../detail/rerun.js';
+import { RERUN_HELP, commandLimit, commandNotice, failedTests, rerunCommand, type RerunTarget } from '../detail/rerun.js';
 import { CategoryBadge } from './CategoryBadge.js';
 import { CopyButton } from './CopyButton.js';
 import { GroupSplit } from './GroupSplit.js';
 import { SkipReasonText } from './SkipReason.js';
-import { AlertIcon, ChevronIcon, OutcomeIcon, outcomeLabel } from './icons.js';
+import { AlertIcon, ChevronIcon, CopyIcon, OutcomeIcon, outcomeLabel } from './icons.js';
 
 /** Widgets shared by the overview, errors and suite health views. */
 
@@ -160,20 +160,52 @@ export function Verdict({ report, children }: { report: LoupeReport; children?: 
 }
 
 /**
- * Copies the command rerunning the failed tests of a list (flaky tests left
- * out), every one of them, not only the rows shown. Nothing when none failed.
+ * Copies the command rerunning `tests`. Above the Windows limit, a notice says
+ * so, also read with the button; nothing else speaks when the copy is
+ * announced. Above the Linux limit, the command could not run: activating the
+ * button does nothing, and the notice explains why and gives the alternative.
+ * `aria-disabled`, not `disabled`, which would leave the tab order and show no
+ * tooltip: keyboard and screen reader users must be able to learn why.
+ */
+export function RerunButton({ tests, children }: { tests: readonly RerunTarget[]; children: ComponentChildren }) {
+  const command = useMemo(() => rerunCommand(tests), [tests]);
+  const notice = commandNotice(command);
+  const noticeId = useId();
+  if (commandLimit(command) === 'linux') {
+    return (
+      <>
+        <button type="button" class="button copy-button" aria-disabled="true" aria-describedby={noticeId} title={notice ?? undefined}>
+          <CopyIcon />
+          <span>{children}</span>
+        </button>
+        <p id={noticeId} class="rerun-note">
+          {notice}
+        </p>
+      </>
+    );
+  }
+  return (
+    <>
+      <CopyButton label="Rerun command" help={notice ? `${RERUN_HELP} ${notice}` : RERUN_HELP} text={() => command}>
+        {children}
+      </CopyButton>
+      {notice && <p class="rerun-note">{notice}</p>}
+    </>
+  );
+}
+
+/**
+ * The rerun command of the failed tests of a list (flaky tests left out),
+ * every one of them, not only the rows shown. Nothing when none failed.
  */
 export function RerunFailed({ tests, action = 'Copy rerun command' }: { tests: readonly TestCase[]; action?: string }) {
-  const failed = failedTests(tests);
+  const failed = useMemo(() => failedTests(tests), [tests]);
   if (failed.length === 0) return null;
   return (
     <div class="rerun-failed">
-      <CopyButton label="Rerun command" help={RERUN_HELP} text={() => rerunCommand(failed)}>
+      <RerunButton tests={failed}>
         {action} · {plural(failed.length, 'failed test')}
-      </CopyButton>
-      {failed.length > LONG_COMMAND_TESTS && (
-        <p class="rerun-note">The command lists {plural(failed.length, 'test')}: it is long, and some terminals may cut it.</p>
-      )}
+      </RerunButton>
     </div>
   );
 }

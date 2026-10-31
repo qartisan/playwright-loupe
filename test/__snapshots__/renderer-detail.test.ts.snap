@@ -6,7 +6,7 @@ exports[`AI prompt > describes the attempt in English, with the stack by default
 ## Test
 
 - Title: structure › fails inside a nested step (intentional)
-- Location: structure.spec.ts:19
+- File: structure.spec.ts
 - Project: chromium-a
 - Outcome: failed
 - Attempt: 2 of 2 (retry 1), status failed

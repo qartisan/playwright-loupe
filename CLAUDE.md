@@ -108,3 +108,15 @@ To try a local build in a consumer project, give it a prerelease version first, 
 - Implement from briefs; when a request conflicts with a non-negotiable principle, say so before writing code.
 - Prefer small, reviewable changes.
 - Do not add dependencies without stating why.
+
+## Scratch work and deliberate breakage
+
+- Scripts that break code on purpose (mutation checks), reinstall
+  dependencies or rebuild run only in a scratch copy, never in the
+  repository itself.
+- Every such script starts with `set -euo pipefail` and a guard that
+  aborts if the current directory is the repository (compare
+  `git rev-parse --show-toplevel` with the repository path).
+- The session scratchpad can be wiped between sessions: anything Gilles
+  must use later (a Windows kit, a report) goes to a stable path
+  outside /tmp and its path is given in the report.

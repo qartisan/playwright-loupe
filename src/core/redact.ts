@@ -1,5 +1,8 @@
 import { readFileSync } from 'node:fs';
 import type { RedactMode } from '../config/types.js';
+import { REDACTED } from '../shared/redaction.js';
+
+export { REDACTED };
 
 /**
  * Secret redaction, applied by the core before signatures and categories are
@@ -22,9 +25,6 @@ import type { RedactMode } from '../config/types.js';
  * A and C share one list of secret-looking names. Attachment files (traces,
  * screenshots, videos) are never altered.
  */
-
-/** What replaces a secret. */
-export const REDACTED = '[redacted]';
 
 /** Values shorter than this are only redacted in quoted form (A), or not used at all (B): too many false matches. */
 export const MIN_SECRET_LENGTH = 6;
