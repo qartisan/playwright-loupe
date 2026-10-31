@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { rerunCommand } from '../src/renderer/detail/rerun.js';
 import { REDACTED } from '../src/shared/redaction.js';
 import type { LoupeReport, TestCase } from '../src/schema/v1.js';
+import { REWRITTEN_DECOY, REWRITTEN_TITLES, expectedFor, keyOf } from '../fixtures/helpers/rerun-expected.js';
 import { FIXTURE_SECRET } from '../fixtures/redaction-values.js';
 import { FIXTURE_CONFIG, RERUN_CONFIG, ROOT, assertBuilt, pasteInShell, playwright, readReport } from './helpers/fixtures.js';
 
@@ -21,41 +22,6 @@ const SELECTION_REPORTER = path.join(ROOT, 'fixtures/helpers/selection-reporter.
 const CONCURRENCY = Math.min(4, availableParallelism());
 
 type Key = string;
-
-function keyOf(test: Pick<TestCase, 'project' | 'file' | 'suitePath' | 'title'>): Key {
-  return JSON.stringify([test.project, test.file, ...test.suitePath, test.title]);
-}
-
-/** The tests `rerun/twins.spec.ts` has in pairs: same string for `-g`, so they run together. Title paths. */
-const TWINS: readonly (readonly [string, string])[] = [
-  ['login', 'Login'],
-  ['outer › same', 'outer same'],
-  ['outer same › leaf', 'outer same leaf'],
-  ['tail @smoke', 'tail'],
-  ['tail2', 'tail2 @a'],
-];
-
-/** Project names differing by case only: `--project` and `-g` select both. */
-const CASE_TWINS: Readonly<Record<string, string>> = { Case: 'case', case: 'Case' };
-
-/** What a command must select for a test of `rerun/redaction.spec.ts`: its real title; the secret and the marker read the same. */
-function expectedForRedacted(test: TestCase): Key[] {
-  const real = (text: string): string => text.split(REDACTED).join(FIXTURE_SECRET);
-  const unmasked = { ...test, suitePath: test.suitePath.map(real), title: real(test.title) };
-  return test.title === `with the secret ${REDACTED}` ? [keyOf(unmasked), keyOf(test)] : [keyOf(unmasked)];
-}
-
-/** What a command must select for one test: the test, and the tests it cannot be told apart from. */
-function expectedFor(test: TestCase): Key[] {
-  if (test.file === 'redaction.spec.ts') return expectedForRedacted(test);
-  const titlePath = [...test.suitePath, test.title].join(' › ');
-  const pair = test.file === 'twins.spec.ts' ? TWINS.find((twins) => twins.includes(titlePath)) : undefined;
-  const titles = (pair ?? [titlePath]).map((twin) => twin.split(' › '));
-  const projects = test.project in CASE_TWINS ? [test.project, CASE_TWINS[test.project] ?? ''] : [test.project];
-  return projects.flatMap((project) =>
-    titles.map((parts) => keyOf({ project, file: test.file, suitePath: parts.slice(0, -1), title: parts.at(-1) ?? '' })),
-  );
-}
 
 type Shift = (test: TestCase, report: LoupeReport) => number;
 
@@ -232,6 +198,31 @@ describe('rerun commands against the installed Playwright', () => {
       const selected = (await selection(command, RERUN_CONFIG)).map((key) => JSON.parse(key) as string[]).filter(([project]) => project === 'main');
       expect(selected.map((parts) => parts.at(-1)).sort()).toEqual([`with the secret ${FIXTURE_SECRET}`, `with the secret ${REDACTED}`].sort());
     }, 120_000);
+
+    describe('a title holding a path under the root or home directory', () => {
+      const inTitles = (): TestCase[] => report(RERUN_CONFIG).tests.filter((test) => test.project === 'main' && test.file === 'paths-in-titles.spec.ts');
+      const selectedInMain = async (test: TestCase): Promise<string[]> =>
+        (await selection(rerunCommand([test]), RERUN_CONFIG)).map((key) => JSON.parse(key) as string[]).filter(([project]) => project === 'main').map((parts) => parts.at(-1) ?? '');
+
+      it('is rewritten in the report, as these tests assume', () => {
+        const titles = inTitles().map((test) => test.title);
+        expect(titles).toEqual(expect.arrayContaining([...REWRITTEN_TITLES, REWRITTEN_DECOY]));
+        expect(titles.filter((title) => title === REWRITTEN_DECOY)).toHaveLength(2);
+        expect(titles.join()).not.toContain(path.join(ROOT, 'fixtures'));
+      });
+
+      it.each(REWRITTEN_TITLES)('selects no test: %s', async (title) => {
+        const test = inTitles().find((candidate) => candidate.title === title);
+        if (!test) throw new Error(`No test "${title}"`);
+        expect(await selectedInMain(test)).toEqual([]);
+      }, 120_000);
+
+      it('selects another test when one really has the rewritten title', async () => {
+        const [test] = inTitles().filter((candidate) => candidate.title === REWRITTEN_DECOY);
+        if (!test) throw new Error(`No test "${REWRITTEN_DECOY}"`);
+        expect(await selectedInMain(test)).toEqual([REWRITTEN_DECOY]);
+      }, 120_000);
+    });
 
     it('selects a test of a project off by default through --project', async () => {
       // Plain `--list` leaves that project out from Playwright 1.64: it is not in the report, the command is.

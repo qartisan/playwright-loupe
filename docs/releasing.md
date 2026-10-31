@@ -208,6 +208,14 @@ A runner image change, a registry outage or a browser download failure can turn 
 
 An intermittent failure is not an environment failure until it is explained, and re-running until green is not a fix: the 1.57 job that failed twice on wrong test lines before 0.2.0 was caused by two Playwright races, which also affect user reports (see [Known Playwright issues](support.md#known-playwright-issues)).
 
+## Windows job on the rerun commands
+
+`.github/workflows/windows-check.yml` (**Windows rerun commands**) runs on `windows-latest`, every Monday at 05:47 UTC and on push or pull request only when the paths it covers change: the rerun builder, the redaction marker, the core modules producing a test's file, title, project and tags (`identity.ts`, `build.ts`, `paths.ts`), `fixtures/rerun/`, the kit. It is not one of the six jobs of `ci.yml`; when it ran for a release's changes, it must be green too.
+
+- It checks that a fresh checkout has every tracked file, the non-ASCII file name of `fixtures/rerun/hostile/` included.
+- It generates the commands with the real builder (`fixtures/windows-check/build.mjs`) and runs each with `--list` in `cmd.exe`, PowerShell 5.1 and 7, both also through `npx.cmd`, and Git Bash (`check.mjs --require-all-shells`). A `REQUIRED` row with a bad result, or a missing shell, fails the job.
+- `--measure` also prints rows that never fail: letters left literal instead of `\uHHHH`, and commands from 9,000 to 36,000 characters. Remove the flag from the workflow once they are answered.
+
 ## Weekly job on the latest Playwright
 
 `.github/workflows/weekly.yml` (**Weekly latest Playwright**) runs the checks of the `Node 24 · Playwright latest` job every Monday at 05:17 UTC, and on demand from the Actions tab (**Run workflow**). Both use `.github/workflows/checks.yml`. It catches a Playwright release that breaks Loupe even when nobody pushes: a changed message format or internal (see [`docs/support.md`](support.md#where-a-playwright-change-can-degrade-the-report)).

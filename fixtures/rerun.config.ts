@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from '@playwright/test';
 import type { LoupeReporterOptions } from '../src/config/index.js';
 // Sets the invented LOUPE_FIXTURE_SECRET listed in redact.env (loupe.config.ts).
@@ -11,6 +12,9 @@ const loupeOptions: LoupeReporterOptions = {
   title: 'Loupe rerun fixture',
   outputFolder: process.env['LOUPE_FIXTURE_OUTPUT'] ?? '../loupe-report-rerun',
 };
+
+// For the paths in the titles of rerun/paths-in-titles.spec.ts.
+process.env['LOUPE_FIXTURE_RERUN_ROOT'] = fileURLToPath(new URL('./rerun', import.meta.url));
 
 const plain = /plain\.spec\.ts$/;
 

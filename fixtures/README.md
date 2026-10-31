@@ -50,7 +50,11 @@ Everything runs offline, through `page.setContent` and local servers on 127.0.0.
 
 ## Rerun commands
 
-`rerun.config.ts` runs `rerun/`, a browserless suite for the rerun commands (see `test/rerun.integration.test.ts`): titles, tags, paths and project names that are hard to select with `-g` or to paste in a shell. **The odd file names under `rerun/hostile/` are intentional** (without `%`: Playwright itself crashes on it in ES module packages), and so are the pairs of tests in `rerun/twins.spec.ts`, which `-g` cannot tell apart, and the invented secret in the titles of `rerun/redaction.spec.ts`, which the report hides. The test only lists this suite, it never runs it.
+`rerun.config.ts` runs `rerun/`, a browserless suite for the rerun commands (see `test/rerun.integration.test.ts`): titles, tags, paths and project names that are hard to select with `-g` or to paste in a shell. **The odd file names under `rerun/hostile/` are intentional** (without `%`: Playwright itself crashes on it in ES module packages), and so are the pairs of tests in `rerun/twins.spec.ts`, which `-g` cannot tell apart, and the invented secret in the titles of `rerun/redaction.spec.ts`, which the report hides. The paths in the titles of `rerun/paths-in-titles.spec.ts` are rewritten in the report, so their commands are expected to find nothing, or the test with the rewritten title. The test only lists this suite, it never runs it.
+
+## Windows check
+
+`windows-check/` is not a suite of its own: `build.mjs` copies `rerun/` to a folder outside the repository, with `long.spec.ts`, as a CommonJS package (a `%` in a file name crashes Playwright in ES module packages), then generates the commands with the real builder. `check.mjs` runs them in every shell found. `.github/workflows/windows-check.yml` runs it on `windows-latest`; see [Windows job](../docs/releasing.md#windows-job-on-the-rerun-commands). For a manual run on another machine: `npm run build`, then `node fixtures/windows-check/build.mjs <folder> --pack <file.tgz>`, and follow the `README.txt` of the archive.
 
 ## Playwright version
 
