@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+No change to the JSON shape: `schemaVersion` stays 1.
+
+### Fixed
+
+- **Rerun commands could target a different test when Playwright recorded a wrong test line** ([known issues](docs/support.md#known-playwright-issues)), or find none. They now select tests by project, file and title, with no line, and still work when lines have moved: `npx playwright test tests.login.spec.ts --project=chromium -g "^ *chromium tests.login.spec.ts logs in$"`.
+- With correct lines too, a rerun command no longer reruns every test declared on the same line (tests built in a loop), no longer matches another file whose name contains the same text, and no longer finds nothing for a path with regex characters (`tests/[id]/(group)/a+b.spec.ts`).
+- Rerun commands for several projects are now one command: `&&` skipped the later commands as soon as one failed, which is likely when rerunning failures, and PowerShell 5.1 rejects it.
+- A test whose title, file or project holds a secret from `redact.env` can be rerun: the command matches any text in place of `[redacted]`. That also selects other tests differing only there, in the same file and project.
+
+### Changed
+
+- Rerun commands can be pasted in bash, zsh, PowerShell, `cmd.exe` and Git Bash, from the folder that holds your Playwright config. Tests that read the same to `-g` run together: titles or project names differing only by case, `a › b` next to `a b`, an inline tag next to the same `{ tag }`.
+- The AI prompt says `- File: <file>` instead of `- Location: <file>:<line>`: that line could be wrong. The location of each error stays.
+- The "failed tests in this file" button counts tests, not locations, and appears as soon as another test of the file failed, even on the same line.
+- The notice about long rerun commands depends on their length, not on the number of tests. Above 8,000 characters, it mentions the Windows command-line limit. Above 131,072, the limit of an argument on Linux, nothing can be copied: the button stays focusable, explains why and mentions `--last-failed`, which reruns the failures of the last local run and can differ from the report.
+
 ## [0.2.0] - 2026-10-29
 
 No change to the JSON shape: `schemaVersion` stays 1.
