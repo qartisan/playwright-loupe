@@ -3,7 +3,9 @@ import { availableParallelism, tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { rerunCommand } from '../src/renderer/detail/rerun.js';
+import { REDACTED } from '../src/shared/redaction.js';
 import type { LoupeReport, TestCase } from '../src/schema/v1.js';
+import { FIXTURE_SECRET } from '../fixtures/redaction-values.js';
 import { FIXTURE_CONFIG, RERUN_CONFIG, ROOT, assertBuilt, pasteInShell, playwright, readReport } from './helpers/fixtures.js';
 
 /**
@@ -36,8 +38,16 @@ const TWINS: readonly (readonly [string, string])[] = [
 /** Project names differing by case only: `--project` and `-g` select both. */
 const CASE_TWINS: Readonly<Record<string, string>> = { Case: 'case', case: 'Case' };
 
+/** What a command must select for a test of `rerun/redaction.spec.ts`: its real title; the secret and the marker read the same. */
+function expectedForRedacted(test: TestCase): Key[] {
+  const real = (text: string): string => text.split(REDACTED).join(FIXTURE_SECRET);
+  const unmasked = { ...test, suitePath: test.suitePath.map(real), title: real(test.title) };
+  return test.title === `with the secret ${REDACTED}` ? [keyOf(unmasked), keyOf(test)] : [keyOf(unmasked)];
+}
+
 /** What a command must select for one test: the test, and the tests it cannot be told apart from. */
 function expectedFor(test: TestCase): Key[] {
+  if (test.file === 'redaction.spec.ts') return expectedForRedacted(test);
   const titlePath = [...test.suitePath, test.title].join(' › ');
   const pair = test.file === 'twins.spec.ts' ? TWINS.find((twins) => twins.includes(titlePath)) : undefined;
   const titles = (pair ?? [titlePath]).map((twin) => twin.split(' › '));
@@ -210,6 +220,17 @@ describe('rerun commands against the installed Playwright', () => {
       const unnamed = inFile('', 'plain.spec.ts', 'alpha');
       expect(rerunCommand([unnamed])).not.toContain('--project');
       expect(await selection(rerunCommand([unnamed]), RERUN_CONFIG)).toEqual([keyOf(unnamed)]);
+    }, 120_000);
+
+    it('reruns a test whose title the report hides a secret in, the secret nowhere in the command', async () => {
+      const hidden = report(RERUN_CONFIG).tests.filter((candidate) => candidate.file === 'redaction.spec.ts' && candidate.title === `with the secret ${REDACTED}`);
+      expect(hidden).toHaveLength(2);
+      for (const candidate of report(RERUN_CONFIG).tests) expect(JSON.stringify(candidate)).not.toContain(FIXTURE_SECRET);
+      const command = rerunCommand([hidden[0]!]);
+      expect(command).toContain('.+');
+      expect(command).not.toContain(FIXTURE_SECRET);
+      const selected = (await selection(command, RERUN_CONFIG)).map((key) => JSON.parse(key) as string[]).filter(([project]) => project === 'main');
+      expect(selected.map((parts) => parts.at(-1)).sort()).toEqual([`with the secret ${FIXTURE_SECRET}`, `with the secret ${REDACTED}`].sort());
     }, 120_000);
 
     it('selects a test of a project off by default through --project', async () => {

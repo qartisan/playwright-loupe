@@ -1,5 +1,7 @@
 import { defineConfig } from '@playwright/test';
 import type { LoupeReporterOptions } from '../src/config/index.js';
+// Sets the invented LOUPE_FIXTURE_SECRET listed in redact.env (loupe.config.ts).
+import './redaction-values.js';
 
 // A browserless suite for the rerun commands (see test/rerun.integration.test.ts):
 // titles, tags, paths and project names that are hard to select with `-g` and to

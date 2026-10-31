@@ -1,8 +1,9 @@
 import type { TestCase } from '../../schema/v1.js';
+import { REDACTED } from '../../shared/redaction.js';
 
 /**
- * Rerun commands, to paste from the Playwright root directory in bash, zsh,
- * PowerShell, cmd.exe or Git Bash:
+ * Rerun commands, to paste from the folder that holds the Playwright config
+ * (they have no `-c`) in bash, zsh, PowerShell, cmd.exe or Git Bash:
  *
  *   npx playwright test tests.login.spec.ts --project=chromium -g "^ *chromium tests.login.spec.ts logs in$"
  *
@@ -17,7 +18,9 @@ import type { TestCase } from '../../schema/v1.js';
  * to, and an unnamed project leaving one leading space. Hence `^ *`. Tests the
  * string cannot tell apart run together: titles differing only by case (`-g`
  * ignores it, and its `/.../` form is rewritten as a path by Git Bash),
- * `a › b` and `a b`, an inline tag and the same `{ tag }`.
+ * `a › b` and `a b`, an inline tag and the same `{ tag }`. The report hides a
+ * secret in a title, so `.+` stands for it, and a title really containing the
+ * marker runs with those it then matches.
  *
  * Commands are ASCII, and the text inside their double quotes has nothing a
  * shell acts on: backslashes only come before a letter or a regex
@@ -27,9 +30,6 @@ import type { TestCase } from '../../schema/v1.js';
  */
 
 export type RerunTarget = Pick<TestCase, 'file' | 'project' | 'suitePath' | 'title' | 'tags'>;
-
-/** Above this many tests, the command is long enough to deserve a notice. */
-export const LONG_COMMAND_TESTS = 100;
 
 /** Above this length, a command may not fit the Windows limits (8,191 characters in cmd.exe). */
 export const WINDOWS_COMMAND_LENGTH = 8000;
@@ -41,6 +41,21 @@ export const LINUX_COMMAND_LENGTH = 131072;
 export function commandLimit(command: string): 'windows' | 'linux' | null {
   if (command.length > LINUX_COMMAND_LENGTH) return 'linux';
   return command.length > WINDOWS_COMMAND_LENGTH ? 'windows' : null;
+}
+
+function formatLength(length: number): string {
+  return length.toLocaleString('en-US');
+}
+
+/** What to say about a command above a limit; null below them. Short: it sits next to the button. */
+export function commandNotice(command: string): string | null {
+  const limit = commandLimit(command);
+  const length = formatLength(command.length);
+  if (limit === 'linux') {
+    return `Too long to copy: ${length} characters, above the ${formatLength(LINUX_COMMAND_LENGTH)} of a Linux argument. npx playwright test --last-failed reruns the failures of the last local run, which can differ from this report.`;
+  }
+  if (limit === 'windows') return `${length} characters: this may exceed the Windows command-line limit (8,191 in cmd.exe, about 32,767 otherwise).`;
+  return null;
 }
 
 /** Left unquoted: letters, digits and `_@%+=:,./-`. */
@@ -62,12 +77,7 @@ const LITERAL = /[A-Za-z0-9 _:@,=~#'-]/;
 /** Inert in every shell between double quotes, once escaped for the regular expression. */
 const REGEX_METACHARACTER = /[.*+?()[\]{}]/;
 
-/**
- * `text` as a regular expression matching exactly it: the other characters
- * become hexadecimal escapes, by UTF-16 code unit since `-g` has no `u` flag.
- * Non-ASCII letters too, until the Windows shells are known to pass them intact.
- */
-function regexText(text: string): string {
+function escapeText(text: string): string {
   let result = '';
   for (let index = 0; index < text.length; index += 1) {
     const char = text.charAt(index);
@@ -78,6 +88,16 @@ function regexText(text: string): string {
     else result += `\\u${code.toString(16).padStart(4, '0')}`;
   }
   return result;
+}
+
+/**
+ * `text` as a regular expression matching exactly it: the other characters
+ * become hexadecimal escapes, by UTF-16 code unit since `-g` has no `u` flag.
+ * Non-ASCII letters too, until the Windows shells are known to pass them intact.
+ * A secret the report hid can be anything.
+ */
+function regexText(text: string): string {
+  return text.split(REDACTED).map(escapeText).join('.+');
 }
 
 /** `-g` sees backslashes on Windows, hence `.` for a separator; dots stay as they are, for a readable file name. */
@@ -106,7 +126,7 @@ function fileArgument(file: string): string {
  * starting with a dash at a dot.
  */
 function projectFlag(project: string): string {
-  const name = project.replace(/["$`%!\\^&|<>]|[^\x20-\x7e]/g, '*');
+  const name = project.split(REDACTED).join('*').replace(/["$`%!\\^&|<>]|[^\x20-\x7e]/g, '*');
   return PLAIN.test(name) && !name.includes('.') ? `--project=${name}` : `"--project=${name}"`;
 }
 
@@ -183,25 +203,6 @@ export function rerunCommand(tests: readonly RerunTarget[]): string {
   return ['npx playwright test', ...files, ...flags, '-g', `"${grepPattern(tests)}"`].join(' ');
 }
 
-/** The distinct `file:line` locations of each project, sorted by file then line; projects in order of first appearance. */
-export function locationsByProject(tests: readonly Pick<TestCase, 'file' | 'line' | 'project'>[]): Map<string, string[]> {
-  const byProject = new Map<string, Map<string, Pick<TestCase, 'file' | 'line'>>>();
-  for (const test of tests) {
-    let locations = byProject.get(test.project);
-    if (!locations) {
-      locations = new Map();
-      byProject.set(test.project, locations);
-    }
-    locations.set(`${test.file}:${test.line}`, test);
-  }
-  return new Map(
-    [...byProject].map(([project, locations]) => [
-      project,
-      [...locations.values()].sort((a, b) => compareText(a.file, b.file) || a.line - b.line).map((test) => `${test.file}:${test.line}`),
-    ]),
-  );
-}
-
 /** Tests that finally failed; flaky tests passed on a retry and are left out. */
 export function failedTests<T extends Pick<TestCase, 'outcome'>>(tests: readonly T[]): T[] {
   return tests.filter((test) => test.outcome === 'failed');
@@ -212,19 +213,26 @@ export function failedTestsInFile<T extends Pick<TestCase, 'outcome' | 'file'>>(
   return failedTests(tests).filter((test) => test.file === file);
 }
 
+function titlePathKey(test: Pick<TestCase, 'suitePath' | 'title'>): string {
+  return JSON.stringify([...test.suitePath, test.title]);
+}
+
 /**
  * The "failed tests in this file" rerun of a test detail: the failed tests of
- * its file, every project included. Null unless the file has a failed test
- * at another line than `test`: the same test failing in several projects is
- * not "other failed tests".
+ * its file, every project included. Null unless the file has another failed
+ * test than `test`: the same test failing in several projects is not "other
+ * failed tests". The label counts tests, a test repeated with `--repeat-each`
+ * once.
  */
-export function fileRerun<T extends Pick<TestCase, 'file' | 'line' | 'project' | 'outcome'>>(
+export function fileRerun<T extends RerunTarget & Pick<TestCase, 'outcome'>>(
   tests: readonly T[],
-  test: Pick<TestCase, 'file' | 'line'>,
+  test: Pick<TestCase, 'file' | 'suitePath' | 'title'>,
 ): { tests: T[]; label: string } | null {
   const inFile = failedTestsInFile(tests, test.file);
-  if (!inFile.some((other) => other.line !== test.line)) return null;
-  const counts = [...locationsByProject(inFile)].map(([project, locations]) => ({ project: project || '(unnamed project)', count: locations.length }));
+  if (!inFile.some((other) => titlePathKey(other) !== titlePathKey(test))) return null;
+  const byProject = new Map<string, Set<string>>();
+  for (const other of inFile) byProject.set(other.project, (byProject.get(other.project) ?? new Set()).add(titlePathKey(other)));
+  const counts = [...byProject].map(([project, titlePaths]) => ({ project: project || '(unnamed project)', count: titlePaths.size }));
   const noun = (count: number): string => (count === 1 ? 'failed test' : 'failed tests');
   const [first] = counts;
   if (counts.length === 1 && first) return { tests: inFile, label: `${first.count} ${noun(first.count)} in this file` };
@@ -235,5 +243,4 @@ export function fileRerun<T extends Pick<TestCase, 'file' | 'line' | 'project' |
 }
 
 /** Help text of every rerun button. */
-export const RERUN_HELP =
-  'For a POSIX shell (bash, zsh), run from the Playwright root directory: paths are relative to it. A file:line argument targets the line where the test is declared, and reruns every test declared on that line. The command is only valid while the file has not changed since the run.';
+export const RERUN_HELP = 'Paste it in bash, zsh, PowerShell or cmd.exe, from the folder that holds your Playwright config. It selects tests by project, file and title.';

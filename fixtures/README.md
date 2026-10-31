@@ -50,7 +50,7 @@ Everything runs offline, through `page.setContent` and local servers on 127.0.0.
 
 ## Rerun commands
 
-`rerun.config.ts` runs `rerun/`, a browserless suite for the rerun commands (see `test/rerun.integration.test.ts`): titles, tags, paths and project names that are hard to select with `-g` or to paste in a shell. **The odd file names under `rerun/hostile/` are intentional** (without `%`: Playwright itself crashes on it in ES module packages), and so are the pairs of tests in `rerun/twins.spec.ts`, which `-g` cannot tell apart. The test only lists this suite, it never runs it.
+`rerun.config.ts` runs `rerun/`, a browserless suite for the rerun commands (see `test/rerun.integration.test.ts`): titles, tags, paths and project names that are hard to select with `-g` or to paste in a shell. **The odd file names under `rerun/hostile/` are intentional** (without `%`: Playwright itself crashes on it in ES module packages), and so are the pairs of tests in `rerun/twins.spec.ts`, which `-g` cannot tell apart, and the invented secret in the titles of `rerun/redaction.spec.ts`, which the report hides. The test only lists this suite, it never runs it.
 
 ## Playwright version
 

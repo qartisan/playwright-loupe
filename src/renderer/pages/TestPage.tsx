@@ -9,12 +9,12 @@ import { OutcomeIcon } from '../components/icons.js';
 import { Pager } from '../components/Pager.js';
 import { Attachments } from '../components/Media.js';
 import { ErrorCard, OutputBlock, StepTree } from '../components/TestDetail.js';
-import { projectLabel } from '../components/widgets.js';
+import { RerunButton, projectLabel } from '../components/widgets.js';
 import type { ErrorGroup } from '../dashboard.js';
 import { buildAiPrompt } from '../detail/aiPrompt.js';
 import { attemptLabel, selectAttempt } from '../detail/attempts.js';
 import { parseDetailParams, serializeDetailParams, type DetailParams } from '../detail/params.js';
-import { RERUN_HELP, fileRerun, rerunCommand } from '../detail/rerun.js';
+import { fileRerun } from '../detail/rerun.js';
 import { neighbors } from '../detail/sequence.js';
 import { shownCategories } from '../filters/match.js';
 import { setDetailQuery } from '../filters/store.js';
@@ -278,14 +278,8 @@ export function TestPage({
         {skip?.kind === 'notRun' && <p class="skip-explanation">{NOT_RUN_EXPLANATION}</p>}
         <TestMeta test={test} />
         <div class="test-actions">
-          <CopyButton label="Rerun command" help={RERUN_HELP} text={() => rerunCommand([test])}>
-            Copy rerun command
-          </CopyButton>
-          {inFile && (
-            <CopyButton label="Rerun command" help={RERUN_HELP} text={() => rerunCommand(inFile.tests)}>
-              Copy rerun command · {inFile.label}
-            </CopyButton>
-          )}
+          <RerunButton tests={[test]}>Copy rerun command</RerunButton>
+          {inFile && <RerunButton tests={inFile.tests}>Copy rerun command · {inFile.label}</RerunButton>}
           {attempt && attempt.errors.length > 0 && (
             <CopyButton
               label="AI prompt"

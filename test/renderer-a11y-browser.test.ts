@@ -44,7 +44,7 @@ const FAILING = 'e6c8105b02e8ef4c';
 // Of the cascade: a test stopped by its timeout, with an error raised after it.
 const AFTER_TIMEOUT = 'ccccccccccccccc4';
 
-type Dataset = 'sample' | 'cascade' | 'noPoints' | 'tiles' | 'many' | 'missingMedia';
+type Dataset = 'sample' | 'cascade' | 'noPoints' | 'tiles' | 'many' | 'missingMedia' | 'longCommand' | 'tooLongCommand';
 
 interface StateOptions {
   arrange?: (page: Page) => Promise<void>;
@@ -71,6 +71,10 @@ const MATRIX: State[] = [
   ['overview opened on the run details, from the partial run pill', 'sample', '#/run-details', { reached: '#w-run-details:focus' }],
   ['overview: without the failure points card', 'noPoints', '#/', { arrange: async (page) => expect(await page.locator('.widget-failure-points').count()).toBe(0) }],
   ['overview: cascade', 'cascade', '#/', { reached: '.widget-failure-points' }],
+  ['overview: rerun command above the Windows limit', 'longCommand', '#/', { reached: '.rerun-note' }],
+  ['overview: rerun command above the Linux limit', 'tooLongCommand', '#/', { reached: '.copy-button[aria-disabled="true"]' }],
+  ['test: rerun command of the file above the Linux limit', 'tooLongCommand', `#/test/${FAILING}`, { reached: '.test-actions .copy-button[aria-disabled="true"]' }],
+  ['test: focus on the rerun button above the Linux limit', 'tooLongCommand', `#/test/${FAILING}`, { arrange: (page) => page.locator('.test-actions .copy-button[aria-disabled="true"]').focus(), reached: '.test-actions .copy-button[aria-disabled="true"]:focus' }],
   ['overview: sidebar collapsed', 'sample', '#/', { arrange: click('[aria-controls="sidebar"]'), reached: '#sidebar[hidden]' }],
   ['header at 1600px', 'sample', '#/', { width: 1600 }],
   ['header at 360px', 'sample', '#/', { width: 360 }],
@@ -162,8 +166,17 @@ function variants(sample: LoupeReport): Record<Dataset, LoupeReport> {
     body: null,
     comparison: null,
   });
+  // Failed tests with titles of 3,000 characters, in the file of FAILING: a long rerun command.
+  const longTitles = (count: number): LoupeReport => {
+    const failing = sample.tests.find((test) => test.id === FAILING);
+    if (!failing) throw new Error('No failing test in the sample');
+    const added = Array.from({ length: count }, (_, index) => ({ ...failing, id: `${index}`.padStart(16, 'f'), title: `${index} ${'x'.repeat(3000)}` }));
+    return { ...sample, tests: [...sample.tests, ...added] };
+  };
   return {
     sample,
+    longCommand: longTitles(3),
+    tooLongCommand: longTitles(50),
     cascade: cascadeReport(),
     // Without stacks, no function is common to several failures: no failure points card.
     noPoints: {

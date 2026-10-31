@@ -3,12 +3,13 @@ import { errorGroups } from '../src/renderer/dashboard.js';
 import { buildAiPrompt } from '../src/renderer/detail/aiPrompt.js';
 import { attemptLabel, defaultAttempt, selectAttempt } from '../src/renderer/detail/attempts.js';
 import { joinQuery, parseDetailParams, serializeDetailParams } from '../src/renderer/detail/params.js';
-import { LINUX_COMMAND_LENGTH, WINDOWS_COMMAND_LENGTH, commandLimit, failedTests, failedTestsInFile, fileRerun, rerunCommand, shellQuote, type RerunTarget } from '../src/renderer/detail/rerun.js';
+import { LINUX_COMMAND_LENGTH, WINDOWS_COMMAND_LENGTH, commandLimit, commandNotice, failedTests, failedTestsInFile, fileRerun, rerunCommand, shellQuote, type RerunTarget } from '../src/renderer/detail/rerun.js';
 import { groupNavigation, groupSequence, neighbors, testSequence } from '../src/renderer/detail/sequence.js';
 import { failingPath, failingStepContext, stepTree, type StepNode } from '../src/renderer/detail/steps.js';
 import { NO_FILTER_CONTEXT } from '../src/renderer/filters/match.js';
 import { buildSortRanks } from '../src/renderer/filters/sort.js';
 import { parseFilters } from '../src/renderer/filters/url.js';
+import { REDACTED } from '../src/shared/redaction.js';
 import type { Attempt, AttemptStatus, LoupeError, Step, TestCase } from '../src/schema/v1.js';
 
 let nextId = 1;
@@ -257,6 +258,29 @@ describe('rerun commands', () => {
     for (const other of others) expect(selects([test], other)).toBe(false);
   });
 
+  it.each<[string, RerunTarget, string, string[]]>([
+    ['in a title', target(`with the secret ${REDACTED}`), 'chromium a.spec.ts with the secret s3cret value', ['chromium a.spec.ts with the secret', 'chromium a.spec.ts other s3cret']],
+    ['at the start of a title, twice', target(`${REDACTED} then ${REDACTED}`), 'chromium a.spec.ts s3 then cr3t', ['chromium a.spec.ts then cr3t', 'chromium a.spec.ts s3 then ']],
+    ['in a describe', target('leaf', { suitePath: [`in ${REDACTED} here`] }), 'chromium a.spec.ts in s3 here leaf', ['chromium a.spec.ts in here leaf']],
+    ['in a file', target('t', { file: `tests/${REDACTED}/a.spec.ts` }), 'chromium tests/s3/a.spec.ts t', ['chromium tests/a.spec.ts t']],
+    ['in a project', target('t', { project: `p-${REDACTED}` }), 'p-s3 a.spec.ts t', ['p- a.spec.ts t']],
+    ['with { tag } tags', target(`x ${REDACTED}`, { tags: ['@a'] }), 'chromium a.spec.ts x s3 @a', ['chromium a.spec.ts y s3 @a']],
+  ])('stands for a redacted secret with .+, %s', (_case, test, itself, others) => {
+    expect(rerunCommand([test])).not.toContain(REDACTED);
+    expect(selects([test], itself)).toBe(true);
+    for (const other of others) expect(selects([test], other)).toBe(false);
+  });
+
+  it('runs a title really containing the marker with those it then matches, a harmless twin', () => {
+    const test = target(`with the secret ${REDACTED}`);
+    expect(grepOf(rerunCommand([test]))).toBe('^ *chromium a.spec.ts with the secret .+$');
+    expect(selects([test], `chromium a.spec.ts with the secret ${REDACTED}`)).toBe(true);
+  });
+
+  it('gives --project a wildcard for a redacted secret, and -g the exact project', () => {
+    expect(rerunCommand([target('t', { project: `p-${REDACTED}` })])).toContain('"--project=p-*" -g "^ *p-.+ a.spec.ts t$"');
+  });
+
   it('ignores case and cannot separate the tests with the same string, which run together', () => {
     expect(selects([target('Login')], 'chromium a.spec.ts login')).toBe(true);
     expect(selects([target('same', { suitePath: ['outer'] })], 'chromium a.spec.ts outer same')).toBe(true);
@@ -413,6 +437,21 @@ describe('rerun commands', () => {
     expect(commandLimit(rerunCommand([target('t')]))).toBeNull();
   });
 
+  it('says nothing below the limits, warns above the Windows one, explains and gives --last-failed above the Linux one', () => {
+    expect(commandNotice('x'.repeat(WINDOWS_COMMAND_LENGTH))).toBeNull();
+    const windows = commandNotice('x'.repeat(WINDOWS_COMMAND_LENGTH + 1));
+    expect(windows).toContain('8,001 characters');
+    expect(windows).toContain('8,191 in cmd.exe');
+    expect(windows).toContain('32,767');
+    expect(windows).not.toContain('--last-failed');
+    expect(commandNotice('x'.repeat(LINUX_COMMAND_LENGTH))).toContain('Windows');
+    const linux = commandNotice('x'.repeat(LINUX_COMMAND_LENGTH + 1));
+    expect(linux).toContain('Too long to copy: 131,073 characters');
+    expect(linux).toContain('131,072 of a Linux argument');
+    expect(linux).toContain('npx playwright test --last-failed');
+    expect(linux).toContain('last local run, which can differ from this report');
+  });
+
   it('keeps commands ASCII, so that their length is their size in bytes', () => {
     const tests = Array.from({ length: 300 }, (_, index) => target(`é ${index} 日本語のタイトル`, { file: 'tests/été.spec.ts', project: 'Sécurité', suitePath: ['Émission'] }));
     const command = rerunCommand(tests);
@@ -432,20 +471,31 @@ describe('rerun commands', () => {
     expect(shellQuote("it's $HOME;`x`")).toBe(`'it'\\''s $HOME;\`x\`'`);
   });
 
-  it('offers the failed tests of the file only when another line failed, not the same test in another project', () => {
-    const twin = [makeTest({ project: 'a', outcome: 'failed', line: 34 }), makeTest({ project: 'b', outcome: 'failed', line: 34 })];
+  it('offers the failed tests of the file only when another test failed, not the same test in another project', () => {
+    const twin = [makeTest({ project: 'a', outcome: 'failed', title: 't' }), makeTest({ project: 'b', outcome: 'failed', title: 't' })];
     expect(fileRerun(twin, twin[0]!)).toBeNull();
-    const flakyOther = [...twin, makeTest({ project: 'a', outcome: 'flaky', line: 50 })];
+    const flakyOther = [...twin, makeTest({ project: 'a', outcome: 'flaky', title: 'other' })];
     expect(fileRerun(flakyOther, twin[0]!)).toBeNull();
   });
 
-  it('labels the failed tests of the file by distinct file:line per project, naming the projects when there are several', () => {
-    const one = [makeTest({ project: 'a', outcome: 'failed', line: 3 }), makeTest({ project: 'a', outcome: 'failed', line: 9 })];
+  it('offers them whatever the lines: tests built in a loop share one, and a recorded line can be wrong', () => {
+    const loop = [makeTest({ outcome: 'failed', line: 5, title: 'param 1' }), makeTest({ outcome: 'failed', line: 5, title: 'param 2' })];
+    expect(fileRerun(loop, loop[0]!)?.label).toBe('2 failed tests in this file');
+    const sameTitle = [makeTest({ outcome: 'failed', line: 5, title: 'same', suitePath: ['a'] }), makeTest({ outcome: 'failed', line: 9, title: 'same', suitePath: ['b'] })];
+    expect(fileRerun(sameTitle, sameTitle[0]!)?.label).toBe('2 failed tests in this file');
+    const moved = [makeTest({ outcome: 'failed', line: 5, title: 't' }), makeTest({ outcome: 'failed', line: 900, title: 't', project: 'other' })];
+    expect(fileRerun(moved, moved[0]!)).toBeNull();
+  });
+
+  it('labels the failed tests of the file by tests per project, naming the projects when there are several', () => {
+    const one = [makeTest({ project: 'a', outcome: 'failed', title: 'x' }), makeTest({ project: 'a', outcome: 'failed', title: 'y' })];
     expect(fileRerun(one, one[0]!)?.label).toBe('2 failed tests in this file');
-    const same = [...one, makeTest({ project: 'b', outcome: 'failed', line: 3 }), makeTest({ project: 'b', outcome: 'failed', line: 9 })];
+    const same = [...one, makeTest({ project: 'b', outcome: 'failed', title: 'x' }), makeTest({ project: 'b', outcome: 'failed', title: 'y' })];
     expect(fileRerun(same, same[0]!)).toMatchObject({ label: '2 failed tests in this file, in a, b' });
-    const different = [...one, makeTest({ project: 'b', outcome: 'failed', line: 3 })];
+    const different = [...one, makeTest({ project: 'b', outcome: 'failed', title: 'x' })];
     expect(fileRerun(different, different[0]!)?.label).toBe('failed tests in this file: 2 in a, 1 in b');
+    const repeated = [...one, makeTest({ project: 'a', outcome: 'failed', title: 'x', repeatEachIndex: 1 })];
+    expect(fileRerun(repeated, repeated[0]!)?.label).toBe('2 failed tests in this file');
   });
 
   it('reruns the failed tests of the file with one command for the projects that share them', () => {

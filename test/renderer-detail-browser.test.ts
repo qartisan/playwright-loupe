@@ -280,7 +280,7 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     const { page, errors } = await open(testHash(failing), { init: CLIPBOARD_STUB });
     const copied = () => page.evaluate<string[]>('window.__copied');
     const button = page.getByRole('button', { name: 'Copy rerun command', exact: true });
-    expect(await button.getAttribute('title')).toContain('Playwright root directory');
+    expect(await button.getAttribute('title')).toContain('from the folder that holds your Playwright config');
     await button.click();
     await expect.poll(copied).toEqual([rerunCommand([failing])]);
     await expect.poll(() => page.getByRole('status').textContent()).toContain('Rerun command copied to the clipboard.');
@@ -288,16 +288,19 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     expect(await page.locator('.test-actions .copy-button').first().textContent()).toBe('Copy rerun command · Copied');
     expect(await button.isVisible()).toBe(true);
 
-    // Its file has no other failed line: the same test failing in the other project does not count.
+    // Its file has no other failed test: the same test failing in the other project does not count.
     expect(await page.getByRole('button', { name: /failed tests? in this file/ }).count()).toBe(0);
-    expect(await button.getAttribute('title')).toContain('only valid while the file has not changed');
+    expect(await button.getAttribute('title')).not.toMatch(/file:line|has not changed/);
 
     await page.getByRole('button', { name: 'Copy AI prompt' }).click();
     await expect.poll(async () => (await copied())[1] ?? '').toContain('Explain the most likely cause');
     const prompt = (await copied())[1] ?? '';
     expect(prompt).toContain('Expected: "Wrong heading"');
     // Its only frame is the error location, printed already: no stack block.
-    expect(prompt).toContain(`Location: ${failing.file}:`);
+    expect(prompt).toContain(`\nLocation: ${failing.file}:`);
+    // The line of the test can be a line of the compiled file: left out.
+    expect(prompt).toContain(`- File: ${failing.file}\n`);
+    expect(prompt).not.toContain('- Location:');
     expect(prompt).not.toContain('Stack:');
     // Each attempt holds a copy of the test's annotation: listed once.
     expect(prompt).toContain('- Annotations: bug: BUG-1\n');
@@ -343,10 +346,10 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
   it('copies the failed tests of the file, one command for the projects that share them', async () => {
     const timeout = find('times out (intentional)');
     const { page } = await open(testHash(timeout), { init: CLIPBOARD_STUB });
-    const lines = [...new Set(report.tests.filter((test) => test.file === timeout.file && test.outcome === 'failed').map((test) => test.line))].sort((a, b) => a - b);
-    const fileButton = page.getByRole('button', { name: `Copy rerun command · ${lines.length} failed tests in this file, in chromium-a, chromium-b` });
-    await fileButton.click();
     const failedInFile = report.tests.filter((test) => test.file === timeout.file && test.outcome === 'failed');
+    const count = failedInFile.filter((test) => test.project === 'chromium-a').length;
+    const fileButton = page.getByRole('button', { name: `Copy rerun command · ${count} failed tests in this file, in chromium-a, chromium-b` });
+    await fileButton.click();
     await expect.poll(async () => (await page.evaluate<string[]>('window.__copied'))[0]).toBe(rerunCommand(failedInFile));
     await page.close();
   });
@@ -383,6 +386,81 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     await dialog.waitFor({ state: 'hidden' });
     expect(await button.evaluate((element) => element === element.ownerDocument.activeElement)).toBe(true);
     expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  /** The report with `count` more failed tests, each with a title of 3,000 characters: about 3,000 characters of command each. */
+  function withLongTitles(count: number): LoupeReport {
+    const failing = find('fails on a wrong heading (intentional)');
+    const added = Array.from({ length: count }, (_, index) => ({ ...failing, id: `${index}`.padStart(16, 'f'), title: `${index} ${'x'.repeat(3000)}` }));
+    return { ...report, tests: [...report.tests, ...added] };
+  }
+
+  it('warns above the Windows limit, still copying, with one announcement', async () => {
+    const failing = find('fails on a wrong heading (intentional)');
+    const { page, errors } = await open('#/tests?project=chromium-a', { init: CLIPBOARD_STUB + ANNOUNCEMENTS, reportUrl: writeReport('long-command', withLongTitles(3)) });
+    const button = page.locator('.rerun-failed .copy-button');
+    const note = page.locator('.rerun-failed .rerun-note');
+    await note.waitFor();
+    expect(await note.textContent()).toMatch(/^[\d,]+ characters: this may exceed the Windows command-line limit \(8,191 in cmd\.exe, about 32,767 otherwise\)\.$/);
+    // Read with the button, and not as an announcement.
+    expect(await page.locator(`#${await button.getAttribute('aria-describedby')}`).textContent()).toContain('Windows command-line limit');
+    await button.click();
+    await expect.poll(async () => (await page.evaluate<string[]>('window.__copied')).length).toBe(1);
+    expect((await page.evaluate<string[]>('window.__copied'))[0]).toContain(failing.title.split(' ')[0]);
+    await expect.poll(() => page.evaluate<string[]>('window.__announced')).toEqual(['Rerun command copied to the clipboard.']);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('does not copy above the Linux limit: the button stays reachable, explains, and --last-failed is the way out', async () => {
+    const { page, errors } = await open('#/tests?project=chromium-a', { init: CLIPBOARD_STUB + ANNOUNCEMENTS, reportUrl: writeReport('too-long-command', withLongTitles(50)) });
+    const button = page.locator('.rerun-failed .copy-button');
+    const note = page.locator('.rerun-failed .rerun-note');
+    await note.waitFor();
+    expect(await note.textContent()).toMatch(/^Too long to copy: [\d,]+ characters, above the 131,072 of a Linux argument\. npx playwright test --last-failed reruns the failures of the last local run, which can differ from this report\.$/);
+
+    // aria-disabled, not disabled: announced as unavailable, with its reason, and still in the tab order.
+    expect(await button.getAttribute('aria-disabled')).toBe('true');
+    expect(await button.evaluate((element) => element.hasAttribute('disabled'))).toBe(false);
+    expect(await button.getAttribute('title')).toBe(await note.textContent());
+    expect(await button.getAttribute('aria-describedby')).toBe(await note.getAttribute('id'));
+    const isFocused = (): Promise<boolean> => button.evaluate((element) => element === element.ownerDocument.activeElement);
+    await page.locator('body').click({ position: { x: 1, y: 1 } });
+    for (let tabs = 0; tabs < 100 && !(await isFocused()); tabs += 1) await page.keyboard.press('Tab');
+    expect(await isFocused()).toBe(true);
+
+    // Activating it does nothing, with the keyboard or the mouse: no copy, no fallback dialog, no announcement.
+    const url = page.url();
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Space');
+    await button.click({ force: true });
+    expect(await isFocused()).toBe(true);
+    expect(page.url()).toBe(url);
+    expect(await page.evaluate<string[]>('window.__copied')).toEqual([]);
+    expect(await page.evaluate<string[]>('window.__announced')).toEqual([]);
+    expect(await page.getByRole('dialog').count()).toBe(0);
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  it('opens no fallback dialog above the Linux limit, even without the Clipboard API', async () => {
+    const { page } = await open('#/tests?project=chromium-a', { init: NO_CLIPBOARD, reportUrl: writeReport('too-long-no-clipboard', withLongTitles(50)) });
+    const button = page.locator('.rerun-failed .copy-button');
+    await button.waitFor();
+    await button.focus();
+    await page.keyboard.press('Enter');
+    await button.click({ force: true });
+    expect(await page.getByRole('dialog').count()).toBe(0);
+    await page.close();
+  });
+
+  it('applies the limits to the failed tests of the file too', async () => {
+    const failing = find('fails on a wrong heading (intentional)');
+    const { page } = await open(testHash(failing), { init: CLIPBOARD_STUB, reportUrl: writeReport('too-long-file', withLongTitles(50)) });
+    await page.locator('.test-actions .rerun-note').waitFor();
+    expect(await page.getByRole('button', { name: /in this file/ }).getAttribute('aria-disabled')).toBe('true');
+    expect(await page.getByRole('button', { name: 'Copy rerun command', exact: true }).getAttribute('aria-disabled')).toBeNull();
     await page.close();
   });
 
