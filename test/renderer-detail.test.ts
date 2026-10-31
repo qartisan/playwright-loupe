@@ -441,8 +441,7 @@ describe('rerun commands', () => {
     expect(commandNotice('x'.repeat(WINDOWS_COMMAND_LENGTH))).toBeNull();
     const windows = commandNotice('x'.repeat(WINDOWS_COMMAND_LENGTH + 1));
     expect(windows).toContain('8,001 characters');
-    expect(windows).toContain('8,191 in cmd.exe');
-    expect(windows).toContain('32,767');
+    expect(windows).toContain('this may exceed the Windows command-line limit (8,191 characters).');
     expect(windows).not.toContain('--last-failed');
     expect(commandNotice('x'.repeat(LINUX_COMMAND_LENGTH))).toContain('Windows');
     const linux = commandNotice('x'.repeat(LINUX_COMMAND_LENGTH + 1));

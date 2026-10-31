@@ -31,7 +31,7 @@ import { REDACTED } from '../../shared/redaction.js';
 
 export type RerunTarget = Pick<TestCase, 'file' | 'project' | 'suitePath' | 'title' | 'tags'>;
 
-/** Above this length, a command may not fit the Windows limits (8,191 characters in cmd.exe). */
+/** Above this length, a command may not fit the Windows command-line limit (8,191 characters). */
 export const WINDOWS_COMMAND_LENGTH = 8000;
 
 /** Above this length, a command cannot run on Linux: it is the limit of a single argument, and `-g` is one. */
@@ -54,7 +54,7 @@ export function commandNotice(command: string): string | null {
   if (limit === 'linux') {
     return `Too long to copy: ${length} characters, above the ${formatLength(LINUX_COMMAND_LENGTH)} of a Linux argument. npx playwright test --last-failed reruns the failures of the last local run, which can differ from this report.`;
   }
-  if (limit === 'windows') return `${length} characters: this may exceed the Windows command-line limit (8,191 in cmd.exe, about 32,767 otherwise).`;
+  if (limit === 'windows') return `${length} characters: this may exceed the Windows command-line limit (8,191 characters).`;
   return null;
 }
 

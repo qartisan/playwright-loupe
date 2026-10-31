@@ -402,7 +402,7 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     const button = page.locator('.rerun-failed .copy-button');
     const note = page.locator('.rerun-failed .rerun-note');
     await note.waitFor();
-    expect(await note.textContent()).toMatch(/^[\d,]+ characters: this may exceed the Windows command-line limit \(8,191 in cmd\.exe, about 32,767 otherwise\)\.$/);
+    expect(await note.textContent()).toMatch(/^[\d,]+ characters: this may exceed the Windows command-line limit \(8,191 characters\)\.$/);
     // Read with the button, and not as an announcement.
     expect(await page.locator(`#${await button.getAttribute('aria-describedby')}`).textContent()).toContain('Windows command-line limit');
     await button.click();
