@@ -416,14 +416,20 @@ describe('rewriteReportPaths', () => {
     expect(result.dimensions[0]).toEqual({ name: rewritten, source: 'tag', key: rewritten, values: [rewritten] });
   });
 
-  it('keeps ids, signatures, category names, snippets and attachment paths', () => {
+  it('keeps ids, signatures, category names and attachment paths', () => {
     expect(test.id).toBe(both);
     expect(test.errorSignature).toBe(both);
     expect(test.category).toBe(both);
     expect(result.categories[0]?.name).toBe(both);
     expect(test.attempts[0]?.errors[0]?.signature).toBe(both);
-    expect(test.attempts[0]?.errors[0]?.snippet).toBe(both);
     expect(test.attempts[0]?.attachments[0]?.path).toBe('data/x/0/a.txt');
+  });
+
+  it('only masks the real home in a snippet, and no generic form', () => {
+    const snippet = `> 1 | goto('/home/dashboard', '/home/alice/x')\n    | ^`;
+    const masked = rewriteReportPaths({ ...report, run: { ...report.run, errors: [{ ...error, project: null, snippet }] } } as unknown as LoupeReport, paths);
+    expect(masked.run.errors[0]?.snippet).toBe(`> 1 | goto('/home/dashboard', '~/x')\n    | ^`);
+    expect(test.attempts[0]?.errors[0]?.snippet).toBe(kept);
   });
 
   it('keeps the order of the keys of the JSON, and leaves the report as it was', () => {
@@ -607,6 +613,78 @@ describe('lists of generic homes', () => {
   it('accepts `=` as a delimiter after a root', () => {
     const rooted = createPathRewriter({ roots: ['/srv/app'], home: null });
     expect(rooted.text('/srv/app=x')).toBe('.=x');
+  });
+});
+
+describe('snippets', () => {
+  const { snippet } = createPathRewriter({ roots: ['/home/me/proj/tests'], home: '/home/me' });
+
+  it('masks the real home on every line', () => {
+    expect(snippet(`  1 | const a = '/home/me/a';\n  2 | const b = 'x/home/me';`)).toBe(`  1 | const a = '~/a';\n  2 | const b = 'x~';`);
+  });
+
+  it('leaves generic homes and a path under the root as they are', () => {
+    const code = `  1 | page.goto('/home/dashboard');\n  2 | read('C:\\\\Users\\\\bob\\\\x', '/mnt/c/Users/bob/x');`;
+    expect(snippet(code)).toBe(code);
+  });
+
+  it('shifts the caret by the length difference when the home is before it', () => {
+    const line = `> 3 | read('/home/me/a'); expect(x).toBe(y);`;
+    const code = [line, `    |${' '.repeat(line.indexOf('expect') - 5)}^`, '  4 | });'].join('\n');
+    const masked = snippet(code).split('\n');
+    expect(masked[0]).toBe(`> 3 | read('~/a'); expect(x).toBe(y);`);
+    expect(masked[1]?.indexOf('^')).toBe(masked[0]?.indexOf('expect'));
+    expect(masked[2]).toBe('  4 | });');
+  });
+
+  it('adds up several homes before the caret', () => {
+    const line = `> 3 | read('/home/me/a', '/home/me'); run();`;
+    const code = [line, `    |${' '.repeat(line.indexOf('run') - 5)}^`].join('\n');
+    const masked = snippet(code).split('\n');
+    expect(masked[0]).toBe(`> 3 | read('~/a', '~'); run();`);
+    expect(masked[1]?.indexOf('^')).toBe(masked[0]?.indexOf('run'));
+  });
+
+  it('leaves the caret when the home is after it', () => {
+    const code = [`> 3 | expect(x).toBe('/home/me/a');`, '    |           ^'].join('\n');
+    expect(snippet(code)).toBe([`> 3 | expect(x).toBe('~/a');`, '    |           ^'].join('\n'));
+  });
+
+  it('leaves the caret on a home that starts under it, and moves one inside a home to its `~`', () => {
+    expect(snippet(['> 3 | /home/me/a', '    | ^'].join('\n'))).toBe(['> 3 | ~/a', '    | ^'].join('\n'));
+    expect(snippet([`> 3 | f('/home/me/a'); g();`, '    |          ^'].join('\n'))).toBe([`> 3 | f('~/a'); g();`, '    |    ^'].join('\n'));
+  });
+
+  it('keeps tabs in the caret line', () => {
+    const code = [`> 3 | \tread('/home/me/a');\tgo();`, `    | \t                 \t^`].join('\n');
+    expect(snippet(code)).toBe([`> 3 | \tread('~/a');\tgo();`, `    | \t          \t^`].join('\n'));
+  });
+
+  it('keeps a wide gutter and a long caret', () => {
+    const code = [`> 120 | f('/home/me/a'); g();`, '      |                 ^^^'].join('\n');
+    expect(snippet(code)).toBe([`> 120 | f('~/a'); g();`, '      |          ^^^'].join('\n'));
+  });
+
+  it('masks a line without a caret, and touches no caret-like line alone', () => {
+    expect(snippet(`> 3 | read('/home/me/a');`)).toBe(`> 3 | read('~/a');`);
+    expect(snippet(`  3 | read('/home/me/a');\n    |   ^`)).toBe(`  3 | read('~/a');\n    |   ^`);
+  });
+
+  it('leaves a single-segment home alone: it holds no user name, and the source code stays as written', () => {
+    for (const home of ['/app', '/root']) {
+      const code = [`> 1 | page.goto('${home}/items'); go();`, '    |                         ^'].join('\n');
+      expect(createPathRewriter({ roots: [], home }).snippet(code)).toBe(code);
+    }
+  });
+
+  it('still masks a single-segment home in other text', () => {
+    const single = createPathRewriter({ roots: [], home: '/app' });
+    expect(single.text('open /app/x')).toBe('open ~/x');
+    expect(single.selection('open /app/x')).toBe('open ~/x');
+  });
+
+  it('changes nothing without a home', () => {
+    expect(createPathRewriter({ roots: [], home: null }).snippet(`  1 | f('/home/bob/x');`)).toBe(`  1 | f('/home/bob/x');`);
   });
 });
 

@@ -5,10 +5,13 @@
 import { homedir } from 'node:os';
 
 /**
- * `/home/<user>/`, `/Users/<user>/`, `/root/` and `X:\Users\` (raw or
- * JSON-escaped), not inside a URL (`http://host/home/…`).
+ * `/home/<user>/`, `/Users/<user>/`, `/var/home/<user>/`, `/root/`,
+ * `/mnt/x/Users/`, `/cygdrive/x/Users/`, `/x/Users/`, `X:\Users\` and
+ * `\\wsl$\<distro>\home\` (raw or JSON-escaped), not inside a URL
+ * (`http://host/home/…`).
  */
-const GENERIC_HOME = /(?<![\w.~%/-])(?:\/(?:home|Users)\/[^/\s"'\\]+\/|\/root\/)|(?<!\w)[A-Za-z]:(?:\\\\|\\|\/)Users(?:\\\\|\\|\/)/g;
+const GENERIC_HOME =
+  /(?<![\w.~%/-])(?:\/(?:home|Users|var\/home)\/[^/\s"'\\]+\/|\/root\/|\/(?:mnt|cygdrive)\/[A-Za-z]\/[Uu][Ss][Ee][Rr][Ss]\/|\/[A-Za-z]\/Users\/)|(?<!\w)[A-Za-z]:(?:\\+|\/)[Uu][Ss][Ee][Rr][Ss](?:\\+|\/)|\\{2,}[Ww][Ss][Ll](?:\$|\.[Ll][Oo][Cc][Aa][Ll][Hh][Oo][Ss][Tt])\\+[^\\/\s"']+\\+home\\+/g;
 
 /** Home directory paths found in `text`: this machine's home directory, then the generic forms. */
 export function homePaths(text, home = homedir()) {

@@ -80,10 +80,14 @@ const OUTCOMES: Record<ReturnType<PwTestCase['outcome']>, Outcome> = {
 type PwAttachment = TestResult['attachments'][number];
 
 /** Copies or writes attachments into the report folder, with collision-safe names per folder. */
-class AttachmentStore {
+export class AttachmentStore {
   private readonly taken = new Map<string, Set<string>>();
 
-  constructor(private readonly outputFolder: string) {}
+  /** `selection`: masks the home directories of a text, see `PathRewriter`. */
+  constructor(
+    private readonly outputFolder: string,
+    private readonly selection: (text: string) => string,
+  ) {}
 
   /** Removes attachments left by a previous report in the same folder. */
   async reset(): Promise<void> {
@@ -102,18 +106,23 @@ class AttachmentStore {
     };
 
     if (attachment.path) {
-      result.path = await this.store(folder, safeFileName(path.basename(attachment.path)), (target) =>
-        copyFile(attachment.path as string, target),
-      );
+      const fileName = this.holdsHome(name) ? `attachment${path.extname(attachment.path)}` : safeFileName(path.basename(attachment.path));
+      result.path = await this.store(folder, fileName, (target) => copyFile(attachment.path as string, target));
     } else if (attachment.body) {
       const body = attachment.body;
       if (isTextContentType(contentType) && body.byteLength <= INLINE_TEXT_LIMIT) {
         result.body = body.toString('utf8');
       } else {
-        result.path = await this.store(folder, bodyFileName(name, contentType), (target) => writeFile(target, body));
+        const fileName = bodyFileName(this.holdsHome(name) ? 'attachment' : name, contentType);
+        result.path = await this.store(folder, fileName, (target) => writeFile(target, body));
       }
     }
     return result;
+  }
+
+  /** Playwright and `safeFileName` flatten a name, `/home/me/x` into `home-me-x`: no mask finds the user name in that file name. */
+  private holdsHome(name: string): boolean {
+    return this.selection(name) !== name;
   }
 
   /** Writes one file and returns its report-relative path, or null when the source file is missing. */
@@ -313,7 +322,7 @@ export async function buildReport(
   options: BuildOptions,
 ): Promise<LoupeReport> {
   const rootDir = config.rootDir;
-  const store = new AttachmentStore(options.outputFolder);
+  const store = new AttachmentStore(options.outputFolder, createPathRewriter({ roots: [], home: options.home ?? null }).selection);
   const categorizer = createCategorizer(options.categories ?? DEFAULT_CATEGORIES);
   const redactor = createRedactor(options.redact ?? DEFAULT_REDACT);
   const dimensionSet = createDimensions(options.dimensions ?? DEFAULT_DIMENSIONS);

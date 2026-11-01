@@ -239,6 +239,14 @@ export interface PathRewriter {
    * percent-encoding, paths under a root).
    */
   selection(text: string): string;
+  /**
+   * A code snippet: only the home of the machine writing the report becomes `~`, when it has
+   * at least two segments. A generic form or a single segment could be anything in source
+   * code (`page.goto('/home/dashboard')`, `page.goto('/app/items')`), and a single segment
+   * holds no user name. The caret under the line the snippet points at keeps pointing at the
+   * same character.
+   */
+  snippet(snippet: string): string;
 }
 
 /** Returns the rewriter of a report, see the top of this module. */
@@ -284,6 +292,7 @@ export function createPathRewriter(options: PathRewriterOptions): PathRewriter {
   if (homeDirectory && homeDirectory.segments.length > 0) add(homes, homeDirectory, homeDirectory.segments.length, home);
   // A single segment (`/root`, `/app`) can be anything in a path: it keeps the boundary before it.
   const anywhere = homeDirectory && homeDirectory.segments.length >= 2 ? (homes[0] as Entry) : null;
+  const realHome = compileHomes(anywhere ? [anywhere] : [], anywhere);
   homes.push(...GENERIC_HOMES);
 
   // Longest first within a rule: alternatives are tried in order at each position.
@@ -301,7 +310,8 @@ export function createPathRewriter(options: PathRewriterOptions): PathRewriter {
   return {
     text,
     file,
-    selection,
+    selection: (text) => selection(text),
+    snippet: (snippet) => rewriteSnippet(snippet, realHome),
     stack(stack) {
       const lines = stack.split('\n');
       const first = lines.findIndex(isFrameLine);
@@ -351,33 +361,71 @@ function compile(entries: readonly Entry[]): (text: string) => string {
   };
 }
 
-/** Each home prefix alone becomes `~`, with the separator it had. */
-function compileHomes(entries: readonly Entry[], anywhere: Entry | null): (text: string) => string {
+/** Each home prefix alone becomes `~`, with the separator it had. `replaced` hears of each one, in order. */
+type HomeMask = (text: string, replaced?: (offset: number, length: number, width: number) => void) => string;
+
+function compileHomes(entries: readonly Entry[], anywhere: Entry | null): HomeMask {
+  if (entries.length === 0) return (text) => text;
   const { source, owners } = prefixes(entries, anywhere);
   const pattern = new RegExp(source, 'g');
-  return (text) => {
+  return (text, replaced) => {
     if (!text.includes('/') && !text.includes('\\')) return text;
-    return text.replace(pattern, (_match: string, ...groups: unknown[]) => `~${(groups[owners.length] as string | undefined) ?? ''}`);
+    return text.replace(pattern, (match: string, ...groups: unknown[]) => {
+      const masked = `~${(groups[owners.length] as string | undefined) ?? ''}`;
+      replaced?.(groups[owners.length + 1] as number, match.length, masked.length);
+      return masked;
+    });
   };
+}
+
+/** The line a snippet points at, `> 38 | …`, and the caret under it, `     |    ^`: same columns. */
+const ARROW_LINE = /^>\s*\d+ \|/;
+const CARET_LINE = /^(\s*\|\s*)(\^+\s*)$/;
+
+function rewriteSnippet(snippet: string, mask: HomeMask): string {
+  const lines = snippet.split('\n');
+  lines.forEach((line, index) => {
+    const caret = ARROW_LINE.test(line) ? CARET_LINE.exec(lines[index + 1] ?? '') : null;
+    if (!caret) {
+      lines[index] = mask(line);
+      return;
+    }
+    const column = (caret[1] as string).length;
+    // The columns before the caret follow the edits of the line, tabs included. A caret inside a
+    // home moves to its `~`. `shift`: how far the edits so far moved the rest of the line.
+    let margin = caret[1] as string;
+    let shift = 0;
+    lines[index] = mask(line, (offset, length, width) => {
+      if (offset >= column) return;
+      const inside = offset + length > column;
+      margin = margin.slice(0, offset + shift) + ' '.repeat(inside ? 0 : width) + margin.slice(offset + length + shift);
+      shift += width - length;
+    });
+    lines[index + 1] = margin + (caret[2] as string);
+  });
+  return lines.join('\n');
 }
 
 /**
  * Keys whose values are never rewritten: identifiers and signatures, category
- * names (computed from the original text), snippets (source code, already in
- * the repository), attachment paths (files in the report folder) and
+ * names (computed from the original text), attachment paths (files in the
+ * report folder, whose names hold no home directory, see `AttachmentStore`) and
  * locations (rewritten from their absolute file by the core).
  */
-const KEPT_KEYS = new Set(['id', 'signature', 'errorSignature', 'category', 'categories', 'snippet', 'path', 'location']);
+const KEPT_KEYS = new Set(['id', 'signature', 'errorSignature', 'category', 'categories', 'path', 'location']);
 
 /**
  * Rewrites the paths of every string of a report: `stack` values as stacks,
- * everything else as text, except under KEPT_KEYS. The fields that select a test
+ * `snippet` values as snippets, everything else as text, except under KEPT_KEYS. The fields that select a test
  * are found by position, not by key: steps have a `title` too, and `name` is also
  * that of attachments, categories and dimensions. Returns a copy.
  */
 export function rewriteReportPaths(report: LoupeReport, paths: PathRewriter): LoupeReport {
   const visit = (node: unknown, key: string | null): unknown => {
-    if (typeof node === 'string') return key === 'stack' ? paths.stack(node) : paths.text(node);
+    if (typeof node === 'string') {
+      if (key === 'stack') return paths.stack(node);
+      return key === 'snippet' ? paths.snippet(node) : paths.text(node);
+    }
     if (Array.isArray(node)) return node.map((child) => visit(child, key));
     if (node !== null && typeof node === 'object') {
       return Object.fromEntries(Object.entries(node).map(([name, child]) => [name, KEPT_KEYS.has(name) ? child : visit(child, name)]));

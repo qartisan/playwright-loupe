@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   attachmentKind,
   bodyFileName,
@@ -8,6 +11,8 @@ import {
   safeFileName,
   uniqueFileName,
 } from '../src/core/attachments.js';
+import { AttachmentStore } from '../src/core/build.js';
+import { createPathRewriter } from '../src/core/paths.js';
 
 describe('attachmentKind', () => {
   it.each([
@@ -93,5 +98,75 @@ describe('file names', () => {
     expect(uniqueFileName('video.webm', taken)).toBe('video-2.webm');
     expect(uniqueFileName('trace', taken)).toBe('trace');
     expect(uniqueFileName('trace', taken)).toBe('trace-1');
+  });
+});
+
+describe('AttachmentStore, names holding a home directory', () => {
+  let folder: string;
+  let store: AttachmentStore;
+  const text = 'text/plain';
+  const big = (char: string): Buffer => Buffer.from(char.repeat(5000));
+  const read = (file: string | null): string => readFileSync(path.join(folder, file ?? ''), 'utf8');
+  /** A file as Playwright writes an attachment: its name flattened into the file name. */
+  const source = (name: string, body: string): string => {
+    const file = path.join(folder, name);
+    writeFileSync(file, body);
+    return file;
+  };
+
+  beforeEach(() => {
+    folder = mkdtempSync(path.join(tmpdir(), 'loupe-store-'));
+    store = new AttachmentStore(folder, createPathRewriter({ roots: [], home: '/home/me' }).selection);
+  });
+
+  afterEach(() => {
+    rmSync(folder, { recursive: true, force: true });
+  });
+
+  it('gives two bodies their own file in the same attempt', async () => {
+    const first = await store.add('data/t/0', { name: 'a /home/bob/x', contentType: text, body: big('a') });
+    const second = await store.add('data/t/0', { name: 'b /home/me/y', contentType: text, body: big('b') });
+    expect([first.path, second.path]).toEqual(['data/t/0/attachment.txt', 'data/t/0/attachment-1.txt']);
+    expect([read(first.path), read(second.path)]).toEqual(['a'.repeat(5000), 'b'.repeat(5000)]);
+  });
+
+  it('gives two copied files their own file in the same attempt', async () => {
+    const first = await store.add('data/t/0', { name: '/home/bob/x', contentType: text, path: source('home-bob-x-1.txt', 'one') });
+    const second = await store.add('data/t/0', { name: '/home/bob/x', contentType: text, path: source('home-bob-x-2.txt', 'two') });
+    expect([first.path, second.path]).toEqual(['data/t/0/attachment.txt', 'data/t/0/attachment-1.txt']);
+    expect([read(first.path), read(second.path)]).toEqual(['one', 'two']);
+  });
+
+  it('keeps a body, a copied file and an attachment really named so apart', async () => {
+    const results = [
+      await store.add('data/t/0', { name: 'attachment.txt', contentType: text, body: big('a') }),
+      await store.add('data/t/0', { name: '/home/bob/x', contentType: text, body: big('b') }),
+      await store.add('data/t/0', { name: '/home/bob/y', contentType: text, path: source('flat.txt', 'c') }),
+    ];
+    expect(results.map((result) => result.path)).toEqual(['data/t/0/attachment.txt', 'data/t/0/attachment-1.txt', 'data/t/0/attachment-2.txt']);
+    expect(results.map((result) => read(result.path).charAt(0))).toEqual(['a', 'b', 'c']);
+  });
+
+  it('keeps the extension of a copied file, or the one of the content type', async () => {
+    const copied = await store.add('data/t/0', { name: '/home/bob/shot', contentType: 'image/png', path: source('home-bob-shot.png', 'p') });
+    const written = await store.add('data/t/0', { name: '/home/bob/shot', contentType: 'image/png', body: Buffer.from('p') });
+    expect(copied.path).toBe('data/t/0/attachment.png');
+    expect(written.path).toBe('data/t/0/attachment-1.png');
+  });
+
+  it('starts again in another attempt', async () => {
+    const first = await store.add('data/t/0', { name: '/home/bob/x', contentType: text, body: big('a') });
+    const retry = await store.add('data/t/1', { name: '/home/bob/x', contentType: text, body: big('b') });
+    expect([first.path, retry.path]).toEqual(['data/t/0/attachment.txt', 'data/t/1/attachment.txt']);
+  });
+
+  it('keeps the file name of an attachment holding no home', async () => {
+    const result = await store.add('data/t/0', { name: 'my log', contentType: text, body: big('a') });
+    expect(result.path).toBe('data/t/0/my-log.txt');
+  });
+
+  it('masks the name itself in the rewriting pass only: the store keeps it', async () => {
+    const result = await store.add('data/t/0', { name: '/home/bob/x', contentType: text, body: big('a') });
+    expect(result.name).toBe('/home/bob/x');
   });
 });
