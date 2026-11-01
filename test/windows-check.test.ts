@@ -3,7 +3,7 @@ import { EventEmitter } from 'node:events';
 import { existsSync, globSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { countRequired, describeBad, runCommand, runRows, selectedExpected, type Launch, type Row } from '../fixtures/windows-check/harness.mjs';
+import { countRequired, describeBad, leftOutNotice, runCommand, runRows, selectedExpected, summaryLine, type Launch, type Row } from '../fixtures/windows-check/harness.mjs';
 import { ROOT } from './helpers/fixtures.js';
 
 /** The Windows job only runs for its paths, so a renamed file would silently stop triggering it. */
@@ -157,6 +157,26 @@ describe('windows-check harness', () => {
       const stats = await runRows({ commands: [row('one test', true)], toLaunch, spawnFn: selecting([]), concurrency: 1 });
       expect(countRequired(stats)).toEqual({ bad: 1, run: 1 });
       expect(describeBad(stats['one test']!.bad[0]!)).toBe('length 9, selected 0 of 1');
+    });
+  });
+
+  describe('rows an archive leaves out', () => {
+    const NOTICE = "7 rows left out: paths-in-titles commands hold the build machine's paths and find nothing on another machine.";
+
+    it('says how many and why, and nothing when no row is left out', () => {
+      expect(leftOutNotice(7)).toBe(NOTICE);
+      expect(leftOutNotice(1)).toBe("1 row left out: paths-in-titles commands hold the build machine's paths and find nothing on another machine.");
+      expect(leftOutNotice(0)).toBeNull();
+    });
+
+    it('repeats them on the last line of a run, PASS or FAIL', () => {
+      expect(summaryLine(0, '1.0', NOTICE)).toBe(`PASS, in 1.0 min. Measure rows do not count. Details in results.json. Not the whole check: ${NOTICE}`);
+      expect(summaryLine(2, '1.0', NOTICE)).toContain(`FAIL: 2 problem(s) on REQUIRED rows or missing shells, in 1.0 min. Measure rows do not count. Details in results.json. Not the whole check: ${NOTICE}`);
+    });
+
+    it('says nothing of the kind for a kit with every row', () => {
+      expect(summaryLine(0, '1.0')).toBe('PASS, in 1.0 min. Measure rows do not count. Details in results.json.');
+      expect(summaryLine(0, '1.0', null)).not.toContain('left out');
     });
   });
 

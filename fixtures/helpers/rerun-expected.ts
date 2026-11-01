@@ -33,11 +33,20 @@ function expectedForRedacted(test: Identity): string[] {
   return test.title === `with the secret ${REDACTED}` ? [keyOf(unmasked), keyOf(test)] : [keyOf(unmasked)];
 }
 
+/** The title of `rerun/paths-in-titles.spec.ts` holding a real `~`, and the test its command also selects. */
+export const REAL_TILDE = 'about ~ 5 items';
+export const TILDE_NEIGHBOUR = 'about roughly 5 items';
+
+/** For a test of `rerun/paths-in-titles.spec.ts`: anywhere else, `~` is the home directory, and the real title is what the command must find. */
+function expectedForPaths(test: Identity): string[] {
+  if (test.title === REAL_TILDE) return [keyOf(test), keyOf({ ...test, title: TILDE_NEIGHBOUR })];
+  return [keyOf({ ...test, title: test.title.replace('~', () => homedir()) })];
+}
+
 /** What a command must select for one test: the test, and the tests it cannot be told apart from. */
 export function expectedFor(test: Identity): string[] {
   if (test.file === 'redaction.spec.ts') return expectedForRedacted(test);
-  // `~` is the home directory there: the real title is what the command must find.
-  if (test.file === 'paths-in-titles.spec.ts') return [keyOf({ ...test, title: test.title.replace('~', () => homedir()) })];
+  if (test.file === 'paths-in-titles.spec.ts') return expectedForPaths(test);
   const titlePath = [...test.suitePath, test.title].join(' › ');
   const pair = test.file === 'twins.spec.ts' ? TWINS.find((twins) => twins.includes(titlePath)) : undefined;
   const titles = (pair ?? [titlePath]).map((twin) => twin.split(' › '));

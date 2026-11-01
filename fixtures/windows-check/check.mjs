@@ -13,7 +13,7 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { countRequired, describeBad, runCommand, runRows } from './harness.mjs';
+import { LEFT_OUT_FILE, countRequired, describeBad, runCommand, runRows, summaryLine } from './harness.mjs';
 
 const flag = (name) => process.argv.includes(`--${name}`);
 const onlyShell = process.argv.find((arg) => arg.startsWith('--shell='))?.slice('--shell='.length);
@@ -85,5 +85,6 @@ if (requiredRun === 0) {
   console.log('\nFAIL: no REQUIRED command ran.');
   process.exit(1);
 }
-console.log(`\n${failed === 0 ? 'PASS' : `FAIL: ${failed} problem(s) on REQUIRED rows or missing shells`}, in ${minutes} min. Measure rows do not count. Details in results.json.`);
+const leftOut = existsSync(LEFT_OUT_FILE) ? readFileSync(LEFT_OUT_FILE, 'utf8').trim() : null;
+console.log(`\n${summaryLine(failed, minutes, leftOut)}`);
 process.exit(failed === 0 ? 0 : 1);

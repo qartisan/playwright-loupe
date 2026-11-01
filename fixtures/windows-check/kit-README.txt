@@ -15,7 +15,8 @@ Needs: Node.js 22.12 or later. Git Bash and PowerShell 7 are tested when install
 
      node check.mjs
 
-   The last line says PASS or FAIL. REQUIRED rows must have 0 bad.
+   The last line says PASS or FAIL. REQUIRED rows must have 0 bad. It also says
+   what an archive left out, if anything: a PASS then covers only the rest.
    node check.mjs --measure adds rows that are information, not failures: commands
    above the Windows limit Loupe computes, to see where the limit really is.
 

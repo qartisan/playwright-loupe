@@ -93,6 +93,21 @@ export function describeBad(bad) {
   return `length ${bad.length}, selected ${bad.selected} of ${bad.expected}${bad.raw ? `: ${bad.raw.slice(0, 200).replace(/\s+/g, ' ')}` : ''}`;
 }
 
+/** In a kit with rows left out: what `leftOutNotice` says about them. Absent otherwise. */
+export const LEFT_OUT_FILE = 'left-out.txt';
+
+/** What to say about the rows an archive leaves out; null when there is none. */
+export function leftOutNotice(count) {
+  if (count === 0) return null;
+  return `${count} row${count === 1 ? '' : 's'} left out: paths-in-titles commands hold the build machine's paths and find nothing on another machine.`;
+}
+
+/** The last line of a run, which the kit's README tells to read: with rows left out, a PASS says it is not the whole check. */
+export function summaryLine(failed, minutes, leftOut = null) {
+  const verdict = failed === 0 ? 'PASS' : `FAIL: ${failed} problem(s) on REQUIRED rows or missing shells`;
+  return `${verdict}, in ${minutes} min. Measure rows do not count. Details in results.json.${leftOut ? ` Not the whole check: ${leftOut}` : ''}`;
+}
+
 /** Bad results on REQUIRED rows, and how many REQUIRED commands ran. Measure rows never count. */
 export function countRequired(stats) {
   let bad = 0;

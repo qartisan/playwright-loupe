@@ -36,3 +36,6 @@ export function runRows(options: {
 }): Promise<Stats>;
 export function describeBad(bad: BadRow): string;
 export function countRequired(stats: Stats): { bad: number; run: number };
+export const LEFT_OUT_FILE: string;
+export function leftOutNotice(count: number): string | null;
+export function summaryLine(failed: number, minutes: string, leftOut?: string | null): string;

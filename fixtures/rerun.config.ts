@@ -30,6 +30,8 @@ export default defineConfig({
     { name: 'other', testMatch: plain },
     { name: 'v1.2', testMatch: plain },
     { name: 'star*name', testMatch: plain },
+    // Git Bash rewrites `--project=/x` as a path.
+    { name: '/opt/proj', testMatch: plain },
     { name: 'Mobile (iOS) + x', testMatch: plain },
     { name: 'Sécu "q" $x %y% `z` !', testMatch: plain },
     // Differ by case only: `--project` and `-g` both ignore it.

@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { rerunCommand } from '../src/renderer/detail/rerun.js';
 import { REDACTED } from '../src/shared/redaction.js';
 import type { LoupeReport, TestCase } from '../src/schema/v1.js';
-import { expectedFor, keyOf } from '../fixtures/helpers/rerun-expected.js';
+import { REAL_TILDE, TILDE_NEIGHBOUR, expectedFor, keyOf } from '../fixtures/helpers/rerun-expected.js';
 import { FIXTURE_SECRET } from '../fixtures/redaction-values.js';
 import { FIXTURE_CONFIG, RERUN_CONFIG, ROOT, assertBuilt, pasteInShell, playwright, readReport } from './helpers/fixtures.js';
 
@@ -203,8 +203,14 @@ describe('rerun commands against the installed Playwright', () => {
       const DECOY = 'reads decoy.json';
       const IN_HOME = `reads ${path.join('~', 'other', 'a.json')}`;
       const inTitles = (): TestCase[] => report(RERUN_CONFIG).tests.filter((test) => test.project === 'main' && test.file === 'paths-in-titles.spec.ts');
+      const withTitle = (match: (title: string) => boolean): TestCase => {
+        const test = inTitles().find((candidate) => match(candidate.title));
+        if (!test) throw new Error('No such test in paths-in-titles.spec.ts');
+        return test;
+      };
       const selectedInMain = async (test: TestCase): Promise<string[]> =>
         (await selection(rerunCommand([test]), RERUN_CONFIG)).map((key) => JSON.parse(key) as string[]).filter(([project]) => project === 'main').map((parts) => parts.at(-1) ?? '');
+      const underRoot = (...parts: string[]): string => `reads ${path.join(ROOT, 'fixtures', 'rerun', ...parts)}`;
 
       it('keeps its path in the report, but for the home directory', () => {
         const titles = inTitles().map((test) => test.title);
@@ -215,17 +221,29 @@ describe('rerun commands against the installed Playwright', () => {
       });
 
       it('finds the real test from a home directory written `~`', async () => {
-        const test = inTitles().find((candidate) => candidate.title === IN_HOME);
-        if (!test) throw new Error(`No test "${IN_HOME}"`);
-        expect(await selectedInMain(test)).toEqual([`reads ${path.join(homedir(), 'other', 'a.json')}`]);
+        expect(await selectedInMain(withTitle((title) => title === IN_HOME))).toEqual([`reads ${path.join(homedir(), 'other', 'a.json')}`]);
       }, 120_000);
 
-      it('no longer selects the test with the shortened title', async () => {
-        const test = inTitles().find((candidate) => candidate.title.endsWith(`${path.sep}decoy.json`));
-        if (!test) throw new Error('No test with the path of the decoy');
-        expect(await selectedInMain(test)).not.toContain(DECOY);
+      it('finds the real test from a path under the root, wherever the root is', async () => {
+        expect(await selectedInMain(withTitle((title) => title.endsWith(path.join('rerun', 'data', 'a.json'))))).toEqual([underRoot('data', 'a.json')]);
+      }, 120_000);
+
+      it('selects the right test, and not the one that has its title once shortened', async () => {
+        expect(await selectedInMain(withTitle((title) => title.endsWith(`${path.sep}decoy.json`)))).toEqual([underRoot('decoy.json')]);
+        expect(await selectedInMain(withTitle((title) => title === DECOY))).toEqual([DECOY]);
+      }, 120_000);
+
+      it('selects a title really holding `~`, with the test `.+` then matches', async () => {
+        expect((await selectedInMain(withTitle((title) => title === REAL_TILDE))).sort()).toEqual([REAL_TILDE, TILDE_NEIGHBOUR].sort());
+        expect(await selectedInMain(withTitle((title) => title === TILDE_NEIGHBOUR))).toEqual([TILDE_NEIGHBOUR]);
       }, 120_000);
     });
+
+    it('selects a project starting with a slash, without a slash after --project', async () => {
+      const test = inFile('/opt/proj', 'plain.spec.ts', 'alpha');
+      expect(rerunCommand([test])).toContain('"--project=*opt*proj" -g "^ *\\x2fopt\\x2fproj plain.spec.ts alpha$"');
+      expect(await selection(rerunCommand([test]), RERUN_CONFIG)).toEqual([keyOf(test)]);
+    }, 120_000);
 
     it('escapes the variation selector of a title, and selects the test', async () => {
       const test = inFile('main', 'titles.spec.ts', 'heart ❤\ufe0f with a variation selector');

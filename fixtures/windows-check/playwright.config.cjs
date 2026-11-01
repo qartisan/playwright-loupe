@@ -18,6 +18,7 @@ module.exports = {
     { name: 'other', testMatch: plain },
     { name: 'v1.2', testMatch: plain },
     { name: 'star*name', testMatch: plain },
+    { name: '/opt/proj', testMatch: plain },
     { name: 'Mobile (iOS) + x', testMatch: plain },
     { name: 'Sécu "q" $x %y% `z` !', testMatch: plain },
     { name: 'Case', testMatch: plain },

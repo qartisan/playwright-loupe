@@ -9,6 +9,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } fr
 import { registerHooks } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { LEFT_OUT_FILE, leftOutNotice } from './harness.mjs';
 
 // The repository's sources import `./x.js` for `./x.ts`.
 registerHooks({
@@ -86,8 +87,17 @@ run('npx', ['playwright', 'test', '--list'], { KIT_LOUPE: reporter, KIT_LOUPE_OU
 const report = JSON.parse(readFileSync(path.join(reportDir, 'report.json'), 'utf8'));
 
 const commands = [];
-function add(form, tests, text = rerunCommand(tests), required = commandLimit(text) === null) {
-  commands.push({ form, required, expected: [...new Set(tests.flatMap(expectedFor))], text });
+// An archive runs on another machine: the paths in the titles of paths-in-titles.spec.ts are those of this one, and its commands find nothing there.
+const runsHere = (test) => !pack || test.file !== 'paths-in-titles.spec.ts';
+let rowsLeftOut = 0;
+function add(form, list, text, required) {
+  const tests = list.filter(runsHere);
+  if (tests.length === 0) {
+    rowsLeftOut += 1;
+    return;
+  }
+  const command = text ?? rerunCommand(tests);
+  commands.push({ form, required: required ?? commandLimit(command) === null, expected: [...new Set(tests.flatMap(expectedFor))], text: command });
 }
 const tests = report.tests.filter((test) => test.file !== 'long.spec.ts' && test.file !== 'calibration.spec.ts');
 const inLong = report.tests.filter((test) => test.file === 'long.spec.ts' && test.project === 'main');
@@ -115,6 +125,7 @@ add('many tests, same set in two projects', [find('main', 'alpha'), find('main',
 add('many tests, hostile projects and paths', [
   find('v1.2', 'alpha'),
   find('star*name', 'alpha'),
+  find('/opt/proj', 'alpha'),
   find('Mobile (iOS) + x', 'beta'),
   find('Sécu "q" $x %y% `z` !', 'alpha'),
   ...tests.filter((test) => test.file.startsWith('hostile/') && test.project === 'main'),
@@ -147,17 +158,21 @@ const manual = [
   ['Accented letters left literal, in a title', pick(['accents éàü', '--project=main'], 'one test, literal letters')],
   ['Letters left literal, in a project name', pick(['"--project=Sécu', ' alpha$'], 'one test, literal letters')],
   ['The v1.2 project, quoted', pick(['"--project=v1.2"', ' alpha$'])],
+  ['A project starting with a slash, which Git Bash would rewrite', pick(['"--project=*opt*proj"', ' alpha$'])],
   ['A title with every shell character', pick(['caret', '--project=main'])],
   ['Tags from a describe and from the test', pick(['nested', 'three', '--project=main'])],
   ['Several projects, with different tests', pick([], 'many tests, different sets per project')],
 ];
-const lines = ['Paste each command as is, adding " --list" at the end. It must print one line starting with LOUPE_SELECTION and no error. That line has one [project, file, ...titles] entry per test: check the number below.', ''];
+const notice = leftOutNotice(rowsLeftOut);
+if (notice) writeFileSync(path.join(stage, LEFT_OUT_FILE), `${notice}\n`);
+const lines = [...(notice ? [`Not the whole check: ${notice}`, ''] : []), 'Paste each command as is, adding " --list" at the end. It must print one line starting with LOUPE_SELECTION and no error. That line has one [project, file, ...titles] entry per test: check the number below.', ''];
 for (const [index, [label, command]] of manual.entries()) {
   const count = command.expected.length;
   lines.push(`${index + 1}. ${label}: ${count} test${count > 1 ? 's' : ''}, plus 1 from the "setup" project when the command says --project=main`, command.text, '');
 }
 writeFileSync(path.join(stage, 'manual-paste.txt'), lines.join('\r\n'));
 console.log(`${commands.length} commands, ${commands.filter((command) => command.required).length} required, in ${stage}`);
+if (notice) console.log(notice);
 
 if (pack) {
   const packed = spawnSync('tar', ['-czf', pack, '--exclude=node_modules', '--exclude=results.json', '--exclude=rerun/hostile', '-C', parent, 'loupe-windows-check'], { encoding: 'utf8' });
