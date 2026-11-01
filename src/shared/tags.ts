@@ -11,3 +11,11 @@ export function splitPrefixedTag(tag: string): { prefix: string; value: string }
   const match = PREFIXED_TAG.exec(tag);
   return match ? { prefix: match[1] ?? '', value: match[2] ?? '' } : null;
 }
+
+/**
+ * The values of a test for a dimension. A name comes from a tag or a config, so an inherited property
+ * is not one: `dimensions['constructor']` would be a function.
+ */
+export function dimensionValues(dimensions: Readonly<Record<string, string[]>>, name: string): readonly string[] {
+  return Object.hasOwn(dimensions, name) ? (dimensions[name] as string[]) : [];
+}

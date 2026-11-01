@@ -232,3 +232,15 @@ describe('suggestKey', () => {
     expect(suggestKey('logo', ['title', 'theme'])).toBeNull();
   });
 });
+
+describe('an option named as an inherited property', () => {
+  it.each(['constructor', 'toString', 'hasOwnProperty'])('rejects %s, at the root and nested', (key) => {
+    expect(validateConfig({ [key]: 1 }, 'config').join()).toContain(`${key} is not a known option`);
+    expect(validateConfig({ categories: { [key]: 1 } }, 'config').join()).toContain(`categories.${key} is not a known option`);
+  });
+
+  it('rejects __proto__ when it is a key of its own, without throwing', () => {
+    expect(validateConfig(JSON.parse('{"__proto__":{"title":"x"}}'), 'config').join()).toContain('__proto__ is not a known option');
+    expect(validateConfig(JSON.parse('{"categories":{"__proto__":1}}'), 'config').join()).toContain('categories.__proto__ is not a known option');
+  });
+});

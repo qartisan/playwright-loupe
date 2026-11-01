@@ -526,3 +526,11 @@ describe('mapReportStrings, names of dimensions', () => {
     expect(mapReportStrings({ environment: { s3cretvalue: 's3cretvalue' } }, strings)).toEqual({ environment: { s3cretvalue: '[redacted]' } });
   });
 });
+
+describe('secretValues, a name an object takes for something else', () => {
+  it.each(['__proto__', 'constructor', 'toString'])('says %s is not set, and uses nothing', (name) => {
+    const warnings: string[] = [];
+    expect(secretValues([name], {}, (message) => warnings.push(message))).toEqual([]);
+    expect(warnings).toEqual([`Loupe: redact.env: ${name} is not set or empty; nothing to redact for it.`]);
+  });
+});

@@ -101,6 +101,13 @@ describe('file names', () => {
   });
 });
 
+describe('extensionFor, a content type an object takes for something else', () => {
+  it.each(['__proto__', 'constructor', 'toString'])('gives %s no inherited value', (type) => {
+    expect(extensionFor(type)).toBe('.bin');
+    expect(bodyFileName(type, type)).toBe(`${type}.bin`);
+  });
+});
+
 describe('AttachmentStore, names holding a home directory', () => {
   let folder: string;
   let store: AttachmentStore;

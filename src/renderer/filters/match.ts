@@ -1,5 +1,5 @@
 import { OUTCOMES, type DimensionDefinition, type LoupeReport, type TestCase } from '../../schema/v1.js';
-import { splitPrefixedTag } from '../../shared/tags.js';
+import { dimensionValues, splitPrefixedTag } from '../../shared/tags.js';
 import { NO_CATEGORY, isFailingAttempt } from '../dashboard.js';
 import { failurePoints } from '../failure-points/points.js';
 import { skipReason } from '../skip.js';
@@ -134,7 +134,7 @@ export function testFacetValues(test: TestCase, facet: FacetId, context: FilterC
     case 'point':
       return context.failurePoints.get(test) ?? [];
     default:
-      return test.dimensions[facetDimension(facet) ?? ''] ?? [];
+      return dimensionValues(test.dimensions, facetDimension(facet) ?? '');
   }
 }
 

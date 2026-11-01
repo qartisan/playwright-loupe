@@ -87,7 +87,7 @@ function object(fields: Record<string, Check>, ctx: Context): Check {
     }
     const known = Object.keys(fields);
     for (const [key, child] of Object.entries(value)) {
-      const check = fields[key];
+      const check = Object.hasOwn(fields, key) ? fields[key] : undefined;
       if (check) {
         if (child !== undefined) check(child, join(path, key), errors);
         continue;

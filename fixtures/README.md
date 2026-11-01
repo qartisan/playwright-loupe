@@ -56,6 +56,10 @@ Everything runs offline, through `page.setContent` and local servers on 127.0.0.
 
 `leak.config.ts` runs `leak/`, a browserless suite for `test/leak.integration.test.ts`: one test per form of home directory, each writing it in its title, `describe`, tags, annotations, step, messages, stack, stdout, stderr and attachment names. **Every test of `leak.spec.ts` fails on purpose.** `secrets.spec.ts` holds invented `redact.env` secrets in its tags, and passes. The real home comes from `os.homedir()`; other machines' homes use a canary user name that lives only in `leak/homes.ts`, so that a line of the spec never carries it into a snippet. To add a form, add one line to `HOMES`.
 
+## Prototype keys
+
+`prototype-keys.config.ts` runs `prototype-keys/`, a browserless suite for `test/prototype-keys.integration.test.ts`: `__proto__`, `constructor` and `toString` as projects, titles, tag prefixes, tag values, annotation types, attachment names and content types. It passes by default; with `LOUPE_FIXTURE_FAIL`, **every test fails on purpose**, and the names are categories and declared dimensions too.
+
 ## Windows check
 
 `windows-check/` is not a suite of its own: `build.mjs` copies `rerun/` to a folder outside the repository, with `long.spec.ts`, as a CommonJS package (a `%` in a file name crashes Playwright in ES module packages), then generates the commands with the real builder. `check.mjs` runs them in every shell found. `.github/workflows/windows-check.yml` runs it on `windows-latest`; see [Windows job](../docs/releasing.md#windows-job-on-the-rerun-commands). For a manual run on another machine: `npm run build`, then `node fixtures/windows-check/build.mjs <folder> --pack <file.tgz>`, and follow the `README.txt` of the archive. An archive leaves out the commands of `rerun/paths-in-titles.spec.ts`, which hold the paths of the machine that built it: the build prints how many, and `check.mjs` repeats it on its last line.

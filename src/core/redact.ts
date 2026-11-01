@@ -335,7 +335,8 @@ export function secretValues(
   const values: string[] = [];
   for (const name of names) {
     const value = env[name];
-    if (value === undefined || value === '') {
+    // `typeof`: a name such as `constructor` reads what the object inherits.
+    if (typeof value !== 'string' || value === '') {
       warn(`Loupe: redact.env: ${name} is not set or empty; nothing to redact for it.`);
     } else if (value.length < MIN_SECRET_LENGTH) {
       warn(`Loupe: redact.env: the value of ${name} is shorter than ${MIN_SECRET_LENGTH} characters and is not redacted (too many false matches).`);

@@ -2,13 +2,18 @@ import type { ResolvedDimension } from '../config/types.js';
 import type { Annotation, DimensionDefinition } from '../schema/v1.js';
 import { splitPrefixedTag } from '../shared/tags.js';
 
+/** Names come from tags and config: no prototype, so that `__proto__` or `constructor` is a name like another. */
+function emptyDimensions(): Record<string, string[]> {
+  return Object.create(null) as Record<string, string[]>;
+}
+
 /**
  * Dimensions from prefixed tags: `@layer:api` → `{ layer: ['api'] }`.
  * Unprefixed tags produce nothing. Values keep their declaration order and are
  * deduplicated; everything after the first ':' is the value.
  */
 export function tagDimensions(tags: readonly string[]): Record<string, string[]> {
-  const dimensions: Record<string, string[]> = {};
+  const dimensions = emptyDimensions();
   for (const tag of tags) {
     const parts = splitPrefixedTag(tag);
     if (!parts) continue;
@@ -76,7 +81,7 @@ export function createDimensions(options: DimensionsOptions): Dimensions {
   return {
     of(tags, annotations) {
       const byPrefix = tagDimensions(tags);
-      const dimensions: Record<string, string[]> = {};
+      const dimensions = emptyDimensions();
       for (const definition of configured) {
         const values =
           definition.from === 'tag' ? (byPrefix[definition.prefix] ?? []) : annotationValues(annotations, definition.type);

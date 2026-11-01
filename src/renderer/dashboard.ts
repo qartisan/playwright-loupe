@@ -1,5 +1,6 @@
 import { OUTCOMES } from '../schema/v1.js';
 import type { Attempt, DimensionDefinition, LoupeError, LoupeReport, Outcome, Project, Stats, TestCase } from '../schema/v1.js';
+import { dimensionValues } from '../shared/tags.js';
 import { isSecondaryError } from './secondary.js';
 import { skipReason, type SkipReason } from './skip.js';
 
@@ -276,7 +277,7 @@ export function dimensionDistributions(report: Pick<LoupeReport, 'dimensions' | 
     for (const value of definition.values ?? []) entry(value);
     let without = 0;
     for (const test of report.tests) {
-      const values = test.dimensions[definition.name] ?? [];
+      const values = dimensionValues(test.dimensions, definition.name);
       if (values.length === 0) without += 1;
       for (const value of new Set(values)) {
         const current = entry(value);

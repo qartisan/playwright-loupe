@@ -1,4 +1,5 @@
 import type { DimensionDefinition, LoupeReport, TestCase } from '../../schema/v1.js';
+import { dimensionValues } from '../../shared/tags.js';
 import { facetTags, filterContext, type FilterContext } from './match.js';
 import { dimensionFacet, withFacetValue, type FacetId, type FilterState } from './url.js';
 
@@ -30,7 +31,7 @@ export const CHIP_CAP = 4;
 export function testChips(test: Pick<TestCase, 'tags' | 'dimensions'>, dimensions: readonly Pick<DimensionDefinition, 'name'>[], context: FilterContext): TestChip[] {
   const chips: TestChip[] = [];
   for (const { name } of dimensions) {
-    for (const value of new Set(test.dimensions[name] ?? [])) chips.push({ facet: dimensionFacet(name), value, label: value, name: `${name}: ${value}` });
+    for (const value of new Set(dimensionValues(test.dimensions, name))) chips.push({ facet: dimensionFacet(name), value, label: value, name: `${name}: ${value}` });
   }
   const tags = [...new Set(facetTags(test.tags, context))].sort((a, b) => a.localeCompare(b));
   for (const tag of tags) chips.push({ facet: 'tag', value: tag, label: tag, name: `Tag: ${tag}` });

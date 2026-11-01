@@ -53,7 +53,8 @@ const EXTENSIONS: Record<string, string> = {
 /** File extension for a content type, '.bin' when unknown. */
 export function extensionFor(contentType: string): string {
   const type = contentType.toLowerCase().split(';')[0]?.trim() ?? '';
-  return EXTENSIONS[type] ?? (isTextContentType(type) ? '.txt' : '.bin');
+  if (Object.hasOwn(EXTENSIONS, type)) return EXTENSIONS[type] as string;
+  return isTextContentType(type) ? '.txt' : '.bin';
 }
 
 /** Turns an attachment name into a safe single-segment file name. */

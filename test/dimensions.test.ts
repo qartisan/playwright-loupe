@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ResolvedDimension } from '../src/config/types.js';
-import { DEFAULT_DIMENSIONS, annotationValues, createDimensions, tagDimensions } from '../src/core/dimensions.js';
+import { DEFAULT_DIMENSIONS, annotationValues, createDimensions, renameDimensions, tagDimensions } from '../src/core/dimensions.js';
+import { dimensionValues } from '../src/shared/tags.js';
 
 describe('tagDimensions', () => {
   it('turns prefixed tags into dimensions named after the prefix', () => {
@@ -102,5 +103,42 @@ describe('createDimensions', () => {
     const owner: ResolvedDimension = { name: 'area', from: 'annotation', type: 'owner', values: null };
     const dimensions = createDimensions({ auto: true, definitions: [owner] });
     expect(dimensions.of(['@area:checkout'], [{ type: 'owner', description: 'qa' }])).toEqual({ area: ['qa'] });
+  });
+});
+
+describe('names that an object takes for something else', () => {
+  const NAMES = ['__proto__', 'constructor', 'toString', 'hasOwnProperty', 'valueOf'];
+
+  it.each(NAMES)('keeps %s as a prefix and as a value', (name) => {
+    const dimensions = tagDimensions([`@${name}:a`, `@${name}:b`, `@layer:${name}`]);
+    expect(Object.entries(dimensions)).toEqual([[name, ['a', 'b']], ['layer', [name]]]);
+  });
+
+  it.each(NAMES)('finds nothing for %s without such a tag', (name) => {
+    const dimensions = createDimensions({ auto: true, definitions: [{ name: 'declared', from: 'tag', prefix: name, values: null }] });
+    expect(dimensions.of(['@layer:api'], [])).toEqual({ layer: ['api'] });
+    expect(dimensionValues(dimensions.of(['@layer:api'], []), name)).toEqual([]);
+  });
+
+  it.each(NAMES)('keeps %s as a declared name, from a tag and from an annotation', (name) => {
+    const dimensions = createDimensions({
+      auto: false,
+      definitions: [
+        { name, from: 'tag', prefix: 'owner', values: null },
+        { name: 'from-annotation', from: 'annotation', type: name, values: null },
+      ],
+    });
+    const result = dimensions.of(['@owner:a'], [{ type: name, description: 'b' }]);
+    expect(Object.entries(result)).toEqual([[name, ['a']], ['from-annotation', ['b']]]);
+  });
+
+  it.each(NAMES)('merges %s when names become one', (name) => {
+    const renamed = renameDimensions(tagDimensions([`@${name}:a`, '@other:b']), () => name);
+    expect(Object.entries(renamed)).toEqual([[name, ['a', 'b']]]);
+  });
+
+  it.each(NAMES)('reads no inherited property as the values of %s', (name) => {
+    expect(dimensionValues(JSON.parse('{"layer":["api"]}') as Record<string, string[]>, name)).toEqual([]);
+    expect(dimensionValues(JSON.parse(`{"${name}":["a"]}`) as Record<string, string[]>, name)).toEqual(['a']);
   });
 });
