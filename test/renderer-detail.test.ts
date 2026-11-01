@@ -489,12 +489,58 @@ describe('rerun commands', () => {
       expect(commandLimit(command())).toBe(limit);
     });
 
-    it('computes the two lines of the model: the first has no path, the shim has one layer of carets less', () => {
-      // The first line: 5,079 pasted, 8,118 here, 8,125 with the --list the measure added.
-      expect(windowsLineLength(dense(5))).toBe(8118);
-      expect(windowsLineLength(dense(6))).toBe(9723);
-      // Few shell characters: the shim's line is the longer one. 7,069 pasted, 380 of overhead, a few carets.
+    it('computes the two lines of the model: the first has the path of cmd.exe, the shim one layer of carets less and its own path', () => {
+      // 37 for `C:\\Windows\\system32\\cmd.exe /d /s /c `, then 8,118 for 5,079 pasted characters.
+      expect(windowsLineLength(dense(5))).toBe(8155);
+      expect(windowsLineLength(dense(6))).toBe(9760);
+      // Few shell characters: the shim's line is the longer one, here with its deep path.
       expect(windowsLineLength(plain(7))).toBe(7463);
+      expect(windowsLineLength(plain(7), 63)).toBe(7463 - 260 + 63);
+    });
+
+    describe('the rows measured in all six Windows shell variants', () => {
+      /** The runner's: D:\\a\\_temp\\windows-check\\loupe-windows-check\\node_modules\\.bin\\ */
+      const RUNNER_BIN_PATH = 63;
+      const measured = (command: string): boolean => windowsLineLength(`${command} --list`, RUNNER_BIN_PATH) <= 8191;
+      const inCalibration = (title: string): string => rerunCommand([target(title, { file: 'calibration.spec.ts', project: 'main' })]);
+      const denseTitle = (count: number): string => `dense ${'word '.repeat(count)}end`;
+      const plainTitle = (count: number): string => `plain ${'x'.repeat(count)}`;
+
+      it.each<[string, string, boolean]>([
+        ['dense 3,000', dense(3), true],
+        ['dense 4,000', dense(4), true],
+        ['dense 5,000', dense(5), true],
+        ['dense 6,000', dense(6), false],
+        ['dense 7,000', dense(7), false],
+        ['dense 8,000', dense(8), false],
+        ['dense step, line 8155 then', inCalibration(denseTitle(1005)), false],
+        ['dense step, line 8171 then', inCalibration(denseTitle(1007)), false],
+        ['dense step, line 8179 then', inCalibration(denseTitle(1008)), false],
+        ['dense step, line 8187 then', inCalibration(denseTitle(1009)), false],
+        ['dense step, line 8195 then', inCalibration(denseTitle(1010)), false],
+        ['dense step, line 8219 then', inCalibration(denseTitle(1013)), false],
+        ['dense step, line 8259 then', inCalibration(denseTitle(1018)), false],
+        ['plain 7,000', plain(7), true],
+        ['plain 9,000', plain(9), false],
+        ['plain 12,000', plain(12), false],
+        ['plain step, line 8161 then', inCalibration(plainTitle(7693)), true],
+        ['plain step, line 8211 then', inCalibration(plainTitle(7743)), true],
+        ['plain step, line 8261 then', inCalibration(plainTitle(7793)), true],
+        ['plain step, line 8311 then', inCalibration(plainTitle(7843)), true],
+        ['plain step, line 8361 then', inCalibration(plainTitle(7893)), true],
+        ['plain step, line 8411 then', inCalibration(plainTitle(7943)), false],
+        ['plain step, line 8461 then', inCalibration(plainTitle(7993)), false],
+        ['plain step, line 8511 then', inCalibration(plainTitle(8043)), false],
+        ['plain step, line 8561 then', inCalibration(plainTitle(8093)), false],
+      ])('%s', (_row, command, passed) => {
+        expect(measured(command)).toBe(passed);
+      });
+
+      it('warns before every command that failed, even on a shallow path', () => {
+        // The notice assumes a deep path and keeps a margin: it may warn a little early, never late.
+        const failed = [dense(6), inCalibration(denseTitle(1005)), inCalibration(plainTitle(7943)), plain(9)];
+        for (const command of failed) expect(commandLimit(command)).toBe('windows');
+      });
     });
 
     it('takes a quoted file and project as one argument, and counts their quotes', () => {
@@ -519,8 +565,8 @@ describe('rerun commands', () => {
         const args = (command.match(/"[^"]*"|[^ ]+/g) ?? []).map((token) => token.replace(/^"|"$/g, '')).slice(2);
         const doubled = args.map((arg) => cmd(arg, true)).join(' ');
         const once = args.map((arg) => cmd(arg, false)).join(' ');
-        // 10: `playwright`, and 380: the overhead of the shim, each followed by the space of the first argument.
-        expect(windowsLineLength(command)).toBe(Math.max(10 + 1 + doubled.length, 380 + 1 + once.length));
+        // 37 and `playwright`, or 380 for the shim with its deep path, each followed by the space of the first argument.
+        expect(windowsLineLength(command)).toBe(Math.max(37 + 10 + 1 + doubled.length, 380 + 1 + once.length));
       }
     });
   });

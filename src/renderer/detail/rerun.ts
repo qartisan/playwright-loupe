@@ -43,11 +43,20 @@ const FLAGS_MARGIN = 30;
 export const WINDOWS_LINE_LENGTH = CMD_LINE_LIMIT - FLAGS_MARGIN;
 
 /**
- * What the shim of a bin adds to its line, from cmd-shim: `endLocal & goto #_undefined_# 2>NUL ||
- * title <COMSPEC> & "node"  "<path>\\..\\@playwright\\test\\cli.js"`, about 115 characters and the
- * path of the project's .bin. Assumes a path of 260 characters, the usual Windows maximum.
+ * What npm adds before the first line: it runs `process.env.ComSpec`, with `/d /s /c` and no outer
+ * quotes (spawnWithShell in @npmcli/promise-spawn/lib/index.js). This is its usual value; the margin
+ * covers another.
  */
-const SHIM_OVERHEAD = 115 + 260 + 5;
+const COMSPEC_PREFIX = 'C:\\Windows\\system32\\cmd.exe /d /s /c '.length;
+
+/**
+ * What the shim of a bin adds to its line, from cmd-shim, but for the path of the project's .bin:
+ * `endLocal & goto #_undefined_# 2>NUL || title <COMSPEC> & "node"  "<path>\\..\\@playwright\\test\\cli.js"`.
+ */
+const SHIM_TEXT = 120;
+
+/** The path of a project's .bin assumed for the notice: 260 characters, the usual Windows maximum. */
+const DEEP_PATH = 260;
 
 /** Above this size in bytes, a command cannot run on Linux: it is the limit of a single argument, and `-g` is one. */
 export const LINUX_COMMAND_BYTES = 131072;
@@ -70,16 +79,16 @@ function escapedLength(arg: string, carets: 1 | 3): number {
 
 /**
  * The longest line cmd.exe gets for a pasted command, on Windows, whichever shell it is pasted in:
- * `npx` starts `cmd.exe /d /s /c playwright <args>` (run-script, then promise-spawn/lib/index.js),
- * with carets doubled for the .cmd shim and no path; the shim then runs the arguments, with one
- * layer of carets gone, after its own text and path. Measured in every Windows shell
- * (fixtures/windows-check/): a realistic title pasted at 5,086 characters passes with a first line
- * of 8,125, at 6,088 fails with 9,730; plain text at 7,069 passes, at 9,067 fails.
+ * `npx` starts `<ComSpec> /d /s /c playwright <args>` (run-script, then promise-spawn/lib/index.js),
+ * with carets doubled for the .cmd shim, and the path of the interpreter but not of the shim; the
+ * shim then runs the arguments, with one layer of carets gone, after its own text and path. It
+ * predicts every row measured in every Windows shell (fixtures/windows-check/), given the runner's
+ * path: test/renderer-detail.test.ts holds them. A limit around 8,191 on either line is what they show.
  */
-export function windowsLineLength(command: string): number {
+export function windowsLineLength(command: string, binPathLength: number = DEEP_PATH): number {
   const [, program = '', ...args] = (command.match(/"[^"]*"|[^ ]+/g) ?? []).map((token) => token.replace(/^"|"$/g, ''));
   const joined = (carets: 1 | 3): number => args.reduce((total, arg) => total + 1 + escapedLength(arg, carets), 0);
-  return Math.max(program.length + joined(3), SHIM_OVERHEAD + joined(1));
+  return Math.max(COMSPEC_PREFIX + program.length + joined(3), SHIM_TEXT + binPathLength + joined(1));
 }
 
 /** The limit a command is above, if any. */
