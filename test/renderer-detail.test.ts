@@ -284,6 +284,58 @@ describe('rerun commands', () => {
     expect(rerunCommand([target('t', { project: `p-${REDACTED}` })])).toContain('"--project=p-*" -g "^ *p-.+ a.spec.ts t$"');
   });
 
+  it.each<[string, RerunTarget, string, string[]]>([
+    ['in a title', target('reads ~/other/a.json'), 'chromium a.spec.ts reads /home/me/other/a.json', ['chromium a.spec.ts reads /other/a.json', 'chromium a.spec.ts reads /home/me/other/b.json']],
+    ['in a Windows title', target('reads ~\\app\\b.json'), 'chromium a.spec.ts reads C:\\Users\\me\\app\\b.json', ['chromium a.spec.ts reads C:/Users/me/app/b.json']],
+    ['twice in a title', target('list ~/a:~/b'), 'chromium a.spec.ts list /home/me/a:/home/me/b', ['chromium a.spec.ts list /home/me/a:b']],
+    ['in a describe', target('leaf', { suitePath: ['in ~/s'] }), 'chromium a.spec.ts in /home/me/s leaf', ['chromium a.spec.ts in s leaf']],
+    ['in a project', target('t', { project: '~/proj' }), '/home/me/proj a.spec.ts t', ['proj a.spec.ts t']],
+    ['with { tag } tags', target('x ~/y', { tags: ['@a'] }), 'chromium a.spec.ts x /home/me/y @a', ['chromium a.spec.ts z /home/me/y @a']],
+  ])('stands for a home directory with .+, %s', (_case, test, itself, others) => {
+    expect(rerunCommand([test])).not.toContain('~');
+    expect(selects([test], itself)).toBe(true);
+    for (const other of others) expect(selects([test], other)).toBe(false);
+  });
+
+  it('reads a title really containing `~` the same way, with the neighbours it then matches', () => {
+    const test = target('about ~ 5 items');
+    expect(grepOf(rerunCommand([test]))).toBe('^ *chromium a.spec.ts about .+ 5 items$');
+    expect(selects([test], 'chromium a.spec.ts about ~ 5 items')).toBe(true);
+    expect(selects([test], 'chromium a.spec.ts about roughly 5 items')).toBe(true);
+  });
+
+  it('reads `~` and the redaction marker alike in one title', () => {
+    const test = target(`reads ~/x as ${REDACTED}`);
+    expect(grepOf(rerunCommand([test]))).toBe('^ *chromium a.spec.ts reads .+\\x2fx as .+$');
+    expect(selects([test], 'chromium a.spec.ts reads /home/me/x as s3cret')).toBe(true);
+  });
+
+  it('keeps `~` literal in a file', () => {
+    const test = target('t', { file: 'a~b.spec.ts' });
+    expect(rerunCommand([test])).toBe('npx playwright test "a~b.spec.ts" --project=chromium -g "^ *chromium a~b.spec.ts t$"');
+    expect(selects([test], 'chromium axb.spec.ts t')).toBe(false);
+  });
+
+  it('writes once a prefix holding `~`, shared by several tests', () => {
+    const tests = [target('a', { suitePath: ['in ~/s'] }), target('b', { suitePath: ['in ~/s'] })];
+    expect(grepOf(rerunCommand(tests))).toBe('^ *chromium a.spec.ts in .+\\x2fs (a|b)$');
+    expect(selects(tests, 'chromium a.spec.ts in /home/me/s b')).toBe(true);
+  });
+
+  it('gives --project a wildcard for `~` and `/`, and -g the exact project', () => {
+    expect(rerunCommand([target('t', { project: 'p ~ x' })])).toContain('"--project=p * x" -g "^ *p .+ x a.spec.ts t$"');
+    expect(rerunCommand([target('t', { project: '~/proj' })])).toContain('"--project=**proj" -g "^ *.+\\x2fproj a.spec.ts t$"');
+    expect(rerunCommand([target('t', { project: '/opt/proj' })])).toContain('"--project=*opt*proj" -g "^ *\\x2fopt\\x2fproj a.spec.ts t$"');
+  });
+
+  it('computes the Windows line of a command holding `~`, which adds no character to escape', () => {
+    const line = (title: string): number => windowsLineLength(rerunCommand([target(title)]));
+    expect(line('a ~ b')).toBe(line('a xx b'));
+    const long = Array.from({ length: 40 }, (_, index) => target(`${'word ~ '.repeat(30)}${index}`));
+    expect(windowsLineLength(rerunCommand(long))).toBeGreaterThan(WINDOWS_LINE_LENGTH);
+    expect(commandLimit(rerunCommand(long))).toBe('windows');
+  });
+
   it('ignores case and cannot separate the tests with the same string, which run together', () => {
     expect(selects([target('Login')], 'chromium a.spec.ts login')).toBe(true);
     expect(selects([target('same', { suitePath: ['outer'] })], 'chromium a.spec.ts outer same')).toBe(true);
@@ -637,6 +689,16 @@ describe('rerun commands', () => {
     expect(fileRerun(different, different[0]!)?.label).toBe('failed tests in this file: 2 in a, 1 in b');
     const repeated = [...one, makeTest({ project: 'a', outcome: 'failed', title: 'x', repeatEachIndex: 1 })];
     expect(fileRerun(repeated, repeated[0]!)?.label).toBe('2 failed tests in this file');
+  });
+
+  it('counts as one the titles left identical by two home directories, as with a secret', () => {
+    const tests = [makeTest({ outcome: 'failed', title: '~/x' }), makeTest({ outcome: 'failed', title: '~/x' }), makeTest({ outcome: 'failed', title: 'other' })];
+    expect(fileRerun(tests, tests[0]!)?.label).toBe('2 failed tests in this file');
+  });
+
+  it('counts as two a title with `~` and the same title with the redaction marker, which differ', () => {
+    const tests = [makeTest({ outcome: 'failed', title: 'a ~ b' }), makeTest({ outcome: 'failed', title: `a ${REDACTED} b` })];
+    expect(fileRerun(tests, tests[0]!)?.label).toBe('2 failed tests in this file');
   });
 
   it('reruns the failed tests of the file with one command for the projects that share them', () => {

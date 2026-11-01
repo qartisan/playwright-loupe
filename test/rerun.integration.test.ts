@@ -214,10 +214,10 @@ describe('rerun commands against the installed Playwright', () => {
         expect(titles.join()).not.toContain(homedir());
       });
 
-      it('finds nothing for a home directory, until the commands read `~`', async () => {
+      it('finds the real test from a home directory written `~`', async () => {
         const test = inTitles().find((candidate) => candidate.title === IN_HOME);
         if (!test) throw new Error(`No test "${IN_HOME}"`);
-        expect(await selectedInMain(test)).toEqual([]);
+        expect(await selectedInMain(test)).toEqual([`reads ${path.join(homedir(), 'other', 'a.json')}`]);
       }, 120_000);
 
       it('no longer selects the test with the shortened title', async () => {

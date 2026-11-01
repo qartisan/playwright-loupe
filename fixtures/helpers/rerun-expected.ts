@@ -1,3 +1,4 @@
+import { homedir } from 'node:os';
 import type { TestCase } from '../../src/schema/v1.js';
 import { REDACTED } from '../../src/shared/redaction.js';
 import { FIXTURE_SECRET } from '../redaction-values.js';
@@ -35,8 +36,8 @@ function expectedForRedacted(test: Identity): string[] {
 /** What a command must select for one test: the test, and the tests it cannot be told apart from. */
 export function expectedFor(test: Identity): string[] {
   if (test.file === 'redaction.spec.ts') return expectedForRedacted(test);
-  // `~` stands for a home directory in the report, and the commands do not read it as such yet.
-  if (test.file === 'paths-in-titles.spec.ts' && test.title.includes('~')) return [];
+  // `~` is the home directory there: the real title is what the command must find.
+  if (test.file === 'paths-in-titles.spec.ts') return [keyOf({ ...test, title: test.title.replace('~', () => homedir()) })];
   const titlePath = [...test.suitePath, test.title].join(' › ');
   const pair = test.file === 'twins.spec.ts' ? TWINS.find((twins) => twins.includes(titlePath)) : undefined;
   const titles = (pair ?? [titlePath]).map((twin) => twin.split(' › '));

@@ -20,7 +20,9 @@ import { REDACTED } from '../../shared/redaction.js';
  * ignores it, and its `/.../` form is rewritten as a path by Git Bash),
  * `a › b` and `a b`, an inline tag and the same `{ tag }`. The report hides a
  * secret in a title, so `.+` stands for it, and a title really containing the
- * marker runs with those it then matches.
+ * marker runs with those it then matches. The same for `~`, which stands for a
+ * home directory in titles and project names: the report cannot tell it from a
+ * real `~`, which `.+` matches too, along with the tests it then matches.
  *
  * The text inside the double quotes has nothing a shell acts on: backslashes
  * only come before a letter or a regex metacharacter, and the only `$` is the
@@ -161,6 +163,11 @@ function regexText(text: string): string {
   return text.split(REDACTED).map(escapeText).join('.+');
 }
 
+/** A segment of a title path or a project name: `~` stands for a home directory there, not in a file (src/core/paths.ts). */
+function titleText(text: string): string {
+  return text.split('~').map(regexText).join('.+');
+}
+
 /** `-g` sees backslashes on Windows, hence `.` for a separator; dots stay as they are, for a readable file name. */
 function fileText(file: string): string {
   return file.split('/').map((part) => regexText(part).replace(/\\\./g, '.')).join('.');
@@ -183,11 +190,12 @@ function fileArgument(file: string): string {
  * `--project`, which takes a name, not a regular expression: `\\x24` would be
  * looked up as is. It matches ignoring case and takes `*` as a wildcard, so a
  * character unsafe in a shell becomes `*`, and `-g` gives the exact project.
- * A dot is quoted too: Windows PowerShell can split an unquoted argument
+ * So does `~`, a home directory, and `/`: Git Bash rewrites `--project=/x` as a
+ * path. A dot is quoted too: Windows PowerShell can split an unquoted argument
  * starting with a dash at a dot.
  */
 function projectFlag(project: string): string {
-  const name = project.split(REDACTED).join('*').replace(/["$`%!\\^&|<>]|\p{Default_Ignorable_Code_Point}|[^\x20-\x7e\p{L}\p{M}]/gu, '*');
+  const name = project.split(REDACTED).join('*').replace(/["$`%!\\^&|<>~/]|\p{Default_Ignorable_Code_Point}|[^\x20-\x7e\p{L}\p{M}]/gu, '*');
   return PLAIN.test(name) && !name.includes('.') ? `--project=${name}` : `"--project=${name}"`;
 }
 
@@ -199,7 +207,7 @@ function segments(test: RerunTarget): string[] {
   // Every tag found in the titles is an inline one: more tags than that means `{ tag }`.
   const inline = [...test.suitePath, test.title].join(' ').match(/@\S+/g)?.length ?? 0;
   const tags = test.tags.length > inline ? TAGS : '';
-  return [fileText(test.file), ...test.suitePath.map(regexText), regexText(test.title)].map((segment) => segment + tags);
+  return [fileText(test.file), ...test.suitePath.map(titleText), titleText(test.title)].map((segment) => segment + tags);
 }
 
 interface PrefixNode {
@@ -245,7 +253,7 @@ function grepPattern(tests: readonly RerunTarget[]): string {
     const key = alternativesOf(root);
     projectsByTests.set(key, [...(projectsByTests.get(key) ?? []), project]);
   }
-  const alternatives = [...projectsByTests].map(([key, projects]) => `${group(projects.map(regexText))} ${key}`);
+  const alternatives = [...projectsByTests].map(([key, projects]) => `${group(projects.map(titleText))} ${key}`);
   const unnamed = roots.get('');
   if (unnamed) alternatives.push(alternativesOf(unnamed));
   return `^ *${group(alternatives)}$`;
