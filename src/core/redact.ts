@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import type { RedactMode } from '../config/types.js';
 import { REDACTED } from '../shared/redaction.js';
+import { renameDimensions } from './dimensions.js';
 
 export { REDACTED };
 
@@ -352,15 +353,19 @@ export function secretValues(
  */
 const KEPT_KEYS = new Set(['id', 'signature', 'errorSignature', 'snippet', 'path']);
 
-/** Applies `replace` to every string of a JSON value, except under KEPT_KEYS. Returns a copy. */
+/**
+ * Applies `replace` to every string of a JSON value, except under KEPT_KEYS, and to the names of
+ * `tests[].dimensions`, the object under `dimensions` (`dimensions[]` is an array). Returns a copy.
+ */
 export function mapReportStrings<T>(value: T, replace: (text: string) => string): T {
-  const visit = (node: unknown): unknown => {
+  const visit = (node: unknown, parent: string | null): unknown => {
     if (typeof node === 'string') return replace(node);
-    if (Array.isArray(node)) return node.map(visit);
+    if (Array.isArray(node)) return node.map((child) => visit(child, null));
     if (node !== null && typeof node === 'object') {
-      return Object.fromEntries(Object.entries(node).map(([key, child]) => [key, KEPT_KEYS.has(key) ? child : visit(child)]));
+      const copy = Object.fromEntries(Object.entries(node).map(([key, child]) => [key, KEPT_KEYS.has(key) ? child : visit(child, key)]));
+      return parent === 'dimensions' ? renameDimensions(copy as Record<string, string[]>, replace) : copy;
     }
     return node;
   };
-  return visit(value) as T;
+  return visit(value, null) as T;
 }

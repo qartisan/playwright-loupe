@@ -58,5 +58,8 @@ export const HOMES: readonly string[] = [
   JSON.stringify(`${real}\\a.json`),
 ];
 
+/** Secrets of `redact.env` written in tags (leak/secrets.spec.ts): invented, and listed by name in leak.config.ts. */
+export const SECRETS = { LOUPE_LEAK_SECRET: 's3cretvalue', LOUPE_LEAK_OTHER: 'an0ther-s3cret', LOUPE_LEAK_COLON: 'c0lon:s3cret' } as const;
+
 /** A project name holding a home of each kind. */
 export const PROJECT = `on /home/${name}/project and ${real}/project`;

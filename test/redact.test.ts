@@ -506,3 +506,23 @@ describe('redaction runs before signatures', () => {
     expect(errorSignature(failure('env-Inv3nted-alpha'))).not.toBe(errorSignature(failure('env-Inv3nted-omega')));
   });
 });
+
+describe('mapReportStrings, names of dimensions', () => {
+  const report = (dimensions: Record<string, string[]>) => ({ tests: [{ dimensions }], dimensions: [{ name: 's3cretvalue', key: 's3cretvalue', values: null }] });
+  const strings = redactor({ values: ['s3cretvalue', 'an0ther-s3cret'] }).strings;
+
+  it('redacts a name of `tests[].dimensions`, as in `dimensions[]`', () => {
+    const result = mapReportStrings(report({ s3cretvalue: ['x'], layer: ['api'] }), strings);
+    expect(result.tests[0]?.dimensions).toEqual({ '[redacted]': ['x'], layer: ['api'] });
+    expect(result.dimensions[0]).toEqual({ name: '[redacted]', key: '[redacted]', values: null });
+  });
+
+  it('merges the values of names that become one, without duplicates', () => {
+    const result = mapReportStrings(report({ s3cretvalue: ['x', 'y'], 'an0ther-s3cret': ['y', 'an0ther-s3cret'] }), strings);
+    expect(result.tests[0]?.dimensions).toEqual({ '[redacted]': ['x', 'y', '[redacted]'] });
+  });
+
+  it('keeps the keys of every other object', () => {
+    expect(mapReportStrings({ environment: { s3cretvalue: 's3cretvalue' } }, strings)).toEqual({ environment: { s3cretvalue: '[redacted]' } });
+  });
+});

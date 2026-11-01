@@ -19,6 +19,20 @@ export function tagDimensions(tags: readonly string[]): Record<string, string[]>
   return dimensions;
 }
 
+/**
+ * `dimensions` with each name through `rename`: the keys of `tests[].dimensions` are the only keys of a report
+ * that come from a test or a config, and must keep matching the names of `dimensions[]`. Two names can become
+ * one (two secrets, `/home/a/x` and `/home/b/x`): their values are merged.
+ */
+export function renameDimensions(dimensions: Record<string, string[]>, rename: (name: string) => string): Record<string, string[]> {
+  const merged = new Map<string, string[]>();
+  for (const [name, values] of Object.entries(dimensions)) {
+    const key = rename(name);
+    merged.set(key, [...new Set([...(merged.get(key) ?? []), ...values])]);
+  }
+  return Object.fromEntries(merged);
+}
+
 /** Values of the annotations of one type: their descriptions, deduplicated. Annotations without description give no value. */
 export function annotationValues(annotations: readonly Annotation[], type: string): string[] {
   const values: string[] = [];

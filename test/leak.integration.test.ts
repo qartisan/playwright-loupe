@@ -2,9 +2,10 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { CANARY, HOMES } from '../fixtures/leak/homes.js';
+import { CANARY, HOMES, SECRETS } from '../fixtures/leak/homes.js';
 import { homePaths } from '../scripts/home-paths.mjs';
-import type { LoupeReport, Step } from '../src/schema/v1.js';
+import type { LoupeReport, Step, TestCase } from '../src/schema/v1.js';
+import { REDACTED } from '../src/shared/redaction.js';
 import { assertBuilt, playwright, readReport } from './helpers/fixtures.js';
 
 /**
@@ -19,6 +20,7 @@ describe('the leak canary', () => {
   let status: number | null;
   let output: string;
   let report: LoupeReport;
+  let homeTests: TestCase[];
 
   beforeAll(() => {
     assertBuilt();
@@ -26,6 +28,7 @@ describe('the leak canary', () => {
     outputFolder = path.join(workDir, 'report');
     ({ status, output } = playwright(['test', '--config', 'fixtures/leak.config.ts', '--output', path.join(workDir, 'results')], { LOUPE_FIXTURE_OUTPUT: outputFolder }));
     report = readReport(outputFolder, `Exit code ${status}.\n${output}`);
+    homeTests = report.tests.filter((test) => test.file === 'leak.spec.ts');
   }, 120_000);
 
   afterAll(() => {
@@ -36,14 +39,14 @@ describe('the leak canary', () => {
 
   it('fails every test, on purpose', () => {
     expect(status, output).toBe(1);
-    expect(report.tests).toHaveLength(HOMES.length);
-    expect(report.tests.every((test) => test.outcome === 'failed')).toBe(true);
+    expect(homeTests).toHaveLength(HOMES.length);
+    expect(homeTests.every((test) => test.outcome === 'failed')).toBe(true);
   });
 
   it('really writes a home in every place, masked', () => {
     const masked = expect.stringContaining('~');
     expect(report.projects[0]?.name).toEqual(masked);
-    for (const test of report.tests) {
+    for (const test of homeTests) {
       const attempt = test.attempts[0];
       const step = attempt?.steps.find((candidate: Step) => candidate.title.startsWith('step '));
       const [soft, thrown] = attempt?.errors ?? [];
@@ -60,6 +63,18 @@ describe('the leak canary', () => {
       expect(attempt?.stderr.text).toEqual(masked);
       expect(attempt?.attachments.map((attachment) => attachment.name)).toEqual(expect.arrayContaining([masked]));
     }
+  });
+
+  it('holds no secret: in a tag, a dimension value, or the name of a dimension', () => {
+    for (const text of files()) {
+      for (const secret of Object.values(SECRETS)) expect(text).not.toContain(secret);
+      expect(text).not.toContain('c0lon');
+    }
+    const test = report.tests.find((candidate) => candidate.file === 'secrets.spec.ts');
+    // Two secrets become one name, with their values merged; one holding the `:` gives no name of its own.
+    expect(test?.dimensions).toEqual({ [REDACTED]: ['x', 'y', 'z'], kept: [REDACTED] });
+    expect(test?.tags).toEqual([`@${REDACTED}:x`, `@${REDACTED}:y`, `@${REDACTED}`, `@${REDACTED}:z`, `@kept:${REDACTED}`]);
+    expect(report.dimensions.map((dimension) => dimension.name)).toEqual(expect.arrayContaining([REDACTED, 'kept']));
   });
 
   it('holds no canary name', () => {
@@ -91,13 +106,13 @@ describe('the leak canary', () => {
     // POSIX: the home before the first `:` is a masked name. Windows: the drive is not taken for a prefix.
     expect(names).toContain('~/a.json');
     expect(names).not.toContain('C');
-    const inPosix = report.tests.find((test) => test.title === 'reads ~/a.json');
+    const inPosix = homeTests.find((test) => test.title === 'reads ~/a.json');
     expect(inPosix?.dimensions['~/a.json']).toEqual(['value']);
     expect(inPosix?.dimensions['reads']).toContain('~/a.json');
   });
 
   it('keeps two attachments of an attempt apart when their names hold a home', () => {
-    for (const test of report.tests) {
+    for (const test of homeTests) {
       const stored = test.attempts[0]?.attachments.filter((attachment) => /^(?:file|other) /.test(attachment.name)) ?? [];
       expect(stored.map((attachment) => path.basename(attachment.path ?? ''))).toEqual(['attachment.txt', 'attachment-1.txt']);
       const bodies = stored.map((attachment) => readFileSync(path.join(outputFolder, attachment.path ?? ''), 'utf8'));

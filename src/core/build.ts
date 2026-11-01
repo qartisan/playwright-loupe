@@ -420,9 +420,10 @@ export async function buildReport(
     for (const attempt of test.results) attempts.push(await toAttempt(attempt, folder));
 
     const annotations = mergeAnnotations(test.annotations.map(toAnnotation), ...attempts.map((attempt) => attempt.annotations));
-    // Homes masked first: a dimension splits a tag at its first `:`, and `@C:\\Users\\me\\x` would hide the home from any later mask.
+    // Secrets and homes out first: a dimension splits a tag at its first `:`, and a secret holding one, or
+    // `@C:\\Users\\me\\x`, would be out of reach of any later pass once split.
     const dimensions = dimensionSet.of(
-      test.tags.map((tag) => homes.text(tag)),
+      test.tags.map((tag) => homes.text(redactor.strings(tag))),
       annotations,
     );
     for (const name of Object.keys(dimensions)) usedDimensions.add(name);

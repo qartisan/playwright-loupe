@@ -2,6 +2,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { LoupeReport } from '../schema/v1.js';
 import { frameBody, isFrameLine } from '../shared/frames.js';
+import { renameDimensions } from './dimensions.js';
 
 /**
  * Rewrites the absolute paths of a text so the report does not reveal the
@@ -447,22 +448,9 @@ export function rewriteReportPaths(report: LoupeReport, paths: PathRewriter): Lo
       project: paths.selection(test.project),
       suitePath: test.suitePath.map((title) => paths.selection(title)),
       title: paths.selection(test.title),
-      dimensions: rewriteDimensionNames(rewrite(test.dimensions), paths),
+      dimensions: renameDimensions(rewrite(test.dimensions), (name) => paths.text(name)),
     })),
   };
-}
-
-/**
- * The keys of `tests[].dimensions` are names, as in `dimensions[]`, which gets `text`: rewritten alike, they
- * still match. Two names can become one (`/home/a/x` and `/home/b/x`): their values are merged.
- */
-function rewriteDimensionNames(dimensions: Record<string, string[]>, paths: PathRewriter): Record<string, string[]> {
-  const merged = new Map<string, string[]>();
-  for (const [name, values] of Object.entries(dimensions)) {
-    const key = paths.text(name);
-    merged.set(key, [...new Set([...(merged.get(key) ?? []), ...values])]);
-  }
-  return Object.fromEntries(merged);
 }
 
 function decode(text: string): string {
