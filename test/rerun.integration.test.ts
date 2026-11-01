@@ -1,11 +1,11 @@
 import { mkdtempSync, rmSync } from 'node:fs';
-import { availableParallelism, tmpdir } from 'node:os';
+import { availableParallelism, homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { rerunCommand } from '../src/renderer/detail/rerun.js';
 import { REDACTED } from '../src/shared/redaction.js';
 import type { LoupeReport, TestCase } from '../src/schema/v1.js';
-import { REWRITTEN_DECOY, REWRITTEN_TITLES, expectedFor, keyOf } from '../fixtures/helpers/rerun-expected.js';
+import { expectedFor, keyOf } from '../fixtures/helpers/rerun-expected.js';
 import { FIXTURE_SECRET } from '../fixtures/redaction-values.js';
 import { FIXTURE_CONFIG, RERUN_CONFIG, ROOT, assertBuilt, pasteInShell, playwright, readReport } from './helpers/fixtures.js';
 
@@ -200,27 +200,30 @@ describe('rerun commands against the installed Playwright', () => {
     }, 120_000);
 
     describe('a title holding a path under the root or home directory', () => {
+      const DECOY = 'reads decoy.json';
+      const IN_HOME = `reads ${path.join('~', 'other', 'a.json')}`;
       const inTitles = (): TestCase[] => report(RERUN_CONFIG).tests.filter((test) => test.project === 'main' && test.file === 'paths-in-titles.spec.ts');
       const selectedInMain = async (test: TestCase): Promise<string[]> =>
         (await selection(rerunCommand([test]), RERUN_CONFIG)).map((key) => JSON.parse(key) as string[]).filter(([project]) => project === 'main').map((parts) => parts.at(-1) ?? '');
 
-      it('is rewritten in the report, as these tests assume', () => {
+      it('keeps its path in the report, but for the home directory', () => {
         const titles = inTitles().map((test) => test.title);
-        expect(titles).toEqual(expect.arrayContaining([...REWRITTEN_TITLES, REWRITTEN_DECOY]));
-        expect(titles.filter((title) => title === REWRITTEN_DECOY)).toHaveLength(2);
-        expect(titles.join()).not.toContain(path.join(ROOT, 'fixtures'));
+        expect(titles).toContain(IN_HOME);
+        expect(titles.filter((title) => title === DECOY)).toHaveLength(1);
+        expect(titles.filter((title) => title.endsWith(`${path.sep}decoy.json`))).toHaveLength(1);
+        expect(titles.join()).not.toContain(homedir());
       });
 
-      it.each(REWRITTEN_TITLES)('selects no test: %s', async (title) => {
-        const test = inTitles().find((candidate) => candidate.title === title);
-        if (!test) throw new Error(`No test "${title}"`);
+      it('finds nothing for a home directory, until the commands read `~`', async () => {
+        const test = inTitles().find((candidate) => candidate.title === IN_HOME);
+        if (!test) throw new Error(`No test "${IN_HOME}"`);
         expect(await selectedInMain(test)).toEqual([]);
       }, 120_000);
 
-      it('selects another test when one really has the rewritten title', async () => {
-        const [test] = inTitles().filter((candidate) => candidate.title === REWRITTEN_DECOY);
-        if (!test) throw new Error(`No test "${REWRITTEN_DECOY}"`);
-        expect(await selectedInMain(test)).toEqual([REWRITTEN_DECOY]);
+      it('no longer selects the test with the shortened title', async () => {
+        const test = inTitles().find((candidate) => candidate.title.endsWith(`${path.sep}decoy.json`));
+        if (!test) throw new Error('No test with the path of the decoy');
+        expect(await selectedInMain(test)).not.toContain(DECOY);
       }, 120_000);
     });
 

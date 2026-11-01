@@ -2,7 +2,10 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { derivedRoots, locationFile } from '../src/core/build.js';
-import { createPathRewriter, isStrictlyUnder, rootsFromStack } from '../src/core/paths.js';
+import { createPathRewriter, isStrictlyUnder, rewriteReportPaths, rootsFromStack } from '../src/core/paths.js';
+import { createRedactor, DEFAULT_REDACT, mapReportStrings } from '../src/core/redact.js';
+import type { LoupeReport } from '../src/schema/v1.js';
+import { REDACTED } from '../src/shared/redaction.js';
 
 const posixRewriter = createPathRewriter({ roots: ['/home/alice/shop/tests'], home: '/home/alice' });
 const winRewriter = createPathRewriter({ roots: ['C:\\Users\\Alice\\shop\\tests'], home: 'C:\\Users\\Alice' });
@@ -234,6 +237,178 @@ describe('createPathRewriter, Windows', () => {
   it('does not touch POSIX paths with Windows roots, and the other way round', () => {
     expect(win('at /opt/x.ts:1:1')).toBe('at /opt/x.ts:1:1');
     expect(posix('at C:\\Program Files\\x.ts:1:1')).toBe('at C:\\Program Files\\x.ts:1:1');
+  });
+});
+
+describe('createPathRewriter, fields that select a test', () => {
+  const selection = (home: string | null, text: string, roots: readonly string[] = ['/srv/app/tests']): string => createPathRewriter({ roots, home }).selection(text);
+
+  it('keeps a path under the root, outside home', () => {
+    expect(selection('/home/alice', 'reads /srv/app/tests/data/a.json')).toBe('reads /srv/app/tests/data/a.json');
+    expect(selection('/home/alice', 'cwd /srv/app/tests')).toBe('cwd /srv/app/tests');
+  });
+
+  it('keeps a path outside the root and home', () => {
+    expect(selection('/home/alice', 'reads /opt/data/x.json')).toBe('reads /opt/data/x.json');
+    expect(selection('C:\\Users\\alice', 'reads D:\\data\\x.json')).toBe('reads D:\\data\\x.json');
+  });
+
+  it('replaces a home directory, a root under it included', () => {
+    expect(selection('/home/alice', 'reads /home/alice/x.json')).toBe('reads ~/x.json');
+    expect(selection('/home/alice', 'cwd /home/alice')).toBe('cwd ~');
+    expect(selection('/home/alice', 'reads /home/alice/shop/tests/a.json', ['/home/alice/shop/tests'])).toBe('reads ~/shop/tests/a.json');
+  });
+
+  it('replaces every occurrence', () => {
+    expect(selection('/home/alice', 'list /home/alice/a:/home/alice/b /home/alice')).toBe('list ~/a:~/b ~');
+    expect(selection('C:\\Users\\alice', 'C:\\Users\\alice\\a;C:\\Users\\alice\\b')).toBe('~\\a;~\\b');
+  });
+
+  it('keeps the rest as written: separators and percent-encoding', () => {
+    expect(selection('C:\\Users\\me', 'reads C:\\Users\\me\\app\\b.json')).toBe('reads ~\\app\\b.json');
+    expect(selection('C:\\Users\\me', 'reads C:/Users/me/app/b.json')).toBe('reads ~/app/b.json');
+    expect(selection('/home/me', 'reads /home/me/a%20b.json')).toBe('reads ~/a%20b.json');
+  });
+
+  it('handles a `file://` URL as the other fields do, the rest as written', () => {
+    expect(selection(null, 'reads file:///home/x/a%20b.json')).toBe('reads ~/a%20b.json');
+    expect(selection('/srv/my home', 'reads file:///srv/my%20home/a%20b.json')).toBe('reads ~/a%20b.json');
+    expect(selection('C:\\Users\\me', 'reads file:///C:/Users/me/a%20b.json')).toBe('reads ~/a%20b.json');
+  });
+
+  it('only matches a prefix followed by a separator, a delimiter or the end', () => {
+    expect(selection('/srv/me', 'reads /srv/me2/x')).toBe('reads /srv/me2/x');
+    expect(selection('/srv/me', 'reads /srv/me.old/x')).toBe('reads /srv/me.old/x');
+    for (const after of ['/x', '\\x', ' x', "'", '"', ':1', ';x', ',x', ')', '']) {
+      expect(selection('/srv/me', `(/srv/me${after}`)).toBe(`(~${after}`);
+    }
+  });
+
+  it('does not take the home directory of another user for this one', () => {
+    // Masked anyway, by the generic form: never left half rewritten as `~2/x`.
+    expect(selection('/home/me', 'reads /home/me2/x')).toBe('reads ~/x');
+    expect(selection('D:\\Home\\me', 'reads D:\\Home\\me2\\x')).toBe('reads D:\\Home\\me2\\x');
+  });
+
+  it('only matches a prefix at a path boundary', () => {
+    expect(selection('/srv/me', 'see http://host/srv/me/x')).toBe('see http://host/srv/me/x');
+    expect(selection('/srv/me', 'in a/srv/me/x')).toBe('in a/srv/me/x');
+  });
+
+  it('matches a Windows home with both separators, ignoring case', () => {
+    for (const written of ['D:\\Home\\me', 'D:/Home/me', 'd:\\home\\ME', 'd:/HOME/Me', 'D:\\Home/me']) {
+      expect(selection('D:\\Home\\me', `reads ${written}\\x.json`)).toBe('reads ~\\x.json');
+      expect(selection('D:\\Home\\me', `reads ${written}/x.json`)).toBe('reads ~/x.json');
+    }
+  });
+
+  it('applies the generic home forms, prefix only', () => {
+    expect(selection(null, 'reads /home/runner/work/a.json')).toBe('reads ~/work/a.json');
+    expect(selection(null, 'reads /Users/bob/a.json')).toBe('reads ~/a.json');
+    expect(selection(null, 'reads /root/a.json')).toBe('reads ~/a.json');
+    expect(selection(null, 'reads C:\\Users\\bob\\work\\a.json')).toBe('reads ~\\work\\a.json');
+    expect(selection(null, 'reads c:/users/bob/work/a.json')).toBe('reads ~/work/a.json');
+  });
+
+  it('takes a URL path for a home directory, as the other fields do', () => {
+    expect(selection('/home/alice', 'GET /home/dashboard returns 200')).toBe('GET ~ returns 200');
+  });
+
+  it('keeps relative paths and text without a path', () => {
+    expect(selection('/home/alice', 'reads data/a.json')).toBe('reads data/a.json');
+    expect(selection('/home/alice', 'about ~ 5 items')).toBe('about ~ 5 items');
+    expect(selection('/home/alice', '')).toBe('');
+  });
+});
+
+describe('rewriteReportPaths', () => {
+  const UNDER_ROOT = '/srv/app/tests/data/a.json';
+  const IN_HOME = '/home/alice/x.json';
+  const both = `${UNDER_ROOT} ${IN_HOME}`;
+  const kept = `${UNDER_ROOT} ~/x.json`;
+  const rewritten = 'data/a.json ~/x.json';
+  const paths = createPathRewriter({ roots: ['/srv/app/tests'], home: '/home/alice' });
+
+  const error = { message: both, stack: null, location: null, snippet: both, signature: both, category: both };
+  const step = { title: both, subtitle: both, category: 'test.step', durationMs: 1, error, location: null, steps: [] };
+  const attachment = { name: both, contentType: 'text/plain', kind: 'text', path: 'data/x/0/a.txt', body: both, comparison: null };
+  const report = {
+    schemaVersion: 1,
+    generator: { name: 'playwright-loupe', version: '0' },
+    run: { id: 'run', errors: [{ ...error, project: both }, { ...error, project: null }] },
+    projects: [{ name: both, testDir: 'tests', retries: 0, timeoutMs: 1, stats: {} }],
+    tests: [
+      {
+        id: both,
+        project: both,
+        file: 'a.spec.ts',
+        suitePath: [both, 'plain'],
+        title: both,
+        tags: [`@${both}`],
+        annotations: [{ type: 'note', description: both }],
+        dimensions: { layer: [both] },
+        category: both,
+        errorSignature: both,
+        attempts: [{ errors: [error], steps: [step], attachments: [attachment], annotations: [{ type: 'note', description: both }], stdout: { text: both, truncated: false } }],
+      },
+    ],
+    categories: [{ name: both, color: 'x', builtIn: false }],
+    dimensions: [{ name: both, source: 'tag', key: both, values: [both] }],
+  } as unknown as LoupeReport;
+  const result = rewriteReportPaths(report, paths);
+  const test = result.tests[0] as unknown as (typeof report.tests)[number];
+
+  it('only replaces the home directory in the five fields that select a test', () => {
+    expect(test.title).toBe(kept);
+    expect(test.suitePath).toEqual([kept, 'plain']);
+    expect(test.project).toBe(kept);
+    expect(result.projects[0]?.name).toBe(kept);
+    expect(result.run.errors[0]?.project).toBe(kept);
+    expect(result.run.errors[1]?.project).toBeNull();
+  });
+
+  it('still rewrites every field that has the same key elsewhere', () => {
+    const attempt = test.attempts[0];
+    expect(attempt?.steps[0]?.title).toBe(rewritten);
+    expect(attempt?.steps[0]?.subtitle).toBe(rewritten);
+    expect(attempt?.attachments[0]?.name).toBe(rewritten);
+    expect(attempt?.attachments[0]?.body).toBe(rewritten);
+  });
+
+  it('still rewrites messages, tags, annotations, outputs and dimensions', () => {
+    const attempt = test.attempts[0];
+    expect(attempt?.errors[0]?.message).toBe(rewritten);
+    expect(attempt?.stdout.text).toBe(rewritten);
+    expect(result.run.errors[0]?.message).toBe(rewritten);
+    expect(test.tags).toEqual([`@${rewritten}`]);
+    expect(test.annotations[0]?.description).toBe(rewritten);
+    expect(test.dimensions['layer']).toEqual([rewritten]);
+    expect(result.dimensions[0]).toEqual({ name: rewritten, source: 'tag', key: rewritten, values: [rewritten] });
+  });
+
+  it('keeps ids, signatures, category names, snippets and attachment paths', () => {
+    expect(test.id).toBe(both);
+    expect(test.errorSignature).toBe(both);
+    expect(test.category).toBe(both);
+    expect(result.categories[0]?.name).toBe(both);
+    expect(test.attempts[0]?.errors[0]?.signature).toBe(both);
+    expect(test.attempts[0]?.errors[0]?.snippet).toBe(both);
+    expect(test.attempts[0]?.attachments[0]?.path).toBe('data/x/0/a.txt');
+  });
+
+  it('keeps the order of the keys of the JSON, and leaves the report as it was', () => {
+    expect(Object.keys(result)).toEqual(Object.keys(report));
+    expect(Object.keys(test)).toEqual(Object.keys(report.tests[0] as object));
+    expect(Object.keys(result.run.errors[0] as object)).toEqual(Object.keys(report.run.errors[0] as object));
+    expect(report.tests[0]?.title).toBe(both);
+  });
+
+  it('keeps a redacted value masked in a title', () => {
+    const secret = 'inv3nted-Secret';
+    const strings = createRedactor({ ...DEFAULT_REDACT, values: [secret] }).strings;
+    const withSecret = { ...report, tests: [{ ...report.tests[0], title: `reads ${secret} at /home/alice/${secret}/a.json` }] } as LoupeReport;
+    const masked = rewriteReportPaths(mapReportStrings(withSecret, strings), paths);
+    expect(masked.tests[0]?.title).toBe(`reads ${REDACTED} at ~/${REDACTED}/a.json`);
   });
 });
 

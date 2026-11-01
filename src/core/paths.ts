@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import type { LoupeReport } from '../schema/v1.js';
 import { frameBody, isFrameLine } from '../shared/frames.js';
 
 /**
@@ -22,7 +23,7 @@ import { frameBody, isFrameLine } from '../shared/frames.js';
  *
  * Rule 2 only applies where the text is known to be a file path: stack frame
  * lines (`    at …`) and error locations. Everywhere else (messages, the
- * message head of a stack, outputs, titles, annotations, text attachments) a
+ * message head of a stack, outputs, step titles, annotations, text attachments) a
  * path-like text may be something else, such as the path of a URL in
  * `GET /app/items`: there, rules 1 and 3 only, and a path outside every root
  * stays absolute or becomes `~/…`. The head of a stack is rewritten exactly
@@ -31,6 +32,12 @@ import { frameBody, isFrameLine } from '../shared/frames.js';
  * Remaining limit: rule 1 still applies to messages, so with a one-segment
  * root (a `testDir` at `/app`), the URL path in `GET /app/items` becomes
  * `GET items`.
+ *
+ * The fields that select a test (test and `describe` titles, project names)
+ * follow none of these rules: a rerun command matches their text against the
+ * real test, so only a home directory prefix changes, to `~`, and the rest stays
+ * exactly as written (see `PathRewriter.selection`). The builder reads `~` as any
+ * text, which a rewritten remainder would not match.
  *
  * Prefixes are matched as text, not by splitting paths into tokens, so a
  * path with spaces is handled. A prefix starts at a path boundary (not after
@@ -180,7 +187,7 @@ export interface PathRewriterOptions {
 }
 
 export interface PathRewriter {
-  /** A message, an output, a title...: rules 1 and 3. */
+  /** A message, an output, a step title...: rules 1 and 3. */
   text(text: string): string;
   /** An absolute file path (an error location): rules 1 to 3. */
   file(file: string): string;
@@ -190,6 +197,11 @@ export interface PathRewriter {
    * with rules 1 to 3; any other line after them as `text`.
    */
   stack(stack: string): string;
+  /**
+   * A field that selects a test: every home directory prefix becomes `~`, the
+   * rest stays as written (separators, percent-encoding, paths under a root).
+   */
+  selection(text: string): string;
 }
 
 /** Returns the rewriter of a report, see the top of this module. */
@@ -241,10 +253,12 @@ export function createPathRewriter(options: PathRewriterOptions): PathRewriter {
   ancestors.sort(byLength);
   const text = compile([...roots, ...homes]);
   const file = compile([...roots, ...ancestors, ...homes]);
+  const selection = compileHomes(homes);
 
   return {
     text,
     file,
+    selection,
     stack(stack) {
       const lines = stack.split('\n');
       const first = lines.findIndex(isFrameLine);
@@ -255,8 +269,12 @@ export function createPathRewriter(options: PathRewriterOptions): PathRewriter {
   };
 }
 
-/** One regex for `entries`, in order: each raw (optionally in a `file://` URL), then percent-encoded in a `file://` URL. */
-function compile(entries: readonly Entry[]): (text: string) => string {
+/**
+ * A regex source for the prefixes of `entries`, in order: each raw (optionally in a `file://` URL),
+ * then percent-encoded in a `file://` URL. `owners[index]` owns capture group `index + 1`; the next
+ * group is the separator after the prefix.
+ */
+function prefixes(entries: readonly Entry[]): { source: string; owners: Entry[] } {
   const alternatives: string[] = [];
   const owners: Entry[] = [];
   for (const entry of entries) {
@@ -266,7 +284,13 @@ function compile(entries: readonly Entry[]): (text: string) => string {
     alternatives.push(`file:\\/\\/(${entry.encoded})`);
     owners.push(entry);
   }
-  const pattern = new RegExp(`${START}(?:${alternatives.join('|')})(?:([\\\\/])|(?=${DELIMITER}|$))(${REST})`, 'g');
+  return { source: `${START}(?:${alternatives.join('|')})(?:([\\\\/])|(?=${DELIMITER}|$))`, owners };
+}
+
+/** Each prefix and the rest of its path, rewritten. */
+function compile(entries: readonly Entry[]): (text: string) => string {
+  const { source, owners } = prefixes(entries);
+  const pattern = new RegExp(`${source}(${REST})`, 'g');
 
   return (text) => {
     if (!text.includes('/') && !text.includes('\\')) return text;
@@ -282,6 +306,16 @@ function compile(entries: readonly Entry[]): (text: string) => string {
   };
 }
 
+/** Each home prefix alone becomes `~`, with the separator it had. */
+function compileHomes(entries: readonly Entry[]): (text: string) => string {
+  const { source, owners } = prefixes(entries);
+  const pattern = new RegExp(source, 'g');
+  return (text) => {
+    if (!text.includes('/') && !text.includes('\\')) return text;
+    return text.replace(pattern, (_match: string, ...groups: unknown[]) => `~${(groups[owners.length] as string | undefined) ?? ''}`);
+  };
+}
+
 /**
  * Keys whose values are never rewritten: identifiers and signatures, category
  * names (computed from the original text), snippets (source code, already in
@@ -292,9 +326,11 @@ const KEPT_KEYS = new Set(['id', 'signature', 'errorSignature', 'category', 'cat
 
 /**
  * Rewrites the paths of every string of a report: `stack` values as stacks,
- * everything else as text, except under KEPT_KEYS. Returns a copy.
+ * everything else as text, except under KEPT_KEYS. The fields that select a test
+ * are found by position, not by key: steps have a `title` too, and `name` is also
+ * that of attachments, categories and dimensions. Returns a copy.
  */
-export function rewriteReportPaths<T>(value: T, paths: PathRewriter): T {
+export function rewriteReportPaths(report: LoupeReport, paths: PathRewriter): LoupeReport {
   const visit = (node: unknown, key: string | null): unknown => {
     if (typeof node === 'string') return key === 'stack' ? paths.stack(node) : paths.text(node);
     if (Array.isArray(node)) return node.map((child) => visit(child, key));
@@ -303,7 +339,22 @@ export function rewriteReportPaths<T>(value: T, paths: PathRewriter): T {
     }
     return node;
   };
-  return visit(value, null) as T;
+  const rewrite = <T>(value: T): T => visit(value, null) as T;
+  const rest = rewrite({ ...report, run: { ...report.run, errors: [] }, projects: [], tests: [] });
+  return {
+    ...rest,
+    run: {
+      ...rest.run,
+      errors: report.run.errors.map((error) => ({ ...rewrite(error), project: error.project === null ? null : paths.selection(error.project) })),
+    },
+    projects: report.projects.map((project) => ({ ...rewrite(project), name: paths.selection(project.name) })),
+    tests: report.tests.map((test) => ({
+      ...rewrite(test),
+      project: paths.selection(test.project),
+      suitePath: test.suitePath.map((title) => paths.selection(title)),
+      title: paths.selection(test.title),
+    })),
+  };
 }
 
 function decode(text: string): string {

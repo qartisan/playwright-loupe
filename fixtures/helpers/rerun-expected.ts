@@ -32,19 +32,11 @@ function expectedForRedacted(test: Identity): string[] {
   return test.title === `with the secret ${REDACTED}` ? [keyOf(unmasked), keyOf(test)] : [keyOf(unmasked)];
 }
 
-/**
- * Titles of `rerun/paths-in-titles.spec.ts` as the report has them, once Loupe has
- * rewritten their paths. No real title reads like the first two: nothing is selected.
- */
-export const REWRITTEN_TITLES: readonly string[] = ['reads data/a.json', 'reads ~/other/a.json'];
-
-/** Rewritten too, but another test really has this title: its command selects that test. */
-export const REWRITTEN_DECOY = 'reads decoy.json';
-
 /** What a command must select for one test: the test, and the tests it cannot be told apart from. */
 export function expectedFor(test: Identity): string[] {
   if (test.file === 'redaction.spec.ts') return expectedForRedacted(test);
-  if (test.file === 'paths-in-titles.spec.ts' && REWRITTEN_TITLES.includes(test.title)) return [];
+  // `~` stands for a home directory in the report, and the commands do not read it as such yet.
+  if (test.file === 'paths-in-titles.spec.ts' && test.title.includes('~')) return [];
   const titlePath = [...test.suitePath, test.title].join(' › ');
   const pair = test.file === 'twins.spec.ts' ? TWINS.find((twins) => twins.includes(titlePath)) : undefined;
   const titles = (pair ?? [titlePath]).map((twin) => twin.split(' › '));
