@@ -82,6 +82,20 @@ describe('the leak canary', () => {
     expect(names.join('\n').toLowerCase()).not.toContain(CANARY);
   });
 
+  it('masks a home before a tag is split into a dimension, whose names match the definitions', () => {
+    const names = report.dimensions.map((dimension) => dimension.name);
+    for (const test of report.tests) {
+      expect(names).toEqual(expect.arrayContaining(Object.keys(test.dimensions)));
+    }
+    expect(names).toContain('reads');
+    // POSIX: the home before the first `:` is a masked name. Windows: the drive is not taken for a prefix.
+    expect(names).toContain('~/a.json');
+    expect(names).not.toContain('C');
+    const inPosix = report.tests.find((test) => test.title === 'reads ~/a.json');
+    expect(inPosix?.dimensions['~/a.json']).toEqual(['value']);
+    expect(inPosix?.dimensions['reads']).toContain('~/a.json');
+  });
+
   it('keeps two attachments of an attempt apart when their names hold a home', () => {
     for (const test of report.tests) {
       const stored = test.attempts[0]?.attachments.filter((attachment) => /^(?:file|other) /.test(attachment.name)) ?? [];

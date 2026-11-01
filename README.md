@@ -217,7 +217,6 @@ In stacks, error messages, stdout and stderr, step titles, annotations and inlin
 - A home directory of another machine inside a URL stays, to leave routes alone: `http://host/home/bob/x`. So does one glued to the text before it, such as `/mnt/c/Users/bob and/mnt/c/Users/bob/x`, whose second `bob` stays.
 - A percent-encoded home directory (`%2Fhome%2Fme`) is not recognized, except in a `file://` URL.
 - A home directory of one segment (`/app`, `/root`) holds no user name: it is only masked at a path boundary, and not in code snippets, so that `page.goto('/app/items')` stays as written.
-- A tag holding a home directory before its first `:` keeps it in the dimension built from that tag, in `tests[].dimensions`: a key for `@/home/me/x:y`, a value for `@C:\Users\me\x`. The tag itself is masked.
 - A tag follows the rules of other text, so a tag written in a title can read differently in the list of tags and in the title.
 
 The rules are in [Paths in text](docs/schema/v1.md#paths-in-text).

@@ -322,7 +322,8 @@ export async function buildReport(
   options: BuildOptions,
 ): Promise<LoupeReport> {
   const rootDir = config.rootDir;
-  const store = new AttachmentStore(options.outputFolder, createPathRewriter({ roots: [], home: options.home ?? null }).selection);
+  const homes = createPathRewriter({ roots: [], home: options.home ?? null });
+  const store = new AttachmentStore(options.outputFolder, homes.selection);
   const categorizer = createCategorizer(options.categories ?? DEFAULT_CATEGORIES);
   const redactor = createRedactor(options.redact ?? DEFAULT_REDACT);
   const dimensionSet = createDimensions(options.dimensions ?? DEFAULT_DIMENSIONS);
@@ -419,7 +420,11 @@ export async function buildReport(
     for (const attempt of test.results) attempts.push(await toAttempt(attempt, folder));
 
     const annotations = mergeAnnotations(test.annotations.map(toAnnotation), ...attempts.map((attempt) => attempt.annotations));
-    const dimensions = dimensionSet.of(test.tags, annotations);
+    // Homes masked first: a dimension splits a tag at its first `:`, and `@C:\\Users\\me\\x` would hide the home from any later mask.
+    const dimensions = dimensionSet.of(
+      test.tags.map((tag) => homes.text(tag)),
+      annotations,
+    );
     for (const name of Object.keys(dimensions)) usedDimensions.add(name);
 
     // A failing attempt did not end as expected (a test.fail() failing as expected is not one).

@@ -6,7 +6,7 @@ import { HOMES } from './homes.js';
 
 for (const home of HOMES) {
   test.describe(`group ${home}`, () => {
-    test(`reads ${home}`, { annotation: { type: 'written', description: home }, tag: `@reads:${home}` }, async ({}, testInfo) => {
+    test(`reads ${home}`, { annotation: { type: 'written', description: home }, tag: [`@reads:${home}`, `@${home}`, `@${home}:value`] }, async ({}, testInfo) => {
       console.log(`stdout ${home}`);
       console.error(`stderr ${home}`);
       testInfo.annotations.push({ type: 'pushed', description: home });

@@ -416,6 +416,17 @@ describe('rewriteReportPaths', () => {
     expect(result.dimensions[0]).toEqual({ name: rewritten, source: 'tag', key: rewritten, values: [rewritten] });
   });
 
+  it('rewrites the names of the dimensions of a test as those of the definitions, merging the ones that become equal', () => {
+    const withNames = {
+      ...report,
+      tests: [{ ...report.tests[0], dimensions: { '/home/a/x': ['1', '2'], '/home/b/x': ['2', '/home/c/y'], layer: ['api'], '/srv/app/tests/z': ['3'] } }],
+      dimensions: ['/home/a/x', 'layer', '/srv/app/tests/z'].map((name) => ({ name, source: 'tag', key: name, values: null })),
+    } as unknown as LoupeReport;
+    const masked = rewriteReportPaths(withNames, paths);
+    expect(masked.tests[0]?.dimensions).toEqual({ '~/x': ['1', '2', '~/y'], layer: ['api'], z: ['3'] });
+    expect(Object.keys(masked.tests[0]?.dimensions ?? {}).sort()).toEqual(masked.dimensions.map((dimension) => dimension.name).sort());
+  });
+
   it('keeps ids, signatures, category names and attachment paths', () => {
     expect(test.id).toBe(both);
     expect(test.errorSignature).toBe(both);

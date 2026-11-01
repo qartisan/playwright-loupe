@@ -416,7 +416,8 @@ const KEPT_KEYS = new Set(['id', 'signature', 'errorSignature', 'category', 'cat
 
 /**
  * Rewrites the paths of every string of a report: `stack` values as stacks,
- * `snippet` values as snippets, everything else as text, except under KEPT_KEYS. The fields that select a test
+ * `snippet` values as snippets, everything else as text, except under KEPT_KEYS,
+ * and the names in `tests[].dimensions`, the only keys that come from a test. The fields that select a test
  * are found by position, not by key: steps have a `title` too, and `name` is also
  * that of attachments, categories and dimensions. Returns a copy.
  */
@@ -446,8 +447,22 @@ export function rewriteReportPaths(report: LoupeReport, paths: PathRewriter): Lo
       project: paths.selection(test.project),
       suitePath: test.suitePath.map((title) => paths.selection(title)),
       title: paths.selection(test.title),
+      dimensions: rewriteDimensionNames(rewrite(test.dimensions), paths),
     })),
   };
+}
+
+/**
+ * The keys of `tests[].dimensions` are names, as in `dimensions[]`, which gets `text`: rewritten alike, they
+ * still match. Two names can become one (`/home/a/x` and `/home/b/x`): their values are merged.
+ */
+function rewriteDimensionNames(dimensions: Record<string, string[]>, paths: PathRewriter): Record<string, string[]> {
+  const merged = new Map<string, string[]>();
+  for (const [name, values] of Object.entries(dimensions)) {
+    const key = paths.text(name);
+    merged.set(key, [...new Set([...(merged.get(key) ?? []), ...values])]);
+  }
+  return Object.fromEntries(merged);
 }
 
 function decode(text: string): string {
