@@ -4,7 +4,7 @@ This Playwright suite feeds the Loupe live demo report. It tests **Demo Store**,
 
 Run it from the repository root with `npm run demo`: it builds Loupe, runs the suite and checks the result (`scripts/run-demo.mjs`). The report lands in `demo-report/`. Add `-- --open` to open it in your browser.
 
-The live demo is built in CI only. Loupe writes paths relative to the root dir and masks home directories, so a report holds no machine path; `run-demo.mjs` fails, in CI too, when `report.json` or `index.html` holds a home directory path (`scripts/home-paths.mjs`).
+The live demo is built in CI only. Loupe writes paths relative to the root dir and masks home directories, so the demo's report holds no machine path; `run-demo.mjs` fails, in CI too, when `report.json` or `index.html` holds a home directory path (`scripts/home-paths.mjs`).
 
 ## Layout
 
