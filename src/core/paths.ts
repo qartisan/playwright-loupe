@@ -43,12 +43,20 @@ import { frameBody, isFrameLine } from '../shared/frames.js';
  * path with spaces is handled. A prefix starts at a path boundary (not after
  * a word character, `.`, `~`, `%`, `-` or a separator: the path of a URL
  * such as `http://host/app` is left alone) and ends with a separator or a
- * delimiter (whitespace, a quote, a bracket, `:`, `,`, `;`, `|`). A `file://`
- * URL is matched too, raw or percent-encoded, and loses its scheme.
+ * delimiter (whitespace, a quote, a bracket, `:`, `,`, `;`, `=`, `|`). A
+ * `file://` URL is matched too, raw or percent-encoded, and loses its scheme.
  *
  * POSIX paths are compared case-sensitively. Windows paths (drive or UNC)
- * are compared case-insensitively, `\` and `/` alike, and the rest of a
- * rewritten Windows path gets `/` separators.
+ * are compared case-insensitively, `\` and `/` alike, a `\` possibly escaped
+ * (`C:\\Users`, as `expect` and `JSON.stringify` print it), and the rest of
+ * a rewritten Windows path gets `/` separators.
+ *
+ * Whatever the rules leave, a final sweep (`PathRewriter.selection`, on the
+ * result of `text` and `file`) masks: rule 3 cuts a path at a delimiter, not
+ * at `:` or `=`, so it misses the second path of `/home/me/a:/home/me/b`. In
+ * the sweep, the home of the machine writing the report, when it has at least
+ * two segments, needs no boundary before it: `-L/home/me/lib` becomes `-L~/lib`
+ * and `http://host/home/me/x` becomes `http://host~/x`. It is the user name.
  *
  * `node:internal/…`, `<anonymous>` and relative paths are not absolute and
  * stay as they are.
@@ -75,11 +83,15 @@ interface Entry {
 }
 
 /** Characters that end a path prefix when no separator follows it. */
-const DELIMITER = `[\\s'"\`<>()[\\]{},;:|]`;
+const DELIMITER = `[\\s'"\`<>()[\\]{},;:=|]`;
 /** The rest of a path after a rewritten prefix: up to a delimiter (`:` included, for `:line:column`). */
 const REST = `[^\\s'"\`<>()[\\]{},;|]*`;
 /** Before a prefix: not a word character, `.`, `~`, `%`, `-` or a separator. */
 const START = `(?<![\\w.~%/\\\\-])`;
+/** A Windows separator: `/`, or `\` possibly escaped (one or more). */
+const WINDOWS_SEPARATOR = '(?:\\\\+|/)';
+/** After a generic user name: it does not end with a list separator, which would take the next path for its rest. */
+const NAME_END = '(?<![,;=])';
 
 function flavorOf(location: string): Flavor | null {
   if (location.startsWith('/')) return 'posix';
@@ -107,7 +119,7 @@ function sourceOf(text: string, flavor: Flavor): string {
   let source = '';
   for (const char of text) {
     if (char === '\\' || char === '/') {
-      source += '[\\\\/]';
+      source += WINDOWS_SEPARATOR;
       continue;
     }
     const lower = char.toLowerCase();
@@ -144,7 +156,7 @@ const GENERIC_HOMES: readonly Entry[] = [
   {
     flavor: 'posix',
     length: 0,
-    source: `/(?:home|Users)/(?:[^/\\r\\n'"\`<>|:]+(?=/)|[^/\\s'"\`<>()|:]+)`,
+    source: `/(?:home|Users)/(?:[^/\\r\\n'"\`<>|:]+(?=/)|[^/\\s'"\`<>()|:]+)${NAME_END}`,
     encoded: null,
     replacement: home,
   },
@@ -152,7 +164,7 @@ const GENERIC_HOMES: readonly Entry[] = [
   {
     flavor: 'win32',
     length: 0,
-    source: `[A-Za-z]:[\\\\/][Uu][Ss][Ee][Rr][Ss][\\\\/](?:[^\\\\/\\r\\n'"\`<>|:*?]+(?=[\\\\/])|[^\\\\/\\s'"\`<>()|:*?]+)`,
+    source: `[A-Za-z]:${WINDOWS_SEPARATOR}[Uu][Ss][Ee][Rr][Ss]${WINDOWS_SEPARATOR}(?:[^\\\\/\\r\\n'"\`<>|:*?]+(?=[\\\\/])|[^\\\\/\\s'"\`<>()|:*?]+)${NAME_END}`,
     encoded: null,
     replacement: home,
   },
@@ -187,9 +199,9 @@ export interface PathRewriterOptions {
 }
 
 export interface PathRewriter {
-  /** A message, an output, a step title...: rules 1 and 3. */
+  /** A message, an output, a step title...: rules 1 and 3, then the final sweep. */
   text(text: string): string;
-  /** An absolute file path (an error location): rules 1 to 3. */
+  /** An absolute file path (an error location): rules 1 to 3, then the final sweep. */
   file(file: string): string;
   /**
    * A stack: its head (every line before the first frame line) exactly as
@@ -198,8 +210,9 @@ export interface PathRewriter {
    */
   stack(stack: string): string;
   /**
-   * A field that selects a test: every home directory prefix becomes `~`, the
-   * rest stays as written (separators, percent-encoding, paths under a root).
+   * A field that selects a test, and the final sweep of the other text: every
+   * home directory prefix becomes `~`, the rest stays as written (separators,
+   * percent-encoding, paths under a root).
    */
   selection(text: string): string;
 }
@@ -245,15 +258,21 @@ export function createPathRewriter(options: PathRewriterOptions): PathRewriter {
   }
   const homeDirectory = options.home === null ? null : parseDirectory(options.home);
   if (homeDirectory && homeDirectory.segments.length > 0) add(homes, homeDirectory, homeDirectory.segments.length, home);
+  // A single segment (`/root`, `/app`) can be anything in a path: it keeps the boundary before it.
+  const anywhere = homeDirectory && homeDirectory.segments.length >= 2 ? (homes[0] as Entry) : null;
   homes.push(...GENERIC_HOMES);
 
   // Longest first within a rule: alternatives are tried in order at each position.
   const byLength = (a: Entry, b: Entry): number => b.length - a.length;
   roots.sort(byLength);
   ancestors.sort(byLength);
-  const text = compile([...roots, ...homes]);
-  const file = compile([...roots, ...ancestors, ...homes]);
-  const selection = compileHomes(homes);
+  const selection = compileHomes(homes, anywhere);
+  const swept =
+    (rewrite: (text: string) => string) =>
+    (text: string): string =>
+      selection(rewrite(text));
+  const text = swept(compile([...roots, ...homes]));
+  const file = swept(compile([...roots, ...ancestors, ...homes]));
 
   return {
     text,
@@ -271,12 +290,12 @@ export function createPathRewriter(options: PathRewriterOptions): PathRewriter {
 
 /**
  * A regex source for the prefixes of `entries`, in order: each raw (optionally in a `file://` URL),
- * then percent-encoded in a `file://` URL. `owners[index]` owns capture group `index + 1`; the next
- * group is the separator after the prefix.
+ * then percent-encoded in a `file://` URL. `anywhere`, raw, comes first and needs no boundary before
+ * it. `owners[index]` owns capture group `index + 1`; the next group is the separator after the prefix.
  */
-function prefixes(entries: readonly Entry[]): { source: string; owners: Entry[] } {
+function prefixes(entries: readonly Entry[], anywhere: Entry | null = null): { source: string; owners: Entry[] } {
   const alternatives: string[] = [];
-  const owners: Entry[] = [];
+  const owners: Entry[] = anywhere ? [anywhere] : [];
   for (const entry of entries) {
     alternatives.push(`(?:file:\\/\\/\\/?)?(${entry.source})`);
     owners.push(entry);
@@ -284,7 +303,9 @@ function prefixes(entries: readonly Entry[]): { source: string; owners: Entry[] 
     alternatives.push(`file:\\/\\/(${entry.encoded})`);
     owners.push(entry);
   }
-  return { source: `${START}(?:${alternatives.join('|')})(?:([\\\\/])|(?=${DELIMITER}|$))`, owners };
+  const bounded = `${START}(?:${alternatives.join('|')})`;
+  const start = anywhere ? `(?:(${anywhere.source})|${bounded})` : bounded;
+  return { source: `${start}(?:(\\\\+|/)|(?=${DELIMITER}|$))`, owners };
 }
 
 /** Each prefix and the rest of its path, rewritten. */
@@ -299,7 +320,7 @@ function compile(entries: readonly Entry[]): (text: string) => string {
       const owner = owners[index] as Entry;
       const separator = groups[owners.length] !== undefined;
       let rest = groups[owners.length + 1] as string;
-      if (owner.flavor === 'win32') rest = rest.replace(/\\/g, '/');
+      if (owner.flavor === 'win32') rest = rest.replace(/\\+/g, '/');
       if (match.startsWith('file:')) rest = decode(rest);
       return owner.replacement(separator) + rest;
     });
@@ -307,8 +328,8 @@ function compile(entries: readonly Entry[]): (text: string) => string {
 }
 
 /** Each home prefix alone becomes `~`, with the separator it had. */
-function compileHomes(entries: readonly Entry[]): (text: string) => string {
-  const { source, owners } = prefixes(entries);
+function compileHomes(entries: readonly Entry[], anywhere: Entry | null): (text: string) => string {
+  const { source, owners } = prefixes(entries, anywhere);
   const pattern = new RegExp(source, 'g');
   return (text) => {
     if (!text.includes('/') && !text.includes('\\')) return text;

@@ -84,9 +84,32 @@ describe('createPathRewriter, POSIX', () => {
     expect(posix('at /home/alice2/a.ts:1:1')).toBe('at ~/a.ts:1:1');
   });
 
-  it('requires a boundary before a prefix: the path of a URL is left alone', () => {
-    expect(posixRewriter.text('GET http://localhost/home/alice/shop/tests/x')).toBe('GET http://localhost/home/alice/shop/tests/x');
-    expect(posix('x/home/alice/shop/tests/a.ts')).toBe('x/home/alice/shop/tests/a.ts');
+  it('requires a boundary before a root or a generic home: the path of a URL is left alone', () => {
+    const rewrite = createPathRewriter({ roots: ['/srv/shop/tests'], home: '/home/alice' });
+    expect(rewrite.text('GET http://localhost/srv/shop/tests/x')).toBe('GET http://localhost/srv/shop/tests/x');
+    expect(rewrite.file('x/srv/shop/tests/a.ts')).toBe('x/srv/shop/tests/a.ts');
+    expect(rewrite.text('GET http://localhost/home/bob/x')).toBe('GET http://localhost/home/bob/x');
+  });
+
+  it('masks the real home after anything: it is the user name', () => {
+    expect(posixRewriter.text('GET http://localhost/home/alice/shop/tests/x')).toBe('GET http://localhost~/shop/tests/x');
+    expect(posix('x/home/alice/shop/tests/a.ts')).toBe('x~/shop/tests/a.ts');
+    expect(posixRewriter.text('-L/home/alice/lib')).toBe('-L~/lib');
+    expect(posixRewriter.text('http://localhost:5173/@fs/home/alice/x.ts')).toBe('http://localhost:5173/@fs~/x.ts');
+    expect(posixRewriter.text('/mnt/backup/home/alice/x')).toBe('/mnt/backup~/x');
+    expect(winRewriter.text('\\\\?\\C:\\Users\\Alice\\x')).toBe('\\\\?\\~\\x');
+  });
+
+  it('keeps the boundary after the real home, and both around a single-segment one', () => {
+    const rewrite = createPathRewriter({ roots: [], home: '/srv/me' });
+    expect(rewrite.text('reads /srv/me2/x')).toBe('reads /srv/me2/x');
+    expect(rewrite.text('in a/srv/me2/x')).toBe('in a/srv/me2/x');
+    const single = createPathRewriter({ roots: [], home: '/app' });
+    expect(single.text('open /app/x')).toBe('open ~/x');
+    expect(single.text('GET http://host/app/x')).toBe('GET http://host/app/x');
+    expect(single.text('/opt/app/x')).toBe('/opt/app/x');
+    expect(single.selection('in a/app/x')).toBe('in a/app/x');
+    expect(createPathRewriter({ roots: [], home: '/root' }).text('/usr/root/x')).toBe('/usr/root/x');
   });
 
   it('rewrites `file://` URLs, raw and percent-encoded, without the scheme', () => {
@@ -279,7 +302,7 @@ describe('createPathRewriter, fields that select a test', () => {
   it('only matches a prefix followed by a separator, a delimiter or the end', () => {
     expect(selection('/srv/me', 'reads /srv/me2/x')).toBe('reads /srv/me2/x');
     expect(selection('/srv/me', 'reads /srv/me.old/x')).toBe('reads /srv/me.old/x');
-    for (const after of ['/x', '\\x', ' x', "'", '"', ':1', ';x', ',x', ')', '']) {
+    for (const after of ['/x', '\\x', ' x', "'", '"', ':1', ';x', ',x', '=x', ')', '']) {
       expect(selection('/srv/me', `(/srv/me${after}`)).toBe(`(~${after}`);
     }
   });
@@ -290,9 +313,16 @@ describe('createPathRewriter, fields that select a test', () => {
     expect(selection('D:\\Home\\me', 'reads D:\\Home\\me2\\x')).toBe('reads D:\\Home\\me2\\x');
   });
 
-  it('only matches a prefix at a path boundary', () => {
-    expect(selection('/srv/me', 'see http://host/srv/me/x')).toBe('see http://host/srv/me/x');
-    expect(selection('/srv/me', 'in a/srv/me/x')).toBe('in a/srv/me/x');
+  it('masks the real home after anything, a generic home only at a path boundary', () => {
+    expect(selection('/srv/me', 'see http://host/srv/me/x')).toBe('see http://host~/x');
+    expect(selection('/srv/me', 'in a/srv/me/x')).toBe('in a~/x');
+    expect(selection('/srv/me', 'see http://host/home/bob/x')).toBe('see http://host/home/bob/x');
+    expect(selection('/srv/me', 'in a/home/bob/x')).toBe('in a/home/bob/x');
+  });
+
+  it('keeps an escaped separator as written', () => {
+    expect(selection('C:\\Users\\me', '"C:\\\\Users\\\\me\\\\a.json"')).toBe('"~\\\\a.json"');
+    expect(selection(null, '"D:\\\\Users\\\\bob\\\\a.json"')).toBe('"~\\\\a.json"');
   });
 
   it('matches a Windows home with both separators, ignoring case', () => {
@@ -502,6 +532,103 @@ describe('derivedRoots', () => {
       { file: 'b.spec.ts', stacks: [at('/ci/tests/b.spec.ts'), at('/ci/tests/sub/b.spec.ts')] },
     ];
     expect(derivedRoots(sources, '/r/tests')).toEqual(['/r/tests', '/ci/tests']);
+  });
+});
+
+describe('the final sweep', () => {
+  const real = createPathRewriter({ roots: ['/srv/app/tests'], home: '/home/me' });
+  const windows = createPathRewriter({ roots: ['D:\\app\\tests'], home: 'C:\\Users\\Me' });
+
+  it('masks every home of a `PATH` list', () => {
+    expect(real.text('PATH=/home/me/bin:/home/me/.local/bin')).toBe('PATH=~/bin:~/.local/bin');
+    expect(real.text('PATH=/home/bob/bin:/home/bob/.local/bin')).toBe('PATH=~/bin:~/.local/bin');
+    expect(real.text('PATH=/home/me/bin:/usr/bin:/home/bob/bin')).toBe('PATH=~/bin:/usr/bin:~/bin');
+  });
+
+  it('masks every home of a Windows list', () => {
+    expect(windows.text('C:\\Users\\Me\\a;C:\\Users\\Me\\b')).toBe('~/a;~/b');
+    expect(windows.text('C:\\Users\\bob\\a;C:\\Users\\bob\\b')).toBe('~/a;~/b');
+    expect(windows.selection('C:\\Users\\bob\\a;C:\\Users\\bob\\b')).toBe('~\\a;~\\b');
+  });
+
+  it('masks a home after `:` and after `=` in a message', () => {
+    expect(real.text('copy from /tmp/a:/home/me/x')).toBe('copy from /tmp/a:~/x');
+    expect(real.text('Error: /home/me/a:/home/bob/b')).toBe('Error: ~/a:~/b');
+    expect(real.text('--out=/home/me/x')).toBe('--out=~/x');
+    expect(real.text('/home/me/a=/home/me/b')).toBe('~/a=~/b');
+    expect(real.text('/home/bob/a=/home/bob/b')).toBe('~/a=~/b');
+  });
+
+  it('masks a home inside a stack line', () => {
+    expect(real.stack('Error: x\n    at f (/opt/a:/home/me/b.ts:1:1)\n    at /home/bob/a:/home/bob/c.ts:2:2')).toBe(
+      'Error: x\n    at f (/opt/a:~/b.ts:1:1)\n    at ~/a:~/c.ts:2:2',
+    );
+    expect(real.file('at /srv/app/tests/a:/home/me/b.ts:1:1')).toBe('at a:~/b.ts:1:1');
+  });
+
+  it('keeps a path under the root relative, inside the real home', () => {
+    const rewrite = createPathRewriter({ roots: ['/home/me/proj/tests'], home: '/home/me' });
+    expect(rewrite.text('/home/me/proj/tests/a.ts:3:4')).toBe('a.ts:3:4');
+    expect(rewrite.file('at /home/me/proj/lib/a.ts:3:4')).toBe('at ../lib/a.ts:3:4');
+  });
+
+  it('applies to an error location', () => {
+    expect(locationFile('/home/me/a:/home/me/b.ts', '/srv/app/tests', real, path.posix)).toBe('~/a:~/b.ts');
+  });
+
+  it('masks a real home holding a space, every occurrence', () => {
+    const rewrite = createPathRewriter({ roots: [], home: 'C:\\Users\\Real Name' });
+    expect(rewrite.text('C:\\Users\\Real Name\\a and C:\\Users\\Real Name and "C:/users/real name/b"')).toBe('~/a and ~ and "~/b"');
+    const posix = createPathRewriter({ roots: [], home: '/srv/real name' });
+    expect(posix.text('/srv/real name/a:/srv/real name/b, x/srv/real name')).toBe('~/a:~/b, x~');
+  });
+
+  it('leaves the known false positive and a path outside every home as they are', () => {
+    expect(real.text('GET /home/dashboard returns 200')).toBe('GET ~ returns 200');
+    expect(real.text('open /opt/data/x.json:/usr/bin')).toBe('open /opt/data/x.json:/usr/bin');
+  });
+});
+
+describe('lists of generic homes', () => {
+  const rewrite = createPathRewriter({ roots: [], home: null });
+
+  it('stops a user name before a list separator', () => {
+    expect(rewrite.text('/home/bob,/home/bob/x')).toBe('~,~/x');
+    expect(rewrite.text('/home/bob;/home/bob/x')).toBe('~;~/x');
+    expect(rewrite.text('/home/bob=/home/bob/x')).toBe('~=~/x');
+    expect(rewrite.selection('/home/bob,/home/bob/x')).toBe('~,~/x');
+  });
+
+  it('keeps a user name holding such a character, the name still masked', () => {
+    expect(rewrite.text('/home/a,b/x')).toBe('~/x');
+    expect(rewrite.text('/home/a=b')).toBe('~');
+  });
+
+  it('accepts `=` as a delimiter after a root', () => {
+    const rooted = createPathRewriter({ roots: ['/srv/app'], home: null });
+    expect(rooted.text('/srv/app=x')).toBe('.=x');
+  });
+});
+
+describe('escaped separators', () => {
+  const real = createPathRewriter({ roots: ['D:\\app\\tests'], home: 'C:\\Users\\Real Name' });
+
+  it('masks a real home as `expect` and `JSON.stringify` print it', () => {
+    expect(real.text('Received: "C:\\\\Users\\\\Real Name\\\\a.json"')).toBe('Received: "~/a.json"');
+    expect(real.text('{"p":"C:\\\\Users\\\\Real Name"}')).toBe('{"p":"~"}');
+  });
+
+  it('masks a generic home the same way, escaped once or more', () => {
+    expect(real.text('Received: "C:\\\\Users\\\\bob\\\\a.json"')).toBe('Received: "~/a.json"');
+    expect(real.text('"E:\\\\\\\\Users\\\\\\\\bob\\\\\\\\a\\\\\\\\b"')).toBe('"~/a/b"');
+  });
+
+  it('applies rule 1 to an escaped root', () => {
+    expect(real.text('"D:\\\\app\\\\tests\\\\web\\\\a.ts"')).toBe('"web/a.ts"');
+  });
+
+  it('leaves a POSIX path alone', () => {
+    expect(real.text('/opt/a\\\\b')).toBe('/opt/a\\\\b');
   });
 });
 
