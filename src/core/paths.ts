@@ -13,13 +13,14 @@ import { frameBody, isFrameLine } from '../shared/frames.js';
  *    matching root wins.
  * 2. A path sharing a named ancestor with a root becomes `../` relative:
  *    `../support/session.ts`. A named ancestor is deeper than `/`, a drive,
- *    a UNC share, `/home`, `/Users` or `X:\Users`, so the user name of a
- *    home directory is always in the shared part. The longest matching
- *    ancestor wins; for the same ancestor, the first root in the pool.
+ *    a UNC share or what holds home directories (see `isHomeContainer`), so
+ *    the user name of a home directory is always in the shared part. The
+ *    longest matching ancestor wins; for the same ancestor, the first root in
+ *    the pool.
  * 3. Any other path keeps its form, except a home directory prefix, which
  *    becomes `~`: the home of the machine writing the report, and the
- *    generic forms `/home/<user>`, `/Users/<user>`, `/root` and
- *    `X:\Users\<user>` (homes of other machines, in merged reports).
+ *    generic forms of `GENERIC_HOMES` (homes of other machines, in merged
+ *    reports, or printed by a tool).
  *
  * Rule 2 only applies where the text is known to be a file path: stack frame
  * lines (`    at …`) and error locations. Everywhere else (messages, the
@@ -90,8 +91,8 @@ const REST = `[^\\s'"\`<>()[\\]{},;|]*`;
 const START = `(?<![\\w.~%/\\\\-])`;
 /** A Windows separator: `/`, or `\` possibly escaped (one or more). */
 const WINDOWS_SEPARATOR = '(?:\\\\+|/)';
-/** After a generic user name: it does not end with a list separator, which would take the next path for its rest. */
-const NAME_END = '(?<![,;=])';
+/** After a generic user name: it does not end with whitespace or a list separator, which would take the next path for its rest. */
+const NAME_END = '(?<![\\s,;=])';
 
 function flavorOf(location: string): Flavor | null {
   if (location.startsWith('/')) return 'posix';
@@ -139,11 +140,21 @@ function keyOf(text: string, flavor: Flavor): string {
   return flavor === 'win32' ? `w:${text.toLowerCase().replace(/\//g, '\\')}` : `p:${text}`;
 }
 
-/** Ancestors made only of a home container (`/home`, `/Users`, `X:\Users`) are not named. */
+/**
+ * Ancestors that only hold home directories are not named: `/home`, `/Users`, `/var`, `/var/home`,
+ * `X:\\Users`, the `home` of a WSL share, and a mounted drive down to its `Users` (`/mnt/c`, `/mnt/c/Users`,
+ * the same under `/cygdrive`). Named, they would give `../../Users/me/x`, which no mask can catch.
+ */
 function isHomeContainer(directory: Directory, count: number): boolean {
-  if (count !== 1) return false;
-  const segment = directory.segments[0] as string;
-  return directory.flavor === 'posix' ? segment === 'home' || segment === 'Users' : segment.toLowerCase() === 'users';
+  const [first, second, third] = directory.segments as [string, string?, string?];
+  if (directory.flavor === 'win32') {
+    return count === 1 && (first.toLowerCase() === 'users' || (first === 'home' && /^\\\\wsl(?:\$|\.localhost)\\/i.test(directory.base)));
+  }
+  if ((first === 'mnt' || first === 'cygdrive') && /^[A-Za-z]$/.test(second ?? '')) {
+    return count <= 2 || (count === 3 && third?.toLowerCase() === 'users');
+  }
+  if (first === 'var') return count === 1 || (count === 2 && second === 'home');
+  return count === 1 && (first === 'home' || first === 'Users');
 }
 
 function up(levels: number, separator: boolean): string {
@@ -151,20 +162,33 @@ function up(levels: number, separator: boolean): string {
   return separator ? `${parents}/` : parents;
 }
 
-/** Generic home directories, rule 3. A user name with a space only counts when a separator follows it. */
+/**
+ * A user name on Linux or macOS. With a space, it only counts when a separator follows it: `GET /home/dashboard
+ * returns 200` reads `GET ~ returns 200`, and `/Users/John Doe/x` masks `Doe`.
+ */
+const POSIX_NAME = (separator: string): string =>
+  `(?:[^${separator}\\r\\n'"\`<>|:]+(?=[${separator}])|[^${separator}\\s'"\`<>()|:]+)${NAME_END}`;
+/**
+ * A Windows profile name, spaces included, which nothing tells from the words after it: it runs up to a character
+ * Windows forbids in a file name or a line break, and stops before a drive. Masking too much beats leaking.
+ */
+const WINDOWS_NAME = `(?:(?![A-Za-z]:(?:\\\\|/))[^\\\\/:*?"<>|\\r\\n])+${NAME_END}`;
+const USERS = sourceOf('Users', 'win32');
+
+/** Generic home directories, rule 3. */
 const GENERIC_HOMES: readonly Entry[] = [
-  {
-    flavor: 'posix',
-    length: 0,
-    source: `/(?:home|Users)/(?:[^/\\r\\n'"\`<>|:]+(?=/)|[^/\\s'"\`<>()|:]+)${NAME_END}`,
-    encoded: null,
-    replacement: home,
-  },
+  { flavor: 'posix', length: 0, source: `/(?:home|Users|var/home)/${POSIX_NAME('/')}`, encoded: null, replacement: home },
   { flavor: 'posix', length: 0, source: '/root', encoded: null, replacement: home },
+  { flavor: 'win32', length: 0, source: `[A-Za-z]:${WINDOWS_SEPARATOR}${USERS}${WINDOWS_SEPARATOR}${WINDOWS_NAME}`, encoded: null, replacement: home },
+  // WSL and Cygwin, any case.
+  { flavor: 'posix', length: 0, source: `/(?:mnt|cygdrive)/[A-Za-z]/${USERS}/${WINDOWS_NAME}`, encoded: null, replacement: home },
+  // MSYS and Git Bash: as they print it, so that the URL path `/a/users/42` stays.
+  { flavor: 'posix', length: 0, source: `/[A-Za-z]/Users/${WINDOWS_NAME}`, encoded: null, replacement: home },
+  // A WSL home seen from Windows.
   {
     flavor: 'win32',
     length: 0,
-    source: `[A-Za-z]:${WINDOWS_SEPARATOR}[Uu][Ss][Ee][Rr][Ss]${WINDOWS_SEPARATOR}(?:[^\\\\/\\r\\n'"\`<>|:*?]+(?=[\\\\/])|[^\\\\/\\s'"\`<>()|:*?]+)${NAME_END}`,
+    source: `(?:\\\\{2,}|//)(?:${sourceOf('wsl$', 'win32')}|${sourceOf('wsl.localhost', 'win32')})${WINDOWS_SEPARATOR}[^\\\\/\\r\\n]+${WINDOWS_SEPARATOR}home${WINDOWS_SEPARATOR}${POSIX_NAME('\\\\/')}`,
     encoded: null,
     replacement: home,
   },

@@ -7,9 +7,12 @@ import { test } from '@playwright/test';
 // this file also runs from the Windows check's copy.
 const root = process.env['LOUPE_FIXTURE_RERUN_ROOT'] ?? '';
 const body = async () => {};
+// Another home than this machine's, in a form written the same on every machine.
+const WSL_HOME = '/mnt/c/Users/wsl-user';
 
 test(`reads ${path.join(root, 'data', 'a.json')}`, body);
 test(`reads ${path.join(homedir(), 'other', 'a.json')}`, body);
+test(`reads ${WSL_HOME}/app/a.json`, body);
 test(`reads ${path.join(root, 'decoy.json')}`, body);
 // What the test above would read like, were its path made relative: neither
 // command selects the other test.

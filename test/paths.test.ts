@@ -610,6 +610,168 @@ describe('lists of generic homes', () => {
   });
 });
 
+describe('generic home forms', () => {
+  const rewrite = createPathRewriter({ roots: ['/opt/app'], home: '/home/other' });
+  const { text, selection } = rewrite;
+
+  it('masks WSL paths, any case on the drive and on `Users`', () => {
+    expect(text('/mnt/c/Users/me/app/a.json')).toBe('~/app/a.json');
+    expect(text('/mnt/D/users/me/a.json')).toBe('~/a.json');
+    expect(text('/mnt/c/USERS/me')).toBe('~');
+    expect(text('file:///mnt/c/Users/me/a%20b.json')).toBe('~/a b.json');
+  });
+
+  it('leaves other mounted paths alone', () => {
+    expect(text('/mnt/c/Windows/x')).toBe('/mnt/c/Windows/x');
+    expect(text('/mnt/data/Users/me/x')).toBe('/mnt/data/Users/me/x');
+    expect(text('/mnt/wsl/x')).toBe('/mnt/wsl/x');
+  });
+
+  it('masks Cygwin paths', () => {
+    expect(text('/cygdrive/c/Users/me/a.json')).toBe('~/a.json');
+    expect(text('/cygdrive/D/users/John Smith/a.json')).toBe('~/a.json');
+  });
+
+  it('masks MSYS paths, with a capital `Users` only', () => {
+    expect(text('/c/Users/me/a.json')).toBe('~/a.json');
+    expect(text('PATH=/c/Users/me/bin:/c/Users/me/.local/bin')).toBe('PATH=~/bin:~/.local/bin');
+    expect(text('GET /a/users/42')).toBe('GET /a/users/42');
+  });
+
+  it('masks a WSL home seen from Windows', () => {
+    expect(text('\\\\wsl$\\Ubuntu\\home\\bob\\a\\b.json')).toBe('~/a/b.json');
+    expect(text('\\\\wsl.localhost\\Ubuntu-22.04\\home\\bob\\a.json')).toBe('~/a.json');
+    expect(text('\\\\WSL$\\Ubuntu\\home\\bob')).toBe('~');
+    expect(text('//wsl.localhost/Ubuntu/home/bob/a.json')).toBe('~/a.json');
+    expect(text('"\\\\\\\\wsl$\\\\Ubuntu\\\\home\\\\bob\\\\a.json"')).toBe('"~/a.json"');
+    expect(text('\\\\wsl$\\Ubuntu\\opt\\a.json')).toBe('\\\\wsl$\\Ubuntu\\opt\\a.json');
+  });
+
+  it('masks a home of an atomic desktop', () => {
+    expect(text('/var/home/bob/a.json')).toBe('~/a.json');
+    expect(text('/var/home/bob')).toBe('~');
+    expect(text('/var/lib/bob/a.json')).toBe('/var/lib/bob/a.json');
+  });
+
+  it('keeps the rest verbatim in the fields that select a test', () => {
+    expect(selection('reads /mnt/c/Users/me/app\\a%20b.json')).toBe('reads ~/app\\a%20b.json');
+    expect(selection('/c/Users/me/a')).toBe('~/a');
+    expect(selection('/cygdrive/c/Users/me/a')).toBe('~/a');
+    expect(selection('\\\\wsl$\\Ubuntu\\home\\bob\\a\\b')).toBe('~\\a\\b');
+    expect(selection('/var/home/bob/a')).toBe('~/a');
+  });
+
+  it('applies to the home of the machine under WSL, the root staying relative', () => {
+    const wsl = createPathRewriter({ roots: ['/mnt/c/Users/me/proj/tests'], home: '/home/me' });
+    expect(wsl.text('/mnt/c/Users/me/proj/tests/a.ts:1:1')).toBe('a.ts:1:1');
+    expect(wsl.text('/mnt/c/Users/me/other/a.ts')).toBe('~/other/a.ts');
+    expect(wsl.selection('/mnt/c/Users/me/proj/tests/a.ts')).toBe('~/proj/tests/a.ts');
+  });
+});
+
+describe('user names', () => {
+  const { text, selection } = createPathRewriter({ roots: [], home: null });
+
+  it('never leaves the name of a spaced POSIX span in clear', () => {
+    expect(text('/home/bob and /home/bob/x')).toBe('~ and ~/x');
+    expect(selection('/home/bob and /home/bob/x')).toBe('~ and ~/x');
+    expect(text('/Users/John Doe/x.ts')).toBe('~/x.ts');
+    expect(text('GET /home/dashboard returns 200')).toBe('GET ~ returns 200');
+  });
+
+  it('masks a spaced Windows profile', () => {
+    expect(text('C:\\Users\\John Smith\\a.json')).toBe('~/a.json');
+    expect(selection('C:\\Users\\John Smith\\a.json')).toBe('~\\a.json');
+    expect(text('"C:\\Users\\John Smith"')).toBe('"~"');
+    expect(selection('"C:\\Users\\John Smith"')).toBe('"~"');
+    expect(text('C:/Users/John Smith/a.json')).toBe('~/a.json');
+    expect(text('C:\\Users\\John Smith')).toBe('~');
+    expect(text('/mnt/c/Users/John Smith/a.json')).toBe('~/a.json');
+    expect(text('"/mnt/c/Users/John Smith"')).toBe('"~"');
+    expect(text('/c/Users/John Smith/a.json')).toBe('~/a.json');
+    expect(text('"C:\\\\Users\\\\John Smith\\\\a.json"')).toBe('"~/a.json"');
+  });
+
+  it('masks a name with an apostrophe or a bracket', () => {
+    expect(text("C:\\Users\\O'Brien\\x")).toBe('~/x');
+    expect(text('C:\\Users\\John (Work)\\x')).toBe('~/x');
+  });
+
+  it('stops before a drive, so the next home is masked too', () => {
+    expect(text('C:\\Users\\bob and C:\\Users\\bob\\x')).toBe('~ ~/x');
+    expect(selection('C:\\Users\\bob and C:\\Users\\bob\\x')).toBe('~ ~\\x');
+    expect(text('C:\\Users\\bob;C:\\Users\\bob\\x')).toBe('~;~/x');
+    expect(text('C:\\Users\\bob,D:\\Users\\bob')).toBe('~,~');
+    expect(text('/mnt/c/Users/bob and C:\\Users\\bob\\x')).toBe('~ ~/x');
+  });
+
+  it('does not take the next path for the rest of a home', () => {
+    expect(text('/mnt/c/Users/bob and /mnt/c/Users/bob/x')).toBe('~ ~/x');
+    expect(text('/mnt/c/Users/bob;/mnt/c/Users/bob/x')).toBe('~;~/x');
+    expect(text('C:/Users/bob and /tmp/x')).toBe('~ /tmp/x');
+  });
+
+  it('stops at a character Windows forbids, or a line break', () => {
+    expect(text('C:\\Users\\bob: no access')).toBe('~: no access');
+    expect(text('C:\\Users\\bob is here\nnext line')).toBe('~\nnext line');
+    expect(text('see C:\\Users\\bob|next')).toBe('see ~|next');
+  });
+
+  it('swallows the rest of a line after an unbounded home of another machine: an accepted limit', () => {
+    expect(text('Could not open C:\\Users\\bob for reading, retry 3')).toBe('Could not open ~');
+    expect(selection('opens C:\\Users\\bob first')).toBe(selection('opens C:\\Users\\bob last'));
+    expect(text('at f (C:\\Users\\bob)')).toBe('at f (~');
+    expect(text("'C:\\Users\\John Smith'")).toBe("'~");
+  });
+
+  it('does not swallow anything after the real home, known exactly', () => {
+    const real = createPathRewriter({ roots: [], home: 'C:\\Users\\bob' });
+    expect(real.text('Could not open C:\\Users\\bob for reading, retry 3')).toBe('Could not open ~ for reading, retry 3');
+  });
+
+  it('stays fast on a long text without a separator', () => {
+    const started = performance.now();
+    text(`C:\\Users\\${'a'.repeat(1_000_000)}*`);
+    text(`/mnt/c/Users/a b *`.repeat(50_000));
+    text(`C:\\Users\\${'x:'.repeat(500_000)}`);
+    expect(performance.now() - started).toBeLessThan(2000);
+  });
+});
+
+describe('rule 2 and the ancestors holding home directories', () => {
+  const file = (root: string, home: string, line: string) => createPathRewriter({ roots: [root], home }).file(line);
+
+  it('never writes the `Users` of a mounted drive as `../`', () => {
+    expect(file('/mnt/c/Dev/proj', '/home/me', 'at /mnt/c/Users/me/.cache/x.js:1:1')).toBe('at ~/.cache/x.js:1:1');
+    expect(file('/mnt/c/Users/me/proj', '/home/me', 'at /mnt/c/Users/other/x.js:1:1')).toBe('at ~/x.js:1:1');
+    expect(file('/cygdrive/c/Dev/proj', '/home/me', 'at /cygdrive/c/Users/me/x.js:1:1')).toBe('at ~/x.js:1:1');
+  });
+
+  it('keeps a mounted path absolute, like the path of another directory of a drive', () => {
+    expect(file('/mnt/c/Dev/proj', '/home/me', 'at /mnt/c/other/x.js:1:1')).toBe('at /mnt/c/other/x.js:1:1');
+    expect(file('C:\\Dev\\proj', 'C:\\Users\\me', 'at C:\\other\\x.js:1:1')).toBe('at C:\\other\\x.js:1:1');
+  });
+
+  it('still relates what shares a named directory with the root', () => {
+    expect(file('/mnt/c/Dev/proj', '/home/me', 'at /mnt/c/Dev/lib/x.js:1:1')).toBe('at ../lib/x.js:1:1');
+    expect(file('/mnt/c/Users/me/proj', '/home/me', 'at /mnt/c/Users/me/lib/x.js:1:1')).toBe('at ../lib/x.js:1:1');
+    expect(file('/mnt/data/proj', '/home/me', 'at /mnt/data/lib/x.js:1:1')).toBe('at ../lib/x.js:1:1');
+    expect(file('/var/lib/app/tests', '/home/me', 'at /var/lib/other/x.js:1:1')).toBe('at ../../other/x.js:1:1');
+  });
+
+  it('never writes `/var/home` as `../`', () => {
+    expect(file('/var/lib/app/tests', '/home/me', 'at /var/home/bob/x.js:1:1')).toBe('at ~/x.js:1:1');
+    expect(file('/var/home/me/proj', '/var/home/me', 'at /var/home/other/x.js:1:1')).toBe('at ~/x.js:1:1');
+    expect(file('/var/home/me/proj', '/var/home/me', 'at /var/home/me/lib/x.js:1:1')).toBe('at ../lib/x.js:1:1');
+  });
+
+  it('never writes the `home` of a WSL share as `../`', () => {
+    const root = '\\\\wsl$\\Ubuntu\\home\\me\\proj';
+    expect(file(root, 'C:\\Users\\me', 'at \\\\wsl$\\Ubuntu\\home\\other\\x.js:1:1')).toBe('at ~/x.js:1:1');
+    expect(file(root, 'C:\\Users\\me', 'at \\\\wsl$\\Ubuntu\\home\\me\\lib\\x.js:1:1')).toBe('at ../lib/x.js:1:1');
+  });
+});
+
 describe('escaped separators', () => {
   const real = createPathRewriter({ roots: ['D:\\app\\tests'], home: 'C:\\Users\\Real Name' });
 

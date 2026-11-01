@@ -37,9 +37,14 @@ function expectedForRedacted(test: Identity): string[] {
 export const REAL_TILDE = 'about ~ 5 items';
 export const TILDE_NEIGHBOUR = 'about roughly 5 items';
 
+/** The test of `rerun/paths-in-titles.spec.ts` holding a WSL home: as the report shows it, and as written. */
+export const WSL_TITLE = 'reads ~/app/a.json';
+export const WSL_TITLE_WRITTEN = 'reads /mnt/c/Users/wsl-user/app/a.json';
+
 /** For a test of `rerun/paths-in-titles.spec.ts`: anywhere else, `~` is the home directory, and the real title is what the command must find. */
 function expectedForPaths(test: Identity): string[] {
   if (test.title === REAL_TILDE) return [keyOf(test), keyOf({ ...test, title: TILDE_NEIGHBOUR })];
+  if (test.title === WSL_TITLE) return [keyOf({ ...test, title: WSL_TITLE_WRITTEN })];
   return [keyOf({ ...test, title: test.title.replace('~', () => homedir()) })];
 }
 

@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { rerunCommand } from '../src/renderer/detail/rerun.js';
 import { REDACTED } from '../src/shared/redaction.js';
 import type { LoupeReport, TestCase } from '../src/schema/v1.js';
-import { REAL_TILDE, TILDE_NEIGHBOUR, expectedFor, keyOf } from '../fixtures/helpers/rerun-expected.js';
+import { REAL_TILDE, TILDE_NEIGHBOUR, WSL_TITLE, WSL_TITLE_WRITTEN, expectedFor, keyOf } from '../fixtures/helpers/rerun-expected.js';
 import { FIXTURE_SECRET } from '../fixtures/redaction-values.js';
 import { FIXTURE_CONFIG, RERUN_CONFIG, ROOT, assertBuilt, pasteInShell, playwright, readReport } from './helpers/fixtures.js';
 
@@ -222,6 +222,11 @@ describe('rerun commands against the installed Playwright', () => {
 
       it('finds the real test from a home directory written `~`', async () => {
         expect(await selectedInMain(withTitle((title) => title === IN_HOME))).toEqual([`reads ${path.join(homedir(), 'other', 'a.json')}`]);
+      }, 120_000);
+
+      it('finds the real test from a WSL home written `~`, the rest kept verbatim', async () => {
+        expect(inTitles().map((test) => test.title)).toContain(WSL_TITLE);
+        expect(await selectedInMain(withTitle((title) => title === WSL_TITLE))).toEqual([WSL_TITLE_WRITTEN]);
       }, 120_000);
 
       it('finds the real test from a path under the root, wherever the root is', async () => {
