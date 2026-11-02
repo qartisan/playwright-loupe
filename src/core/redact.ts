@@ -350,7 +350,7 @@ export function secretValues(
 /**
  * Keys whose strings B never rewrites: identifiers and signatures (hex that a
  * short value could match), snippets (source code, already in the
- * repository) and attachment paths (the files keep their names).
+ * repository) and attachment paths (their names hold no secret, see `AttachmentStore`).
  */
 const KEPT_KEYS = new Set(['id', 'signature', 'errorSignature', 'snippet', 'path']);
 

@@ -194,7 +194,7 @@ The same value is then redacted where Playwright repeats it in that attempt: the
 
 - **Attachments are not altered.** Traces, screenshots and videos contain typed values and visible secrets (a trace records every action with its value and every network request). A report with traces must be treated as private.
 - **Snippets** (`snippet`, the source excerpt around an error) are source code, already in your repository: a secret written literally in a test shows there.
-- Attachment file names (`path`), test ids and signatures.
+- Test ids and signatures. Attachment file names (`path`) hold no secret: an attachment whose name or source file name holds one, as an environment value or a secret URL parameter, is stored as `attachment.<ext>`.
 - What does not match: a secret typed through a neutral locator on a line that does not name it, printed by your code to stdout outside a URL parameter, or passed in a URL parameter with a neutral name, is only caught by `redact.env`.
 
 ### Git information

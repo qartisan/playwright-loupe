@@ -13,6 +13,7 @@ import {
 } from '../src/core/attachments.js';
 import { AttachmentStore } from '../src/core/build.js';
 import { createPathRewriter } from '../src/core/paths.js';
+import { createRedactor, DEFAULT_REDACT } from '../src/core/redact.js';
 
 describe('attachmentKind', () => {
   it.each([
@@ -98,6 +99,58 @@ describe('file names', () => {
     expect(uniqueFileName('video.webm', taken)).toBe('video-2.webm');
     expect(uniqueFileName('trace', taken)).toBe('trace');
     expect(uniqueFileName('trace', taken)).toBe('trace-1');
+  });
+});
+
+describe('AttachmentStore, names holding a secret', () => {
+  let folder: string;
+  let store: AttachmentStore;
+  const text = 'text/plain';
+  const big = Buffer.from('x'.repeat(5000));
+  const source = (name: string): string => {
+    const file = path.join(folder, name);
+    writeFileSync(file, 'c');
+    return file;
+  };
+
+  beforeEach(() => {
+    folder = mkdtempSync(path.join(tmpdir(), 'loupe-store-'));
+    const { strings } = createRedactor({ ...DEFAULT_REDACT, values: ['s3cretvalue', 'c0lon:s3cret'] });
+    store = new AttachmentStore(folder, strings);
+  });
+
+  afterEach(() => {
+    rmSync(folder, { recursive: true, force: true });
+  });
+
+  it('hides a secret in the name of a written body, which a flattened name would keep', async () => {
+    expect((await store.add('data/t/0', { name: 'log s3cretvalue', contentType: text, body: big })).path).toBe('data/t/0/attachment.txt');
+    expect((await store.add('data/t/0', { name: 'c0lon:s3cret', contentType: text, body: big })).path).toBe('data/t/0/attachment-1.txt');
+  });
+
+  it('hides a secret in the name of a copied file', async () => {
+    const result = await store.add('data/t/0', { name: 'log s3cretvalue', contentType: text, path: source('flat.log') });
+    expect(result.path).toBe('data/t/0/attachment.log');
+  });
+
+  it('hides a secret in the name of the source file', async () => {
+    const result = await store.add('data/t/0', { name: 'clean', contentType: text, path: source('s3cretvalue-1.png') });
+    expect(result.path).toBe('data/t/0/attachment.png');
+  });
+
+  it('hides a secret in an extension, with the one of the content type', async () => {
+    const result = await store.add('data/t/0', { name: 'clean', contentType: 'image/png', path: source('shot.s3cretvalue') });
+    expect(result.path).toBe('data/t/0/attachment.png');
+  });
+
+  it('hides a secret URL parameter in a name', async () => {
+    const result = await store.add('data/t/0', { name: 'https://host/?token=abc123', contentType: text, body: big });
+    expect(result.path).toBe('data/t/0/attachment.txt');
+  });
+
+  it('keeps the file names of attachments holding no secret', async () => {
+    expect((await store.add('data/t/0', { name: 'my log', contentType: text, body: big })).path).toBe('data/t/0/my-log.txt');
+    expect((await store.add('data/t/0', { name: 'clean', contentType: text, path: source('kept.txt') })).path).toBe('data/t/0/kept.txt');
   });
 });
 

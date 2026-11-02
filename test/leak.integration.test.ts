@@ -77,6 +77,19 @@ describe('the leak canary', () => {
     expect(report.dimensions.map((dimension) => dimension.name)).toEqual(expect.arrayContaining([REDACTED, 'kept']));
   });
 
+  it('holds no secret in the names of the files it wrote, each attachment keeping its own file', () => {
+    const names = readdirSync(path.join(outputFolder, 'data'), { recursive: true, encoding: 'utf8' }).join('\n');
+    expect(names).toContain('attachment.txt');
+    for (const secret of Object.values(SECRETS)) {
+      for (const part of secret.split(':')) expect(names).not.toContain(part);
+    }
+    const test = report.tests.find((candidate) => candidate.title === 'holds secrets in its attachments');
+    const attachments = test?.attempts[0]?.attachments ?? [];
+    expect(attachments.map((attachment) => attachment.name)).toEqual([`log ${REDACTED}`, `log ${REDACTED}`, 'clean name', 'clean name']);
+    expect(attachments.map((attachment) => path.basename(attachment.path ?? ''))).toEqual(['attachment.txt', 'attachment-1.txt', 'attachment-2.txt', 'attachment-3.txt']);
+    expect(attachments.map((attachment) => readFileSync(path.join(outputFolder, attachment.path ?? ''), 'utf8').charAt(0))).toEqual(['a', 'b', 'c', 'd']);
+  });
+
   it('holds no canary name', () => {
     for (const text of files()) expect(text.toLowerCase()).not.toContain(CANARY);
   });

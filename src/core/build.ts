@@ -31,6 +31,7 @@ import {
   attachmentKind,
   bodyFileName,
   comparisonOf,
+  extensionFor,
   isTextContentType,
   safeFileName,
   uniqueFileName,
@@ -83,10 +84,10 @@ type PwAttachment = TestResult['attachments'][number];
 export class AttachmentStore {
   private readonly taken = new Map<string, Set<string>>();
 
-  /** `selection`: masks the home directories of a text, see `PathRewriter`. */
+  /** `mask`: hides the secrets and the home directories of a text. */
   constructor(
     private readonly outputFolder: string,
-    private readonly selection: (text: string) => string,
+    private readonly mask: (text: string) => string,
   ) {}
 
   /** Removes attachments left by a previous report in the same folder. */
@@ -106,23 +107,28 @@ export class AttachmentStore {
     };
 
     if (attachment.path) {
-      const fileName = this.holdsHome(name) ? `attachment${path.extname(attachment.path)}` : safeFileName(path.basename(attachment.path));
+      const source = path.basename(attachment.path);
+      const extension = this.reveals(path.extname(source)) ? extensionFor(contentType) : path.extname(source);
+      const fileName = this.reveals(name) || this.reveals(source) ? `attachment${extension}` : safeFileName(source);
       result.path = await this.store(folder, fileName, (target) => copyFile(attachment.path as string, target));
     } else if (attachment.body) {
       const body = attachment.body;
       if (isTextContentType(contentType) && body.byteLength <= INLINE_TEXT_LIMIT) {
         result.body = body.toString('utf8');
       } else {
-        const fileName = bodyFileName(this.holdsHome(name) ? 'attachment' : name, contentType);
+        const fileName = bodyFileName(this.reveals(name) ? 'attachment' : name, contentType);
         result.path = await this.store(folder, fileName, (target) => writeFile(target, body));
       }
     }
     return result;
   }
 
-  /** Playwright and `safeFileName` flatten a name, `/home/me/x` into `home-me-x`: no mask finds the user name in that file name. */
-  private holdsHome(name: string): boolean {
-    return this.selection(name) !== name;
+  /**
+   * Playwright and `safeFileName` flatten a name, `/home/me/x` into `home-me-x` and `a:b` into `a-b`: no pass
+   * finds a user name or a secret in that file name afterwards, and attachment paths are kept as they are.
+   */
+  private reveals(text: string): boolean {
+    return this.mask(text) !== text;
   }
 
   /** Writes one file and returns its report-relative path, or null when the source file is missing. */
@@ -323,9 +329,9 @@ export async function buildReport(
 ): Promise<LoupeReport> {
   const rootDir = config.rootDir;
   const homes = createPathRewriter({ roots: [], home: options.home ?? null });
-  const store = new AttachmentStore(options.outputFolder, homes.selection);
-  const categorizer = createCategorizer(options.categories ?? DEFAULT_CATEGORIES);
   const redactor = createRedactor(options.redact ?? DEFAULT_REDACT);
+  const store = new AttachmentStore(options.outputFolder, (text) => homes.selection(redactor.strings(text)));
+  const categorizer = createCategorizer(options.categories ?? DEFAULT_CATEGORIES);
   const dimensionSet = createDimensions(options.dimensions ?? DEFAULT_DIMENSIONS);
   const categories = new Set<string>();
   const usedDimensions = new Set<string>();
