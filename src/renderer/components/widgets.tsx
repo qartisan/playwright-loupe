@@ -198,13 +198,13 @@ export function RerunButton({ tests, children }: { tests: readonly RerunTarget[]
  * The rerun command of the failed tests of a list (flaky tests left out),
  * every one of them, not only the rows shown. Nothing when none failed.
  */
-export function RerunFailed({ tests, action = 'Copy rerun command' }: { tests: readonly TestCase[]; action?: string }) {
+export function RerunFailed({ tests }: { tests: readonly TestCase[] }) {
   const failed = useMemo(() => failedTests(tests), [tests]);
   if (failed.length === 0) return null;
   return (
     <div class="rerun-failed">
       <RerunButton tests={failed}>
-        {action} · {plural(failed.length, 'failed test')}
+        Copy rerun command · {plural(failed.length, 'failed test')}
       </RerunButton>
     </div>
   );

@@ -464,6 +464,17 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     await page.close();
   });
 
+  it('never says "Rerun" alone on a button: it copies, it runs nothing', async () => {
+    const failing = report.tests.find((test) => test.outcome === 'failed');
+    for (const fragment of ['#/', '#/tests', `#/test/${failing?.id}`]) {
+      const { page } = await open(fragment);
+      const labels = await page.locator('main .copy-button').allTextContents();
+      expect(labels.filter((text) => /rerun/i.test(text)).length, fragment).toBeGreaterThan(0);
+      for (const text of labels.filter((candidate) => /rerun/i.test(candidate))) expect(text, fragment).toMatch(/^Copy rerun command( · .+)?$/);
+      await page.close();
+    }
+  });
+
   it('copies the failed tests of the current list, from the Tests view and the overview', async () => {
     const failed = report.tests.filter((test) => test.outcome === 'failed');
     const { page } = await open('#/tests', { init: CLIPBOARD_STUB });
@@ -478,13 +489,17 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
 
     await page.goto(`${url}#/tests?project=chromium-b`);
     const projectFailed = failed.filter((test) => test.project === 'chromium-b');
-    await page.getByRole('button', { name: new RegExp(`^Copy rerun command · ${projectFailed.length} failed tests`) }).waitFor();
+    const label = `Copy rerun command · ${projectFailed.length} failed tests`;
+    await page.getByRole('button', { name: label, exact: true }).click();
 
-    // The overview's action follows the current filter too.
+    // The overview's button follows the current filter too: same label, same text.
     await page.goto(`${url}#/?project=chromium-b`);
-    await page.getByRole('button', { name: new RegExp(`^Rerun failed tests · ${projectFailed.length} failed tests`) }).click();
-    // Same document (a hash change): the copy from the Tests view is still recorded.
-    await expect.poll(async () => (await page.evaluate<string[]>('window.__copied')).length).toBe(2);
+    await page.getByRole('button', { name: label, exact: true }).click();
+    // Same document (a hash change): the copies from the Tests view are still recorded.
+    await expect.poll(async () => (await page.evaluate<string[]>('window.__copied')).length).toBe(3);
+    const [, fromTests, fromOverview] = await page.evaluate<string[]>('window.__copied');
+    expect(fromOverview).toBe(fromTests);
+    expect(fromOverview).toBe(rerunCommand(projectFailed));
     await page.close();
   });
 

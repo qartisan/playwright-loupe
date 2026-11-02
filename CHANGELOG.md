@@ -25,6 +25,7 @@ No change to the JSON shape: `schemaVersion` stays 1.
 ### Changed
 
 - **Titles keep their paths in the report.** Test titles, `describe` titles and project names are no longer shortened: only a home directory prefix becomes `~`, and the rest stays as written (`C:\Users\me\app\b.json` becomes `~\app\b.json`). Step titles, messages, stacks, annotations, tags and other text are rewritten as before. Test ids, signatures and categories do not change. A path outside the home directory now stays in these fields, even under the root dir, and can show a user or group name (`/builds/user/app`). In a merged report, they keep the paths of the machine that ran the shard, except home directories. See [Paths in text](docs/schema/v1.md#fields-that-select-a-test).
+- The rerun buttons share one label: "Copy rerun command", then the scope (`· 2 failed tests`). The overview's said "Rerun failed tests", though it only copies a command.
 - `/` in a project name becomes `*` in `--project`: Git Bash rewrites `--project=/x` as a path.
 - Rerun commands can be pasted in bash, zsh, PowerShell, `cmd.exe` and Git Bash, from the folder that holds your Playwright config. Tests that read the same to `-g` run together: titles or project names differing only by case, `a › b` next to `a b`, an inline tag next to the same `{ tag }`.
 - The AI prompt says `- File: <file>` instead of `- Location: <file>:<line>`: that line could be wrong. The location of each error stays.

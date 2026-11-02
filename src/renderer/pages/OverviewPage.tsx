@@ -43,7 +43,7 @@ export function OverviewPage({
     <div class="page view view-overview">
       <h1>Overview</h1>
       <Verdict report={report}>
-        <RerunFailed tests={matched} action="Rerun failed tests" />
+        <RerunFailed tests={matched} />
       </Verdict>
       {report.run.errors.length > 0 && <RunErrorsSummary errors={report.run.errors} />}
       {data.points.length > 0 && <FailurePointsWidget points={data.points} colors={colors} categories={report.categories} />}
