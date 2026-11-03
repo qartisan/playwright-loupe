@@ -14,6 +14,13 @@
 export const MIN_PLAYWRIGHT_INSTALLABLE = '1.52';
 export const MIN_PLAYWRIGHT_SUPPORTED = '1.57';
 
+/**
+ * The oldest Playwright whose trace viewer `traceViewer: 'bundled'` copies.
+ * Older viewers request `<object>` and `<embed>` URLs of the traced page from
+ * their original hosts (docs/support.md, "Known Playwright issues").
+ */
+export const MIN_PLAYWRIGHT_TRACE_VIEWER = '1.61';
+
 export const SUPPORT_URL = 'https://github.com/qartisan/playwright-loupe/blob/main/docs/support.md';
 
 /**

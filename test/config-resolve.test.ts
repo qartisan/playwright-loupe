@@ -33,6 +33,7 @@ describe('resolveConfig: defaults', () => {
       aiPrompt: { includeStack: true },
       redact: { mode: 'extend', patterns: [], env: [] },
       git: { local: true },
+      traceViewer: 'off',
     });
   });
 
@@ -202,6 +203,22 @@ describe('resolveConfig: git', () => {
     expect(resolve({ file: { git: { local: false } }, inline: { git: { local: true } } }).git.local).toBe(true);
     expect(resolve({ inline: { git: { local: true } }, env: { LOUPE_GIT_LOCAL: 'false' } }).git.local).toBe(false);
     expect(resolve({ file: { git: { local: false } }, env: { LOUPE_GIT_LOCAL: '1' } }).git.local).toBe(true);
+  });
+
+  it('follows the layers: defaults < config file < inline options < LOUPE_TRACE_VIEWER', () => {
+    expect(resolve({ file: { traceViewer: 'bundled' } }).traceViewer).toBe('bundled');
+    expect(resolve({ file: { traceViewer: 'bundled' }, inline: { traceViewer: 'off' } }).traceViewer).toBe('off');
+    expect(resolve({ inline: { traceViewer: 'off' }, env: { LOUPE_TRACE_VIEWER: 'bundled' } }).traceViewer).toBe('bundled');
+    expect(resolve({ file: { traceViewer: 'bundled' }, env: { LOUPE_TRACE_VIEWER: 'off' } }).traceViewer).toBe('off');
+  });
+
+  it('ignores an empty LOUPE_TRACE_VIEWER and trims its value', () => {
+    expect(resolve({ file: { traceViewer: 'bundled' }, env: { LOUPE_TRACE_VIEWER: ' ' } }).traceViewer).toBe('bundled');
+    expect(resolve({ env: { LOUPE_TRACE_VIEWER: ' bundled ' } }).traceViewer).toBe('bundled');
+  });
+
+  it.each(['on', 'BUNDLED', 'true', 'constructor'])('rejects LOUPE_TRACE_VIEWER=%j', (value) => {
+    expect(() => resolve({ env: { LOUPE_TRACE_VIEWER: value } })).toThrow(`LOUPE_TRACE_VIEWER must be one of "off", "bundled", got "${value}"`);
   });
 
   it.each([

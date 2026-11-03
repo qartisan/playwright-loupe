@@ -1,5 +1,5 @@
 import { PALETTE_NAMES } from '../shared/palette.js';
-import { CATEGORY_MODES, CATEGORY_TARGETS, REDACT_MODES, SCREENSHOT_VIEWS, THEMES } from './types.js';
+import { CATEGORY_MODES, CATEGORY_TARGETS, REDACT_MODES, SCREENSHOT_VIEWS, THEMES, TRACE_VIEWERS } from './types.js';
 
 /**
  * Hand-written validator for one config layer (config file, inline options or
@@ -275,6 +275,7 @@ export function validateConfig(value: unknown, source: string, options: { allowC
     aiPrompt: object({ includeStack: boolean(ctx) }, ctx),
     redact: object({ patterns: namePatterns(ctx), mode: oneOf(REDACT_MODES, ctx), env: envNames(ctx) }, ctx),
     git: object({ local: boolean(ctx) }, ctx),
+    traceViewer: oneOf(TRACE_VIEWERS, ctx),
   };
   if (options.allowConfigFile) fields['configFile'] = nonEmptyString(ctx);
   object(fields, ctx)(value, '', errors);

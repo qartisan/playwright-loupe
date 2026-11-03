@@ -46,6 +46,7 @@ import { esmImportLocation, isUsableLocation } from './runErrors.js';
 import { detectScopeReasons, resolveScope } from './scope.js';
 import { DEFAULT_REDACT, createRedactor, mapReportStrings, type AttemptRedactor, type RedactOptions } from './redact.js';
 import { errorSignature, stripAnsi, stripMergeTagPrefix } from './signature.js';
+import { TRACE_VIEWER_FOLDER } from './traceViewer.js';
 
 /** Folder, inside the report folder, that holds the copied attachments. */
 export const DATA_FOLDER = 'data';
@@ -90,9 +91,14 @@ export class AttachmentStore {
     private readonly mask: (text: string) => string,
   ) {}
 
-  /** Removes attachments left by a previous report in the same folder. */
+  /**
+   * Removes attachments and the trace viewer left by a previous report in the
+   * same folder. A viewer that cannot be removed does not stop the report: the
+   * settings of this report do not point to it.
+   */
   async reset(): Promise<void> {
     await rm(path.join(this.outputFolder, DATA_FOLDER), { recursive: true, force: true });
+    await rm(path.join(this.outputFolder, TRACE_VIEWER_FOLDER), { recursive: true, force: true }).catch(() => {});
   }
 
   async add(folder: string, attachment: PwAttachment): Promise<Attachment> {

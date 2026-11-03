@@ -351,6 +351,7 @@ describe('fixture suite with the built reporter', () => {
       theme: 'dark',
       screenshots: { defaultView: 'slider' },
       aiPrompt: { includeStack: true },
+      traceViewer: null,
     });
   });
 

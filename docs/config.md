@@ -72,6 +72,7 @@ Merging is done key by key for nested objects (`categories`, `dimensions`, `scre
 | `redact.patterns` | `(string \| RegExp)[]` | `[]` | Secret-looking names, added to the defaults. See [Secret redaction](#secret-redaction). |
 | `redact.mode` | `'extend' \| 'replace'` | `'extend'` | `replace`: only `redact.patterns`; `[]` turns name-based redaction off. |
 | `redact.env` | `string[]` | `[]` | Names of environment variables whose values are redacted everywhere. `LOUPE_REDACT_ENV` adds to it. |
+| `traceViewer` | `'off' \| 'bundled'` | `'off'` | `bundled` copies the Trace Viewer of your Playwright (1.61 or later) into `trace-viewer/` in the report folder, when the run has at least one trace. `LOUPE_TRACE_VIEWER` overrides it. See [Trace viewer](#trace-viewer). |
 | `git.local` | `boolean` | `true` | Read commit, branch and remote from the local repository when Playwright's metadata and the CI variables do not give them. `LOUPE_GIT_LOCAL` overrides it. See [Git information](#git-information). |
 | `configFile` | `string` | none | **Inline options only.** Config file to load instead of the default lookup, relative to the Playwright config file's directory. |
 
@@ -218,6 +219,14 @@ export default defineConfig({
 
 On CI, the CI variables are read in any case.
 
+### Trace viewer
+
+`traceViewer: 'bundled'` copies the Trace Viewer of your project's Playwright into `trace-viewer/` in the report folder, nothing else: Loupe ships no viewer and loads none from the Internet. It adds about 1.7 MB to the folder (about 0.5 MB compressed), once per report, whatever the size of the suite. A run without a trace copies nothing. Under `merge-reports`, the option of the merge run applies, and the viewer is the one of the Playwright that merges.
+
+`trace-viewer/` is removed at the start of every report, also with `off`, so a viewer never survives from a previous run. Do not keep files of your own in it. The copy is Playwright's static code, not rewritten: the [machine paths and secret guarantees](../README.md#security) cover `report.json` and `index.html`.
+
+The option never fails a run. On any of these, one `Loupe: …` line on stderr, and the report is written without the viewer: Playwright older than 1.61 (see [why](support.md#known-playwright-issues)), the viewer not found, a failed copy. When `merge-reports` runs a Playwright older than the blob reports, the viewer is copied with one warning, as traces from newer versions may not open in it. Only the version Playwright gives the reporter is compared, `config.version`, the one of the last blob.
+
 ### Renderer settings
 
 `title`, `theme`, `screenshots.defaultView` and `aiPrompt.includeStack` are presentation choices, not data. They are written next to the report data in `index.html`, not in `report.json`, and are not part of the data contract. See [Renderer settings](schema/v1.md#renderer-settings).
@@ -233,8 +242,9 @@ On CI, the CI variables are read in any case.
 | `LOUPE_REDACT_ENV` | Comma-separated variable names **added** to `redact.env` (never replacing the configured ones). Names only. | |
 | `LOUPE_RUN_SCOPE` | Forces the run scope: `full` or `partial`. See [Run scope](schema/v1.md#run-scope). | |
 | `LOUPE_GIT_LOCAL` | Overrides `git.local`: `true` or `1` reads the local repository, `false` or `0` does not. | |
+| `LOUPE_TRACE_VIEWER` | Overrides `traceViewer`: `off` or `bundled`. | |
 
-Empty values are ignored, as if the variable were unset. An invalid `LOUPE_RUN_SCOPE` or `LOUPE_GIT_LOCAL` stops the run.
+Empty values are ignored, as if the variable were unset. An invalid `LOUPE_RUN_SCOPE`, `LOUPE_GIT_LOCAL` or `LOUPE_TRACE_VIEWER` stops the run.
 
 ## Lookup
 

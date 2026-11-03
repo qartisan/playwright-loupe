@@ -18,6 +18,9 @@ export type ScreenshotView = (typeof SCREENSHOT_VIEWS)[number];
 export const THEMES = ['system', 'light', 'dark'] as const;
 export type Theme = (typeof THEMES)[number];
 
+export const TRACE_VIEWERS = ['off', 'bundled'] as const;
+export type TraceViewer = (typeof TRACE_VIEWERS)[number];
+
 export interface CategoryRuleConfig {
   /** Category name. Several rules may share a name. */
   name: string;
@@ -109,6 +112,12 @@ export interface LoupeConfig {
      */
     local?: boolean;
   };
+  /**
+   * `bundled` copies the trace viewer of the project's Playwright (1.61 or
+   * later) into the report folder when the run has traces. `LOUPE_TRACE_VIEWER`
+   * overrides it. Default: `off`.
+   */
+  traceViewer?: TraceViewer;
 }
 
 /** Inline reporter options: a config, plus the path of the config file. */
@@ -146,4 +155,5 @@ export interface ResolvedConfig {
   /** RegExps without the `g` and `y` flags; `env` merged from every layer, without duplicates. */
   redact: { mode: RedactMode; patterns: Array<string | RegExp>; env: string[] };
   git: { local: boolean };
+  traceViewer: TraceViewer;
 }

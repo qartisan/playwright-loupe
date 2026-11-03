@@ -37,6 +37,7 @@ describe('validateConfig: valid configs', () => {
         screenshots: { defaultView: 'slider' },
         theme: 'system',
         aiPrompt: { includeStack: false },
+        traceViewer: 'bundled',
         redact: { patterns: ['recovery code', /x-vercel-/i], mode: 'extend', env: ['API_TOKEN', 'E2E_PASSWORD'] },
         git: { local: false },
       }),
@@ -54,7 +55,7 @@ describe('validateConfig: valid configs', () => {
   it('accepts configFile only in reporter options', () => {
     expect(validateConfig({ configFile: 'loupe.ci.ts' }, 'reporter options', { allowConfigFile: true })).toEqual([]);
     expect(validate({ configFile: 'loupe.ci.ts' })).toEqual([
-      `${SOURCE}: configFile is not a known option. Known options: outputFolder, title, environment, categories, dimensions, screenshots, theme, aiPrompt, redact, git.`,
+      `${SOURCE}: configFile is not a known option. Known options: outputFolder, title, environment, categories, dimensions, screenshots, theme, aiPrompt, redact, git, traceViewer.`,
     ]);
   });
 });
@@ -73,6 +74,8 @@ describe('validateConfig: errors name the source, the exact path and the expecte
     [{ aiPrompt: { includeStack: 'no' } }, 'aiPrompt.includeStack must be a boolean, got "no"'],
     [{ aiPrompt: true }, 'aiPrompt must be an object, got true'],
     [{ aiPrompt: { includeStacks: false } }, 'aiPrompt.includeStacks is not a known option. Did you mean "includeStack"?'],
+    [{ traceViewer: 'on' }, 'traceViewer must be one of "off", "bundled", got "on"'],
+    [{ traceViewer: true }, 'traceViewer must be one of "off", "bundled", got true'],
     [{ git: { local: 'false' } }, 'git.local must be a boolean, got "false"'],
     [{ git: false }, 'git must be an object, got false'],
     [{ git: { locale: false } }, 'git.locale is not a known option. Did you mean "local"?'],
@@ -215,7 +218,7 @@ describe('validateConfig: unknown keys', () => {
 
   it('lists the known options when nothing is close', () => {
     expect(validate({ history: {} })).toEqual([
-      `${SOURCE}: history is not a known option. Known options: outputFolder, title, environment, categories, dimensions, screenshots, theme, aiPrompt, redact, git.`,
+      `${SOURCE}: history is not a known option. Known options: outputFolder, title, environment, categories, dimensions, screenshots, theme, aiPrompt, redact, git, traceViewer.`,
     ]);
   });
 });

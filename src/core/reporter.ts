@@ -12,6 +12,7 @@ import { injectData, injectSettings, type RendererSettings } from './inject.js';
 import { secretValues } from './redact.js';
 import { SCOPE_ENV, parseScopeOverride } from './scope.js';
 import { playwrightVersionWarning } from './support.js';
+import { TRACE_VIEWER_FOLDER, bundleTraceViewer, findPlaywrightCore } from './traceViewer.js';
 import { generatorVersion } from './version.js';
 
 /**
@@ -72,11 +73,15 @@ export class LoupeReporter implements Reporter {
     // One batch of read-only git commands per run, started now and awaited in onEnd.
     if (this.loupeConfig.git.local) {
       this.localGit = readLocalGit({
-        cwd: this.configDir ?? (config.configFile ? path.dirname(config.configFile) : process.cwd()),
+        cwd: this.projectDir(config),
         env: process.env,
         timeoutMs: LOCAL_GIT_TIMEOUT_MS,
       });
     }
+  }
+
+  private projectDir(config: FullConfig): string {
+    return this.configDir ?? (config.configFile ? path.dirname(config.configFile) : process.cwd());
   }
 
   /** Errors outside tests: load errors, global setup / teardown, worker teardown. Playwright passes `workerInfo` from 1.60; before, run errors have no project. */
@@ -102,11 +107,19 @@ export class LoupeReporter implements Reporter {
       home: homedir(),
       ...(this.localGit ? { localGit: { git: await this.localGit, merged: this.merged } } : {}),
     });
+    // No copy without a trace. buildReport has removed the viewer of a previous report.
+    const hasTrace = report.tests.some((test) => test.attempts.some((attempt) => attempt.attachments.some((attachment) => attachment.kind === 'trace' && attachment.path !== null)));
+    const viewer =
+      this.loupeConfig.traceViewer === 'bundled' && hasTrace
+        ? await bundleTraceViewer({ outputFolder, core: findPlaywrightCore(this.projectDir(this.config)), blobVersion: this.merged ? this.config.version : null })
+        : { copied: false, warning: null };
+    if (viewer.warning) console.warn(viewer.warning);
     const settings: RendererSettings = {
       title: this.loupeConfig.title,
       theme: this.loupeConfig.theme,
       screenshots: { defaultView: this.loupeConfig.screenshots.defaultView },
       aiPrompt: { includeStack: this.loupeConfig.aiPrompt.includeStack },
+      traceViewer: viewer.copied ? TRACE_VIEWER_FOLDER : null,
     };
     const template = await readFile(TEMPLATE_URL, 'utf8');
 

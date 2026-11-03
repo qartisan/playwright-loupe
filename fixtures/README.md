@@ -26,6 +26,8 @@ Everything runs offline, through `page.setContent` and local servers on 127.0.0.
 
 `paths/` is a small suite of its own for the paths written in the report (see `test/paths.integration.test.ts`): a failure in a helper outside its `testDir`, missing files under the root dir and in the home directory, an error without frames, and a test printing paths to stdout, an annotation and a text attachment. The test copies it under fake absolute roots; its failures are intentional too. It needs no browser. `paths/roots-reporter.ts`, added when `LOUPE_FIXTURE_ROOTS` is set, writes the roots Loupe derives from the stacks, so the test can check that a direct run derives no root but the root dir.
 
+`trace-viewer.config.ts` is the suite of the bundled trace viewer (see `test/trace-viewer.integration.test.ts`): one passing test with a trace, on a page routed from invented hosts, holding an `<object>` and an `<embed>` that point to another host. `helpers/playwright-core-stand-in.ts`, added when `LOUPE_FIXTURE_PLAYWRIGHT_CORE` is set, makes a folder pass for the running `playwright-core`.
+
 `merge.config.ts` is the config for `playwright merge-reports` on blob reports of a sharded run (see `test/merge.integration.test.ts`). It uses the same `testDir` so merged paths and test ids match an unsharded run.
 
 ## Loupe config

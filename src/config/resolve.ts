@@ -1,5 +1,5 @@
 import path from 'node:path';
-import type { LoupeConfig, LoupeReporterOptions, ResolvedCategoryRule, ResolvedConfig, ResolvedDimension } from './types.js';
+import { TRACE_VIEWERS, type LoupeConfig, type LoupeReporterOptions, type ResolvedCategoryRule, type ResolvedConfig, type ResolvedDimension, type TraceViewer } from './types.js';
 import { paletteReference } from '../shared/palette.js';
 import { ENV_NAME, validateConfig } from './validate.js';
 
@@ -9,7 +9,7 @@ export const DEFAULT_OUTPUT_FOLDER = 'loupe-report';
 export const DEFAULT_TITLE = 'Loupe report';
 export const DEFAULT_UNCATEGORIZED = 'Uncategorized';
 
-/** Environment variables mapped onto config options. `LOUPE_CONFIG`, `LOUPE_RUN_SCOPE`, `LOUPE_REDACT_ENV` and `LOUPE_GIT_LOCAL` are handled apart. */
+/** Environment variables mapped onto config options. `LOUPE_CONFIG`, `LOUPE_RUN_SCOPE`, `LOUPE_REDACT_ENV`, `LOUPE_GIT_LOCAL` and `LOUPE_TRACE_VIEWER` are handled apart. */
 export const ENV_OPTIONS = {
   LOUPE_OUTPUT_FOLDER: 'outputFolder',
   LOUPE_TITLE: 'title',
@@ -91,6 +91,19 @@ export function gitLocalEnv(env: Env): { value: boolean | undefined; problems: s
   return { value: undefined, problems: [`${GIT_LOCAL_ENV} must be one of "true", "false", "1", "0", got ${shown}`] };
 }
 
+/** `traceViewer` from the environment: `off` or `bundled`. */
+export const TRACE_VIEWER_ENV = 'LOUPE_TRACE_VIEWER';
+
+/** `traceViewer` from `LOUPE_TRACE_VIEWER`, undefined when unset or empty, with a problem for any other value. */
+export function traceViewerEnv(env: Env): { value: TraceViewer | undefined; problems: string[] } {
+  const raw = envValue(env, TRACE_VIEWER_ENV);
+  if (raw === undefined) return { value: undefined, problems: [] };
+  const value = TRACE_VIEWERS.find((candidate) => candidate === raw);
+  if (value !== undefined) return { value, problems: [] };
+  const shown = JSON.stringify(raw.length > 40 ? `${raw.slice(0, 40)}…` : raw);
+  return { value: undefined, problems: [`${TRACE_VIEWER_ENV} must be one of "off", "bundled", got ${shown}`] };
+}
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof RegExp);
 }
@@ -154,16 +167,19 @@ export function resolveConfig(layers: ConfigLayers): ResolvedConfig {
   const env = envLayer(layers.env);
   const redactEnv = redactEnvNames(layers.env);
   const gitLocal = gitLocalEnv(layers.env);
+  const traceViewer = traceViewerEnv(layers.env);
   const problems = [
     ...(layers.file ? validateConfig(layers.file.config, fileSource) : []),
     ...validateConfig(layers.inline, 'reporter options', { allowConfigFile: true }),
     ...redactEnv.problems,
     ...gitLocal.problems,
+    ...traceViewer.problems,
   ];
   if (problems.length > 0) throw new LoupeConfigError(problems);
 
   const { configFile: _configFile, ...inline } = layers.inline as LoupeReporterOptions;
   if (gitLocal.value !== undefined) env.git = { local: gitLocal.value };
+  if (traceViewer.value !== undefined) env.traceViewer = traceViewer.value;
   const merged = mergeLayers(mergeLayers((layers.file?.config ?? {}) as LoupeConfig, inline), env);
 
   const uncategorized = merged.categories?.uncategorized ?? DEFAULT_UNCATEGORIZED;
@@ -197,5 +213,6 @@ export function resolveConfig(layers: ConfigLayers): ResolvedConfig {
       env: [...new Set([...(merged.redact?.env ?? []), ...redactEnv.names])],
     },
     git: { local: merged.git?.local ?? true },
+    traceViewer: merged.traceViewer ?? 'off',
   };
 }

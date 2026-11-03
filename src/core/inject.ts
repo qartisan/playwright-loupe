@@ -15,6 +15,8 @@ export interface RendererSettings {
   screenshots: { defaultView: 'side-by-side' | 'slider' | 'overlay' | 'diff' };
   /** The copyable AI prompt of the test detail. */
   aiPrompt: { includeStack: boolean };
+  /** Folder of the trace viewer, relative to the report; set only after a successful copy, null otherwise. */
+  traceViewer: string | null;
 }
 
 export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
@@ -22,6 +24,7 @@ export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
   theme: 'system',
   screenshots: { defaultView: 'side-by-side' },
   aiPrompt: { includeStack: true },
+  traceViewer: null,
 };
 
 const UNSAFE_CHARS: Record<string, string> = {

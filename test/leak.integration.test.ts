@@ -1,4 +1,5 @@
-import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -6,6 +7,7 @@ import { CANARY, HOMES, SECRETS } from '../fixtures/leak/homes.js';
 import { homePaths } from '../scripts/home-paths.mjs';
 import type { LoupeReport, Step, TestCase } from '../src/schema/v1.js';
 import { REDACTED } from '../src/shared/redaction.js';
+import { MIN_PLAYWRIGHT_TRACE_VIEWER, isBelow } from '../src/core/support.js';
 import { assertBuilt, playwright, readReport } from './helpers/fixtures.js';
 
 /**
@@ -109,6 +111,25 @@ describe('the leak canary', () => {
     expect(names.length).toBeGreaterThan(0);
     expect(names.join('\n').toLowerCase()).not.toContain(CANARY);
   });
+
+  it('holds no home, canary name or secret with the bundled trace viewer on', () => {
+    const folder = path.join(workDir, 'report-viewer');
+    const result = playwright(['test', '--config', 'fixtures/leak.config.ts', '--output', path.join(workDir, 'results-viewer')], {
+      LOUPE_FIXTURE_OUTPUT: folder,
+      LOUPE_TRACE_VIEWER: 'bundled',
+    });
+    readReport(folder, `Exit code ${result.status}.\n${result.output}`);
+    // Below its minimum Playwright, the option is on and nothing is copied: the canary holds either way.
+    const copied = !isBelow(createRequire(import.meta.url)('@playwright/test/package.json').version, MIN_PLAYWRIGHT_TRACE_VIEWER);
+    expect(existsSync(path.join(folder, 'trace-viewer', 'index.html'))).toBe(copied);
+    for (const file of ['report.json', 'index.html']) {
+      const text = readFileSync(path.join(folder, file), 'utf8');
+      expect(text.toLowerCase()).not.toContain(CANARY);
+      for (const secret of Object.values(SECRETS)) expect(text).not.toContain(secret);
+      const home = homedir();
+      if (home.split(/[\\/]/).filter(Boolean).length >= 2) expect(text).not.toContain(home);
+    }
+  }, 120_000);
 
   it('masks a home before a tag is split into a dimension, whose names match the definitions', () => {
     const names = report.dimensions.map((dimension) => dimension.name);
