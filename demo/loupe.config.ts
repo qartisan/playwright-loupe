@@ -12,6 +12,9 @@ export default {
   environment: 'staging',
   // Relative to playwright.config.ts: the report lands at the repository root.
   outputFolder: '../demo-report',
+  // Copies Playwright's trace viewer into the report: the live demo, served over
+  // https, opens its traces in it.
+  traceViewer: 'bundled',
   categories: {
     // `extend` (the default): these rules run before the built-in ones.
     rules: [

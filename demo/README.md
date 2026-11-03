@@ -49,6 +49,8 @@ Kept small for the live demo (target under 5 MB for the whole report, ceiling 10
 - videos for `tests/web/checkout.spec.ts` only, traces for `tests/web/cart.spec.ts` only (`test.use` at file level, kept on failure);
 - a JSON attachment in `Products API › lists products`.
 
+`loupe.config.ts` sets `traceViewer: 'bundled'`: the report folder holds Playwright's trace viewer (`trace-viewer/`, about 1.7 MB), so the live demo, served over https, opens its traces in it.
+
 ## Checks
 
 `scripts/run-demo.mjs` exits with code 0 only when Playwright exits with code 1 and the report:
@@ -56,6 +58,7 @@ Kept small for the live demo (target under 5 MB for the whole report, ceiling 10
 - has every outcome of the table above, and every other test passed;
 - has no run error, 45 to 55 tests, and the skip kinds above;
 - has an error group shared by three tests, every category of the table, the dimensions, a nested step, a screenshot comparison, a video and a trace;
+- has the trace viewer in `trace-viewer/`, and links to it;
 - shows exactly one common failure point, `signIn`, once rendered;
 - stays under 10 MB.
 

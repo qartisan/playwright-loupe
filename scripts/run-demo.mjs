@@ -10,6 +10,7 @@
 //   - skip reasons, "Not run", an error group shared by several tests, the
 //     error categories, the dimensions, nested steps and the attachments are there;
 //   - the rendered report shows exactly one common failure point, `signIn`;
+//   - the trace viewer was copied, and the report links to it;
 //   - the report folder stays under the size ceiling of the live demo;
 //   - report.json and index.html hold no home directory path, here or in CI:
 //     the report is published (live demo, CI artifact, README images).
@@ -151,6 +152,11 @@ check(attachments.some((attachment) => attachment.comparison?.role === 'diff'), 
 check(attachments.some((attachment) => attachment.kind === 'video' && attachment.path), 'no video');
 check(attachments.some((attachment) => attachment.kind === 'trace' && attachment.path), 'no trace');
 for (const attachment of attachments) check(attachment.path === null || existsSync(join(reportDir, attachment.path)), `missing attachment file: ${attachment.path}`);
+
+// The bundled trace viewer (traceViewer: 'bundled' in demo/loupe.config.ts).
+check(existsSync(join(reportDir, 'trace-viewer', 'index.html')), 'no trace viewer in trace-viewer/');
+const settingsText = /<script id="loupe-settings" type="application\/json">(.*?)<\/script>/s.exec(readFileSync(indexFile, 'utf8'))?.[1];
+check(JSON.parse(settingsText ?? '{}').traceViewer === 'trace-viewer', 'the report does not link to the trace viewer (traceViewer setting)');
 
 // Size of the Pages site.
 const folderSize = (dir) =>
