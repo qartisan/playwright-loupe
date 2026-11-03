@@ -83,7 +83,7 @@ The report is a single self-contained HTML file. It works offline, straight from
   - **Screenshot comparisons**: a failed `toHaveScreenshot` / `toMatchSnapshot` gives one card per image name, before the other screenshots, with four modes: Diff, Side by side (expected | actual, at one scale), Slider (actual over expected, a divider to drag or move with the arrow keys) and Overlay (actual over expected, its opacity to set). Only the modes the images allow are offered; Diff is the default when there is a diff image. The chosen mode applies to every comparison until the report is closed. Each image's size is shown, with a warning when expected and actual differ: slider and overlay align them top-left. "Open in viewer" shows the same modes in the viewer below.
   - **Screenshots** as thumbnails. A click (or Enter / Space) opens them in a viewer, after the comparisons: fitted to the window, or at actual size by clicking the image; previous / next with the buttons or `←` / `→`; "Open original" in a new tab. Escape, the close button or a click outside closes it, back on the same thumbnail. A missing file shows its name and path.
   - **Videos** play inline. A missing or unplayable file shows its path instead of an empty player.
-  - **Traces**: "Copy trace command" copies `npx playwright show-trace <path>`, to run from your project root in a POSIX shell. When the report is opened from disk (`file://`), the path is the absolute path of the trace, so the command works from any directory; when the report is served over HTTP, the disk path is unknown and the path is relative to the report folder (the one containing `index.html`): run it from there. The trace viewer needs an HTTP server, so it cannot open from `file://`; the command uses the project's own Playwright, which must be at least the version that ran the tests (an older trace viewer shows an empty screen on a newer trace). The card says which version, and has a "Download trace" link.
+  - **Traces**: with [`traceViewer: 'bundled'`](#trace-viewer), "Open in Trace Viewer" opens the trace in a new tab, in Playwright's Trace Viewer copied into the report, when the report is served over https or from localhost. In every case, "Copy trace command" copies `npx playwright show-trace <path>`, to run from your project root in a POSIX shell. When the report is opened from disk (`file://`), the path is the absolute path of the trace, so the command works from any directory; when the report is served over HTTP, the disk path is unknown and the path is relative to the report folder (the one containing `index.html`): run it from there. The trace viewer needs an HTTP server, so it cannot open from `file://`; the command uses the project's own Playwright, which must be at least the version that ran the tests (an older trace viewer shows an empty screen on a newer trace). The card says which version, and has a "Download trace" link.
   - Other files are listed as links; small text bodies inline, collapsed.
 - **Copy buttons:** rerun commands (this test, the failed tests of its file, the failed tests of the current list) and an AI prompt describing the failure, in English. Both are only copied to the clipboard; nothing is sent anywhere.
   - A command selects tests by project, file and title, never by line, so it still works when lines have moved, or when Playwright [recorded a wrong line](docs/support.md#known-playwright-issues). One command covers all its tests, whatever their projects:
@@ -186,6 +186,29 @@ Every option, the lookup rules and the environment variables are documented in [
 ### Git information
 
 The report records the commit, the branch and the repository URL of the run, each from the first source that has it: Playwright's metadata ([`captureGitInfo`](https://playwright.dev/docs/api/class-testconfig#test-config-capture-git-info)), then the CI variables (GitHub Actions, GitLab, Azure Pipelines, CircleCI, Jenkins, Bitbucket, Buildkite), then the local repository, which Loupe reads with read-only git commands. `git.local: false` or `LOUPE_GIT_LOCAL=0` turns off Loupe's own reads only: what Playwright put in its metadata is still used, so to record no git information on a local run, also set `captureGitInfo: { commit: false }` in the Playwright config. Loupe never reads the commit message, the author's name or e-mail. See [Git information](docs/config.md#git-information).
+
+### Trace viewer
+
+```ts
+traceViewer: 'bundled',
+```
+
+`bundled` copies the Trace Viewer of your project's Playwright into `trace-viewer/` in the report folder, and each trace card gets an "Open in Trace Viewer" button: the trace opens in a new tab, served from the same place as the report. Loupe ships no viewer and loads nothing from the Internet, and the viewer makes no request outside the report's origin. It needs **Playwright 1.61 or later**, because older viewers contact hosts of the traced page ([why](docs/support.md#known-playwright-issues)); below that, the report is written without it, with one warning. `LOUPE_TRACE_VIEWER=bundled` turns it on for one run.
+
+It is **off by default**: it adds about 1.7 MB to the report folder (about 0.5 MB compressed), and the button only works when the report is served over http(s). A run without a trace copies nothing.
+
+**The report must be served from a secure context.** The viewer runs on a service worker, which browsers only allow over `https://`, or over `http://` from `localhost` or `127.0.0.1`. From `file://`, over plain `http://` on another host, or in a page sandboxed by a CSP, there is no button; "Copy trace command" and "Download trace" stay.
+
+**To serve a report on your machine**, `npx playwright show-report loupe-report` serves the folder on `http://localhost:9323`, and the button works. This is a convenience that works today (checked with Playwright 1.52, 1.57 and 1.64.1), not a guarantee: the command is made for Playwright's own HTML report, and serving another report's folder is not what it promises. Any static file server on `localhost` works too.
+
+Limits:
+
+- The button relies on what was true when the report was written. If `trace-viewer/` is not published with the report (a CI step that uploads only `index.html` and `data/`), it opens a page that does not exist: publish the whole folder.
+- The viewer's service worker stays in the browser. After a report is republished to the same URL, a browser that opened traces there before may keep the old viewer for a few opens or reloads before it recovers (measured: two failed opens and one failed reload).
+- Under `merge-reports`, the viewer is the one of the Playwright that merges; when it is older than the blob reports, there is one warning, as traces from newer versions may not open in it.
+- `trace-viewer/` is removed at the start of every report, so do not keep your own files in it. It is Playwright's code, copied as is: the guarantees of [Security](#security) cover `report.json` and `index.html`, and a report with traces stays private.
+
+See [Trace viewer](docs/config.md#trace-viewer).
 
 ### Security
 

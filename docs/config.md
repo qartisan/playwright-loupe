@@ -221,7 +221,7 @@ On CI, the CI variables are read in any case.
 
 ### Trace viewer
 
-`traceViewer: 'bundled'` copies the Trace Viewer of your project's Playwright into `trace-viewer/` in the report folder, nothing else: Loupe ships no viewer and loads none from the Internet. It adds about 1.7 MB to the folder (about 0.5 MB compressed), once per report, whatever the size of the suite. A run without a trace copies nothing. Under `merge-reports`, the option of the merge run applies, and the viewer is the one of the Playwright that merges.
+`traceViewer: 'bundled'` copies the Trace Viewer of your project's Playwright into `trace-viewer/` in the report folder, nothing else: Loupe ships no viewer and loads none from the Internet. It adds about 1.7 MB to the folder (about 0.5 MB compressed), once per report, whatever the size of the suite. A run without a trace copies nothing. Under `merge-reports`, the option of the merge run applies, and the viewer is the one of the Playwright that merges. The button only appears when the report is served from a secure context; how to serve it, and the limits, are in the [README](../README.md#trace-viewer).
 
 `trace-viewer/` is removed at the start of every report, also with `off`, so a viewer never survives from a previous run. Do not keep files of your own in it. The copy is Playwright's static code, not rewritten: the [machine paths and secret guarantees](../README.md#security) cover `report.json` and `index.html`.
 

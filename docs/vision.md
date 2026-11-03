@@ -34,7 +34,9 @@ These are non-negotiable. Any proposal that conflicts with them must be flagged 
 - The report works from `file://`, so navigation uses hash routes (`#/test/<id>`). The URL is the single source of navigation state, and later of filter state.
 - Other outputs (PR Markdown summary, notifications) will plug into the same model later.
 - The report stays compatible with `merge-reports`.
-- The Playwright trace viewer requires an HTTP server, so a trace cannot open from `file://`. The report gives the `npx playwright show-trace <path>` command to copy, run from the project root with the project's own Playwright: over `file://`, the renderer computes the trace's absolute path from its own location, so every command of the report follows the same working-directory rule (over HTTP the path stays relative to the report folder). Planned follow-up: an optional `show` command serving the report from a local server (`127.0.0.1`, through Playwright's public CLI only) so that a trace opens in one click. It is never mandatory: the report stays fully usable without it.
+- The Playwright trace viewer requires an HTTP server, so a trace cannot open from `file://`. The report gives the `npx playwright show-trace <path>` command to copy, run from the project root with the project's own Playwright: over `file://`, the renderer computes the trace's absolute path from its own location, so every command of the report follows the same working-directory rule (over HTTP the path stays relative to the report folder).
+- **One-click traces: `traceViewer: 'bundled'`** (since 0.3.0, off by default). The reporter copies the Trace Viewer of the project's own Playwright into `trace-viewer/`, and the trace card opens a trace in it when the report is served from a secure context (https, or http on localhost). Nothing is shipped by Loupe or loaded from the Internet. It requires Playwright 1.61, the first viewer that makes no request outside the report's origin; the version judged is the viewer's, read from `playwright-core`, not the blobs' under `merge-reports`. Off by default because it adds about 1.7 MB per report and does nothing over `file://`. The renderer shows the button only when the copy succeeded (a setting in `index.html`, no probe request), so a report published without `trace-viewer/` has a dead button: documented, not detected.
+- **The `show` command must be re-evaluated before it is briefed.** It was planned as an optional local server so that a trace opens in one click. `npx playwright show-report <report folder>` already serves a Loupe report, its bundled viewer included, on localhost (checked on 1.52, 1.57 and 1.64.1), though as a convenience Playwright does not promise. What `show` would still add (independence from that command, the write path for comments and exclusions of phase 2) has to be weighed against that. If it is built, it stays optional: the report remains fully usable without it.
 
 ## Data model
 
@@ -102,7 +104,7 @@ Error, steps, attachments and a copyable rerun command, organized **per attempt*
 - **Navigation**: previous / next follow the Tests view's current list (filters and sort, no render cap). The default sort is declaration order (project, file, line), the same in the sidebar, the table and previous / next: filters, not the default order, focus on failures. On an error group page, previous / next follow the Errors view's order, restricted to a category when the page was opened from one. Single-key shortcuts, all typed without modifiers on common layouts (US QWERTY, BE/FR AZERTY): `j`/`k` for next / previous (tests on a test detail, groups on an error group page), `o`/`e`/`h`/`t` for the four views, `/` and `?`; a switch in the shortcuts dialog turns them off (WCAG 2.1.4). No shortcut for attempts: `[`/`]` needed AltGr on AZERTY, which Windows reports as Ctrl+Alt; the attempt tabs stay keyboard operable.
 - **Screenshots**: thumbnails and a lightbox (native `<dialog>`, previous / next, actual size); for `toHaveScreenshot`, one comparison per image name with four modes (diff, side-by-side, slider, overlay), only those the images allow. The default is Diff when there is a diff image, else side by side; the chosen mode is shared by all comparisons for the session, in memory only (not configurable, not in the URL). Images of different sizes are aligned top-left and their sizes shown. Files stay in `data/`, never inlined.
 - **Videos**: played inline.
-- **Traces**: a copyable `npx playwright show-trace` command (POSIX quoting) with the run's Playwright version as the minimum (an older trace viewer shows an empty screen on a newer trace), and a download link. Planned: one-click opening through the optional `show` command.
+- **Traces**: a copyable `npx playwright show-trace` command (POSIX quoting) with the run's Playwright version as the minimum (an older trace viewer shows an empty screen on a newer trace), and a download link. With `traceViewer: 'bundled'`, an "Open in Trace Viewer" button first, opening the trace in a new tab; shown only over http(s) in a secure context with a service worker available.
 - **AI prompt**: a button copies a ready-to-paste prompt, in English, to the clipboard. Phase 1 includes the test (its file, without the line, which can be wrong), its tags and annotations, the error (message, snippet, location, stack unless `aiPrompt.includeStack` is `false`), the failing step with the steps before it, error category and attachment names. Test source, ARIA snapshot, signature and historical context come later. Loupe never calls an AI service itself.
 
 ## Dimensions
@@ -150,6 +152,7 @@ The config is validated at startup with explicit error messages. An invalid conf
 | `locale` | English and French |
 | `history` | Storage location, retention, analysis window, and when runs are recorded (`history.record`) |
 | `attachments` | Embed or link, maximum video size |
+| `traceViewer` | `off` or `bundled`: copy Playwright's Trace Viewer into the report (`LOUPE_TRACE_VIEWER` overrides it) |
 | `dashboard` | Widget list or role preset |
 
 ## History and run types
@@ -168,7 +171,7 @@ Every run produces a report, but not every run counts in statistics.
 - **Excluded runs.** A run can be excluded with a mandatory reason, after the fact or at launch through an environment variable. It stays visible but no longer counts. Loupe may suggest an exclusion when most failures are infrastructure-related, but never applies one by itself.
 - **Retention vs analysis window.** Retention defines what is kept (maximum runs and/or age, whichever limit is reached first). The analysis window defines what statistics are computed on (last N runs or last N days) and can be changed in the UI.
 
-Since a static report cannot write, comments and exclusions go through a CLI command or through the local `show` server.
+Since a static report cannot write, comments and exclusions go through a CLI command or through a local `show` server, if one is built (see [Architecture](#architecture)).
 
 ## Roadmap
 

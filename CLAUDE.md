@@ -31,7 +31,7 @@ test/         # Vitest unit tests and JSON snapshots
 - `core` and `renderer` are separate entry points of a single package. No monorepo tooling for now.
 - The renderer is built into a self-contained HTML file; the reporter injects the JSON into it.
 - The report must stay compatible with `merge-reports`.
-- The Playwright trace viewer needs an HTTP server and cannot run over `file://`. Today the trace card copies `npx playwright show-trace <absolute path>`, to run from the project root. An optional `show` command serving the report on 127.0.0.1 was investigated in brief 08b and is not built; if it is ever built, it must stay optional (no mandatory separate CLI).
+- The Playwright trace viewer needs an HTTP server and cannot run over `file://`. The trace card always copies `npx playwright show-trace <path>`, to run from the project root. With `traceViewer: 'bundled'` (off by default, Playwright 1.61 or later, `MIN_PLAYWRIGHT_TRACE_VIEWER`), the reporter copies the project's own viewer into `trace-viewer/` and the card adds "Open in Trace Viewer", shown only over http(s) in a secure context. The option never fails a run. `npx playwright show-report <report folder>` already serves a Loupe report with its viewer, so an optional `show` command (brief 08b, not built) must be re-evaluated before it is briefed; if it is ever built, it must stay optional (no mandatory separate CLI).
 
 ## Data model requirements (v1)
 
@@ -56,10 +56,14 @@ Out of scope for phase 1 (prepare in the data model, do not implement): history,
 - TypeScript strict, ESM.
 - `@playwright/test` is a `peerDependency`.
 - Two Playwright floors, both in `src/core/support.ts`: the **supported floor** (`MIN_PLAYWRIGHT_SUPPORTED`, 1.57; policy: minor versions released in the 12 months before a Loupe release, raised only in a minor release; a stderr warning below it) and the **technical floor** (`MIN_PLAYWRIGHT_INSTALLABLE`, 1.52, the peer dependency lower bound, raised only when it must be). Each has a CI job; `test/support.test.ts` keeps `package.json`, `ci.yml`, the README and `docs/support.md` in line. See [`docs/support.md`](docs/support.md).
-- Reads of Playwright internals (`_only`, `configInternalSymbol`, `_mode`, `configDir`, `metadata.actualWorkers`) must never throw: degrade instead (`test/internals.integration.test.ts`).
+- Reads of Playwright internals (`_only`, `configInternalSymbol`, `_mode`, `configDir`, `metadata.actualWorkers`) must never throw: degrade instead (`test/internals.integration.test.ts`). The same goes for the trace viewer's location, `playwright-core/lib/vite/traceViewer`, found through `require.cache` then the dependency chain from the config dir (`test/trace-viewer.integration.test.ts`).
 - `package.json` `files` ships only the build output plus README, LICENSE, CHANGELOG and `licenses/` (third-party licenses, e.g. the embedded DM Sans font).
 - Code, comments, README, docs and commit messages in English.
 - Config is validated at startup with explicit error messages; an invalid config must never fail silently.
+
+## Environment
+
+- Playwright 1.57 runs only under Node 22, because its Chromium install hangs on Node 24. Run any check against 1.57 (or 1.52) with Node 22, as `ci.yml` does.
 
 ## Testing
 
@@ -83,7 +87,7 @@ The npm scripts of `package.json`; the README's Development section describes ea
 - `npm run demo:screenshots`: regenerates the README images in `docs/images/` from a CI-built `demo-report/` (it refuses a locally built one).
 - Accessibility suite alone: `npm run build && npx vitest run test/renderer-a11y-browser.test.ts`. To add a state, one line in its `MATRIX`; accepted findings in `test/a11y-allowlist.ts`, each with its reason (an unused entry fails a full run). See the README's "Accessibility tests".
 
-There is no `show` command: traces open with `npx playwright show-trace <file>`, which the report's trace card copies.
+There is no `show` command: traces open with `npx playwright show-trace <file>`, which the report's trace card copies, or, with `traceViewer: 'bundled'`, in the bundled viewer of a report served over http(s), for example by `npx playwright show-report <report folder>`.
 
 ## Releasing
 

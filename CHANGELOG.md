@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+No change to the JSON shape: `schemaVersion` stays 1.
+
+### Added
+
+- **Open a trace in one click: `traceViewer: 'bundled'`**, off by default (`LOUPE_TRACE_VIEWER` overrides it). Loupe copies the Trace Viewer of your project's Playwright into `trace-viewer/` in the report folder, and each trace card gets an "Open in Trace Viewer" button, before "Copy trace command" and "Download trace". The trace opens in a new tab, from the report's own origin: Loupe ships no viewer, nothing is loaded from the Internet, and no request leaves that origin. See [Trace viewer](README.md#trace-viewer).
+  - Needs Playwright 1.61 or later, the first viewer that does not contact hosts of the traced page ([known issues](docs/support.md#known-playwright-issues)). Below it, or when the viewer cannot be found or copied, the report is written without it, with one `Loupe: …` line on stderr. The option never fails a run.
+  - The button appears only when the report is served from a secure context: over `https://`, or over `http://` from `localhost` or `127.0.0.1`. `npx playwright show-report <report folder>` serves it that way today, as a convenience Playwright does not promise.
+  - Adds about 1.7 MB to the report folder (about 0.5 MB compressed), only for a run with at least one trace. `trace-viewer/` is removed at the start of every report, with the option on or off.
+  - Under `merge-reports`, the viewer is the merging Playwright's; one warning when it is older than the blob reports.
+  - Limits: a report published without `trace-viewer/` shows a button that leads nowhere, and after a report is republished to the same URL, a returning browser may keep the old viewer for a few opens or reloads.
+  - `index.html` gains a `traceViewer` presentation setting, outside the data contract ([Renderer settings](docs/schema/v1.md#renderer-settings)).
+- The [live demo](https://qartisan.github.io/playwright-loupe/) opens its traces in the bundled viewer.
+
 ## [0.2.1] - 2026-11-02
 
 No change to the JSON shape: `schemaVersion` stays 1.
