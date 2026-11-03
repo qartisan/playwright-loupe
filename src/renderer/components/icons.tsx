@@ -202,6 +202,16 @@ export function CheckIcon(props: IconProps) {
   );
 }
 
+/** A link opening in a new tab. */
+export function NewTabIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M9.5 2.5h4v4M13.5 2.5 7.5 8.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="M11.5 9.5v3a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+    </Svg>
+  );
+}
+
 export function KeyboardIcon(props: IconProps) {
   return (
     <Svg {...props}>

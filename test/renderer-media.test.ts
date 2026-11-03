@@ -7,6 +7,8 @@ import {
   pickMode,
   traceCommand,
   traceHelp,
+  traceViewerFolder,
+  traceViewerHref,
   viewerItems,
   type ComparisonSet,
 } from '../src/renderer/detail/media.js';
@@ -179,5 +181,54 @@ describe('fileHref', () => {
   it('encodes each path segment, keeping the slashes', () => {
     expect(fileHref('data/ab12/0/screenshot.png')).toBe('data/ab12/0/screenshot.png');
     expect(fileHref('data/ab12/0/my shot #1.png')).toBe('data/ab12/0/my%20shot%20%231.png');
+  });
+});
+
+describe('traceViewerFolder', () => {
+  const page = (protocol: string, isSecureContext = true, serviceWorker: unknown = {}) => ({ location: { protocol }, isSecureContext, navigator: { serviceWorker } });
+
+  it('returns the folder over http(s), in a secure context with service workers', () => {
+    expect(traceViewerFolder('trace-viewer', page('http:'))).toBe('trace-viewer');
+    expect(traceViewerFolder('trace-viewer', page('https:'))).toBe('trace-viewer');
+    expect(traceViewerFolder('viewers/1.64', page('https:'))).toBe('viewers/1.64');
+  });
+
+  it('returns null without the setting, over file://, in an insecure context or without service workers', () => {
+    expect(traceViewerFolder(null, page('https:'))).toBeNull();
+    expect(traceViewerFolder(undefined, page('https:'))).toBeNull();
+    expect(traceViewerFolder('trace-viewer', page('file:'))).toBeNull();
+    expect(traceViewerFolder('trace-viewer', page('http:', false))).toBeNull();
+    expect(traceViewerFolder('trace-viewer', page('https:', true, null))).toBeNull();
+  });
+
+  it('returns null when reading service workers throws, as under a CSP sandbox header', () => {
+    const sandboxed = { location: { protocol: 'https:' }, isSecureContext: true, navigator: {} };
+    Object.defineProperty(sandboxed.navigator, 'serviceWorker', {
+      get() {
+        throw new Error('SecurityError');
+      },
+    });
+    expect(traceViewerFolder('trace-viewer', sandboxed)).toBeNull();
+  });
+
+  it.each([42, '', '/trace-viewer', '../trace-viewer', 'a/../b', '.', 'javascript:alert(1)', 'https://example.com/viewer', 'trace viewer', 'a//b'])(
+    'returns null for a folder that is not a plain relative one: %j',
+    (folder) => {
+      expect(traceViewerFolder(folder, page('https:'))).toBeNull();
+    },
+  );
+});
+
+describe('traceViewerHref', () => {
+  it('links to the viewer with the absolute URL of the trace, the route of the page left out', () => {
+    expect(traceViewerHref('trace-viewer', 'data/ab12/0/trace.zip', 'https://ci.example.com/run/42/index.html#/test/ab12?attempt=1')).toBe(
+      `trace-viewer/index.html?trace=${encodeURIComponent('https://ci.example.com/run/42/data/ab12/0/trace.zip')}`,
+    );
+  });
+
+  it('resolves against a folder URL, and encodes the trace URL whole', () => {
+    expect(traceViewerHref('trace-viewer', 'data/ab12/0/my trace #1?.zip', 'http://127.0.0.1:9323/')).toBe(
+      'trace-viewer/index.html?trace=http%3A%2F%2F127.0.0.1%3A9323%2Fdata%2Fab12%2F0%2Fmy%2520trace%2520%25231%253F.zip',
+    );
   });
 });

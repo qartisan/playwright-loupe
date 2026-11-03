@@ -1143,6 +1143,9 @@ pre.step-error { margin: 2px 0 6px 50px; font-weight: 400; }
 .trace-card { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-bottom: 12px; }
 .trace-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .trace-download { display: inline-flex; align-items: center; text-decoration: none; }
+/* The card's primary action: filled, with the pair of the active chip. */
+.trace-open { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; background: var(--chip-active-bg); border-color: var(--chip-active-bg); color: var(--chip-active-fg); }
+.trace-open:hover { background: var(--chip-active-bg); text-decoration: underline; }
 .trace-help { margin: 0; color: var(--fg-secondary); font-size: 12px; }
 .cmp-loading { width: 100%; height: 120px; border-radius: 4px; background: var(--bg-muted); }
 .actual-size .cmp-image, .actual-size .cmp-side img { max-width: none; max-height: none; cursor: zoom-out; }

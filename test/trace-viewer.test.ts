@@ -1,10 +1,13 @@
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SUPPORT_URL, MIN_PLAYWRIGHT_TRACE_VIEWER, MIN_PLAYWRIGHT_SUPPORTED, isBelow } from '../src/core/support.js';
 import { TRACE_VIEWER_FOLDER, bundleTraceViewer, findPlaywrightCore } from '../src/core/traceViewer.js';
 import { ROOT } from './helpers/fixtures.js';
+
+/** The installed package, as Node resolves it: through a symlinked node_modules, its real path. */
+const INSTALLED_CORE = realpathSync(path.join(ROOT, 'node_modules/playwright-core'));
 
 describe('the trace viewer', () => {
   let workDir: string;
@@ -43,7 +46,7 @@ describe('the trace viewer', () => {
 
     it('finds the installed Playwright from a config directory, through its dependents', () => {
       const core = findPlaywrightCore(ROOT, []);
-      expect(core?.root).toBe(path.join(ROOT, 'node_modules/playwright-core'));
+      expect(core?.root).toBe(INSTALLED_CORE);
       expect(core?.version).toEqual(expect.any(String));
     });
 
@@ -70,7 +73,7 @@ describe('the trace viewer', () => {
       ['a null package.json', 'null'],
     ])('falls back to the config directory on %s', (_name, manifest) => {
       const root = fakeCore(manifest);
-      expect(findPlaywrightCore(ROOT, [path.join(root, 'index.js')])?.root).toBe(path.join(ROOT, 'node_modules/playwright-core'));
+      expect(findPlaywrightCore(ROOT, [path.join(root, 'index.js')])?.root).toBe(INSTALLED_CORE);
     });
 
     it('returns null when nothing is found, and never throws', () => {

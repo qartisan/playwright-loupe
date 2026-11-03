@@ -127,6 +127,45 @@ export function traceHelp(playwrightVersion: string, absolute: boolean): string 
   return `${requires}Run it from the report folder (the one containing index.html), in a POSIX shell (bash, zsh); it uses the project's own Playwright.`;
 }
 
+/** What `traceViewerFolder` reads from the page; the `window` in the browser. */
+export interface TraceViewerPage {
+  location: { protocol: string };
+  isSecureContext: boolean;
+  navigator: { serviceWorker?: unknown };
+}
+
+/** A folder of the report: relative, plain segments, never `..`. */
+const REPORT_FOLDER = /^(?!.*(?:^|\/)\.\.?(?:\/|$))[\w.-]+(?:\/[\w.-]+)*$/;
+
+/**
+ * The folder of the bundled trace viewer when it can open a trace from this
+ * page; null otherwise, and the trace card stays as it is. The viewer runs on
+ * a service worker: it needs the report served over http(s), in a secure
+ * context (https, or http on localhost and 127.0.0.1). Under a CSP `sandbox`
+ * header, reading `navigator.serviceWorker` throws.
+ *
+ * @param folder the `traceViewer` renderer setting, set only once the viewer was copied
+ */
+export function traceViewerFolder(folder: unknown, page: TraceViewerPage): string | null {
+  try {
+    if (typeof folder !== 'string' || !REPORT_FOLDER.test(folder)) return null;
+    if (page.location.protocol !== 'http:' && page.location.protocol !== 'https:') return null;
+    if (page.isSecureContext !== true || !page.navigator.serviceWorker) return null;
+    return folder;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The link opening a trace in the bundled viewer: relative to the report, with
+ * the trace's absolute URL, as Playwright's HTML report builds it. Viewers
+ * below Playwright 1.58 fail on a relative trace URL.
+ */
+export function traceViewerHref(folder: string, path: string, pageUrl: string): string {
+  return `${fileHref(folder)}/index.html?trace=${encodeURIComponent(new URL(fileHref(path), pageUrl).href)}`;
+}
+
 /** A relative link to a file of the report folder, each segment encoded: works from file://. */
 export function fileHref(path: string): string {
   return path.split('/').map(encodeURIComponent).join('/');

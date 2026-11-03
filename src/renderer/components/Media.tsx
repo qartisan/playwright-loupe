@@ -212,7 +212,19 @@ function FileList({ attachments }: { attachments: readonly Attachment[] }) {
  * lightbox also closes on any route change (Back, another test), and its
  * state is never in the URL.
  */
-export function Attachments({ attachments, playwrightVersion }: { attachments: readonly Attachment[]; playwrightVersion: string }) {
+export function Attachments({
+  attachments,
+  playwrightVersion,
+  traceViewer,
+  attempt,
+}: {
+  attachments: readonly Attachment[];
+  playwrightVersion: string;
+  /** The `traceViewer` renderer setting. */
+  traceViewer: string | null;
+  /** Index of the attempt. */
+  attempt: number;
+}) {
   const media = attemptMedia(attachments);
   // A new object on each opening: opening again right after Escape, before the closing rendered, still renders.
   const [viewer, setViewer] = useState<{ index: number } | null>(null);
@@ -237,7 +249,7 @@ export function Attachments({ attachments, playwrightVersion }: { attachments: r
       </Section>
       <Section label="Traces" count={media.traces.length}>
         {media.traces.map((attachment, position) => (
-          <TraceCard key={position} attachment={attachment} playwrightVersion={playwrightVersion} />
+          <TraceCard key={position} attachment={attachment} playwrightVersion={playwrightVersion} traceViewer={traceViewer} attempt={attempt} />
         ))}
       </Section>
       <Section label="Text" count={text.length}>

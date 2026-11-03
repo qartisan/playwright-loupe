@@ -1,4 +1,5 @@
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, createReadStream, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -15,7 +16,8 @@ import { solidPng } from './helpers/png.js';
 /**
  * Accessibility matrix: axe-core (WCAG 2.0 to 2.2, A and AA, plus best
  * practices) on every view and state of the built renderer opened from
- * file://, in the light and dark themes. A `serious` or `critical` WCAG
+ * file:// (from a local HTTP server for the states that need it), in the
+ * light and dark themes. A `serious` or `critical` WCAG
  * violation fails; the rest is printed after the run. Accepted findings are in
  * a11y-allowlist.ts, each with its reason.
  *
@@ -26,7 +28,7 @@ import { solidPng } from './helpers/png.js';
  * Adding a state is one line in MATRIX: name, dataset, hash, and options:
  * `arrange` (what to do before the audit), `reached` (a selector present
  * once the state is shown), `width`, `height`, `init` (an init script),
- * `forcedColors`.
+ * `forcedColors`, `http`.
  */
 
 const RENDERER = path.join(ROOT, 'dist/renderer/index.html');
@@ -44,7 +46,7 @@ const FAILING = 'e6c8105b02e8ef4c';
 // Of the cascade: a test stopped by its timeout, with an error raised after it.
 const AFTER_TIMEOUT = 'ccccccccccccccc4';
 
-type Dataset = 'sample' | 'cascade' | 'noPoints' | 'tiles' | 'many' | 'missingMedia' | 'longCommand' | 'tooLongCommand';
+type Dataset = 'sample' | 'cascade' | 'noPoints' | 'tiles' | 'many' | 'missingMedia' | 'longCommand' | 'tooLongCommand' | 'traceViewer';
 
 interface StateOptions {
   arrange?: (page: Page) => Promise<void>;
@@ -54,6 +56,8 @@ interface StateOptions {
   init?: string;
   /** Chromium's emulation of Windows high contrast. */
   forcedColors?: boolean;
+  /** Served over http://127.0.0.1 instead of file://: the bundled trace viewer needs it. */
+  http?: boolean;
 }
 
 type State = [name: string, dataset: Dataset, hash: string, options?: StateOptions];
@@ -135,6 +139,9 @@ const MATRIX: State[] = [
   ['forced colours: overview', 'sample', '#/', { forcedColors: true, reached: '.outcome-bar-part' }],
   ['forced colours: tests with active chips', 'sample', '#/tests?tag=%40smoke', { forcedColors: true, reached: '.test-chip-active' }],
   ['forced colours: flaky test, attempt tabs', 'sample', `#/test/${FLAKY}`, { forcedColors: true, reached: '[role="tab"]' }],
+  ['test: trace with the bundled viewer', 'traceViewer', `#/test/${COMPARISON}`, { http: true, reached: '.trace-open' }],
+  ['test: trace with the bundled viewer at 320px', 'traceViewer', `#/test/${COMPARISON}`, { http: true, width: 320, reached: '.trace-open' }],
+  ['forced colours: trace with the bundled viewer', 'traceViewer', `#/test/${COMPARISON}`, { http: true, forcedColors: true, reached: '.trace-open' }],
   ['forced colours: comparison slider', 'sample', `#/test/${COMPARISON}`, { ...comparisonMode('Slider'), forcedColors: true, reached: '.cmp-range' }],
 ];
 
@@ -177,6 +184,8 @@ function variants(sample: LoupeReport): Record<Dataset, LoupeReport> {
     sample,
     longCommand: longTitles(3),
     tooLongCommand: longTitles(50),
+    // The sample, its settings saying the trace viewer was copied.
+    traceViewer: sample,
     cascade: cascadeReport(),
     // Without stacks, no function is common to several failures: no failure points card.
     noPoints: {
@@ -264,6 +273,8 @@ describe('accessibility harness', { timeout: 30_000 }, () => {
 describe('accessibility matrix (axe-core, file://)', { timeout: 60_000 }, () => {
   let browser: Browser;
   let workDir: string;
+  let server: Server;
+  let origin: string;
   const urls = {} as Record<Dataset, string>;
   const used = new Set<AllowEntry>();
   const listed = new Map<string, Set<string>>();
@@ -283,13 +294,27 @@ describe('accessibility matrix (axe-core, file://)', { timeout: 60_000 }, () => 
     const template = readFileSync(RENDERER, 'utf8');
     for (const [name, report] of Object.entries(variants(sample)) as Array<[Dataset, LoupeReport]>) {
       const file = path.join(workDir, `${name}.html`);
-      writeFileSync(file, injectSettings(injectData(template, report), { ...DEFAULT_RENDERER_SETTINGS, title: 'Storefront' }));
+      const traceViewer = name === 'traceViewer' ? 'trace-viewer' : null;
+      writeFileSync(file, injectSettings(injectData(template, report), { ...DEFAULT_RENDERER_SETTINGS, title: 'Storefront', traceViewer }));
       urls[name] = pathToFileURL(file).href;
     }
+    server = createServer((req, res) => {
+      const file = path.join(workDir, decodeURIComponent(new URL(req.url ?? '/', 'http://server').pathname));
+      if (!existsSync(file) || !statSync(file).isFile()) {
+        res.writeHead(404).end();
+        return;
+      }
+      res.writeHead(200, file.endsWith('.html') ? { 'content-type': 'text/html; charset=utf-8' } : {});
+      createReadStream(file).pipe(res);
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    origin = `http://127.0.0.1:${typeof address === 'object' && address ? address.port : 0}`;
   }, 60_000);
 
   afterAll(async () => {
     await browser?.close();
+    server?.close();
     if (workDir) rmSync(workDir, { recursive: true, force: true });
     if (listed.size > 0) {
       const lines = [...listed].map(([key, states]) => `- ${key}\n    ${states.size} states, e.g. ${[...states].slice(0, 3).join('; ')}`);
@@ -311,7 +336,7 @@ describe('accessibility matrix (axe-core, file://)', { timeout: 60_000 }, () => 
       page.on('console', (message) => {
         if (message.type() === 'error' && !isMissingAttachmentFile(message, page)) errors.push(message.text());
       });
-      await page.goto(`${urls[dataset]}${hash}`);
+      await page.goto(`${options.http ? `${origin}/${dataset}.html` : urls[dataset]}${hash}`);
       await page.locator('.main h1').first().waitFor();
       await options.arrange?.(page);
       if (options.reached) await page.locator(options.reached).first().waitFor({ state: 'attached' });
