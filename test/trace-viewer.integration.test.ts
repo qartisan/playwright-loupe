@@ -1,4 +1,5 @@
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync, createReadStream } from 'node:fs';
+import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { createServer, request, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -201,6 +202,55 @@ describe('the bundled trace viewer in a real run', () => {
       expect(settings(folder)['traceViewer']).toBe('trace-viewer');
     }, 60_000);
   });
+
+  /**
+   * The abandoned `show` command (docs/vision.md) rests on this: `show-report`,
+   * made for Playwright's own report, serves a Loupe report folder with its
+   * viewer on localhost, a secure context. Runs where the option copies, so on
+   * the lockfile and latest jobs, and in weekly.yml. Not on Windows: the server
+   * is stopped by killing its process group.
+   */
+  it.runIf(COPIES && process.platform !== 'win32')(`npx playwright show-report serves a Loupe report with its viewer, from Playwright ${MIN_PLAYWRIGHT_TRACE_VIEWER}`, async () => {
+    const port = await new Promise<number>((resolve) => {
+      const probe = createServer().listen(0, '127.0.0.1', () => {
+        const address = probe.address();
+        probe.close(() => resolve(typeof address === 'object' && address ? address.port : 0));
+      });
+    });
+    // `detached`: npx starts a chain of processes, stopped together through the group.
+    // show-report always opens a browser and has no documented way not to (checked
+    // on 1.61 and 1.64.1). It skips the opening when CLAUDECODE is set, a check meant
+    // to detect a coding agent, undocumented. Should Playwright stop reading it,
+    // without DISPLAY and WAYLAND_DISPLAY the attempt fails harmlessly on Linux.
+    const { DISPLAY: _display, WAYLAND_DISPLAY: _wayland, ...env } = process.env;
+    const server = spawn('npx', ['playwright', 'show-report', bundled.folder, '--host', '127.0.0.1', '--port', String(port)], {
+      cwd: ROOT,
+      env: { ...env, CLAUDECODE: '1' },
+      detached: true,
+    });
+    let output = '';
+    let exited = false;
+    server.stdout.on('data', (chunk: Buffer) => (output += chunk.toString()));
+    server.stderr.on('data', (chunk: Buffer) => (output += chunk.toString()));
+    server.on('exit', () => (exited = true));
+    const broken = (what: string): string =>
+      `show-report no longer serves a Loupe report (${what}). The abandoned \`show\` command must be reconsidered: see docs/vision.md.\n${output}`;
+    try {
+      await expect.poll(() => (exited ? 'exited' : /Serving HTML report/.test(output) ? 'serving' : 'starting'), { timeout: 20_000 }).not.toBe('starting');
+      expect(exited, broken('the server exited')).toBe(false);
+      const trace = readReport(bundled.folder, bundled.output).tests[0]?.attempts[0]?.attachments.find((attachment) => attachment.kind === 'trace')?.path;
+      for (const file of ['index.html', 'trace-viewer/index.html', trace]) {
+        const response = await fetch(`http://127.0.0.1:${port}/${file}`);
+        expect(response.status, broken(`${file} returned ${response.status}`)).toBe(200);
+      }
+    } finally {
+      try {
+        if (server.pid) process.kill(-server.pid, 'SIGTERM');
+      } catch {
+        // Already gone.
+      }
+    }
+  }, 30_000);
 
   /**
    * The promise of the option. The viewer opens the fixture's trace, whose page
