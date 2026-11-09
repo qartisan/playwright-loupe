@@ -14,6 +14,7 @@ export const SCOPE_DEFAULT_CONFIG = 'fixtures/scope-default.config.ts';
 export const VERSION_CONFIG = 'fixtures/version.config.ts';
 export const INTERNALS_CONFIG = 'fixtures/internals.config.ts';
 export const RERUN_CONFIG = 'fixtures/rerun.config.ts';
+export const UNKNOWN_OPTIONS_CONFIG = 'fixtures/unknown-options.config.ts';
 
 /** Fails early with a clear message when the reporter was not built. */
 export function assertBuilt(): void {

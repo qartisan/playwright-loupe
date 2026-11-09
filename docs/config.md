@@ -273,10 +273,17 @@ Error: Loupe: invalid configuration.
 ```
 
 - Every message names the source (`loupe.config.ts`, `reporter options`), the exact path and the expected type.
-- **Unknown keys are errors**, with a "did you mean" suggestion when a known key is close (typos, wrong case), or the list of known keys otherwise.
+- **Unknown keys in the config file are errors**, with a "did you mean" suggestion when a known key is close (typos, wrong case), or the list of known keys otherwise.
 - All problems are reported at once.
 - **An invalid config stops the run**, like an invalid `LOUPE_RUN_SCOPE`: Playwright prints the message and exits with a non-zero code without running tests. A config file that fails to load (syntax error, missing import) stops it the same way.
-- Playwright adds its own keys to every reporter's options (`configDir`, and internal keys starting with `_`). Loupe ignores them.
+- **Unknown keys in the inline options never stop the run.** Playwright adds keys of its own to every reporter's options, and a later version may add more, so an unknown inline key, at any level, is ignored with one line on stderr for the whole run, with the closest known option when there is one:
+
+  ```
+  Loupe: reporter options: ignoring unknown options futureKey, categories.rulez (did you mean "rules"?).
+  ```
+
+  An invalid value of a known inline option (`theme: 'blue'`) is still an error, and so is anything invalid in the config file or the environment variables.
+- The keys Playwright adds are ignored silently: `configDir`, internal keys starting with `_`, and `onlyFailures`, which Playwright 1.65 and later set to `false` for every reporter under `--list` ([Playwright internals](support.md#playwright-internals)). `onlyFailures` is an option of Playwright's HTML, JSON and JUnit reporters; Loupe does not support it. Set inline outside `--list`, it is ignored with one line on stderr: the report keeps every test.
 
 ## How config files are loaded
 

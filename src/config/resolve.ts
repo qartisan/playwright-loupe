@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { TRACE_VIEWERS, type LoupeConfig, type LoupeReporterOptions, type ResolvedCategoryRule, type ResolvedConfig, type ResolvedDimension, type TraceViewer } from './types.js';
 import { paletteReference } from '../shared/palette.js';
-import { ENV_NAME, validateConfig } from './validate.js';
+import { ENV_NAME, validateConfig, type UnknownKey } from './validate.js';
 
 type Env = Readonly<Record<string, string | undefined>>;
 
@@ -27,10 +27,40 @@ export class LoupeConfigError extends Error {
 /**
  * Playwright adds its own keys to every reporter's options: `configDir`, and
  * internal ones starting with `_` (`_mode`, `_commandHash`, `_isTestServer`).
- * They are not Loupe options and are removed before validation.
+ * From 1.65, it also sets `onlyFailures: false` under `--list` (an option of
+ * its HTML, JSON and JUnit reporters). They are not Loupe options and are
+ * removed before validation; see `onlyFailuresWarning` for `onlyFailures`.
  */
 export function stripPlaywrightKeys(options: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(Object.entries(options).filter(([key]) => key !== 'configDir' && !key.startsWith('_')));
+  return Object.fromEntries(
+    Object.entries(options).filter(([key]) => key !== 'configDir' && key !== 'onlyFailures' && !key.startsWith('_')),
+  );
+}
+
+/** `_mode` of the reporter options, null when it is missing or cannot be read. */
+function playwrightMode(options: Record<string, unknown>): unknown {
+  try {
+    return options['_mode'];
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Playwright 1.65 and later set `onlyFailures` under `--list` (`_mode: 'list'`):
+ * it is ignored silently. In any other mode, the user wrote it, and Loupe says
+ * once that it does not support it.
+ */
+export function onlyFailuresWarning(options: Record<string, unknown>): string | null {
+  if (options['onlyFailures'] === undefined || playwrightMode(options) === 'list') return null;
+  return 'Loupe: reporter options: onlyFailures is not supported by Loupe and is ignored; the report keeps every test.';
+}
+
+/** The one warning for the unknown keys of the inline options, which are ignored. */
+export function unknownKeysWarning(keys: readonly UnknownKey[]): string | null {
+  if (keys.length === 0) return null;
+  const listed = keys.map(({ path, suggestion }) => (suggestion ? `${path} (did you mean "${suggestion}"?)` : path));
+  return `Loupe: reporter options: ignoring unknown option${keys.length === 1 ? '' : 's'} ${listed.join(', ')}.`;
 }
 
 /** Non-empty value of an environment variable, trimmed; undefined otherwise. */
@@ -155,12 +185,17 @@ export interface ConfigLayers {
   /** Directory relative options are resolved from: the Playwright config's directory. */
   baseDir: string;
   cwd: string;
+  /** Receives the warnings for ignored inline options; `console.warn` by default. */
+  warn?: (message: string) => void;
 }
 
 /**
  * Validates each layer, then merges them: defaults < config file < inline
  * options < environment variables. Throws a LoupeConfigError listing every
- * problem of every layer.
+ * problem of every layer. Unknown inline keys are the exception: Playwright
+ * may add keys of its own in any version, so they get one warning and are
+ * ignored (the resolved config only reads known keys). The config file stays
+ * strict.
  */
 export function resolveConfig(layers: ConfigLayers): ResolvedConfig {
   const fileSource = layers.file ? path.basename(layers.file.path) : '';
@@ -168,13 +203,16 @@ export function resolveConfig(layers: ConfigLayers): ResolvedConfig {
   const redactEnv = redactEnvNames(layers.env);
   const gitLocal = gitLocalEnv(layers.env);
   const traceViewer = traceViewerEnv(layers.env);
+  const unknownInline: UnknownKey[] = [];
   const problems = [
     ...(layers.file ? validateConfig(layers.file.config, fileSource) : []),
-    ...validateConfig(layers.inline, 'reporter options', { allowConfigFile: true }),
+    ...validateConfig(layers.inline, 'reporter options', { allowConfigFile: true, unknownKeys: unknownInline }),
     ...redactEnv.problems,
     ...gitLocal.problems,
     ...traceViewer.problems,
   ];
+  const warning = unknownKeysWarning(unknownInline);
+  if (warning) (layers.warn ?? ((message: string) => console.warn(message)))(warning);
   if (problems.length > 0) throw new LoupeConfigError(problems);
 
   const { configFile: _configFile, ...inline } = layers.inline as LoupeReporterOptions;

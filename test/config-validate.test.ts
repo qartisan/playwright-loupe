@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { editDistance, suggestKey, validateConfig } from '../src/config/validate.js';
+import { editDistance, suggestKey, validateConfig, type UnknownKey } from '../src/config/validate.js';
 
 const SOURCE = 'loupe.config.ts';
 const validate = (value: unknown): string[] => validateConfig(value, SOURCE);
@@ -219,6 +219,21 @@ describe('validateConfig: unknown keys', () => {
   it('lists the known options when nothing is close', () => {
     expect(validate({ history: {} })).toEqual([
       `${SOURCE}: history is not a known option. Known options: outputFolder, title, environment, categories, dimensions, screenshots, theme, aiPrompt, redact, git, traceViewer.`,
+    ]);
+  });
+
+  it('collects unknown keys at any level instead of reporting them, and still reports invalid values', () => {
+    const unknownKeys: UnknownKey[] = [];
+    const errors = validateConfig(
+      { futureKey: 1, theme: 'blue', categories: { rulez: [] }, git: { locale: false } },
+      'reporter options',
+      { unknownKeys },
+    );
+    expect(errors).toEqual(['reporter options: theme must be one of "system", "light", "dark", got "blue"']);
+    expect(unknownKeys).toEqual([
+      { path: 'futureKey', suggestion: null },
+      { path: 'categories.rulez', suggestion: 'rules' },
+      { path: 'git.locale', suggestion: 'local' },
     ]);
   });
 });

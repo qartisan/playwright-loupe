@@ -81,6 +81,18 @@ A few things are not in Playwright's public reporter API, so Loupe reads Playwri
 
 With [`traceViewer: 'bundled'`](config.md#trace-viewer), Loupe also reads the location of the Trace Viewer inside `playwright-core`, `lib/vite/traceViewer`, the folder Playwright's HTML reporter copies. It finds the package among the modules already loaded (`require.cache`), then through `@playwright/test`, `playwright` and `playwright-core` from the config directory, never from Loupe's own location. The location was verified on 1.52, 1.53.2, 1.54.2, 1.55.1, 1.56.1, 1.57.0, 1.58.2, 1.59.1, 1.60.0, 1.61.0, 1.61.1, 1.62.1, 1.63.0, 1.64.0 and 1.64.1, with npm, pnpm, Yarn 1 and Yarn 4 with `node-modules`. Yarn Plug'n'Play is not covered: Playwright 1.64.1 does not start under it on Node.js 24. If the location moves, the report is written without the viewer, with one warning (`test/trace-viewer.test.ts` and `test/trace-viewer.integration.test.ts`); the integration test fails if it disappears, on every CI job with Playwright 1.61 or later, the latest included.
 
+#### Reporter options added by Playwright
+
+Playwright spreads keys of its own into the options of every reporter, under the user's inline options. Loupe reads `configDir` and `_mode`, and ignores every key below without a warning; any other unknown inline key gets one warning and is ignored, so a key added by a later version never stops a run ([Validation](config.md#validation)).
+
+| Playwright | Keys added | Loupe |
+|---|---|---|
+| 1.52 – 1.56 | `configDir`, `_mode`, `_isTestServer`, `_commandHash` | reads `configDir` (Playwright config directory) and `_mode` (`'merge'` under `merge-reports`); ignores the others |
+| 1.57 – 1.64 | `configDir`, `_mode`, `_commandHash` | the same |
+| 1.65 | the same, plus `onlyFailures: false` under `--list` only (`_mode: 'list'`) | the same, and ignores `onlyFailures` under `--list`; set by the user in another mode, one warning |
+
+Loupe 0.3.0 and earlier stop `playwright test --list` on Playwright 1.65 with "onlyFailures is not a known option"; real runs and `merge-reports` are not affected. Fixed in 0.3.1.
+
 ## Known Playwright issues
 
 Problems in Playwright itself that affect the report, on some versions only.

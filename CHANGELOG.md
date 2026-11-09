@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Before 1.0, minor versions may contain breaking changes. The JSON report has its own version (`schemaVersion`), see [`docs/schema/v1.md`](docs/schema/v1.md#versioning-policy).
 
+## [Unreleased]
+
+No change to the JSON shape: `schemaVersion` stays 1.
+
+### Fixed
+
+- **With Playwright 1.65, `playwright test --list` stopped with "onlyFailures is not a known option".** Playwright 1.65 gives every reporter `onlyFailures: false` under `--list`, and Loupe rejected it as an unknown option. All versions up to 0.3.0 are affected; real runs and `merge-reports` are not. Loupe now ignores it under `--list`, and warns that the report keeps every test when it is set inline in another mode ([Validation](docs/config.md#validation)).
+- **An unknown key in the inline reporter options no longer stops the run**, so a key a later Playwright adds cannot either. It is ignored with one `Loupe: …` line on stderr for the run, naming every unknown key and the closest known option. Invalid values of known options, and anything invalid in `loupe.config.ts` or the environment variables, still stop the run.
+
 ## [0.3.0] - 2026-11-03
 
 No change to the JSON shape: `schemaVersion` stays 1.

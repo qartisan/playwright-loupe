@@ -4,7 +4,14 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { loadConfig } from '../src/config/index.js';
 import { CONFIG_FILE_NAMES, findConfigFile, loadConfigFile } from '../src/config/load.js';
-import { LoupeConfigError, envLayer, mergeLayers, resolveConfig, stripPlaywrightKeys } from '../src/config/resolve.js';
+import {
+  LoupeConfigError,
+  envLayer,
+  mergeLayers,
+  onlyFailuresWarning,
+  resolveConfig,
+  stripPlaywrightKeys,
+} from '../src/config/resolve.js';
 import { paletteReference } from '../src/shared/palette.js';
 
 const BASE = path.resolve('/project');
@@ -244,9 +251,9 @@ describe('resolveConfig: git', () => {
 
 describe('Playwright keys and layer merging', () => {
   it('removes the keys Playwright adds to reporter options', () => {
-    expect(stripPlaywrightKeys({ configDir: '/x', _mode: 'test', _commandHash: '', _isTestServer: false, title: 't' })).toEqual({
-      title: 't',
-    });
+    expect(
+      stripPlaywrightKeys({ configDir: '/x', _mode: 'list', _commandHash: '', _isTestServer: false, onlyFailures: false, title: 't' }),
+    ).toEqual({ title: 't' });
   });
 
   it('does not merge RegExp or arrays as objects', () => {
@@ -330,5 +337,81 @@ describe('config file lookup and loading', () => {
 
   it('uses the working directory when Playwright gives no configDir', () => {
     expect(loadConfig({}, {}, dir).outputFolder).toBe(path.join(dir, 'loupe-report'));
+  });
+});
+
+describe('ignored inline options', () => {
+  let dir: string;
+  let warnings: string[];
+  const load = (options: Record<string, unknown>): ReturnType<typeof loadConfig> =>
+    loadConfig({ configDir: dir, ...options }, {}, dir, (message) => warnings.push(message));
+
+  beforeEach(() => {
+    dir = mkdtempSync(path.join(tmpdir(), 'loupe-unknown-'));
+    warnings = [];
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('ignores the onlyFailures of Playwright 1.65 under --list, and warns once for a future key', () => {
+    // The options Playwright 1.65 gives a reporter under `--list`, plus a key it may add later.
+    const config = load({ _mode: 'list', _commandHash: '', onlyFailures: false, futureKey: 1, title: 'inline' });
+    expect(config.title).toBe('inline');
+    expect(warnings).toEqual(['Loupe: reporter options: ignoring unknown option futureKey.']);
+  });
+
+  it.each([['test'], ['merge'], [undefined], [42]])('warns for onlyFailures with _mode %s: the user wrote it', (mode) => {
+    load({ _mode: mode, onlyFailures: true });
+    expect(warnings).toEqual([
+      'Loupe: reporter options: onlyFailures is not supported by Loupe and is ignored; the report keeps every test.',
+    ]);
+  });
+
+  it('warns for onlyFailures when _mode cannot be read', () => {
+    const options = { configDir: dir, onlyFailures: true };
+    Object.defineProperty(options, '_mode', { enumerable: false, get: () => { throw new Error('reshaped'); } });
+    loadConfig(options, {}, dir, (message) => warnings.push(message));
+    expect(warnings).toEqual([expect.stringContaining('onlyFailures is not supported by Loupe')]);
+    expect(onlyFailuresWarning({ _mode: 'list', onlyFailures: false })).toBeNull();
+  });
+
+  it('lists every unknown key, at any level, in one warning with the closest known option', () => {
+    const config = load({
+      titel: 'x',
+      futureKey: 1,
+      categories: { rulez: [], rules: [{ name: 'A', match: /a/, colour: '#000000' }] },
+      dimensions: { definitions: [{ name: 'Layer', from: 'tag', prefix: 'layer', valus: ['api'] }] },
+    });
+    expect(warnings).toEqual([
+      'Loupe: reporter options: ignoring unknown options titel (did you mean "title"?), futureKey, ' +
+        'categories.rulez (did you mean "rules"?), categories.rules[0].colour (did you mean "color"?), ' +
+        'dimensions.definitions[0].valus (did you mean "values"?).',
+    ]);
+    // Ignored: the defaults and the known keys apply.
+    expect(config.title).toBe('Loupe report');
+    expect(config.categories.rules).toEqual([{ name: 'A', match: [/a/], on: 'all', color: null }]);
+    expect(config.dimensions.definitions).toEqual([{ name: 'Layer', from: 'tag', prefix: 'layer', values: null }]);
+  });
+
+  it('gives no warning when every inline key is known', () => {
+    load({ _mode: 'test', title: 'inline', categories: { rules: [] } });
+    expect(warnings).toEqual([]);
+  });
+
+  it('still stops on an invalid value of a known inline option', () => {
+    expect(() => load({ futureKey: 1, theme: 'blue' })).toThrow(
+      'reporter options: theme must be one of "system", "light", "dark", got "blue"',
+    );
+    expect(warnings).toEqual(['Loupe: reporter options: ignoring unknown option futureKey.']);
+  });
+
+  it('still stops on an unknown key in the config file', () => {
+    writeFileSync(path.join(dir, 'loupe.config.mjs'), "export default { titel: 'x' };");
+    expect(() => load({ _mode: 'list', onlyFailures: false })).toThrow(
+      'loupe.config.mjs: titel is not a known option. Did you mean "title"?',
+    );
+    expect(warnings).toEqual([]);
   });
 });

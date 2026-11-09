@@ -10,13 +10,21 @@ import { CATEGORY_MODES, CATEGORY_TARGETS, REDACT_MODES, SCREENSHOT_VIEWS, THEME
  *
  * An option set to `undefined` counts as absent, so `title: process.env.X`
  * stays valid when X is unset. Unknown keys are errors, with a suggestion when
- * a known key is close.
+ * a known key is close, unless the caller collects them instead (`unknownKeys`).
  */
 
 type Check = (value: unknown, path: string, errors: string[]) => void;
 
 interface Context {
   source: string;
+  /** When set, unknown keys are collected here instead of being errors. */
+  unknownKeys?: UnknownKey[] | undefined;
+}
+
+/** An unknown key and the closest known key, when it is close enough to be a typo. */
+export interface UnknownKey {
+  path: string;
+  suggestion: string | null;
 }
 
 const COLOR = /^#[0-9a-fA-F]{6}$/;
@@ -93,6 +101,10 @@ function object(fields: Record<string, Check>, ctx: Context): Check {
         continue;
       }
       const suggestion = suggestKey(key, known);
+      if (ctx.unknownKeys) {
+        ctx.unknownKeys.push({ path: join(path, key), suggestion });
+        continue;
+      }
       const hint = suggestion ? `Did you mean "${suggestion}"?` : `Known options: ${known.join(', ')}.`;
       errors.push(`${ctx.source}: ${join(path, key)} is not a known option. ${hint}`);
     }
@@ -256,10 +268,15 @@ function checkDimensionList(definitions: unknown, ctx: Context, errors: string[]
 
 /**
  * Validates one config layer. `source` names it in messages (`loupe.config.ts`,
- * `reporter options`). `configFile` is only accepted in inline options.
+ * `reporter options`). `configFile` is only accepted in inline options. With
+ * `unknownKeys`, unknown keys at any level are pushed there and are not errors.
  */
-export function validateConfig(value: unknown, source: string, options: { allowConfigFile?: boolean } = {}): string[] {
-  const ctx: Context = { source };
+export function validateConfig(
+  value: unknown,
+  source: string,
+  options: { allowConfigFile?: boolean; unknownKeys?: UnknownKey[] } = {},
+): string[] {
+  const ctx: Context = { source, unknownKeys: options.unknownKeys };
   const errors: string[] = [];
   const fields: Record<string, Check> = {
     outputFolder: nonEmptyString(ctx),
