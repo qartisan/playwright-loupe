@@ -31,7 +31,7 @@ test/         # Vitest unit tests and JSON snapshots
 - `core` and `renderer` are separate entry points of a single package. No monorepo tooling for now.
 - The renderer is built into a self-contained HTML file; the reporter injects the JSON into it.
 - The report must stay compatible with `merge-reports`.
-- The Playwright trace viewer needs an HTTP server and cannot run over `file://`. The trace card always copies `npx playwright show-trace <path>`, to run from the project root. With `traceViewer: 'bundled'` (off by default, Playwright 1.61 or later, `MIN_PLAYWRIGHT_TRACE_VIEWER`), the reporter copies the project's own viewer into `trace-viewer/` and the card adds "Open in Trace Viewer", shown only over http(s) in a secure context. The option never fails a run. `npx playwright show-report <report folder>` already serves a Loupe report with its viewer, so an optional `show` command (brief 08b, not built) must be re-evaluated before it is briefed; if it is ever built, it must stay optional (no mandatory separate CLI).
+- The Playwright trace viewer needs an HTTP server and cannot run over `file://`. The trace card always copies `npx playwright show-trace <path>`, to run from the project root. With `traceViewer: 'bundled'` (off by default, Playwright 1.61 or later, `MIN_PLAYWRIGHT_TRACE_VIEWER`), the reporter copies the project's own viewer into `trace-viewer/` and the card adds "Open in Trace Viewer", shown only over http(s) in a secure context. The option never fails a run. `npx playwright show-report <report folder>` already serves a Loupe report with its viewer, so the optional `show` command (brief 08b) is abandoned; `test/trace-viewer.integration.test.ts` guards show-report serving a Loupe report, and the question reopens only if that test fails for a Playwright change (see `docs/vision.md`).
 
 ## Data model requirements (v1)
 
@@ -87,7 +87,7 @@ The npm scripts of `package.json`; the README's Development section describes ea
 - `npm run demo:screenshots`: regenerates the README images in `docs/images/` from a CI-built `demo-report/` (it refuses a locally built one).
 - Accessibility suite alone: `npm run build && npx vitest run test/renderer-a11y-browser.test.ts`. To add a state, one line in its `MATRIX`; accepted findings in `test/a11y-allowlist.ts`, each with its reason (an unused entry fails a full run). See the README's "Accessibility tests".
 
-There is no `show` command: traces open with `npx playwright show-trace <file>`, which the report's trace card copies, or, with `traceViewer: 'bundled'`, in the bundled viewer of a report served over http(s), for example by `npx playwright show-report <report folder>`.
+There is no `show` command (abandoned, see Architecture): traces open with `npx playwright show-trace <file>`, which the report's trace card copies, or, with `traceViewer: 'bundled'`, in the bundled viewer of a report served over http(s), for example by `npx playwright show-report <report folder>`.
 
 ## Releasing
 
