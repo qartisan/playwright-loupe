@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -9,21 +9,43 @@ import { ROOT, assertBuilt, playwright, readReport } from './helpers/fixtures.js
 const CONFIG = 'fixtures/history.config.ts';
 const CLI = path.join(ROOT, 'node_modules', '@playwright', 'test', 'cli.js');
 
+/** The CI markers of `detectCi`: they decide the origin and the run id. */
+const CI_MARKERS = ['CI', 'GITHUB_ACTIONS', 'GITLAB_CI', 'TF_BUILD', 'CIRCLECI', 'JENKINS_URL', 'BITBUCKET_BUILD_NUMBER', 'BUILDKITE', 'TRAVIS'];
 /**
- * Variables that would change the origin or the run id: blank, so a run in
- * this repository's CI is a local run unless a test sets them. LOUPE_GIT_LOCAL
- * keeps the commit and branch of this checkout out of the snapshot.
+ * The commit and branch variables of `detectGit` (docs/schema/v1.md, "Git and
+ * CI detection"). They are read without their provider's marker, so this
+ * repository's own CI (GITHUB_SHA) would put its commit in the snapshot.
+ */
+const GIT_VARIABLES = [
+  'GITHUB_SHA',
+  'GITHUB_HEAD_REF',
+  'GITHUB_REF_NAME',
+  'GITHUB_REF_TYPE',
+  'CI_COMMIT_SHA',
+  'CI_COMMIT_BRANCH',
+  'CI_MERGE_REQUEST_SOURCE_BRANCH_NAME',
+  'BUILD_SOURCEVERSION',
+  'BUILD_SOURCEBRANCHNAME',
+  'CIRCLE_SHA1',
+  'CIRCLE_BRANCH',
+  'GIT_COMMIT',
+  'GIT_BRANCH',
+  'BITBUCKET_COMMIT',
+  'BITBUCKET_BRANCH',
+  'BUILDKITE_COMMIT',
+  'BUILDKITE_BRANCH',
+  'TRAVIS_COMMIT',
+  'TRAVIS_BRANCH',
+  'TRAVIS_PULL_REQUEST_BRANCH',
+];
+
+/**
+ * Blank, so a run in this repository's CI is a local run without git
+ * information unless a test sets them. LOUPE_GIT_LOCAL keeps the commit and
+ * branch of this checkout out of the snapshot.
  */
 const LOCAL: Record<string, string> = {
-  CI: '',
-  GITHUB_ACTIONS: '',
-  GITLAB_CI: '',
-  TF_BUILD: '',
-  CIRCLECI: '',
-  JENKINS_URL: '',
-  BITBUCKET_BUILD_NUMBER: '',
-  BUILDKITE: '',
-  TRAVIS: '',
+  ...Object.fromEntries([...CI_MARKERS, ...GIT_VARIABLES].map((name) => [name, ''])),
   PWTEST_WATCH: '',
   LOUPE_EXCLUDE: '',
   LOUPE_GIT_LOCAL: '0',
@@ -186,6 +208,25 @@ describe('history: blobs and merge-reports', () => {
     expect(after).toHaveLength(2);
     expect(after).toEqual(expect.arrayContaining(before));
   }, 240_000);
+});
+
+describe('history: a run in CI', () => {
+  // The checkout's own commit: Playwright reads it too when it detects GitHub Actions (captureGitInfo).
+  const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim();
+  it.each([
+    ['github-actions', { GITHUB_ACTIONS: 'true', GITHUB_SHA: head, GITHUB_RUN_ID: '4242' }],
+    ['azure-pipelines', { TF_BUILD: 'True', BUILD_SOURCEVERSION: head, BUILD_BUILDID: '4242' }],
+  ])('%s: origin ci, the commit, and the CI run id in the run id', (provider, ci) => {
+    const run = folders(`ci-${provider}`);
+    const result = playwright(['test', '--config', CONFIG], { ...run.env, ...ci });
+    readReport(run.report, result.output);
+    const files = runFiles(run.history);
+    expect(files, result.output).toHaveLength(1);
+    const recorded = readRun(run.history, files[0] as string);
+    expect(recorded.run.id).toMatch(new RegExp(`^${provider}-4242-[0-9a-f]{8}$`));
+    expect([recorded.run.origin, recorded.run.ciProvider, recorded.run.git.commit]).toEqual(['ci', provider, head]);
+    expect(files[0]).toMatch(new RegExp(`-${provider}-4242-[0-9a-f]{8}\\.json$`));
+  }, 120_000);
 });
 
 describe('history: the default folder overlapping the report folder', () => {

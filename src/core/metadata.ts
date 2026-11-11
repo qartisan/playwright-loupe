@@ -11,8 +11,12 @@ function record(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 }
 
-/** CI providers, checked in order. */
-const CI_PROVIDERS: ReadonlyArray<[provider: string, variable: string]> = [
+/**
+ * CI providers, checked in order: `ciProvider`, the history origin and the
+ * provider part of the history run id. Each one also has its commit variable in
+ * `detectGit` (`test/history-ci-providers.test.ts` checks both).
+ */
+export const CI_PROVIDERS: ReadonlyArray<[provider: string, variable: string]> = [
   ['github-actions', 'GITHUB_ACTIONS'],
   ['gitlab', 'GITLAB_CI'],
   ['azure-pipelines', 'TF_BUILD'],
@@ -73,6 +77,11 @@ function githubBranch(env: Env): string | null {
   return first(env['GITHUB_HEAD_REF'], env['GITHUB_REF_TYPE'] === 'branch' ? env['GITHUB_REF_NAME'] : undefined);
 }
 
+function travisBranch(env: Env): string | null {
+  // On a pull request, TRAVIS_BRANCH is the target branch and TRAVIS_PULL_REQUEST_BRANCH the source.
+  return first(env['TRAVIS_PULL_REQUEST_BRANCH'], env['TRAVIS_BRANCH']);
+}
+
 function githubRemote(env: Env): string | null {
   const server = text(env['GITHUB_SERVER_URL']);
   const repository = text(env['GITHUB_REPOSITORY']);
@@ -122,6 +131,7 @@ export function detectGit(metadata: Readonly<Record<string, unknown>>, env: Env,
     env['GIT_COMMIT'],
     env['BITBUCKET_COMMIT'],
     env['BUILDKITE_COMMIT'],
+    env['TRAVIS_COMMIT'],
   );
   const branch = first(
     playwrightBranch,
@@ -133,6 +143,7 @@ export function detectGit(metadata: Readonly<Record<string, unknown>>, env: Env,
     env['GIT_BRANCH'],
     env['BITBUCKET_BRANCH'],
     env['BUILDKITE_BRANCH'],
+    env['TRAVIS'] ? travisBranch(env) : undefined,
   );
   const remote = first(
     env['GITHUB_ACTIONS'] ? githubRemote(env) : undefined,

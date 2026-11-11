@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **On Travis CI, the report had no commit or branch** unless Playwright's own git information was on: Loupe detected Travis CI but never read its variables. It now reads `TRAVIS_COMMIT`, and the branch from `TRAVIS_PULL_REQUEST_BRANCH`, else `TRAVIS_BRANCH`. There is still no remote: Travis CI gives the repository without its host ([Git and CI detection](docs/schema/v1.md#git-and-ci-detection)).
+
 ## [0.3.1] - 2026-11-09
 
 No change to the JSON shape: `schemaVersion` stays 1.
