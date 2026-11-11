@@ -3,11 +3,13 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { FullConfig, FullResult, Suite } from '@playwright/test/reporter';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { assertBuilt } from './helpers/fixtures.js';
 import { daysAgo, makeRunFile, putRunFile } from './helpers/history.js';
 
-// The shipped reporter, with a derivation that throws: no real data makes it fail.
-vi.mock('../dist/core/history/embed.js', () => ({
+// The reporter, with a derivation that throws: no real data makes it fail.
+// Imported from src/, as every unit test, so typecheck needs no build. From
+// src/, the reporter reads the renderer's source page (src/renderer/index.html),
+// which has the same placeholders as the built one: the blocks are injected alike.
+vi.mock('../src/core/history/embed.js', () => ({
   deriveEmbedded: () => {
     throw new Error('derivation broke');
   },
@@ -43,7 +45,6 @@ describe('history: a derivation that fails', () => {
   });
 
   it('writes the report with a null block and one "Loupe: history" warning', async () => {
-    assertBuilt();
     root = mkdtempSync(path.join(tmpdir(), 'loupe-embed-failure-'));
     const history = path.join(root, 'loupe-history');
     const output = path.join(root, 'report');
@@ -57,7 +58,7 @@ describe('history: a derivation that fails', () => {
     vi.spyOn(console, 'warn').mockImplementation((message: unknown) => void warnings.push(String(message)));
     vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    const { LoupeReporter } = await import('../dist/core/reporter.js');
+    const { LoupeReporter } = await import('../src/core/reporter.js');
     const reporter = new LoupeReporter({ outputFolder: output });
     reporter.onBegin(config(root), suite);
     await reporter.onEnd(result);
