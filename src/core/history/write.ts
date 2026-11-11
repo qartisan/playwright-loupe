@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { mkdir, rename, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { HistoryRunFile } from '../../schema/history-v1.js';
-import { runFileName } from './runFile.js';
+import { runFileName, streamHash } from './runFile.js';
 
 /** Run files, one per run, under the history folder. */
 export const RUNS_FOLDER = 'runs';
@@ -11,6 +11,11 @@ export const GITIGNORE = '.gitignore';
 const GITIGNORE_CONTENT = '*\n';
 /** Temporary files start with a dot and end with this: readers skip them. */
 export const TEMP_SUFFIX = '.tmp';
+
+/** A temporary file of `writeRunFile`, left behind when a run was interrupted between the write and the rename. */
+export function isTempFile(name: string): boolean {
+  return name.startsWith('.') && name.endsWith(TEMP_SUFFIX);
+}
 
 /** Windows: a rename onto a file another process has open fails for a moment. */
 const RENAME_RETRY_CODES = new Set(['EPERM', 'EACCES', 'EBUSY']);
@@ -53,7 +58,7 @@ export async function ensureHistoryFolder(dir: string): Promise<void> {
  */
 export async function writeRunFile(dir: string, run: HistoryRunFile): Promise<string> {
   await ensureHistoryFolder(dir);
-  const name = runFileName(run.run.startedAt, run.run.id);
+  const name = runFileName(run.run.startedAt, streamHash(run.run.stream), run.run.id);
   const target = path.join(dir, RUNS_FOLDER, name);
   const temp = path.join(dir, RUNS_FOLDER, `.${name}.${process.pid}-${randomBytes(4).toString('hex')}${TEMP_SUFFIX}`);
   try {

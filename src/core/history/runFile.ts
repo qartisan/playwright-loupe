@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { LoupeError, LoupeReport, SourceLocation, TestCase } from '../../schema/v1.js';
 import {
   ATTEMPT_CODES,
@@ -86,6 +87,7 @@ export function encodeRun(report: LoupeReport, meta: RunMeta): HistoryRunFile {
     playwrightVersion: run.playwrightVersion,
     run: {
       id: meta.id,
+      reportRunId: run.id,
       startedAt: run.startedAt,
       durationMs: run.durationMs,
       status: run.status,
@@ -106,7 +108,47 @@ export function encodeRun(report: LoupeReport, meta: RunMeta): HistoryRunFile {
   };
 }
 
-/** `runs/<startedAt>-<run id>.json`, the start time in compact UTC (`20261110T140211.408Z`): names sort by time. */
-export function runFileName(startedAt: string, runId: string): string {
-  return `${startedAt.replace(/[-:]/g, '')}-${runId}.json`;
+/** Length of the stream hash in a run file name. */
+export const STREAM_HASH_LENGTH = 8;
+
+/**
+ * 8 hex characters naming a stream in file names: the window and the
+ * retention find a stream's runs from names alone. Computed over the parts of
+ * the key, sorted by part, so the order of `stream.key` does not matter; any
+ * other change of the key (a part added or removed) starts new streams.
+ */
+export function streamHash(stream: HistoryRun['stream']): string {
+  const parts = Object.entries(stream).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  return createHash('sha256').update(JSON.stringify(parts)).digest('hex').slice(0, STREAM_HASH_LENGTH);
+}
+
+/** The start time of a run file name: compact UTC (`20261110T140211.408Z`), so names sort by time. */
+export function compactTime(startedAt: string): string {
+  return startedAt.replace(/[-:]/g, '');
+}
+
+/** `runs/<startedAt>-<stream hash>-<run id>.json`. */
+export function runFileName(startedAt: string, stream: string, runId: string): string {
+  return `${compactTime(startedAt)}-${stream}-${runId}.json`;
+}
+
+/** A run file name; anything else in `runs/` (temporary files, foreign files) does not match. */
+const RUN_FILE_NAME = /^(\d{8}T\d{6}(?:\.\d{3})?Z)-([0-9a-f]{8})-([A-Za-z0-9][A-Za-z0-9._-]*)\.json$/;
+
+export interface RunFileName {
+  name: string;
+  /** Start time, in ms since the epoch. */
+  startedAt: number;
+  stream: string;
+  runId: string;
+}
+
+/** The parts of a run file name, or null when the name is not one. */
+export function parseRunFileName(name: string): RunFileName | null {
+  const match = RUN_FILE_NAME.exec(name);
+  if (!match) return null;
+  const [, time, stream, runId] = match as unknown as [string, string, string, string];
+  const iso = `${time.slice(0, 4)}-${time.slice(4, 6)}-${time.slice(6, 8)}T${time.slice(9, 11)}:${time.slice(11, 13)}:${time.slice(13)}`;
+  const startedAt = Date.parse(iso);
+  return Number.isNaN(startedAt) ? null : { name, startedAt, stream, runId };
 }

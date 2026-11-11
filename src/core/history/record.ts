@@ -1,10 +1,12 @@
+import path from 'node:path';
 import type { ResolvedHistory } from '../../config/types.js';
 import type { LoupeReport } from '../../schema/v1.js';
-import { DEFAULT_ENVIRONMENT, type HistoryRunFile } from '../../schema/history-v1.js';
+import { DEFAULT_ENVIRONMENT, type HistoryRun, type HistoryRunFile, type Origin } from '../../schema/history-v1.js';
 import { createPathRewriter } from '../paths.js';
 import { createRedactor, type RedactOptions } from '../redact.js';
 import { detectOrigin, historyRunId, streamOf } from './detect.js';
-import { encodeRun } from './runFile.js';
+import { pruneHistory } from './retain.js';
+import { encodeRun, streamHash } from './runFile.js';
 import { writeRunFile } from './write.js';
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -56,12 +58,44 @@ export function excludeReason(env: Env): string | null {
   return reason.length > MAX_REASON ? `${reason.slice(0, MAX_REASON - 1)}…` : reason;
 }
 
+export interface RunIdentity {
+  origin: Origin;
+  environment: string;
+  stream: HistoryRun['stream'];
+  /** `stream` in file names. */
+  streamHash: string;
+}
+
+/**
+ * Origin, environment and stream of a run. The reporter computes it at the
+ * start, to read the window, and the run file from the final report: the
+ * same function, so both agree unless the branch is only known at the end.
+ */
+export function runIdentity(input: {
+  history: ResolvedHistory;
+  env: Env;
+  argv: readonly string[];
+  configArgv?: readonly string[] | undefined;
+  /** The report's `run.environment.name`: trimmed, null when unset. */
+  environmentName: string | null;
+  branch: string | null;
+}): RunIdentity {
+  const origin = detectOrigin({ env: input.env, argv: input.argv, configArgv: input.configArgv });
+  const environment = input.environmentName ?? DEFAULT_ENVIRONMENT;
+  const stream = streamOf(input.history.stream.key, { environment, origin, branch: input.branch });
+  return { origin, environment, stream, streamHash: streamHash(stream) };
+}
+
+/** The identity of the run of a report. */
+export function reportIdentity(report: LoupeReport, context: Pick<RecordContext, 'history' | 'env' | 'argv' | 'configArgv'>): RunIdentity {
+  return runIdentity({ ...context, environmentName: report.run.environment.name, branch: report.run.git.branch });
+}
+
 /** The run file of a report, or why there is none. */
 export function buildRunFile(report: LoupeReport, context: RecordContext): HistoryRunFile | SkipReason {
   const skipped = skipReason(report, context);
   if (skipped) return skipped;
-  const origin = detectOrigin({ env: context.env, argv: context.argv, configArgv: context.configArgv });
-  const environment = report.run.environment.name ?? DEFAULT_ENVIRONMENT;
+  const { origin, environment, stream } = reportIdentity(report, context);
   const reason = excludeReason(context.env);
   // The reason is the only text not taken from the report: masked the same way.
   const paths = createPathRewriter({ roots: [], home: context.home });
@@ -70,15 +104,42 @@ export function buildRunFile(report: LoupeReport, context: RecordContext): Histo
     id: historyRunId({ env: context.env, merged: context.merged, tests: report.tests }),
     origin,
     environment,
-    stream: streamOf(context.history.stream.key, { environment, origin, branch: report.run.git.branch }),
+    stream,
     merged: context.merged,
     excluded: masked === null ? null : { reason: masked },
   });
 }
 
-/** Records the run; returns the file written, or why nothing was. Throws on a file system error: the caller warns. */
-export async function recordRun(report: LoupeReport, context: RecordContext): Promise<{ file: string } | { skipped: SkipReason }> {
+export type RecordResult =
+  | { skipped: SkipReason }
+  | {
+      file: string;
+      /** Run files removed by the retention. */
+      removed: string[];
+      /** Why the retention stopped, null when it ran: the run is recorded all the same. */
+      pruneError: unknown;
+    };
+
+/**
+ * Records the run, then applies the retention from a new listing of the
+ * folder (another run may have written since the start). Throws when the run
+ * file cannot be written: the caller warns.
+ */
+export async function recordRun(report: LoupeReport, context: RecordContext, now: () => number = Date.now): Promise<RecordResult> {
   const run = buildRunFile(report, context);
   if (typeof run === 'string') return { skipped: run };
-  return { file: await writeRunFile(context.history.dir, run) };
+  const file = await writeRunFile(context.history.dir, run);
+  const { retention } = context.history;
+  try {
+    const removed = await pruneHistory(context.history.dir, {
+      stream: streamHash(run.run.stream),
+      maxRuns: retention.maxRuns,
+      maxAgeDays: retention.maxAgeDays,
+      now: now(),
+      keep: path.basename(file),
+    });
+    return { file, removed, pruneError: null };
+  } catch (error) {
+    return { file, removed: [], pruneError: error };
+  }
 }

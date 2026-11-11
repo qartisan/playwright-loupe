@@ -7,7 +7,9 @@
  * `historyVersion`; any other change of shape or meaning needs a new version,
  * and readers keep a reader for every older one.
  *
- * Written minified, one file per run: `runs/<startedAt>-<run id>.json`.
+ * Written minified, one file per run: `runs/<startedAt>-<stream hash>-<run id>.json`.
+ * The stream hash names the stream (`stream`) in 8 hex characters, so readers
+ * pick a stream's runs from file names alone.
  * Kept free of Node imports so the renderer can import it too.
  */
 
@@ -44,6 +46,8 @@ export interface HistoryRunFile {
 export interface HistoryRun {
   /** `<ci provider>-<ci run id>-<content hash>`, `merge-<content hash>`, or a random UUID. The key of later notes and exclusions. */
   id: string;
+  /** The `run.id` of the report written by the same run (a random UUID): the link to that report. */
+  reportRunId: string;
   /** ISO 8601; the earliest shard's start for a merged run. */
   startedAt: string;
   durationMs: number;

@@ -6,7 +6,7 @@ import type { ResolvedHistory } from '../src/config/types.js';
 import { DEFAULT_HISTORY } from '../src/config/resolve.js';
 import { CI_RUN_ID_VARIABLES, contentHash, detectOrigin, historyRunId, streamOf } from '../src/core/history/detect.js';
 import { EXCLUDE_ENV, buildRunFile, excludeReason, skipReason, type RecordContext } from '../src/core/history/record.js';
-import { EXTRACT_CHARS, extract, runFileName } from '../src/core/history/runFile.js';
+import { EXTRACT_CHARS, extract, runFileName, streamHash } from '../src/core/history/runFile.js';
 import { GITIGNORE, RUNS_FOLDER, ensureHistoryFolder, writeRunFile } from '../src/core/history/write.js';
 import type { HistoryRunFile } from '../src/schema/history-v1.js';
 import type { Attempt, AttemptStatus, LoupeReport, Outcome, TestCase } from '../src/schema/v1.js';
@@ -269,6 +269,7 @@ describe('the run file', () => {
       playwrightVersion: '1.64.1',
       run: {
         id: expect.stringMatching(/^[0-9a-f-]{36}$/) as unknown as string,
+        reportRunId: 'report-uuid',
         startedAt: '2026-11-10T10:00:00.000Z',
         durationMs: 1234,
         status: 'failed',
@@ -320,8 +321,14 @@ describe('the run file', () => {
     expect((buildRunFile(withErrors, context()) as HistoryRunFile).run.errors).toEqual([{ sig: 'e1', cat: null, x: extract(long), at: null }]);
   });
 
-  it('is named by start time and run id, so names sort by time', () => {
-    expect(runFileName('2026-11-10T14:02:11.408Z', 'merge-1a2b3c4d')).toBe('20261110T140211.408Z-merge-1a2b3c4d.json');
+  it('is named by start time, stream hash and run id, so names sort by time', () => {
+    expect(runFileName('2026-11-10T14:02:11.408Z', '0a1b2c3d', 'merge-1a2b3c4d')).toBe('20261110T140211.408Z-0a1b2c3d-merge-1a2b3c4d.json');
+  });
+
+  it("stores the report's run.id next to the history run id", () => {
+    const written = buildRunFile(report(tests), context()) as HistoryRunFile;
+    expect(written.run.reportRunId).toBe(report(tests).run.id);
+    expect(written.run.reportRunId).not.toBe(written.run.id);
   });
 
   it('writes the default environment when none is set', () => {
@@ -378,7 +385,7 @@ describe('writeRunFile', () => {
 
   it('creates the folder with a .gitignore holding *, and writes runs/<name>', async () => {
     const file = await writeRunFile(dir, run);
-    expect(file).toBe(path.join(dir, RUNS_FOLDER, runFileName(run.run.startedAt, run.run.id)));
+    expect(file).toBe(path.join(dir, RUNS_FOLDER, runFileName(run.run.startedAt, streamHash(run.run.stream), run.run.id)));
     expect(readFileSync(path.join(dir, GITIGNORE), 'utf8')).toBe('*\n');
     expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual(run);
     expect(readdirSync(path.join(dir, RUNS_FOLDER))).toEqual([path.basename(file)]);
@@ -412,8 +419,8 @@ describe('writeRunFile', () => {
 
   it('a failed rename throws and leaves no temporary file', async () => {
     // A folder in the way of the target: the rename fails on every platform.
-    mkdirSync(path.join(dir, RUNS_FOLDER, runFileName(run.run.startedAt, run.run.id), 'x'), { recursive: true });
+    mkdirSync(path.join(dir, RUNS_FOLDER, runFileName(run.run.startedAt, streamHash(run.run.stream), run.run.id), 'x'), { recursive: true });
     await expect(writeRunFile(dir, run)).rejects.toThrow();
-    expect(readdirSync(path.join(dir, RUNS_FOLDER))).toEqual([runFileName(run.run.startedAt, run.run.id)]);
+    expect(readdirSync(path.join(dir, RUNS_FOLDER))).toEqual([runFileName(run.run.startedAt, streamHash(run.run.stream), run.run.id)]);
   });
 });

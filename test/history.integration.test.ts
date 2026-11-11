@@ -3,7 +3,9 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { runFileName, streamHash } from '../src/core/history/runFile.js';
 import type { HistoryRunFile } from '../src/schema/history-v1.js';
+import { daysAgo, makeRunFile, putRunFile } from './helpers/history.js';
 import { ROOT, assertBuilt, playwright, readReport } from './helpers/fixtures.js';
 
 const CONFIG = 'fixtures/history.config.ts';
@@ -47,6 +49,7 @@ const GIT_VARIABLES = [
 const LOCAL: Record<string, string> = {
   ...Object.fromEntries([...CI_MARKERS, ...GIT_VARIABLES].map((name) => [name, ''])),
   PWTEST_WATCH: '',
+  LOUPE_ENV: '',
   LOUPE_EXCLUDE: '',
   LOUPE_GIT_LOCAL: '0',
 };
@@ -74,7 +77,7 @@ function projection(run: HistoryRunFile): unknown {
     ...run,
     loupeVersion: '<version>',
     playwrightVersion: '<version>',
-    run: { ...run.run, id: '<id>', startedAt: '<date>', durationMs: '<ms>' },
+    run: { ...run.run, id: '<id>', reportRunId: '<report id>', startedAt: '<date>', durationMs: '<ms>' },
     tests: run.tests.map(({ d: _d, ...test }) => test),
   };
 }
@@ -91,26 +94,32 @@ afterAll(() => {
 describe('history: a plain run', () => {
   let history: string;
   let output: string;
+  let reportRunId: string;
 
   beforeAll(() => {
     const run = folders('plain');
     history = run.history;
     output = playwright(['test', '--config', CONFIG], run.env).output;
-    readReport(run.report, output);
+    reportRunId = readReport(run.report, output).run.id;
   }, 120_000);
 
   it('writes one run file and the .gitignore', () => {
     expect(readFileSync(path.join(history, '.gitignore'), 'utf8')).toBe('*\n');
     const files = runFiles(history);
     expect(files, output).toHaveLength(1);
-    expect(files[0]).toMatch(/^\d{8}T\d{6}\.\d{3}Z-[0-9a-f-]{36}\.json$/);
+    expect(files[0]).toMatch(/^\d{8}T\d{6}\.\d{3}Z-[0-9a-f]{8}-[0-9a-f-]{36}\.json$/);
   });
 
   it('records the expected content', () => {
     const run = readRun(history, runFiles(history)[0] as string);
     expect(run.run.id).toMatch(/^[0-9a-f-]{36}$/);
-    expect(runFiles(history)[0]).toBe(`${run.run.startedAt.replace(/[-:]/g, '')}-${run.run.id}.json`);
+    expect(runFiles(history)[0]).toBe(runFileName(run.run.startedAt, streamHash(run.run.stream), run.run.id));
     expect(projection(run)).toMatchSnapshot();
+  });
+
+  it("links to its report: report.json's run.id", () => {
+    const run = readRun(history, runFiles(history)[0] as string);
+    expect(run.run.reportRunId).toBe(reportRunId);
   });
 
   it('prints no history warning', () => {
@@ -208,6 +217,98 @@ describe('history: blobs and merge-reports', () => {
     expect(after).toHaveLength(2);
     expect(after).toEqual(expect.arrayContaining(before));
   }, 240_000);
+});
+
+/** The stream of a fixture run: environment from fixtures/loupe.config.ts unless LOUPE_ENV, origin local. */
+const fixtureStream = (environment = 'fixtures') => ({ environment, origin: 'local' });
+
+/** `playwright test` on the history fixture, asynchronous so that two can run at once, each with its own transform cache. */
+function runAsync(env: Record<string, string>): Promise<string> {
+  const cacheDir = mkdtempSync(path.join(tmpdir(), 'loupe-pw-cache-'));
+  return new Promise<string>((resolve) => {
+    const child = spawn(process.execPath, [CLI, 'test', '--config', CONFIG], { cwd: ROOT, env: { ...process.env, PWTEST_CACHE_DIR: cacheDir, ...env } });
+    let output = '';
+    child.stdout.on('data', (chunk: Buffer) => (output += chunk.toString()));
+    child.stderr.on('data', (chunk: Buffer) => (output += chunk.toString()));
+    child.on('close', () => {
+      rmSync(cacheDir, { recursive: true, force: true });
+      resolve(output);
+    });
+  });
+}
+
+describe('history: reading the folder', () => {
+  it('a corrupt file and a file of a newer Loupe in the window: one warning, the report, the run recorded, both files untouched', () => {
+    const run = folders('corrupt');
+    const now = Date.now();
+    const corrupt = putRunFile(run.history, makeRunFile({ id: 'corrupt', startedAt: daysAgo(now, 1), stream: fixtureStream() }), '{"historyVersion":1,');
+    const newer = putRunFile(run.history, makeRunFile({ id: 'newer', startedAt: daysAgo(now, 2), stream: fixtureStream() }), '{"historyVersion":2}');
+    const result = playwright(['test', '--config', CONFIG], run.env);
+    readReport(run.report, result.output);
+    const warnings = result.output.split('\n').filter((line) => line.includes('Loupe: history'));
+    expect(warnings, result.output).toEqual([
+      `Loupe: history: skipped a corrupt run file: runs/${corrupt}; skipped a run file written by a newer Loupe: runs/${newer}. The report is not affected.`,
+    ]);
+    expect(runFiles(run.history)).toHaveLength(3);
+    expect(readFileSync(path.join(run.history, 'runs', corrupt), 'utf8')).toBe('{"historyVersion":1,');
+    expect(readFileSync(path.join(run.history, 'runs', newer), 'utf8')).toBe('{"historyVersion":2}');
+  }, 120_000);
+
+  it('a report that ends in another stream than the one read at the start: the window of the end stream is read', () => {
+    const run = folders('late-branch');
+    const now = Date.now();
+    // Only the end stream's own window reaches its second run: from the start stream, it is another stream, read for its newest run only.
+    const end = { ...fixtureStream(), branch: 'late' };
+    putRunFile(run.history, makeRunFile({ id: 'end-newest', startedAt: daysAgo(now, 1), stream: end }));
+    const corrupt = putRunFile(run.history, makeRunFile({ id: 'end-older', startedAt: daysAgo(now, 2), stream: end }), '{"historyVersion":1,');
+    const result = playwright(['test', '--config', CONFIG], { ...run.env, LOUPE_FIXTURE_LATE_BRANCH: 'late' });
+    readReport(run.report, result.output);
+    const warnings = result.output.split('\n').filter((line) => line.includes('Loupe: history'));
+    expect(warnings, result.output).toEqual([`Loupe: history: skipped a corrupt run file: runs/${corrupt}. The report is not affected.`]);
+    const recorded = runFiles(run.history).filter((name) => !name.includes('-end-'));
+    expect(recorded).toHaveLength(1);
+    expect(readRun(run.history, recorded[0] as string).run.stream).toEqual({ environment: 'fixtures', origin: 'local', branch: 'late' });
+  }, 120_000);
+
+  it('a history folder that cannot be used: one warning, the report is written', () => {
+    const run = folders('unusable');
+    mkdirSync(run.history, { recursive: true });
+    // A file where runs/ should be: reading and writing fail on every platform.
+    writeFileSync(path.join(run.history, 'runs'), '');
+    const result = playwright(['test', '--config', CONFIG], run.env);
+    readReport(run.report, result.output);
+    const warnings = result.output.split('\n').filter((line) => line.includes('Loupe: history'));
+    expect(warnings, result.output).toHaveLength(1);
+    expect(warnings[0]).toMatch(/^Loupe: history: the history folder could not be read \(.*\); this run was not recorded \(.*\)\. The report is not affected\.$/);
+  }, 120_000);
+});
+
+describe('history: retention', () => {
+  it('two runs of two streams at once, on one folder: each keeps maxRuns of its own stream, a third stream keeps its runs, old runs leave every stream', async () => {
+    const run = folders('retention');
+    const now = Date.now();
+    const seed = (environment: string, days: number[]) =>
+      days.map((day) => putRunFile(run.history, makeRunFile({ id: `${environment}-${day}`, startedAt: daysAgo(now, day), stream: fixtureStream(environment) })));
+    const [a1, a2] = seed('a', [1, 2, 3, 4, 5]);
+    const [b1, b2] = seed('b', [1, 2, 3, 4, 5]);
+    const third = seed('c', [1, 2, 3, 4, 5]);
+    const [abandoned] = seed('gone', [91]);
+    const env = { ...run.env, LOUPE_FIXTURE_MAX_RUNS: '3' };
+    const outputs = await Promise.all([
+      runAsync({ ...env, LOUPE_ENV: 'a', LOUPE_FIXTURE_OUTPUT: path.join(run.report, 'a') }),
+      runAsync({ ...env, LOUPE_ENV: 'b', LOUPE_FIXTURE_OUTPUT: path.join(run.report, 'b') }),
+    ]);
+    for (const output of outputs) expect(output).not.toContain('Loupe: history');
+    const left = runFiles(run.history);
+    const ofStream = (environment: string) => left.filter((name) => name.includes(`-${streamHash(fixtureStream(environment))}-`));
+    // The new run, then the two newest seeded runs.
+    for (const [environment, newest] of [['a', [a1, a2]], ['b', [b1, b2]]] as const) {
+      expect(ofStream(environment)).toHaveLength(3);
+      expect(ofStream(environment)).toEqual(expect.arrayContaining([...newest]));
+    }
+    expect(ofStream('c')).toEqual([...third].sort());
+    expect(left).not.toContain(abandoned);
+  }, 120_000);
 });
 
 describe('history: a run in CI', () => {

@@ -19,6 +19,7 @@ const RUN: HistoryRunFile = {
   playwrightVersion: '1.64.1',
   run: {
     id: 'merge-1a2b3c4d',
+    reportRunId: '6f1c2b9e-8d3a-4c5b-9e7f-1a2b3c4d5e6f',
     startedAt: '2026-11-10T14:02:11.408Z',
     durationMs: 1,
     status: 'passed',

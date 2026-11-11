@@ -56,7 +56,7 @@ Everything runs offline, through `page.setContent` and local servers on 127.0.0.
 
 ## History
 
-`history.config.ts` runs `history/`, a browserless suite for run history (see `test/history.integration.test.ts`): one test per outcome a run file records (passed, failed with a message longer than an error extract, flaky through `testInfo.retry`, skipped, and a `test.fail()` failing as expected). **Its failures are intentional.** `LOUPE_FIXTURE_BLOB` adds the blob reporter next to Loupe, as a shard of a sharded run has it. The tests run it with `LOUPE_HISTORY=on` and a temporary `LOUPE_HISTORY_DIR`; every other run of the repository has history off (`vitest.config.ts`, the npm scripts).
+`history.config.ts` runs `history/`, a browserless suite for run history (see `test/history.integration.test.ts`): one test per outcome a run file records (passed, failed with a message longer than an error extract, flaky through `testInfo.retry`, skipped, and a `test.fail()` failing as expected). **Its failures are intentional.** `LOUPE_FIXTURE_BLOB` adds the blob reporter next to Loupe, as a shard of a sharded run has it, `LOUPE_FIXTURE_MAX_RUNS` sets `history.retention.maxRuns`, and `LOUPE_FIXTURE_LATE_BRANCH` adds the branch to the stream key and a reporter (`history-late-branch-reporter.mjs`) that sets that branch only at the end of the run, so the report ends in another stream than the one read at the start. The tests run it with `LOUPE_HISTORY=on` and a temporary `LOUPE_HISTORY_DIR`; every other run of the repository has history off (`vitest.config.ts`, the npm scripts).
 
 ## Leak canary
 

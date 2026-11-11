@@ -139,14 +139,19 @@ export interface HistoryConfig {
    */
   dir?: string;
   stream?: {
-    /** What makes a stream; retention and comparisons stay within one. Default: `['environment', 'origin']`. */
+    /**
+     * What makes a stream; `maxRuns` and comparisons stay within one. Default:
+     * `['environment', 'origin']`. The order does not matter, but adding or
+     * removing a part starts new streams: runs recorded with the old key are
+     * no longer compared and leave with `maxAgeDays`.
+     */
     key?: StreamKeyPart[];
   };
-  /** Per stream; the first limit reached wins. */
+  /** The first limit reached wins. */
   retention?: {
-    /** Default: `200`. */
+    /** Runs kept per stream, applied by each run to its own stream. Default: `200`. */
     maxRuns?: number;
-    /** Default: `90`. */
+    /** Age after which a run is removed, in every stream. Default: `90`. */
     maxAgeDays?: number;
   };
   /** `full` (default): partial, excluded and IDE runs are left out of run-level statistics. `all`: they count. */

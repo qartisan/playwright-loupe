@@ -24,6 +24,7 @@ exports[`history: a plain run > records the expected content 1`] = `
         "retries": 1,
       },
     ],
+    "reportRunId": "<report id>",
     "scope": "full",
     "scopeReasons": [],
     "startedAt": "<date>",
