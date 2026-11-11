@@ -151,6 +151,18 @@ export function normalizeErrorMessage(message: string, options: NormalizeOptions
   return text.replace(/\s+/g, ' ').trim();
 }
 
+/**
+ * Version of the signature algorithm: everything that turns an error message
+ * into a signature, this file, src/core/http.ts and the default redaction
+ * applied before it (src/core/redact.ts). History compares signatures across
+ * runs and never compares two different versions, so **any change that can
+ * change a signature must bump it** and add a CHANGELOG note. Numbered from
+ * 0.0.1 (1) to 0.1.3 (6); the table is in docs/schema/history-v1.md.
+ * test/history-signature-version.test.ts fails when signatures change and
+ * this number does not.
+ */
+export const SIGNATURE_VERSION = 6;
+
 /** First 12 hex chars of sha256 of the normalized message. Independent of the test. */
 export function errorSignature(message: string, options: NormalizeOptions = {}): string {
   return createHash('sha256').update(normalizeErrorMessage(message, options)).digest('hex').slice(0, 12);

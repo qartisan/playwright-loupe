@@ -22,6 +22,8 @@ rmSync(reportDir, { recursive: true, force: true });
 const { status } = spawnSync('npx', ['playwright', 'test', '--config', 'fixtures/playwright.config.ts'], {
   stdio: 'inherit',
   shell: process.platform === 'win32',
+  // The fixture runs are not a history.
+  env: { ...process.env, LOUPE_HISTORY: 'off' },
 });
 
 if (!existsSync(reportFile)) {

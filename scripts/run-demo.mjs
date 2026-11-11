@@ -84,6 +84,8 @@ rmSync(reportDir, { recursive: true, force: true });
 const { status } = spawnSync('npx', ['playwright', 'test', '--config', 'demo/playwright.config.ts'], {
   stdio: 'inherit',
   shell: process.platform === 'win32',
+  // No history in the demo until it shows one on purpose.
+  env: { ...process.env, LOUPE_HISTORY: 'off' },
 });
 
 if (!existsSync(reportFile) || !existsSync(indexFile)) {

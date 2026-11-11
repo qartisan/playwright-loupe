@@ -1,0 +1,132 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`history: a plain run > records the expected content 1`] = `
+{
+  "historyVersion": 1,
+  "loupeVersion": "<version>",
+  "playwrightVersion": "<version>",
+  "run": {
+    "ciProvider": null,
+    "durationMs": "<ms>",
+    "environment": "fixtures",
+    "errors": [],
+    "excluded": null,
+    "git": {
+      "branch": null,
+      "commit": null,
+    },
+    "id": "<id>",
+    "merged": false,
+    "origin": "local",
+    "projects": [
+      {
+        "name": "history",
+        "retries": 1,
+      },
+    ],
+    "scope": "full",
+    "scopeReasons": [],
+    "startedAt": "<date>",
+    "stats": {
+      "failed": 1,
+      "flaky": 1,
+      "passed": 2,
+      "skipped": 1,
+      "total": 5,
+    },
+    "status": "failed",
+    "stream": {
+      "environment": "fixtures",
+      "origin": "local",
+    },
+  },
+  "signatureVersion": 6,
+  "tests": [
+    {
+      "id": "34e4cf063bbfbcd9",
+      "o": "P",
+      "t": [
+        "history",
+        "outcomes.spec.ts",
+        "passes",
+      ],
+    },
+    {
+      "a": "FF",
+      "f": [
+        {
+          "at": "outcomes.spec.ts:10:9",
+          "cat": "Uncategorized",
+          "i": 0,
+          "sig": [
+            "ce0f46ccee91",
+          ],
+          "x": "Error: The order total is wrong (intentional)
+line 1 of a long failure message, kept in the extract up to a line end
+line 2 of a long failure message, kept in the extract up to a line end
+line 3 of a long failure message, kept in the extract up to a line end",
+        },
+        {
+          "at": "outcomes.spec.ts:10:9",
+          "cat": "Uncategorized",
+          "i": 1,
+          "sig": [
+            "ce0f46ccee91",
+          ],
+          "x": "Error: The order total is wrong (intentional)
+line 1 of a long failure message, kept in the extract up to a line end
+line 2 of a long failure message, kept in the extract up to a line end
+line 3 of a long failure message, kept in the extract up to a line end",
+        },
+      ],
+      "id": "f0f93a7a903c2299",
+      "o": "F",
+      "t": [
+        "history",
+        "outcomes.spec.ts",
+        "fails (intentional)",
+      ],
+    },
+    {
+      "a": "FP",
+      "f": [
+        {
+          "at": "outcomes.spec.ts:14:38",
+          "cat": "Uncategorized",
+          "i": 0,
+          "sig": [
+            "4fac15de1b1a",
+          ],
+          "x": "Error: First attempt fails (intentional)",
+        },
+      ],
+      "id": "f2c5faef1b257c6f",
+      "o": "K",
+      "t": [
+        "history",
+        "outcomes.spec.ts",
+        "is flaky (intentional)",
+      ],
+    },
+    {
+      "id": "796f7f75f651e3b4",
+      "o": "S",
+      "t": [
+        "history",
+        "outcomes.spec.ts",
+        "is skipped",
+      ],
+    },
+    {
+      "a": "F",
+      "id": "9bca05a0c18e7492",
+      "o": "P",
+      "t": [
+        "history",
+        "outcomes.spec.ts",
+        "fails as expected",
+      ],
+    },
+  ],
+}
+`;

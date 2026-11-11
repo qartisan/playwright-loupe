@@ -41,6 +41,13 @@ describe('resolveConfig: defaults', () => {
       redact: { mode: 'extend', patterns: [], env: [] },
       git: { local: true },
       traceViewer: 'off',
+      history: {
+        enabled: true,
+        dir: path.join(BASE, 'loupe-history'),
+        stream: { key: ['environment', 'origin'] },
+        retention: { maxRuns: 200, maxAgeDays: 90 },
+        include: 'full',
+      },
     });
   });
 

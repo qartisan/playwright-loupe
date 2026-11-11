@@ -55,7 +55,7 @@ describe('validateConfig: valid configs', () => {
   it('accepts configFile only in reporter options', () => {
     expect(validateConfig({ configFile: 'loupe.ci.ts' }, 'reporter options', { allowConfigFile: true })).toEqual([]);
     expect(validate({ configFile: 'loupe.ci.ts' })).toEqual([
-      `${SOURCE}: configFile is not a known option. Known options: outputFolder, title, environment, categories, dimensions, screenshots, theme, aiPrompt, redact, git, traceViewer.`,
+      `${SOURCE}: configFile is not a known option. Known options: outputFolder, title, environment, categories, dimensions, screenshots, theme, aiPrompt, redact, git, traceViewer, history.`,
     ]);
   });
 });
@@ -217,8 +217,8 @@ describe('validateConfig: unknown keys', () => {
   });
 
   it('lists the known options when nothing is close', () => {
-    expect(validate({ history: {} })).toEqual([
-      `${SOURCE}: history is not a known option. Known options: outputFolder, title, environment, categories, dimensions, screenshots, theme, aiPrompt, redact, git, traceViewer.`,
+    expect(validate({ widgets: {} })).toEqual([
+      `${SOURCE}: widgets is not a known option. Known options: outputFolder, title, environment, categories, dimensions, screenshots, theme, aiPrompt, redact, git, traceViewer, history.`,
     ]);
   });
 

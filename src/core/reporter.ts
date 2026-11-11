@@ -6,7 +6,9 @@ import type { FullConfig, FullResult, Reporter, Suite, TestError } from '@playwr
 import { loadConfig } from '../config/index.js';
 import type { LoupeReporterOptions, ResolvedConfig } from '../config/types.js';
 import type { RunScope } from '../schema/v1.js';
+import type { LoupeReport } from '../schema/v1.js';
 import { buildReport } from './build.js';
+import { recordRun } from './history/record.js';
 import { LOCAL_GIT_TIMEOUT_MS, readLocalGit, type LocalGit } from './git.js';
 import { injectData, injectSettings, type RendererSettings } from './inject.js';
 import { secretValues } from './redact.js';
@@ -33,6 +35,8 @@ export class LoupeReporter implements Reporter {
   private readonly scopeOverride: RunScope | null;
   /** Playwright passes `_mode: 'merge'` to reporters under `merge-reports` (1.52 and later). */
   private readonly merged: boolean;
+  /** Playwright passes `_mode: 'list'` under `--list`. */
+  private readonly listed: boolean;
   /** Directory of the Playwright config (of the merge config under `merge-reports`). */
   private readonly configDir: string | null;
   private localGit: Promise<LocalGit> | null = null;
@@ -50,6 +54,7 @@ export class LoupeReporter implements Reporter {
     // Read before loadConfig() strips Playwright's own keys from the options.
     const raw = options as Record<string, unknown>;
     this.merged = raw['_mode'] === 'merge';
+    this.listed = raw['_mode'] === 'list';
     this.configDir = typeof raw['configDir'] === 'string' ? raw['configDir'] : null;
     this.loupeConfig = loadConfig(options as Record<string, unknown>);
     // After the config is loaded; warnings name a variable, never its value.
@@ -126,9 +131,32 @@ export class LoupeReporter implements Reporter {
     await mkdir(outputFolder, { recursive: true });
     await writeFile(path.join(outputFolder, 'report.json'), `${JSON.stringify(report, null, 2)}\n`);
     await writeFile(path.join(outputFolder, 'index.html'), injectSettings(injectData(template, report), settings));
+    // After the report: history never stops a run nor prevents the report.
+    await this.recordHistory(report, this.config);
 
     const errors = report.run.errors.length;
     const suffix = errors > 0 ? ` (${errors} run error${errors > 1 ? 's' : ''} outside tests)` : '';
     console.log(`\nLoupe report written to ${path.relative(process.cwd(), outputFolder) || '.'}${suffix}`);
+  }
+
+  /** Writes the run file. Any failure is one warning: the report is already written. */
+  private async recordHistory(report: LoupeReport, config: FullConfig): Promise<void> {
+    if (!this.loupeConfig.history.enabled) return;
+    try {
+      await recordRun(report, {
+        history: this.loupeConfig.history,
+        list: this.listed,
+        merged: this.merged,
+        reporters: config.reporter.map(([name]) => name),
+        env: process.env,
+        argv: process.argv,
+        configArgv: (config as { argv?: string[] }).argv,
+        redact: { mode: this.loupeConfig.redact.mode, patterns: this.loupeConfig.redact.patterns, values: this.secretValues },
+        home: homedir(),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`Loupe: history: this run was not recorded (${message}). The report is not affected.`);
+    }
   }
 }

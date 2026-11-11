@@ -54,6 +54,10 @@ Everything runs offline, through `page.setContent` and local servers on 127.0.0.
 
 `rerun.config.ts` runs `rerun/`, a browserless suite for the rerun commands (see `test/rerun.integration.test.ts`): titles, tags, paths and project names that are hard to select with `-g` or to paste in a shell. **The odd file names under `rerun/hostile/` are intentional** (without `%`: Playwright itself crashes on it in ES module packages), and so are the pairs of tests in `rerun/twins.spec.ts`, which `-g` cannot tell apart, and the invented secret in the titles of `rerun/redaction.spec.ts`, which the report hides. The titles of `rerun/paths-in-titles.spec.ts` keep their paths in the report, but for the home directory, so their commands find the real test; the test titled like a shortened path is never selected in its place, and a title with a real `~` selects its planted neighbour too. The test only lists this suite, it never runs it.
 
+## History
+
+`history.config.ts` runs `history/`, a browserless suite for run history (see `test/history.integration.test.ts`): one test per outcome a run file records (passed, failed with a message longer than an error extract, flaky through `testInfo.retry`, skipped, and a `test.fail()` failing as expected). **Its failures are intentional.** `LOUPE_FIXTURE_BLOB` adds the blob reporter next to Loupe, as a shard of a sharded run has it. The tests run it with `LOUPE_HISTORY=on` and a temporary `LOUPE_HISTORY_DIR`; every other run of the repository has history off (`vitest.config.ts`, the npm scripts).
+
 ## Leak canary
 
 `leak.config.ts` runs `leak/`, a browserless suite for `test/leak.integration.test.ts`: one test per form of home directory, each writing it in its title, `describe`, tags, annotations, step, messages, stack, stdout, stderr and attachment names. **Every test of `leak.spec.ts` fails on purpose.** `secrets.spec.ts` holds invented `redact.env` secrets in its tags, and passes. The real home comes from `os.homedir()`; other machines' homes use a canary user name that lives only in `leak/homes.ts`, so that a line of the spec never carries it into a snippet. To add a form, add one line to `HOMES`.

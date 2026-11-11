@@ -26,7 +26,7 @@ rmSync(outputFolder, { recursive: true, force: true });
 const { status } = spawnSync(
   'npx',
   ['playwright', 'test', '--config', 'fixtures/sample.config.ts', '--grep-invert', 'is slow'],
-  { stdio: 'inherit', shell: process.platform === 'win32', env: { ...process.env, LOUPE_FIXTURE_OUTPUT: outputFolder } },
+  { stdio: 'inherit', shell: process.platform === 'win32', env: { ...process.env, LOUPE_FIXTURE_OUTPUT: outputFolder, LOUPE_HISTORY: 'off' } },
 );
 
 if (!existsSync(source)) {

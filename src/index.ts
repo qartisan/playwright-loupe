@@ -11,9 +11,12 @@ export type {
   CategoryTarget,
   DimensionConfig,
   DimensionsConfig,
+  HistoryConfig,
+  HistoryInclude,
   LoupeConfig,
   LoupeReporterOptions,
   ScreenshotView,
+  StreamKeyPart,
   TagDimensionConfig,
   Theme,
 } from './config/types.js';

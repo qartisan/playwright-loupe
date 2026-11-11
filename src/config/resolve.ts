@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { TRACE_VIEWERS, type LoupeConfig, type LoupeReporterOptions, type ResolvedCategoryRule, type ResolvedConfig, type ResolvedDimension, type TraceViewer } from './types.js';
+import { TRACE_VIEWERS, type HistoryConfig, type LoupeConfig, type LoupeReporterOptions, type ResolvedCategoryRule, type ResolvedConfig, type ResolvedDimension, type ResolvedHistory, type TraceViewer } from './types.js';
 import { paletteReference } from '../shared/palette.js';
 import { ENV_NAME, validateConfig, type UnknownKey } from './validate.js';
 
@@ -8,8 +8,19 @@ type Env = Readonly<Record<string, string | undefined>>;
 export const DEFAULT_OUTPUT_FOLDER = 'loupe-report';
 export const DEFAULT_TITLE = 'Loupe report';
 export const DEFAULT_UNCATEGORIZED = 'Uncategorized';
+export const DEFAULT_HISTORY_DIR = 'loupe-history';
+export const DEFAULT_HISTORY: Omit<ResolvedHistory, 'enabled' | 'dir'> = {
+  stream: { key: ['environment', 'origin'] },
+  retention: { maxRuns: 200, maxAgeDays: 90 },
+  include: 'full',
+};
 
-/** Environment variables mapped onto config options. `LOUPE_CONFIG`, `LOUPE_RUN_SCOPE`, `LOUPE_REDACT_ENV`, `LOUPE_GIT_LOCAL` and `LOUPE_TRACE_VIEWER` are handled apart. */
+/**
+ * Environment variables mapped onto config options. `LOUPE_CONFIG`,
+ * `LOUPE_RUN_SCOPE`, `LOUPE_REDACT_ENV`, `LOUPE_GIT_LOCAL`,
+ * `LOUPE_TRACE_VIEWER`, `LOUPE_HISTORY`, `LOUPE_HISTORY_DIR` and
+ * `LOUPE_EXCLUDE` are handled apart.
+ */
 export const ENV_OPTIONS = {
   LOUPE_OUTPUT_FOLDER: 'outputFolder',
   LOUPE_TITLE: 'title',
@@ -134,6 +145,46 @@ export function traceViewerEnv(env: Env): { value: TraceViewer | undefined; prob
   return { value: undefined, problems: [`${TRACE_VIEWER_ENV} must be one of "off", "bundled", got ${shown}`] };
 }
 
+/** `history.enabled` from the environment: `on`, `off`, `true`, `false`, `1` or `0`. */
+export const HISTORY_ENV = 'LOUPE_HISTORY';
+/** `history.dir` from the environment, relative to the working directory. */
+export const HISTORY_DIR_ENV = 'LOUPE_HISTORY_DIR';
+
+const HISTORY_VALUES: ReadonlyMap<string, boolean> = new Map([['on', true], ['off', false], ...BOOLEAN_VALUES]);
+
+/** `history.enabled` from `LOUPE_HISTORY`, undefined when unset or empty, with a problem for any other value. */
+export function historyEnv(env: Env): { value: boolean | undefined; problems: string[] } {
+  const raw = envValue(env, HISTORY_ENV);
+  if (raw === undefined) return { value: undefined, problems: [] };
+  const value = HISTORY_VALUES.get(raw);
+  if (value !== undefined) return { value, problems: [] };
+  const shown = JSON.stringify(raw.length > 40 ? `${raw.slice(0, 40)}…` : raw);
+  return { value: undefined, problems: [`${HISTORY_ENV} must be one of "on", "off", "true", "false", "1", "0", got ${shown}`] };
+}
+
+/**
+ * `history: true` / `false` becomes `{ enabled }` in each layer before the
+ * merge, so a higher layer can turn history on or off and keep the options of
+ * a lower one, and an object over `false` does not turn it back on silently.
+ */
+export function normalizeHistory<T extends object>(layer: T): T {
+  const value = (layer as { history?: unknown }).history;
+  return typeof value === 'boolean' ? { ...layer, history: { enabled: value } satisfies HistoryConfig } : layer;
+}
+
+/** True when `a` and `b` are the same folder or one is inside the other. */
+export function foldersOverlap(a: string, b: string): boolean {
+  const inside = (inner: string, outer: string): boolean => {
+    const relative = path.relative(outer, inner);
+    return relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
+  };
+  return inside(a, b) || inside(b, a);
+}
+
+function shownPath(cwd: string, folder: string): string {
+  return path.relative(cwd, folder) || '.';
+}
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof RegExp);
 }
@@ -203,6 +254,7 @@ export function resolveConfig(layers: ConfigLayers): ResolvedConfig {
   const redactEnv = redactEnvNames(layers.env);
   const gitLocal = gitLocalEnv(layers.env);
   const traceViewer = traceViewerEnv(layers.env);
+  const historyEnabled = historyEnv(layers.env);
   const unknownInline: UnknownKey[] = [];
   const problems = [
     ...(layers.file ? validateConfig(layers.file.config, fileSource) : []),
@@ -210,6 +262,7 @@ export function resolveConfig(layers: ConfigLayers): ResolvedConfig {
     ...redactEnv.problems,
     ...gitLocal.problems,
     ...traceViewer.problems,
+    ...historyEnabled.problems,
   ];
   const warning = unknownKeysWarning(unknownInline);
   if (warning) (layers.warn ?? ((message: string) => console.warn(message)))(warning);
@@ -218,7 +271,14 @@ export function resolveConfig(layers: ConfigLayers): ResolvedConfig {
   const { configFile: _configFile, ...inline } = layers.inline as LoupeReporterOptions;
   if (gitLocal.value !== undefined) env.git = { local: gitLocal.value };
   if (traceViewer.value !== undefined) env.traceViewer = traceViewer.value;
-  const merged = mergeLayers(mergeLayers((layers.file?.config ?? {}) as LoupeConfig, inline), env);
+  const historyDirEnv = envValue(layers.env, HISTORY_DIR_ENV);
+  if (historyEnabled.value !== undefined || historyDirEnv !== undefined) {
+    env.history = { ...(historyEnabled.value !== undefined ? { enabled: historyEnabled.value } : {}), ...(historyDirEnv !== undefined ? { dir: historyDirEnv } : {}) };
+  }
+  const merged = mergeLayers(
+    mergeLayers(normalizeHistory((layers.file?.config ?? {}) as LoupeConfig), normalizeHistory(inline)),
+    env,
+  );
 
   const uncategorized = merged.categories?.uncategorized ?? DEFAULT_UNCATEGORIZED;
   const rules = resolveRules(merged);
@@ -233,6 +293,8 @@ export function resolveConfig(layers: ConfigLayers): ResolvedConfig {
     env.outputFolder !== undefined
       ? path.resolve(layers.cwd, env.outputFolder)
       : path.resolve(layers.baseDir, merged.outputFolder ?? DEFAULT_OUTPUT_FOLDER);
+
+  const history = resolveHistory(merged.history as HistoryConfig | undefined, historyDirEnv, outputFolder, layers);
 
   return {
     configFile: layers.file?.path ?? null,
@@ -252,5 +314,47 @@ export function resolveConfig(layers: ConfigLayers): ResolvedConfig {
     },
     git: { local: merged.git?.local ?? true },
     traceViewer: merged.traceViewer ?? 'off',
+    history,
+  };
+}
+
+/**
+ * The history options. An explicit folder (`history.dir`, `LOUPE_HISTORY_DIR`)
+ * that overlaps `outputFolder` is a config error. The default folder
+ * overlapping it (an `outputFolder` of `.` or above) only turns history off
+ * with a warning: a config that worked before history existed keeps working.
+ */
+function resolveHistory(
+  config: HistoryConfig | undefined,
+  dirFromEnv: string | undefined,
+  outputFolder: string,
+  layers: ConfigLayers,
+): ResolvedHistory {
+  // LOUPE_HISTORY_DIR is relative to the working directory, like LOUPE_OUTPUT_FOLDER.
+  const dir =
+    dirFromEnv !== undefined
+      ? path.resolve(layers.cwd, dirFromEnv)
+      : path.resolve(layers.baseDir, config?.dir ?? DEFAULT_HISTORY_DIR);
+  let enabled = config?.enabled ?? true;
+  if (enabled && foldersOverlap(dir, outputFolder)) {
+    const where = `the history folder ${shownPath(layers.cwd, dir)} and the report folder ${shownPath(layers.cwd, outputFolder)} overlap`;
+    if (dirFromEnv !== undefined || config?.dir !== undefined) {
+      const source = dirFromEnv !== undefined ? HISTORY_DIR_ENV : 'history.dir';
+      throw new LoupeConfigError([`${source}: ${where}; the history must be outside the report folder (outputFolder), which is published and replaced`]);
+    }
+    (layers.warn ?? ((message: string) => console.warn(message)))(
+      `Loupe: history is off for this run: ${where}. Set history.dir to a folder outside outputFolder, or history: false.`,
+    );
+    enabled = false;
+  }
+  return {
+    enabled,
+    dir,
+    stream: { key: config?.stream?.key ? [...config.stream.key] : [...DEFAULT_HISTORY.stream.key] },
+    retention: {
+      maxRuns: config?.retention?.maxRuns ?? DEFAULT_HISTORY.retention.maxRuns,
+      maxAgeDays: config?.retention?.maxAgeDays ?? DEFAULT_HISTORY.retention.maxAgeDays,
+    },
+    include: config?.include ?? DEFAULT_HISTORY.include,
   };
 }

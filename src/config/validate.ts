@@ -1,5 +1,5 @@
 import { PALETTE_NAMES } from '../shared/palette.js';
-import { CATEGORY_MODES, CATEGORY_TARGETS, REDACT_MODES, SCREENSHOT_VIEWS, THEMES, TRACE_VIEWERS } from './types.js';
+import { CATEGORY_MODES, CATEGORY_TARGETS, HISTORY_INCLUDES, REDACT_MODES, SCREENSHOT_VIEWS, STREAM_KEY_PARTS, THEMES, TRACE_VIEWERS } from './types.js';
 
 /**
  * Hand-written validator for one config layer (config file, inline options or
@@ -205,6 +205,47 @@ function envNames(ctx: Context): Check {
   };
 }
 
+function positiveInteger(ctx: Context): Check {
+  return (value, path, errors) => {
+    if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1) fail(ctx, path, 'a positive integer', value, errors);
+  };
+}
+
+/** A non-empty list of stream key parts, each at most once. */
+function streamKey(ctx: Context): Check {
+  const part = oneOf(STREAM_KEY_PARTS, ctx);
+  return (value, path, errors) => {
+    if (!Array.isArray(value) || value.length === 0) {
+      return fail(ctx, path, `a non-empty array of ${STREAM_KEY_PARTS.map((item) => `"${item}"`).join(', ')}`, value, errors);
+    }
+    const seen = new Set<unknown>();
+    value.forEach((item, index) => {
+      part(item, `${path}[${index}]`, errors);
+      if (seen.has(item)) errors.push(`${ctx.source}: ${path}[${index}] repeats "${String(item)}"`);
+      seen.add(item);
+    });
+  };
+}
+
+/** `history`: a boolean, or an object of history options. */
+function history(ctx: Context): Check {
+  const fields = object(
+    {
+      enabled: boolean(ctx),
+      dir: nonEmptyString(ctx),
+      stream: object({ key: streamKey(ctx) }, ctx),
+      retention: object({ maxRuns: positiveInteger(ctx), maxAgeDays: positiveInteger(ctx) }, ctx),
+      include: oneOf(HISTORY_INCLUDES, ctx),
+    },
+    ctx,
+  );
+  return (value, path, errors) => {
+    if (typeof value === 'boolean') return;
+    if (!isPlainObject(value)) return fail(ctx, path, 'a boolean or an object', value, errors);
+    fields(value, path, errors);
+  };
+}
+
 function tagPrefix(ctx: Context): Check {
   return (value, path, errors) => {
     if (typeof value !== 'string' || value === '' || INVALID_PREFIX.test(value)) {
@@ -293,6 +334,7 @@ export function validateConfig(
     redact: object({ patterns: namePatterns(ctx), mode: oneOf(REDACT_MODES, ctx), env: envNames(ctx) }, ctx),
     git: object({ local: boolean(ctx) }, ctx),
     traceViewer: oneOf(TRACE_VIEWERS, ctx),
+    history: history(ctx),
   };
   if (options.allowConfigFile) fields['configFile'] = nonEmptyString(ctx);
   object(fields, ctx)(value, '', errors);

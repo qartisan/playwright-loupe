@@ -1,3 +1,5 @@
+import type { StreamKeyPart } from '../schema/history-v1.js';
+
 /**
  * Loupe configuration, as written in `loupe.config.ts` or passed inline as
  * reporter options. Every option is optional; see docs/config.md.
@@ -20,6 +22,11 @@ export type Theme = (typeof THEMES)[number];
 
 export const TRACE_VIEWERS = ['off', 'bundled'] as const;
 export type TraceViewer = (typeof TRACE_VIEWERS)[number];
+
+export const HISTORY_INCLUDES = ['full', 'all'] as const;
+export type HistoryInclude = (typeof HISTORY_INCLUDES)[number];
+
+export { STREAM_KEY_PARTS, type StreamKeyPart } from '../schema/history-v1.js';
 
 export interface CategoryRuleConfig {
   /** Category name. Several rules may share a name. */
@@ -118,6 +125,32 @@ export interface LoupeConfig {
    * overrides it. Default: `off`.
    */
   traceViewer?: TraceViewer;
+  /** Run history, recorded in `loupe-history/` by default. `false` turns it off. See docs/history.md. */
+  history?: boolean | HistoryConfig;
+}
+
+export interface HistoryConfig {
+  /** Record runs and embed their history in the report. `LOUPE_HISTORY` overrides it. Default: `true`. */
+  enabled?: boolean;
+  /**
+   * History folder, relative to the Playwright config file; never inside
+   * `outputFolder`, nor containing it. `LOUPE_HISTORY_DIR` (relative to the
+   * working directory) overrides it. Default: `loupe-history`.
+   */
+  dir?: string;
+  stream?: {
+    /** What makes a stream; retention and comparisons stay within one. Default: `['environment', 'origin']`. */
+    key?: StreamKeyPart[];
+  };
+  /** Per stream; the first limit reached wins. */
+  retention?: {
+    /** Default: `200`. */
+    maxRuns?: number;
+    /** Default: `90`. */
+    maxAgeDays?: number;
+  };
+  /** `full` (default): partial, excluded and IDE runs are left out of run-level statistics. `all`: they count. */
+  include?: HistoryInclude;
 }
 
 /** Inline reporter options: a config, plus the path of the config file. */
@@ -156,4 +189,15 @@ export interface ResolvedConfig {
   redact: { mode: RedactMode; patterns: Array<string | RegExp>; env: string[] };
   git: { local: boolean };
   traceViewer: TraceViewer;
+  history: ResolvedHistory;
+}
+
+export interface ResolvedHistory {
+  /** False when turned off, or when the default folder overlaps `outputFolder` (with a warning). */
+  enabled: boolean;
+  /** Absolute. */
+  dir: string;
+  stream: { key: StreamKeyPart[] };
+  retention: { maxRuns: number; maxAgeDays: number };
+  include: HistoryInclude;
 }
