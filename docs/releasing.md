@@ -8,7 +8,7 @@ In the commands, `<version>` is the version being released (for example `0.1.7`)
 
 1. **Prepare the CHANGELOG** (Claude Code, left in the working tree).
 2. **Commit and push** `docs: prepare <version>` to `main`.
-3. **Wait for CI**: the six jobs of `.github/workflows/ci.yml` must be green: `Node 22 · Playwright current / Checks` and `Node 24 · Playwright current / Checks` (the lockfile Playwright), `Node 22 · Playwright 1.52.0 (minimum installable) / Checks`, `Node 22 · Playwright 1.57.0 (minimum supported) / Checks`, `Node 24 · Playwright latest / Checks`, and `Demo suite`. A red job, even for an environment reason, stops the release (see [A CI job is red](#a-ci-job-is-red-for-an-environment-reason)). **If the UI visibly changed** since the last release, regenerate the README screenshots from this run, commit, push and wait for CI again (see [below](#3-readme-screenshots-when-the-ui-visibly-changed)).
+3. **Wait for CI**: the seven jobs of `.github/workflows/ci.yml` must be green: `Node 22 · Playwright current / Checks` and `Node 24 · Playwright current / Checks` (the lockfile Playwright), `Node 22 · Playwright 1.52.0 (minimum installable) / Checks`, `Node 22 · Playwright 1.57.0 (minimum supported) / Checks`, `Node 24 · Playwright latest / Checks`, `History on Windows` and `Demo suite`. A red job, even for an environment reason, stops the release (see [A CI job is red](#a-ci-job-is-red-for-an-environment-reason)). **If the UI visibly changed** since the last release, regenerate the README screenshots from this run, commit, push and wait for CI again (see [below](#3-readme-screenshots-when-the-ui-visibly-changed)).
 4. **Pre-flight checks** (read-only); for a minor release, also the [supported Playwright floor](#supported-playwright-floor-minor-release).
 5. **Bump the version**: `npm version patch -m "chore: release %s"` (or `minor`).
 6. **Check the tag.**
@@ -210,7 +210,7 @@ An intermittent failure is not an environment failure until it is explained, and
 
 ## Windows job on the rerun commands
 
-`.github/workflows/windows-check.yml` (**Windows rerun commands**) runs on `windows-latest`, every Monday at 05:47 UTC and on push or pull request only when the paths it covers change: the rerun builder, the redaction marker, the core modules producing a test's file, title, project and tags (`identity.ts`, `build.ts`, `paths.ts`), `fixtures/rerun/`, the kit. It is not one of the six jobs of `ci.yml`; when it ran for a release's changes, it must be green too.
+`.github/workflows/windows-check.yml` (**Windows rerun commands**) runs on `windows-latest`, every Monday at 05:47 UTC and on push or pull request only when the paths it covers change: the rerun builder, the redaction marker, the core modules producing a test's file, title, project and tags (`identity.ts`, `build.ts`, `paths.ts`), `fixtures/rerun/`, the kit. It is not one of the seven jobs of `ci.yml`; when it ran for a release's changes, it must be green too.
 
 - It checks that a fresh checkout has every tracked file, the non-ASCII file name of `fixtures/rerun/hostile/` included.
 - It generates the commands with the real builder (`fixtures/windows-check/build.mjs`) and runs each with `--list` in `cmd.exe`, PowerShell 5.1 and 7, both also through `npx.cmd`, and Git Bash (`check.mjs --require-all-shells`). A `REQUIRED` row with a bad result, or a missing shell, fails the job.

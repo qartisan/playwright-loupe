@@ -64,6 +64,32 @@ jobs:
       os: ${{ matrix.os || 'ubuntu-latest' }}
       wait-for-source-maps: ${{ matrix.wait_for_source_maps || false }}
 
+  # Run history on Windows, where renames and removals meet file locks and home
+  # directories take their Windows forms: the history tests (every
+  # test/history* file; history-windows-locks.test.ts holds files the way an
+  # antivirus does, which only Windows does), and the leak canary, a
+  # browserless suite. Nothing here needs a browser, so none is installed.
+  # A release gate, like the jobs above (docs/releasing.md).
+  history-windows:
+    name: History on Windows
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      # The lockfile Playwright.
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: History and leak canary tests
+        run: npx vitest run test/history test/leak.integration.test.ts
+
   # The demo suite behind the live demo report (demo/README.md): checks on
   # every push that it still fails exactly as intended. No deployment here.
   demo:

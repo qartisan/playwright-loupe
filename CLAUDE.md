@@ -95,7 +95,7 @@ Claude Code prepares and verifies a release; the maintainer runs `npm version`, 
 
 - **Choosing the version.** Patch for fixes and improvements, minor for a new version line, as practiced since 0.1.0. `1.0.0` is not on the table until the history design (phase 2) is settled.
 - **`schemaVersion` is independent** from the package version (`src/schema/v1.ts`, policy in `docs/schema/v1.md`). It changes only with the JSON shape, noted in the CHANGELOG. A change in how signatures are computed keeps `schemaVersion` but always gets a CHANGELOG note.
-- **CI**: six jobs in `ci.yml` (lockfile Playwright on Node 22 and 24, 1.52 and 1.57 on Node 22, latest on Node 24, demo), all green before a release, even when a job is red for an environment reason; `weekly.yml` runs the latest Playwright every week. Both call `checks.yml`.
+- **CI**: seven jobs in `ci.yml` (lockfile Playwright on Node 22 and 24, 1.52 and 1.57 on Node 22, latest on Node 24, history on Windows, demo), all green before a release, even when a job is red for an environment reason; `weekly.yml` runs the latest Playwright every week. Both call `checks.yml`.
 - **Minor release**: check the supported floor against the policy with the npm `time` field before preparing it (`docs/releasing.md`, step 4).
 - **Patch from an older tag** (as 0.1.9): a `release/<version>` branch cut at the tag in a worktree, released from it, then merged into `main`.
 - **What Claude Code prepares**, left in the working tree:

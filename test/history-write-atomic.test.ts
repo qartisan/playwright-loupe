@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -58,5 +58,34 @@ describe('writeRunFile is atomic', () => {
     expect(path.basename(temp).startsWith('.')).toBe(true);
     expect(temp.endsWith(TEMP_SUFFIX)).toBe(true);
     expect(vi.mocked(fs.rename).mock.calls.map(([from, to]) => [String(from), String(to)])).toEqual([[temp, target]]);
+  });
+
+  const lockError = (code: string) => Object.assign(new Error(`${code}: operation not permitted, rename`), { code });
+
+  it.each(['EPERM', 'EACCES', 'EBUSY'])('retries a rename that fails with %s (Windows: the target is open elsewhere), then succeeds', async (code) => {
+    root = mkdtempSync(path.join(tmpdir(), 'loupe-history-atomic-'));
+    const dir = path.join(root, 'loupe-history');
+    vi.mocked(fs.rename).mockRejectedValueOnce(lockError(code)).mockRejectedValueOnce(lockError(code));
+    const target = await writeRunFile(dir, RUN);
+    expect(vi.mocked(fs.rename)).toHaveBeenCalledTimes(3);
+    expect(readdirSync(path.join(dir, RUNS_FOLDER))).toEqual([path.basename(target)]);
+  });
+
+  it('gives up after five attempts, throws the lock error and leaves no temporary file', async () => {
+    root = mkdtempSync(path.join(tmpdir(), 'loupe-history-atomic-'));
+    const dir = path.join(root, 'loupe-history');
+    for (let attempt = 0; attempt < 5; attempt++) vi.mocked(fs.rename).mockRejectedValueOnce(lockError('EPERM'));
+    await expect(writeRunFile(dir, RUN)).rejects.toMatchObject({ code: 'EPERM' });
+    expect(vi.mocked(fs.rename)).toHaveBeenCalledTimes(5);
+    expect(readdirSync(path.join(dir, RUNS_FOLDER))).toEqual([]);
+  });
+
+  it('does not retry other errors', async () => {
+    root = mkdtempSync(path.join(tmpdir(), 'loupe-history-atomic-'));
+    const dir = path.join(root, 'loupe-history');
+    vi.mocked(fs.rename).mockRejectedValueOnce(lockError('ENOSPC'));
+    await expect(writeRunFile(dir, RUN)).rejects.toMatchObject({ code: 'ENOSPC' });
+    expect(vi.mocked(fs.rename)).toHaveBeenCalledTimes(1);
+    expect(readdirSync(path.join(dir, RUNS_FOLDER))).toEqual([]);
   });
 });

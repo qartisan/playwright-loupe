@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
@@ -81,6 +81,27 @@ describe('Playwright floors', () => {
     const job = (version: string, role: string) => new RegExp(`playwright: ${version.replace('.', '\\.')}\\.0\\n\\s+role: ${role}\\n`);
     expect(ci).toMatch(job(MIN_PLAYWRIGHT_INSTALLABLE, 'minimum installable'));
     expect(ci).toMatch(job(MIN_PLAYWRIGHT_SUPPORTED, 'minimum supported'));
+  });
+
+  it('runs the history tests and the leak canary on Windows, without a browser, as the seventh release gate', () => {
+    const ci = readFileSync(path.join(ROOT, '.github/workflows/ci.yml'), 'utf8');
+    // The job, up to the next job at the same indentation or the end of the file.
+    const job = /^ {2}history-windows:\n((?: {4}.*\n|\n)+)/m.exec(ci)?.[1] ?? '';
+    expect(job).toContain('name: History on Windows');
+    expect(job).toContain('runs-on: windows-latest');
+    expect(job).toMatch(/node-version: 24\n/);
+    expect(job).toContain('run: npm ci');
+    expect(job).toContain('run: npm run build');
+    // `test/history` matches every history test file, the Windows lock tests included.
+    expect(job).toContain('run: npx vitest run test/history test/leak.integration.test.ts');
+    expect(job).not.toMatch(/playwright install|if:/);
+    expect(existsSync(path.join(ROOT, 'test/history-windows-locks.test.ts'))).toBe(true);
+    // On every push, like the other jobs: no path filter in ci.yml.
+    expect(ci).toMatch(/^on:\n {2}push:\n {2}pull_request:\n/m);
+    const releasing = readFileSync(path.join(ROOT, 'docs/releasing.md'), 'utf8');
+    expect(releasing).toContain('the seven jobs of `.github/workflows/ci.yml` must be green');
+    expect(releasing).toContain('`History on Windows`');
+    expect(readFileSync(path.join(ROOT, 'CLAUDE.md'), 'utf8')).toContain('seven jobs in `ci.yml`');
   });
 
   it('shows both floors in the README and the support documentation', () => {
