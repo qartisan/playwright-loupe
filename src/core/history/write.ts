@@ -1,6 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import { mkdir, rename, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { promisify } from 'node:util';
+import { gzip as gzipCallback } from 'node:zlib';
 import type { HistoryRunFile } from '../../schema/history-v1.js';
 import { runFileName, streamHash } from './runFile.js';
 
@@ -20,6 +22,8 @@ export function isTempFile(name: string): boolean {
 /** Windows: a rename onto a file another process has open fails for a moment. */
 const RENAME_RETRY_CODES = new Set(['EPERM', 'EACCES', 'EBUSY']);
 const RENAME_ATTEMPTS = 5;
+
+const gzip = promisify(gzipCallback);
 
 const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -52,7 +56,8 @@ export async function ensureHistoryFolder(dir: string): Promise<void> {
 }
 
 /**
- * Writes a run file atomically: to a temporary file in `runs/`, then renamed.
+ * Writes a run file, gzipped at the default level, atomically: to a
+ * temporary file in `runs/`, then renamed.
  * A reader sees the whole file or nothing; writing the same run again (a
  * merge re-run) replaces it. Returns the path written.
  */
@@ -61,8 +66,9 @@ export async function writeRunFile(dir: string, run: HistoryRunFile): Promise<st
   const name = runFileName(run.run.startedAt, streamHash(run.run.stream), run.run.id);
   const target = path.join(dir, RUNS_FOLDER, name);
   const temp = path.join(dir, RUNS_FOLDER, `.${name}.${process.pid}-${randomBytes(4).toString('hex')}${TEMP_SUFFIX}`);
+  const content = await gzip(JSON.stringify(run));
   try {
-    await writeFile(temp, JSON.stringify(run));
+    await writeFile(temp, content);
     await renameWithRetry(temp, target);
   } catch (error) {
     await unlink(temp).catch(() => {});

@@ -127,13 +127,19 @@ export function compactTime(startedAt: string): string {
   return startedAt.replace(/[-:]/g, '');
 }
 
-/** `runs/<startedAt>-<stream hash>-<run id>.json`. */
+/** Run files are gzipped JSON. */
+export const RUN_FILE_EXTENSION = '.json.gz';
+
+/** `runs/<startedAt>-<stream hash>-<run id>.json.gz`. */
 export function runFileName(startedAt: string, stream: string, runId: string): string {
-  return `${compactTime(startedAt)}-${stream}-${runId}.json`;
+  return `${compactTime(startedAt)}-${stream}-${runId}${RUN_FILE_EXTENSION}`;
 }
 
-/** A run file name; anything else in `runs/` (temporary files, foreign files) does not match. */
-const RUN_FILE_NAME = /^(\d{8}T\d{6}(?:\.\d{3})?Z)-([0-9a-f]{8})-([A-Za-z0-9][A-Za-z0-9._-]*)\.json$/;
+/**
+ * A run file name; anything else in `runs/` (temporary files, foreign files,
+ * plain `.json` files) does not match.
+ */
+const RUN_FILE_NAME = /^(\d{8}T\d{6}(?:\.\d{3})?Z)-([0-9a-f]{8})-([A-Za-z0-9][A-Za-z0-9._-]*)\.json\.gz$/;
 
 export interface RunFileName {
   name: string;

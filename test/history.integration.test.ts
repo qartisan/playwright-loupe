@@ -5,7 +5,7 @@ import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runFileName, streamHash } from '../src/core/history/runFile.js';
 import type { EmbeddedHistory, HistoryRunFile } from '../src/schema/history-v1.js';
-import { daysAgo, makeRunFile, putRunFile } from './helpers/history.js';
+import { daysAgo, makeRunFile, putRunFile, readRunFile } from './helpers/history.js';
 import { ROOT, assertBuilt, playwright, readReport } from './helpers/fixtures.js';
 
 const CONFIG = 'fixtures/history.config.ts';
@@ -68,7 +68,7 @@ function runFiles(history: string): string[] {
 }
 
 function readRun(history: string, name: string): HistoryRunFile {
-  return JSON.parse(readFileSync(path.join(history, 'runs', name), 'utf8')) as HistoryRunFile;
+  return JSON.parse(readRunFile(path.join(history, 'runs', name))) as HistoryRunFile;
 }
 
 /** The embedded history of a report folder's index.html: null, or the block. */
@@ -115,7 +115,7 @@ describe('history: a plain run', () => {
     expect(readFileSync(path.join(history, '.gitignore'), 'utf8')).toBe('*\n');
     const files = runFiles(history);
     expect(files, output).toHaveLength(1);
-    expect(files[0]).toMatch(/^\d{8}T\d{6}\.\d{3}Z-[0-9a-f]{8}-[0-9a-f-]{36}\.json$/);
+    expect(files[0]).toMatch(/^\d{8}T\d{6}\.\d{3}Z-[0-9a-f]{8}-[0-9a-f-]{36}\.json\.gz$/);
   });
 
   it('records the expected content', () => {
@@ -216,7 +216,7 @@ describe('history: blobs and merge-reports', () => {
     expect(first.output).not.toContain('Loupe: history');
     const files = runFiles(history);
     expect(files, first.output).toHaveLength(1);
-    expect(files[0]).toMatch(/-merge-[0-9a-f]{8}\.json$/);
+    expect(files[0]).toMatch(/-merge-[0-9a-f]{8}\.json\.gz$/);
     const run = readRun(history, files[0] as string);
     expect([run.run.merged, run.run.origin]).toEqual([true, 'local']);
     expect(run.tests).toHaveLength(5);
@@ -233,7 +233,7 @@ describe('history: blobs and merge-reports', () => {
     merge(ci);
     const files = runFiles(history);
     expect(files).toHaveLength(1);
-    expect(files[0]).toMatch(/-github-actions-4242-[0-9a-f]{8}\.json$/);
+    expect(files[0]).toMatch(/-github-actions-4242-[0-9a-f]{8}\.json\.gz$/);
     expect(readRun(history, files[0] as string).run.origin).toBe('ci');
     merge({ ...ci, GITHUB_RUN_ATTEMPT: '2' });
     expect(runFiles(history)).toEqual(files);
@@ -271,20 +271,23 @@ function runAsync(env: Record<string, string>): Promise<string> {
 }
 
 describe('history: reading the folder', () => {
-  it('a corrupt file and a file of a newer Loupe in the window: one warning, the report, the run recorded, both files untouched', () => {
+  it('corrupt files and a file of a newer Loupe in the window: one warning, the report, the run recorded, the files untouched', () => {
     const run = folders('corrupt');
     const now = Date.now();
     const corrupt = putRunFile(run.history, makeRunFile({ id: 'corrupt', startedAt: daysAgo(now, 1), stream: fixtureStream() }), '{"historyVersion":1,');
     const newer = putRunFile(run.history, makeRunFile({ id: 'newer', startedAt: daysAgo(now, 2), stream: fixtureStream() }), '{"historyVersion":2}');
+    // Plain JSON under a run file name: it does not decompress.
+    const plain = putRunFile(run.history, makeRunFile({ id: 'plain', startedAt: daysAgo(now, 3), stream: fixtureStream() }), Buffer.from('{"historyVersion":1}'));
     const result = playwright(['test', '--config', CONFIG], run.env);
     readReport(run.report, result.output);
     const warnings = result.output.split('\n').filter((line) => line.includes('Loupe: history'));
     expect(warnings, result.output).toEqual([
-      `Loupe: history: skipped a corrupt run file: runs/${corrupt}; skipped a run file written by a newer Loupe: runs/${newer}. The report is not affected.`,
+      `Loupe: history: skipped 2 corrupt run files: ${[corrupt, plain].sort().map((name) => `runs/${name}`).join(', ')}; skipped a run file written by a newer Loupe: runs/${newer}. The report is not affected.`,
     ]);
-    expect(runFiles(run.history)).toHaveLength(3);
-    expect(readFileSync(path.join(run.history, 'runs', corrupt), 'utf8')).toBe('{"historyVersion":1,');
-    expect(readFileSync(path.join(run.history, 'runs', newer), 'utf8')).toBe('{"historyVersion":2}');
+    expect(runFiles(run.history)).toHaveLength(4);
+    expect(readRunFile(path.join(run.history, 'runs', corrupt))).toBe('{"historyVersion":1,');
+    expect(readRunFile(path.join(run.history, 'runs', newer))).toBe('{"historyVersion":2}');
+    expect(readFileSync(path.join(run.history, 'runs', plain), 'utf8')).toBe('{"historyVersion":1}');
   }, 120_000);
 
   it('a report that ends in another stream than the one read at the start: the window of the end stream is read', () => {
@@ -359,7 +362,7 @@ describe('history: a run in CI', () => {
     const recorded = readRun(run.history, files[0] as string);
     expect(recorded.run.id).toMatch(new RegExp(`^${provider}-4242-[0-9a-f]{8}$`));
     expect([recorded.run.origin, recorded.run.ciProvider, recorded.run.git.commit]).toEqual(['ci', provider, head]);
-    expect(files[0]).toMatch(new RegExp(`-${provider}-4242-[0-9a-f]{8}\\.json$`));
+    expect(files[0]).toMatch(new RegExp(`-${provider}-4242-[0-9a-f]{8}\\.json\\.gz$`));
   }, 120_000);
 });
 

@@ -1,6 +1,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { gzipSync } from 'node:zlib';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { ResolvedHistory } from '../src/config/types.js';
 import { DEFAULT_HISTORY } from '../src/config/resolve.js';
@@ -10,6 +11,7 @@ import { EXTRACT_CHARS, extract, runFileName, streamHash } from '../src/core/his
 import { GITIGNORE, RUNS_FOLDER, ensureHistoryFolder, writeRunFile } from '../src/core/history/write.js';
 import type { HistoryRunFile } from '../src/schema/history-v1.js';
 import type { Attempt, AttemptStatus, LoupeReport, Outcome, TestCase } from '../src/schema/v1.js';
+import { readRunFile } from './helpers/history.js';
 
 const CLI = '/project/node_modules/@playwright/test/cli.js';
 
@@ -322,7 +324,7 @@ describe('the run file', () => {
   });
 
   it('is named by start time, stream hash and run id, so names sort by time', () => {
-    expect(runFileName('2026-11-10T14:02:11.408Z', '0a1b2c3d', 'merge-1a2b3c4d')).toBe('20261110T140211.408Z-0a1b2c3d-merge-1a2b3c4d.json');
+    expect(runFileName('2026-11-10T14:02:11.408Z', '0a1b2c3d', 'merge-1a2b3c4d')).toBe('20261110T140211.408Z-0a1b2c3d-merge-1a2b3c4d.json.gz');
   });
 
   it("stores the report's run.id next to the history run id", () => {
@@ -387,13 +389,15 @@ describe('writeRunFile', () => {
     const file = await writeRunFile(dir, run);
     expect(file).toBe(path.join(dir, RUNS_FOLDER, runFileName(run.run.startedAt, streamHash(run.run.stream), run.run.id)));
     expect(readFileSync(path.join(dir, GITIGNORE), 'utf8')).toBe('*\n');
-    expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual(run);
+    expect(JSON.parse(readRunFile(file))).toEqual(run);
     expect(readdirSync(path.join(dir, RUNS_FOLDER))).toEqual([path.basename(file)]);
   });
 
-  it('writes minified JSON', async () => {
+  it('writes minified JSON, gzipped at the default level', async () => {
     const file = await writeRunFile(dir, run);
-    expect(readFileSync(file, 'utf8')).toBe(JSON.stringify(run));
+    expect(readRunFile(file)).toBe(JSON.stringify(run));
+    // Byte for byte what zlib writes at the default level (the header records the level).
+    expect(readFileSync(file).equals(gzipSync(JSON.stringify(run)))).toBe(true);
   });
 
   it('leaves an existing folder alone: a removed .gitignore is not written again', async () => {
@@ -414,7 +418,7 @@ describe('writeRunFile', () => {
     const changed = { ...run, run: { ...run.run, durationMs: 99 } };
     const file = await writeRunFile(dir, changed);
     expect(readdirSync(path.join(dir, RUNS_FOLDER))).toHaveLength(1);
-    expect(JSON.parse(readFileSync(file, 'utf8')).run.durationMs).toBe(99);
+    expect(JSON.parse(readRunFile(file)).run.durationMs).toBe(99);
   });
 
   it('a failed rename throws and leaves no temporary file', async () => {

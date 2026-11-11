@@ -1,5 +1,7 @@
 import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
+import { promisify } from 'node:util';
+import { gunzip as gunzipCallback } from 'node:zlib';
 import { HISTORY_VERSION, type HistoryRunFile } from '../../schema/history-v1.js';
 import { createPathRewriter } from '../paths.js';
 import { createRedactor, type RedactOptions } from '../redact.js';
@@ -10,6 +12,14 @@ import { RUNS_FOLDER } from './write.js';
 export const WINDOW_RUNS = 20;
 /** Run file names given in a warning, at most. */
 const NAMED_FILES = 3;
+/**
+ * Largest decompressed run file read: about 64 MB, where a real one is about
+ * 1 MB at 5,000 tests. Beyond it the file is corrupt, so a decompression bomb
+ * (a poisoned CI cache) never fills the memory of the run.
+ */
+export const MAX_RUN_FILE_BYTES = 64 * 1024 * 1024;
+
+const gunzip = promisify(gunzipCallback);
 
 const code = (error: unknown): string | undefined => (error as NodeJS.ErrnoException | null)?.code;
 const message = (error: unknown): string => (error instanceof Error ? error.message : String(error));
@@ -107,7 +117,7 @@ function isRun(value: unknown): boolean {
 }
 
 /**
- * A run file read from disk: the file, `newer` when a later Loupe wrote it
+ * The JSON text of a run file, once decompressed: the file, `newer` when a later Loupe wrote it
  * (another history version, which this one cannot read), `corrupt` otherwise.
  */
 export function parseRunFile(text: string): HistoryRunFile | 'newer' | 'corrupt' {
@@ -127,6 +137,20 @@ export function parseRunFile(text: string): HistoryRunFile | 'newer' | 'corrupt'
     Array.isArray(value['tests']) &&
     value['tests'].every(isTest);
   return valid ? (value as unknown as HistoryRunFile) : 'corrupt';
+}
+
+/**
+ * A run file as stored, gzipped: decompressed, then parsed. Anything that does
+ * not decompress (plain text, a truncated file, beyond `maxBytes`) is corrupt.
+ */
+export async function decodeRunFile(content: Buffer, maxBytes: number = MAX_RUN_FILE_BYTES): Promise<HistoryRunFile | 'newer' | 'corrupt'> {
+  let text: string;
+  try {
+    text = (await gunzip(content, { maxOutputLength: maxBytes })).toString('utf8');
+  } catch {
+    return 'corrupt';
+  }
+  return parseRunFile(text);
 }
 
 /**
@@ -175,7 +199,8 @@ function named(names: readonly string[]): string {
  * Reads the window of a stream and the newest run of every other stream.
  * Never throws: an unreadable folder is an empty history with a problem. A
  * file that vanished since the listing (retention by another run) is skipped
- * without a word; a corrupt file or one from a newer Loupe is skipped, never
+ * without a word; a corrupt file (one that does not decompress included) or
+ * one from a newer Loupe is skipped, never
  * rewritten or removed, and named in one problem. A file with another
  * `signatureVersion` is kept: its statuses compare, its signatures do not.
  */
@@ -192,14 +217,14 @@ export async function readHistory(dir: string, stream: string, replay: (text: st
   const newer: string[] = [];
   const unreadable: string[] = [];
   const read = async (file: RunFileName): Promise<HistoryRunFile | null> => {
-    let text: string;
+    let content: Buffer;
     try {
-      text = await readFile(path.join(dir, RUNS_FOLDER, file.name), 'utf8');
+      content = await readFile(path.join(dir, RUNS_FOLDER, file.name));
     } catch (error) {
       if (code(error) !== 'ENOENT') unreadable.push(file.name);
       return null;
     }
-    const parsed = parseRunFile(text);
+    const parsed = await decodeRunFile(content);
     if (parsed === 'corrupt') corrupt.push(file.name);
     else if (parsed === 'newer') newer.push(file.name);
     else return replayRun(parsed, replay);

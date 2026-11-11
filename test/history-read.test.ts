@@ -1,12 +1,13 @@
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { gzipSync } from 'node:zlib';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { ResolvedHistory } from '../src/config/types.js';
-import { WINDOW_RUNS, createReplay, listRunFiles, parseRunFile, readHistory, selectWindow, windowOfStream } from '../src/core/history/read.js';
+import { MAX_RUN_FILE_BYTES, WINDOW_RUNS, createReplay, decodeRunFile, listRunFiles, parseRunFile, readHistory, selectWindow, windowOfStream } from '../src/core/history/read.js';
 import { runIdentity } from '../src/core/history/record.js';
 import { parseRunFileName, runFileName, streamHash } from '../src/core/history/runFile.js';
-import { daysAgo, makeRunFile, putRunFile } from './helpers/history.js';
+import { daysAgo, makeRunFile, putRunFile, readRunFile } from './helpers/history.js';
 
 const NOW = Date.parse('2026-11-11T12:00:00.000Z');
 const A = { environment: 'staging', origin: 'ci' };
@@ -28,14 +29,18 @@ describe('stream hash and file names', () => {
 
   it('parses its own names, run ids with dashes included', () => {
     const name = runFileName('2026-11-10T14:02:11.408Z', '0a1b2c3d', '6f1c2b9e-8d3a-4c5b-9e7f-1a2b3c4d5e6f');
+    expect(name).toBe('20261110T140211.408Z-0a1b2c3d-6f1c2b9e-8d3a-4c5b-9e7f-1a2b3c4d5e6f.json.gz');
     expect(parseRunFileName(name)).toEqual({ name, startedAt: Date.parse('2026-11-10T14:02:11.408Z'), stream: '0a1b2c3d', runId: '6f1c2b9e-8d3a-4c5b-9e7f-1a2b3c4d5e6f' });
   });
 
   it.each([
     ['a temporary file', `.${runFileName('2026-11-10T14:02:11.408Z', '0a1b2c3d', 'r')}.123-abcd.tmp`],
-    ['a name without stream hash', '20261110T140211.408Z-merge-1a2b3c4d.json'],
+    ['a name without stream hash', '20261110T140211.408Z-merge-1a2b3c4d.json.gz'],
     ['a foreign file', 'notes.json'],
-    ['an impossible date', '20261399T999999.000Z-0a1b2c3d-r.json'],
+    ['a foreign gzipped file', 'notes.json.gz'],
+    ['an impossible date', '20261399T999999.000Z-0a1b2c3d-r.json.gz'],
+    // Run files of the development builds before gzip, left in a folder.
+    ['a plain JSON run file', '20261110T140211.408Z-0a1b2c3d-r.json'],
   ])('ignores %s', (_label, name) => {
     expect(parseRunFileName(name)).toBeNull();
   });
@@ -70,6 +75,38 @@ describe('parseRunFile', () => {
   });
 });
 
+describe('decodeRunFile', () => {
+  const file = makeRunFile();
+  const text = JSON.stringify(file);
+
+  it('gunzips, then parses', async () => {
+    expect(await decodeRunFile(gzipSync(text))).toEqual(file);
+    expect(await decodeRunFile(gzipSync(JSON.stringify({ historyVersion: 2 })))).toBe('newer');
+  });
+
+  it.each([
+    ['plain JSON', Buffer.from(text)],
+    ['a truncated gzip', gzipSync(text).subarray(0, 40)],
+    ['an empty file', Buffer.alloc(0)],
+  ])('%s is corrupt', async (_label, content) => {
+    expect(await decodeRunFile(content)).toBe('corrupt');
+  });
+
+  it('a file that decompresses beyond the limit is corrupt, even when its JSON is valid', async () => {
+    const padded = gzipSync(text + ' '.repeat(1000));
+    expect(await decodeRunFile(padded, text.length + 1000)).toEqual(file);
+    expect(await decodeRunFile(padded, text.length + 999)).toBe('corrupt');
+  });
+
+  it('the default limit is about 64 MB: a decompression bomb is corrupt', async () => {
+    expect(MAX_RUN_FILE_BYTES).toBe(64 * 1024 * 1024);
+    // 65 MB of a valid run file once decompressed, 64 kB on disk.
+    const bomb = gzipSync(text + ' '.repeat(MAX_RUN_FILE_BYTES + 1024 * 1024 - text.length));
+    expect(bomb.byteLength).toBeLessThan(100_000);
+    expect(await decodeRunFile(bomb)).toBe('corrupt');
+  });
+});
+
 describe('listing and the window', () => {
   let dir: string;
   beforeEach(() => {
@@ -84,11 +121,13 @@ describe('listing and the window', () => {
     expect(await readHistory(dir, streamHash(A), identity)).toEqual({ stream: streamHash(A), runs: [], others: [], problems: [] });
   });
 
-  it('lists run files newest first, without temporary or foreign files', async () => {
+  it('lists run files newest first, without temporary, foreign or plain JSON files', async () => {
     const old = putRunFile(dir, makeRunFile({ id: 'old', startedAt: daysAgo(NOW, 2), stream: A }));
     const recent = putRunFile(dir, makeRunFile({ id: 'recent', startedAt: daysAgo(NOW, 1), stream: A }));
     writeFileSync(path.join(dir, 'runs', `.${recent}.1-ab.tmp`), '{');
     writeFileSync(path.join(dir, 'runs', 'notes.json'), '{}');
+    // A plain JSON run file, newer than both, as development builds before gzip wrote them.
+    writeFileSync(path.join(dir, 'runs', recent.replace(/^\d{8}/, '20991231').replace(/\.gz$/, '')), JSON.stringify(makeRunFile()));
     expect((await listRunFiles(dir)).map((file) => file.name)).toEqual([recent, old]);
   });
 
@@ -116,11 +155,17 @@ describe('listing and the window', () => {
     const good = putRunFile(dir, makeRunFile({ id: 'good', startedAt: daysAgo(NOW, 1), stream: A }));
     const corrupt = putRunFile(dir, makeRunFile({ id: 'corrupt', startedAt: daysAgo(NOW, 2), stream: A }), '{"historyVersion":1');
     const newer = putRunFile(dir, makeRunFile({ id: 'newer', startedAt: daysAgo(NOW, 3), stream: A }), '{"historyVersion":2}');
+    const plain = putRunFile(dir, makeRunFile({ id: 'plain', startedAt: daysAgo(NOW, 4), stream: A }), Buffer.from(JSON.stringify(makeRunFile({ id: 'plain', stream: A }))));
+    const truncated = putRunFile(dir, makeRunFile({ id: 'truncated', startedAt: daysAgo(NOW, 5), stream: A }), gzipSync(JSON.stringify(makeRunFile())).subarray(0, 40));
     const read = await readHistory(dir, streamHash(A), identity);
     expect(read.runs.map((run) => run.run.id)).toEqual(['good']);
-    expect(read.problems).toEqual([`skipped a corrupt run file: runs/${corrupt}`, `skipped a run file written by a newer Loupe: runs/${newer}`]);
-    expect(readdirSync(path.join(dir, 'runs')).sort()).toEqual([good, corrupt, newer].sort());
-    expect(readFileSync(path.join(dir, 'runs', newer), 'utf8')).toBe('{"historyVersion":2}');
+    expect(read.problems).toEqual([
+      `skipped 3 corrupt run files: ${[corrupt, plain, truncated].sort().map((name) => `runs/${name}`).join(', ')}`,
+      `skipped a run file written by a newer Loupe: runs/${newer}`,
+    ]);
+    expect(readdirSync(path.join(dir, 'runs')).sort()).toEqual([good, corrupt, newer, plain, truncated].sort());
+    expect(readRunFile(path.join(dir, 'runs', newer))).toBe('{"historyVersion":2}');
+    expect(readFileSync(path.join(dir, 'runs', plain), 'utf8')).toContain('"id":"plain"');
   });
 
   it('names three files at most', async () => {
@@ -167,7 +212,7 @@ describe('redaction replayed on read', () => {
     expect(out).not.toContain(SECRET);
     expect(out).not.toContain('replay-canary');
     // The file itself is never rewritten.
-    expect(readFileSync(path.join(dir, 'runs', readdirSync(path.join(dir, 'runs'))[0] as string), 'utf8')).toContain(SECRET);
+    expect(readRunFile(path.join(dir, 'runs', readdirSync(path.join(dir, 'runs'))[0] as string))).toContain(SECRET);
   });
 });
 

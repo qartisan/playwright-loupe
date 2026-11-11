@@ -1,5 +1,6 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { gunzipSync, gzipSync } from 'node:zlib';
 import { runFileName, streamHash } from '../../src/core/history/runFile.js';
 import type { HistoryRun, HistoryRunFile } from '../../src/schema/history-v1.js';
 
@@ -34,12 +35,22 @@ export function makeRunFile(run: Partial<HistoryRun> = {}, tests: HistoryRunFile
   };
 }
 
-/** Writes a run file under `<dir>/runs/` with its real name, or `content` instead of the file. Returns the name. */
-export function putRunFile(dir: string, file: HistoryRunFile, content?: string): string {
+/**
+ * Writes a run file under `<dir>/runs/` with its real name, gzipped as Loupe
+ * writes it. A string `content` is gzipped instead of the file (a corrupt or
+ * newer JSON); a Buffer is written as it is (a file that does not decompress).
+ * Returns the name.
+ */
+export function putRunFile(dir: string, file: HistoryRunFile, content?: string | Buffer): string {
   const name = runFileName(file.run.startedAt, streamHash(file.run.stream), file.run.id);
   mkdirSync(path.join(dir, 'runs'), { recursive: true });
-  writeFileSync(path.join(dir, 'runs', name), content ?? JSON.stringify(file));
+  writeFileSync(path.join(dir, 'runs', name), Buffer.isBuffer(content) ? content : gzipSync(content ?? JSON.stringify(file)));
   return name;
+}
+
+/** The JSON text of a run file on disk, decompressed. */
+export function readRunFile(file: string): string {
+  return gunzipSync(readFileSync(file)).toString('utf8');
 }
 
 /** An ISO date `days` days before `now`. */

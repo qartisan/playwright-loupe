@@ -9,6 +9,7 @@ import type { LoupeReport, Step, TestCase } from '../src/schema/v1.js';
 import { REDACTED } from '../src/shared/redaction.js';
 import { MIN_PLAYWRIGHT_TRACE_VIEWER, isBelow } from '../src/core/support.js';
 import { assertBuilt, playwright, readReport } from './helpers/fixtures.js';
+import { readRunFile } from './helpers/history.js';
 
 /**
  * Home directories in every place a report can hold one, written by a real run of
@@ -183,7 +184,9 @@ describe('the leak canary with history', () => {
     outputs += result.output;
     return folder;
   };
-  const runFiles = (): string[] => readdirSync(path.join(history, 'runs')).map((name) => readFileSync(path.join(history, 'runs', name), 'utf8'));
+  const runPaths = (): string[] => readdirSync(path.join(history, 'runs')).map((name) => path.join(history, 'runs', name));
+  // Run files are gzipped: searched decompressed, or a leak would pass unseen.
+  const runFiles = (): string[] => runPaths().map(readRunFile);
   const block = (folder: string): string => {
     const html = readFileSync(path.join(folder, 'index.html'), 'utf8');
     return /<script id="loupe-history" type="application\/json">(.*?)<\/script>/s.exec(html)?.[1] ?? '';
@@ -208,6 +211,18 @@ describe('the leak canary with history', () => {
     expect(outputs).not.toContain('Loupe: history');
     expect(block(first)).toBe('null');
     expect((JSON.parse(block(second)) as { runs: unknown[] }).runs).toHaveLength(1);
+  });
+
+  it('searches the run files decompressed: it finds what they hold in clear, which their raw bytes hide (positive control)', () => {
+    for (const file of runPaths()) {
+      const raw = readFileSync(file);
+      // The gzip magic number: a search of the bytes on disk would see nothing.
+      expect([raw[0], raw[1]]).toEqual([0x1f, 0x8b]);
+      expect(raw.toString('latin1')).not.toContain('historyVersion');
+    }
+    // The first run recorded the late value in clear (it was not in redact.env yet): the canary must see it.
+    expect(runFiles().filter((text) => text.includes(LATE.value))).toHaveLength(1);
+    expect(runPaths().filter((file) => readFileSync(file).toString('latin1').includes(LATE.value))).toEqual([]);
   });
 
   it('the run files and the embedded history hold no canary name, secret or real home', () => {
