@@ -28,7 +28,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { chromium } from '@playwright/test';
-import { DEFAULT_RENDERER_SETTINGS, injectData, injectSettings } from '../dist/core/inject.js';
+import { DEFAULT_RENDERER_SETTINGS, injectData, injectHistory, injectSettings } from '../dist/core/inject.js';
 
 const COUNT = 5000;
 const RUNS = 7;
@@ -96,7 +96,7 @@ for (const name of ['sample', 'heavy', 'cascade']) {
   mkdirSync(folder, { recursive: true });
   const data = dataset(name);
   writeFileSync(`${folder}report.json`, JSON.stringify(data));
-  writeFileSync(`${folder}index.html`, injectSettings(injectData(renderer, data), DEFAULT_RENDERER_SETTINGS));
+  writeFileSync(`${folder}index.html`, injectHistory(injectSettings(injectData(renderer, data), DEFAULT_RENDERER_SETTINGS), null));
   urls[name] = pathToFileURL(`${folder}index.html`).href;
   console.log(`wrote loupe-perf/${name}/ (${COUNT} tests)`);
 }

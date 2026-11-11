@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runFileName, streamHash } from '../src/core/history/runFile.js';
-import type { HistoryRunFile } from '../src/schema/history-v1.js';
+import type { EmbeddedHistory, HistoryRunFile } from '../src/schema/history-v1.js';
 import { daysAgo, makeRunFile, putRunFile } from './helpers/history.js';
 import { ROOT, assertBuilt, playwright, readReport } from './helpers/fixtures.js';
 
@@ -71,6 +71,14 @@ function readRun(history: string, name: string): HistoryRunFile {
   return JSON.parse(readFileSync(path.join(history, 'runs', name), 'utf8')) as HistoryRunFile;
 }
 
+/** The embedded history of a report folder's index.html: null, or the block. */
+function embedded(reportFolder: string): EmbeddedHistory | null {
+  const html = readFileSync(path.join(reportFolder, 'index.html'), 'utf8');
+  const text = /<script id="loupe-history" type="application\/json">(.*?)<\/script>/s.exec(html)?.[1];
+  if (text === undefined) throw new Error('No #loupe-history block in index.html');
+  return JSON.parse(text) as EmbeddedHistory | null;
+}
+
 /** What does not change between runs: no id, time, duration or version. */
 function projection(run: HistoryRunFile): unknown {
   return {
@@ -125,6 +133,27 @@ describe('history: a plain run', () => {
   it('prints no history warning', () => {
     expect(output).not.toContain('Loupe: history');
   });
+
+  it('embeds no history on a first run', () => {
+    expect(embedded(path.join(workDir, 'plain', 'report'))).toBeNull();
+  });
+});
+
+describe('history: the embedded window', () => {
+  it('the next run embeds the run before it, never itself', () => {
+    const run = folders('embed');
+    const first = readReport(run.report, playwright(['test', '--config', CONFIG], run.env).output);
+    const [firstFile] = runFiles(run.history);
+    const result = playwright(['test', '--config', CONFIG], run.env);
+    const second = readReport(run.report, result.output);
+    expect(result.output).not.toContain('Loupe: history');
+    const value = embedded(run.report);
+    expect(value?.runs.map((entry) => [entry.id, entry.reportRunId])).toEqual([[readRun(run.history, firstFile as string).run.id, first.run.id]]);
+    expect(value?.stream).toEqual(fixtureStream());
+    // One status per test of this report, for its one past run.
+    expect(value?.cells).toBe(second.tests.map((test) => ({ passed: 'P', failed: 'F', flaky: 'K', skipped: 'S' })[test.outcome]).join(''));
+    expect(value?.failures.length).toBeGreaterThan(0);
+  }, 120_000);
 });
 
 describe('history: runs that are never written', () => {
@@ -133,6 +162,7 @@ describe('history: runs that are never written', () => {
     const result = playwright(['test', '--config', CONFIG], { ...run.env, LOUPE_HISTORY: 'off' });
     readReport(run.report, result.output);
     expect(existsSync(run.history)).toBe(false);
+    expect(embedded(run.report)).toBeNull();
   }, 120_000);
 
   it('--list writes nothing', () => {
@@ -191,8 +221,10 @@ describe('history: blobs and merge-reports', () => {
     expect([run.run.merged, run.run.origin]).toEqual([true, 'local']);
     expect(run.tests).toHaveLength(5);
 
+    // Its own earlier file is not its past: nothing else to embed.
     merge();
     expect(runFiles(history)).toEqual(files);
+    expect(embedded(path.join(workDir, 'merge', 'merged'))).toBeNull();
   }, 120_000);
 
   it('in CI, a re-run of the merge job alone rewrites the same file', () => {
@@ -216,6 +248,7 @@ describe('history: blobs and merge-reports', () => {
     const after = runFiles(history);
     expect(after).toHaveLength(2);
     expect(after).toEqual(expect.arrayContaining(before));
+    expect(embedded(path.join(workDir, 'merge', 'merged'))?.runs.map((entry) => entry.id)).toEqual([readRun(history, before[0] as string).run.id]);
   }, 240_000);
 });
 

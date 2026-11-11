@@ -7,8 +7,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   DATA_PLACEHOLDER,
   DEFAULT_RENDERER_SETTINGS,
+  HISTORY_PLACEHOLDER,
   SETTINGS_PLACEHOLDER,
   injectData,
+  injectHistory,
   injectSettings,
   type RendererSettings,
 } from '../src/core/inject.js';
@@ -55,14 +57,17 @@ describe('built renderer', () => {
   it('keeps each injection placeholder exactly once', () => {
     expect(occurrences(template, DATA_PLACEHOLDER)).toBe(1);
     expect(occurrences(template, SETTINGS_PLACEHOLDER)).toBe(1);
+    expect(occurrences(template, HISTORY_PLACEHOLDER)).toBe(1);
   });
 
   it('accepts the report data and the settings through the injection functions', () => {
     const report = JSON.parse(readFileSync(SAMPLE, 'utf8')) as LoupeReport;
     const settings: RendererSettings = { ...DEFAULT_RENDERER_SETTINGS, title: 'Nightly </script>' };
-    const html = injectSettings(injectData(template, report), settings);
+    const html = injectHistory(injectSettings(injectData(template, report), settings), null);
     expect(html).not.toContain('__LOUPE_DATA__');
     expect(html).not.toContain('__LOUPE_SETTINGS__');
+    expect(html).not.toContain('__LOUPE_HISTORY__');
+    expect(scriptText(html, 'loupe-history')).toBe('null');
     expect(JSON.parse(scriptText(html, 'loupe-data'))).toEqual(report);
     expect(JSON.parse(scriptText(html, 'loupe-settings'))).toEqual(settings);
   });

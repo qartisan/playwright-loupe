@@ -63,3 +63,10 @@ export const SECRETS = { LOUPE_LEAK_SECRET: 's3cretvalue', LOUPE_LEAK_OTHER: 'an
 
 /** A project name holding a home of each kind. */
 export const PROJECT = `on /home/${name}/project and ${real}/project`;
+
+/**
+ * A value in the message of a failing test (leak/late.spec.ts), added to
+ * `redact.env` only when LOUPE_FIXTURE_LATE_REDACT is set: in clear in a run
+ * recorded before, it must be masked in the history of the next report.
+ */
+export const LATE = { name: 'LOUPE_FIXTURE_LATE_VALUE', value: 'l4te-added-v4lue' } as const;

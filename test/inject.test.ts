@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   DATA_PLACEHOLDER,
   DEFAULT_RENDERER_SETTINGS,
+  HISTORY_PLACEHOLDER,
   SETTINGS_PLACEHOLDER,
   injectData,
+  injectHistory,
   injectSettings,
   serializeForScript,
 } from '../src/core/inject.js';
@@ -93,5 +95,31 @@ describe('injectSettings', () => {
 
   it('fails loudly when the placeholder is missing', () => {
     expect(() => injectSettings(DATA_PLACEHOLDER, DEFAULT_RENDERER_SETTINGS)).toThrow(/#loupe-settings placeholder/);
+  });
+});
+
+describe('injectHistory', () => {
+  const template = `<html><body>${SETTINGS_PLACEHOLDER}${DATA_PLACEHOLDER}${HISTORY_PLACEHOLDER}</body></html>`;
+
+  it('injects the history, escaped like the data', () => {
+    const history = { v: 1, signatures: [['s', null, 'Expected </script> & <b>']] };
+    const html = injectHistory(template, history);
+    expect(html).not.toContain('__LOUPE_HISTORY__');
+    expect(extractScriptText(html, 'loupe-history')).not.toContain('<');
+    expect(JSON.parse(extractScriptText(html, 'loupe-history'))).toEqual(history);
+  });
+
+  it('writes null when there is no history', () => {
+    expect(extractScriptText(injectHistory(template, null), 'loupe-history')).toBe('null');
+  });
+
+  it('never throws: a template without the placeholder is returned as is', () => {
+    const older = `<html><body>${DATA_PLACEHOLDER}</body></html>`;
+    expect(injectHistory(older, { v: 1 })).toBe(older);
+  });
+
+  it('never throws: a value that cannot be serialized becomes null', () => {
+    expect(extractScriptText(injectHistory(template, { big: 1n }), 'loupe-history')).toBe('null');
+    expect(extractScriptText(injectHistory(template, undefined), 'loupe-history')).toBe('null');
   });
 });

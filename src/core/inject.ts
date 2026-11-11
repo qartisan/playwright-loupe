@@ -4,6 +4,9 @@ export const DATA_PLACEHOLDER = '<script id="loupe-data" type="application/json"
 /** Placeholder for the renderer settings, which are not part of the report data contract. */
 export const SETTINGS_PLACEHOLDER = '<script id="loupe-settings" type="application/json">__LOUPE_SETTINGS__</script>';
 
+/** Placeholder for the embedded history (`EmbeddedHistory` or null), outside the report data contract. */
+export const HISTORY_PLACEHOLDER = '<script id="loupe-history" type="application/json">__LOUPE_HISTORY__</script>';
+
 /**
  * Renderer settings: presentation choices injected next to the report data.
  * Not part of the data contract (see "Renderer settings" in docs/schema/v1.md).
@@ -70,4 +73,23 @@ export function injectData(template: string, data: unknown): string {
 /** Replaces the settings placeholder in the renderer template with the serialized settings. */
 export function injectSettings(template: string, settings: RendererSettings): string {
   return injectScript(template, SETTINGS_PLACEHOLDER, 'loupe-settings', settings);
+}
+
+/**
+ * Replaces the history placeholder with the embedded history, `null` when
+ * there is none. Never throws: history must not prevent the report. A
+ * template without the placeholder (an older renderer) is returned as is,
+ * and a value that cannot be serialized is written as `null`.
+ */
+export function injectHistory(template: string, history: unknown): string {
+  const index = template.indexOf(HISTORY_PLACEHOLDER);
+  if (index === -1) return template;
+  let json: string;
+  try {
+    json = serializeForScript(history);
+  } catch {
+    json = 'null';
+  }
+  const script = `<script id="loupe-history" type="application/json">${json}</script>`;
+  return template.slice(0, index) + script + template.slice(index + HISTORY_PLACEHOLDER.length);
 }

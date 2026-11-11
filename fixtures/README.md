@@ -60,7 +60,7 @@ Everything runs offline, through `page.setContent` and local servers on 127.0.0.
 
 ## Leak canary
 
-`leak.config.ts` runs `leak/`, a browserless suite for `test/leak.integration.test.ts`: one test per form of home directory, each writing it in its title, `describe`, tags, annotations, step, messages, stack, stdout, stderr and attachment names. **Every test of `leak.spec.ts` fails on purpose.** `secrets.spec.ts` holds invented `redact.env` secrets in its tags, and passes. The real home comes from `os.homedir()`; other machines' homes use a canary user name that lives only in `leak/homes.ts`, so that a line of the spec never carries it into a snippet. To add a form, add one line to `HOMES`.
+`leak.config.ts` runs `leak/`, a browserless suite for `test/leak.integration.test.ts`: one test per form of home directory, each writing it in its title, `describe`, tags, annotations, step, messages, stack, stdout, stderr and attachment names. **Every test of `leak.spec.ts` fails on purpose.** `secrets.spec.ts` holds invented `redact.env` secrets in its tags, and passes. `late.spec.ts` **fails on purpose** with a message holding an invented value (`LATE` in `leak/homes.ts`) that is added to `redact.env` only with `LOUPE_FIXTURE_LATE_REDACT`, for the history check of a value redacted after a run was recorded. The real home comes from `os.homedir()`; other machines' homes use a canary user name that lives only in `leak/homes.ts`, so that a line of the spec never carries it into a snippet. To add a form, add one line to `HOMES`.
 
 ## Prototype keys
 

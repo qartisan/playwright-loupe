@@ -108,3 +108,87 @@ export interface HistoryFailure {
   x?: string;
   at?: string | null;
 }
+
+/**
+ * The history embedded in `index.html` (`<script id="loupe-history">`), derived
+ * from the runs read at the start of a run, never from the run itself. Not in
+ * `report.json`: the report data contract is unchanged. `null` when there is
+ * no history (off, empty, or not derived).
+ *
+ * Compact: statuses are one character per test and run, aligned with the
+ * report's tests, so no test id is repeated; signatures are indexes into one
+ * dictionary.
+ */
+export const EMBEDDED_HISTORY_VERSION = 1;
+
+/** Status of a test in a run of the window: an outcome code, or `-` when the run has no result for it. */
+export const NO_RESULT = '-';
+
+export interface EmbeddedHistory {
+  v: typeof EMBEDDED_HISTORY_VERSION;
+  /** `history.include`: whether partial, excluded and `ide` runs count in run-level statistics. */
+  include: 'full' | 'all';
+  /** The signature version of the current run; a run of another version has `comparable: false`. */
+  signatureVersion: number;
+  /** The stream of the current run. */
+  stream: HistoryRun['stream'];
+  /** The runs of the window, oldest first: run `k` is column `k` of `cells`. */
+  runs: EmbeddedRun[];
+  /**
+   * One character per test of the report (in `tests` order) and run of the
+   * window: `cells[test * runs.length + run]`. Outcome codes, `-` for no result.
+   */
+  cells: string;
+  /**
+   * For each test failing in the window: `[test, sig, sig, ...]`, one index into
+   * `signatures` per F or K cell, in run order; -1 when the cell has no signature
+   * to compare (no error, or a run of another signature version).
+   */
+  failures: number[][];
+  /**
+   * The attempts of every F or K cell, in the order of `failures` (test by
+   * test, then run by run), separated by spaces: `FF FP TF`.
+   */
+  failureAttempts: string;
+  /**
+   * Attempts of the other cells, when they are not implied by the code (a
+   * single P for P, S for S): `[test, run, attempts]`. Rare: an expected
+   * failure (`test.fail()`), a pass after a retry of another kind.
+   */
+  attempts: Array<[test: number, run: number, attempts: string]>;
+  /**
+   * `[signature, category, extract]`, most recently seen first. Only the first
+   * `EMBEDDED_EXTRACTS` have their extract; the others have `null`.
+   */
+  signatures: Array<[signature: string, category: string | null, extract: string | null]>;
+  /** The newest run of every other stream, newest first. */
+  others: EmbeddedOtherRun[];
+}
+
+/** Distinct signatures embedded with their extract, at most. */
+export const EMBEDDED_EXTRACTS = 300;
+
+export interface EmbeddedRun {
+  id: string;
+  reportRunId: string;
+  startedAt: string;
+  durationMs: number;
+  status: string;
+  origin: Origin;
+  scope: 'full' | 'partial';
+  /** The exclusion reason, null when the run is not excluded. */
+  excluded: string | null;
+  commit: string | null;
+  branch: string | null;
+  stats: HistoryRun['stats'];
+  /** False when the run has another signature version: its statuses compare, its signatures do not. */
+  comparable: boolean;
+}
+
+export interface EmbeddedOtherRun {
+  stream: HistoryRun['stream'];
+  id: string;
+  startedAt: string;
+  /** One character per test of the report, as a column of `cells`. */
+  cells: string;
+}

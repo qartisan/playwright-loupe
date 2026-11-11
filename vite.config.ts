@@ -3,7 +3,7 @@ import path from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
-import { DEFAULT_RENDERER_SETTINGS, injectData, injectSettings } from './src/core/inject.js';
+import { DEFAULT_RENDERER_SETTINGS, injectData, injectHistory, injectSettings } from './src/core/inject.js';
 
 const SAMPLE_JSON = fileURLToPath(new URL('./src/renderer/dev/sample.json', import.meta.url));
 /** The sample's attachment files, copied by `npm run sample:update` (gitignored). */
@@ -86,7 +86,7 @@ function sampleData(): Plugin {
     apply: 'serve',
     transformIndexHtml(html) {
       const settings = { ...DEFAULT_RENDERER_SETTINGS, title: 'Loupe sample' };
-      return injectSettings(injectData(html, JSON.parse(readFileSync(SAMPLE_JSON, 'utf8'))), settings);
+      return injectHistory(injectSettings(injectData(html, JSON.parse(readFileSync(SAMPLE_JSON, 'utf8'))), settings), null);
     },
     configureServer(server) {
       // Attachment links are relative to the report folder (`data/<test>/<attempt>/<file>`): serve the sample's copy there.

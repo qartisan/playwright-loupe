@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { CANARY, HOMES, SECRETS } from '../fixtures/leak/homes.js';
+import { CANARY, HOMES, LATE, SECRETS } from '../fixtures/leak/homes.js';
 import { homePaths } from '../scripts/home-paths.mjs';
 import type { LoupeReport, Step, TestCase } from '../src/schema/v1.js';
 import { REDACTED } from '../src/shared/redaction.js';
@@ -156,6 +156,80 @@ describe('the leak canary', () => {
 
   it('passes the check of the scripts that publish a report', () => {
     for (const text of files()) expect(homePaths(text)).toEqual([]);
+  });
+});
+
+/**
+ * The canary with history on: the run files Loupe writes and the history it
+ * embeds hold no home, canary name or secret either; and a value added to
+ * `redact.env` after a run was recorded is masked in the next report's history.
+ */
+describe('the leak canary with history', () => {
+  let workDir: string;
+  let history: string;
+  let first: string;
+  let second: string;
+  let outputs: string;
+
+  const run = (name: string, env: Record<string, string> = {}): string => {
+    const folder = path.join(workDir, name);
+    const result = playwright(['test', '--config', 'fixtures/leak.config.ts', '--output', path.join(workDir, `results-${name}`)], {
+      LOUPE_FIXTURE_OUTPUT: folder,
+      LOUPE_HISTORY: 'on',
+      LOUPE_HISTORY_DIR: history,
+      ...env,
+    });
+    readReport(folder, `Exit code ${result.status}.\n${result.output}`);
+    outputs += result.output;
+    return folder;
+  };
+  const runFiles = (): string[] => readdirSync(path.join(history, 'runs')).map((name) => readFileSync(path.join(history, 'runs', name), 'utf8'));
+  const block = (folder: string): string => {
+    const html = readFileSync(path.join(folder, 'index.html'), 'utf8');
+    return /<script id="loupe-history" type="application\/json">(.*?)<\/script>/s.exec(html)?.[1] ?? '';
+  };
+
+  beforeAll(() => {
+    assertBuilt();
+    workDir = mkdtempSync(path.join(tmpdir(), 'loupe-leak-history-'));
+    history = path.join(workDir, 'loupe-history');
+    outputs = '';
+    first = run('first');
+    // The late value is now in redact.env: the run of `first`, recorded in clear, is read back masked.
+    second = run('second', { LOUPE_FIXTURE_LATE_REDACT: '1' });
+  }, 240_000);
+
+  afterAll(() => {
+    rmSync(workDir, { recursive: true, force: true });
+  });
+
+  it('records both runs, and embeds the first in the second', () => {
+    expect(runFiles(), outputs).toHaveLength(2);
+    expect(outputs).not.toContain('Loupe: history');
+    expect(block(first)).toBe('null');
+    expect((JSON.parse(block(second)) as { runs: unknown[] }).runs).toHaveLength(1);
+  });
+
+  it('the run files and the embedded history hold no canary name, secret or real home', () => {
+    const home = homedir();
+    for (const text of [...runFiles(), block(second)]) {
+      expect(text.toLowerCase()).not.toContain(CANARY);
+      for (const secret of Object.values(SECRETS)) expect(text).not.toContain(secret);
+      if (home.split(/[\\/]/).filter(Boolean).length >= 2) {
+        expect(text).not.toContain(home);
+        expect(text).not.toContain(JSON.stringify(home).slice(1, -1));
+      }
+      expect(homePaths(text)).toEqual([]);
+    }
+  });
+
+  it('masks in the next report a value added to redact.env after a run was recorded', () => {
+    // Recorded in clear by the first run, which did not redact it: the run file is never rewritten.
+    expect(runFiles().filter((text) => text.includes(LATE.value))).toHaveLength(1);
+    expect(readFileSync(path.join(second, 'report.json'), 'utf8')).not.toContain(LATE.value);
+    const embedded = block(second);
+    expect(embedded).not.toContain(LATE.value);
+    expect(embedded).toContain(`late value ${REDACTED} in the message`);
   });
 });
 

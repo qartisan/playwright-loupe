@@ -8,10 +8,13 @@ import type { LoupeReporterOptions, ResolvedConfig } from '../config/types.js';
 import type { RunScope } from '../schema/v1.js';
 import type { LoupeReport } from '../schema/v1.js';
 import { buildReport } from './build.js';
+import type { EmbeddedHistory } from '../schema/history-v1.js';
+import { historyRunId } from './history/detect.js';
+import { deriveEmbedded } from './history/embed.js';
 import { createReplay, readHistory, windowOfStream, type HistoryRead } from './history/read.js';
 import { recordRun, reportIdentity, runIdentity, type RecordContext } from './history/record.js';
 import { LOCAL_GIT_TIMEOUT_MS, readLocalGit, type LocalGit } from './git.js';
-import { injectData, injectSettings, type RendererSettings } from './inject.js';
+import { injectData, injectHistory, injectSettings, type RendererSettings } from './inject.js';
 import { detectGit } from './metadata.js';
 import { secretValues } from './redact.js';
 import { SCOPE_ENV, parseScopeOverride } from './scope.js';
@@ -155,6 +158,10 @@ export class LoupeReporter implements Reporter {
     });
     // The window of the stream the report belongs to; read again if the stream guessed at the start was not it.
     const history = await this.finishHistoryRead(report, this.config);
+    // A merge run again finds its own earlier file in the window: its id (deterministic for a merge or in CI) leaves it out.
+    const embedded = history
+      ? this.embedHistory(report, this.config, history, historyRunId({ env: process.env, merged: this.merged, tests: report.tests }))
+      : { value: null, problems: [] };
     // No copy without a trace. buildReport has removed the viewer of a previous report.
     const hasTrace = report.tests.some((test) => test.attempts.some((attempt) => attempt.attachments.some((attachment) => attachment.kind === 'trace' && attachment.path !== null)));
     const viewer =
@@ -173,13 +180,23 @@ export class LoupeReporter implements Reporter {
 
     await mkdir(outputFolder, { recursive: true });
     await writeFile(path.join(outputFolder, 'report.json'), `${JSON.stringify(report, null, 2)}\n`);
-    await writeFile(path.join(outputFolder, 'index.html'), injectSettings(injectData(template, report), settings));
+    await writeFile(path.join(outputFolder, 'index.html'), injectHistory(injectSettings(injectData(template, report), settings), embedded.value));
     // After the report: history never stops a run nor prevents the report.
-    await this.recordHistory(report, this.config, history?.problems ?? []);
+    await this.recordHistory(report, this.config, [...(history?.problems ?? []), ...embedded.problems]);
 
     const errors = report.run.errors.length;
     const suffix = errors > 0 ? ` (${errors} run error${errors > 1 ? 's' : ''} outside tests)` : '';
     console.log(`\nLoupe report written to ${path.relative(process.cwd(), outputFolder) || '.'}${suffix}`);
+  }
+
+  /** The embedded history, derived from the runs read at the start. A failure is a problem and no block, never a lost report. */
+  private embedHistory(report: LoupeReport, config: FullConfig, read: HistoryRead, currentRunId: string): { value: EmbeddedHistory | null; problems: string[] } {
+    try {
+      const { stream } = reportIdentity(report, this.historyContext(config));
+      return { value: deriveEmbedded(report, read, { include: this.loupeConfig.history.include, stream, currentRunId }), problems: [] };
+    } catch (error) {
+      return { value: null, problems: [`the history could not be embedded (${error instanceof Error ? error.message : String(error)})`] };
+    }
   }
 
   private async finishHistoryRead(report: LoupeReport, config: FullConfig): Promise<HistoryRead | null> {
