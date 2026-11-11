@@ -79,8 +79,21 @@ jobs:
 
       - run: npm ci
 
+      # Chromium's system libraries come with the runner image (ubuntu-24.04 has
+      # them all); apt only adds fonts. The Azure Ubuntu mirrors sometimes fail to
+      # resolve on GitHub runners, so a failure here is a warning, not a red job.
+      # A library that is really missing still fails the job loudly: every browser
+      # test then fails to launch Chromium.
+      - name: Install Chromium system dependencies
+        shell: bash
+        run: |
+          npx playwright install-deps chromium \
+            || echo "::warning title=Chromium system dependencies::npx playwright install-deps chromium failed (apt mirror unreachable?); carrying on with the libraries of the runner image."
+
+      # From Playwright's CDN, not apt; the version of the Playwright installed above
+      # (1.52 and 1.57 jobs included). A failure here fails the job.
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
 
       # Builds, runs the demo and exits 0 only when it fails in the intended way
       # (see scripts/run-demo.mjs).
