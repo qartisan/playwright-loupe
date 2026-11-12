@@ -10,7 +10,10 @@ name: Windows rerun commands
 # disables scheduled workflows after 60 days without activity (docs/releasing.md).
 
 on:
+  # Branches only: GitHub ignores paths on a tag push, so without this filter
+  # every tag would run the job.
   push:
+    branches: ['**']
     paths:
       - src/renderer/detail/rerun.ts
       - src/shared/redaction.ts

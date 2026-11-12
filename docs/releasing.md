@@ -179,7 +179,7 @@ npm view @qartisan/playwright-loupe version
 
 `git push --follow-tags` pushes the release commit and its annotated tag. `npm view` must print `<version>`. Finally, install `@qartisan/playwright-loupe@<version>` in a consumer project and run its suite.
 
-The tag push also runs `.github/workflows/demo.yml` (**Live demo**), which builds the demo suite from the tag and deploys its report to GitHub Pages. Check that the workflow is green and that the footer of https://qartisan.github.io/playwright-loupe/ shows `v<version>`. Nothing is published to npm from GitHub Actions.
+The tag push runs only `.github/workflows/demo.yml` (**Live demo**), which builds the demo suite from the tag and deploys its report to GitHub Pages. Check that the workflow is green and that the footer of https://qartisan.github.io/playwright-loupe/ shows `v<version>`. Nothing is published to npm from GitHub Actions. `ci.yml` and `windows-check.yml` run on branch pushes only, not on the tag: the release commit, pushed with it, runs `ci.yml` on `main`.
 
 ## If something goes wrong
 
@@ -210,7 +210,7 @@ An intermittent failure is not an environment failure until it is explained, and
 
 ## Windows job on the rerun commands
 
-`.github/workflows/windows-check.yml` (**Windows rerun commands**) runs on `windows-latest`, every Monday at 05:47 UTC and on push or pull request only when the paths it covers change: the rerun builder, the redaction marker, the core modules producing a test's file, title, project and tags (`identity.ts`, `build.ts`, `paths.ts`), `fixtures/rerun/`, the kit. It is not one of the seven jobs of `ci.yml`; when it ran for a release's changes, it must be green too.
+`.github/workflows/windows-check.yml` (**Windows rerun commands**) runs on `windows-latest`, every Monday at 05:47 UTC and on a branch push or a pull request only when the paths it covers change (never on a tag push): the rerun builder, the redaction marker, the core modules producing a test's file, title, project and tags (`identity.ts`, `build.ts`, `paths.ts`), `fixtures/rerun/`, the kit. It is not one of the seven jobs of `ci.yml`; when it ran for a release's changes, it must be green too.
 
 - It checks that a fresh checkout has every tracked file, the non-ASCII file name of `fixtures/rerun/hostile/` included.
 - It generates the commands with the real builder (`fixtures/windows-check/build.mjs`) and runs each with `--list` in `cmd.exe`, PowerShell 5.1 and 7, both also through `npx.cmd`, and Git Bash (`check.mjs --require-all-shells`). A `REQUIRED` row with a bad result, or a missing shell, fails the job.
