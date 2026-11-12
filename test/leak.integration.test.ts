@@ -8,6 +8,7 @@ import { homePaths } from '../scripts/home-paths.mjs';
 import type { LoupeReport, Step, TestCase } from '../src/schema/v1.js';
 import { REDACTED } from '../src/shared/redaction.js';
 import { MIN_PLAYWRIGHT_TRACE_VIEWER, isBelow } from '../src/core/support.js';
+import { GENERIC_HOMES, createPathRewriter } from '../src/core/paths.js';
 import { assertBuilt, playwright, readReport } from './helpers/fixtures.js';
 
 /**
@@ -160,28 +161,56 @@ describe('the leak canary', () => {
 });
 
 describe('homePaths, the check of the scripts that publish a report', () => {
+  /** One home of each generic form of the reporter, at least. */
+  const FORMS = [
+    '/home/bob/x',
+    '/Users/bob/x',
+    '/var/home/bob/x',
+    '/root/x',
+    '/mnt/c/Users/bob/x',
+    '/mnt/D/users/bob/x',
+    '/cygdrive/c/Users/bob/x',
+    '/c/Users/bob/x',
+    'C:\\Users\\bob\\x',
+    'C:/Users/bob/x',
+    '\\\\wsl$\\Ubuntu\\home\\bob\\x',
+    '\\\\wsl.localhost\\Ubuntu\\home\\bob\\x',
+    // Converted by Playwright on Windows (src/core/paths.ts).
+    '\\home\\bob\\x',
+    '\\Users\\bob\\x',
+    '\\users\\John bob\\x',
+    '\\var\\home\\bob\\x',
+    '\\root\\x',
+    '\\mnt\\c\\Users\\bob\\x',
+    '\\cygdrive\\c\\Users\\bob\\x',
+    '\\c\\Users\\bob\\x',
+    'wsl$\\Ubuntu\\home\\bob\\x',
+    'wsl.localhost\\Ubuntu\\home\\bob\\x',
+  ];
+
+  it('has a sample of every generic home of the reporter', () => {
+    for (const entry of GENERIC_HOMES) {
+      const form = new RegExp(`^(?:${entry.source})`);
+      expect(FORMS.some((sample) => form.test(sample)), `no sample for ${entry.source}`).toBe(true);
+    }
+  });
+
   it('finds every generic form, raw and JSON-escaped', () => {
-    for (const form of [
-      '/home/bob/x',
-      '/Users/bob/x',
-      '/var/home/bob/x',
-      '/root/x',
-      '/mnt/c/Users/bob/x',
-      '/mnt/D/users/bob/x',
-      '/cygdrive/c/Users/bob/x',
-      '/c/Users/bob/x',
-      'C:\\Users\\bob\\x',
-      'C:/Users/bob/x',
-      '\\\\wsl$\\Ubuntu\\home\\bob\\x',
-      '\\\\wsl.localhost\\Ubuntu\\home\\bob\\x',
-    ]) {
+    for (const form of FORMS) {
       expect(homePaths(form, '/nowhere'), form).not.toEqual([]);
       expect(homePaths(JSON.stringify(form), '/nowhere'), form).not.toEqual([]);
     }
   });
 
+  it('finds nothing in what the reporter makes of every generic form', () => {
+    const paths = createPathRewriter({ roots: ['/opt/app'], home: null });
+    for (const form of FORMS) {
+      for (const text of [form, JSON.stringify(form)]) expect(homePaths(paths.text(text), '/nowhere'), text).toEqual([]);
+    }
+  });
+
   it('leaves a URL path, a masked path and another mount alone', () => {
-    for (const text of ['http://host/home/bob/x', '~/x', '/mnt/data/x', 'GET /a/users/42', '/opt/x']) {
+    for (const text of ['http://host/home/bob/x', '~/x', '/mnt/data/x', 'GET /a/users/42', '/opt/x', 'src\\home\\bob\\x', '~\\x', '\\mnt\\data\\x', 'mywsl$\\Ubuntu\\home\\bob\\x']) {
       expect(homePaths(text, '/nowhere'), text).toEqual([]);
     }
   });

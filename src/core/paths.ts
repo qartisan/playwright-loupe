@@ -79,7 +79,7 @@ interface Directory {
   segments: string[];
 }
 
-interface Entry {
+export interface Entry {
   flavor: Flavor;
   /** Length of the prefix as text: the longest prefix wins within a rule. */
   length: number;
@@ -182,8 +182,8 @@ const POSIX_NAME = (separator: string): string =>
 const WINDOWS_NAME = `(?:(?![A-Za-z]:(?:\\\\|/))[^\\\\/:*?"<>|\\r\\n])+${NAME_END}`;
 const USERS = sourceOf('Users', 'win32');
 
-/** Generic home directories, rule 3. */
-const GENERIC_HOMES: readonly Entry[] = [
+/** Generic home directories, rule 3. Exported for test/leak.integration.test.ts, which keeps scripts/home-paths.mjs aligned. */
+export const GENERIC_HOMES: readonly Entry[] = [
   { flavor: 'posix', length: 0, source: `/(?:home|Users|var/home)/${POSIX_NAME('/')}`, encoded: null, replacement: home },
   { flavor: 'posix', length: 0, source: '/root', encoded: null, replacement: home },
   { flavor: 'win32', length: 0, source: `[A-Za-z]:${WINDOWS_SEPARATOR}${USERS}${WINDOWS_SEPARATOR}${WINDOWS_NAME}`, encoded: null, replacement: home },
