@@ -19,8 +19,9 @@ describe('windows-check workflow', () => {
     for (const pattern of paths) expect(globSync(pattern, { cwd: ROOT }).length, pattern).toBeGreaterThan(0);
   });
 
-  it('is triggered by the same paths on push and pull request, and weekly', () => {
-    const listOf = (event: string): string => workflow.match(new RegExp(`^ {2}${event}:\\n {4}paths:\\n((?: {6}- .*\\n)+)`, 'm'))?.[1] ?? '';
+  it('is triggered by the same paths on a branch push and a pull request, and weekly', () => {
+    // A push filter on branches: GitHub ignores paths on a tag push, which would run the job on every tag.
+    const listOf = (event: string): string => workflow.match(new RegExp(`^ {2}${event}:\\n${event === 'push' ? " {4}branches: \\['\\*\\*'\\]\\n" : ''} {4}paths:\\n((?: {6}- .*\\n)+)`, 'm'))?.[1] ?? '';
     expect(listOf('push')).not.toBe('');
     expect(listOf('pull_request')).toBe(listOf('push'));
     expect(workflow).toMatch(/^ {2}schedule:$/m);
