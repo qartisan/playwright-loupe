@@ -942,6 +942,15 @@ span.dimension-tile { cursor: default; }
 .test-chip .icon { flex: none; width: 12px; height: 12px; }
 .test-chip-more { padding: 0 6px; border: 1px solid transparent; border-radius: 4px; background: none; color: var(--fg-secondary); font: inherit; font-size: 12px; line-height: 18px; cursor: pointer; }
 .test-chip-more:hover { border-color: var(--chip-border); color: var(--fg); }
+/* A failing test's history state, under its status: a chip on its own line (see HistoryStateMarker). */
+.history-marker { display: flex; width: max-content; gap: 4px; margin-top: 4px; white-space: nowrap; }
+/* What the history states mean: a native disclosure, once per view. */
+.history-help { margin: 0 0 8px; font-size: 13px; }
+.history-help > summary { width: max-content; color: var(--fg-secondary); cursor: pointer; }
+.history-help dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 8px 0 0; }
+.history-help dl > div { display: contents; }
+.history-help dt { display: flex; align-items: center; gap: 4px; font-weight: 600; }
+.history-help dd { margin: 0; color: var(--fg-secondary); }
 .table-more { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .table-more p { margin: 0 8px 0 0; color: var(--fg-secondary); font-variant-numeric: tabular-nums; }
 .sort-button {

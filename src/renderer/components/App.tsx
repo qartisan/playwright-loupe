@@ -129,7 +129,7 @@ export function App({ report, settings, history = null }: { report: LoupeReport;
       page = <HealthPage report={report} />;
       break;
     case 'tests':
-      page = <TestsPage report={report} state={state} sorted={sorted} />;
+      page = <TestsPage report={report} state={state} sorted={sorted} history={history} />;
       break;
     case 'test':
       page = (

@@ -4,7 +4,8 @@ import type { LoupeReport, TestCase } from '../../schema/v1.js';
 import { categoryColorMap } from '../categoryColors.js';
 import { CategoryBadge } from '../components/CategoryBadge.js';
 import { FacetMenus, FilterChips } from '../components/FilterBar.js';
-import { CloseIcon, OutcomeIcon, SortIcon } from '../components/icons.js';
+import { HistoryHelp } from '../components/HistoryHelp.js';
+import { CloseIcon, HistoryStateIcon, OutcomeIcon, SortIcon } from '../components/icons.js';
 import { SkipReasonText } from '../components/SkipReason.js';
 import { RerunFailed, projectLabel, testHref } from '../components/widgets.js';
 import { CAP_STEP, cappedLength, resultSummary } from '../filters/cap.js';
@@ -14,6 +15,8 @@ import { nextSort, titlePath } from '../filters/sort.js';
 import { context, domain, filtersHref, setFilters } from '../filters/store.js';
 import { DEFAULT_SORT, clearFilters, serializeFilters, type FilterState, type SortColumn } from '../filters/url.js';
 import { formatDuration, plural } from '../format.js';
+import { STATE_HELP, STATE_LABEL, stateHelpId, type ReportHistory } from '../history.js';
+import type { HistoryState } from '../../shared/history.js';
 import { skipReason } from '../skip.js';
 
 const COLUMNS: ReadonlyArray<{ column: SortColumn; label: string; numeric?: boolean }> = [
@@ -30,9 +33,10 @@ const COLUMNS: ReadonlyArray<{ column: SortColumn; label: string; numeric?: bool
  * Tests (`#/tests`): every test of the run in one flat list, reduced by the
  * filter state (shared with the sidebar) and sorted by column. The first
  * `CAP_STEP` rows of the sorted list are rendered, more on demand; any
- * filter or sort change starts again from `CAP_STEP`.
+ * filter or sort change starts again from `CAP_STEP`. With history, a failing
+ * test that has a state shows it under its status (HistoryStateMarker).
  */
-export function TestsPage({ report, state, sorted }: { report: LoupeReport; state: FilterState; sorted: readonly TestCase[] }) {
+export function TestsPage({ report, state, sorted, history = null }: { report: LoupeReport; state: FilterState; sorted: readonly TestCase[]; history?: ReportHistory | null }) {
   const colors = useMemo(() => categoryColorMap(report.categories), [report]);
   const chips = reportChips(report);
   // Not recomputed when only the sort changes.
@@ -49,6 +53,8 @@ export function TestsPage({ report, state, sorted }: { report: LoupeReport; stat
   const shown = cappedLength(sorted.length, cap.current.limit);
   const rows = useMemo(() => sorted.slice(0, shown), [sorted, shown]);
   const summary = resultSummary(shown, sorted.length, total);
+  // The marker links of the view: four at most, built once per filter state rather than once per row.
+  const markerLinks = useMemo(() => markerLinksOf(state), [viewKey]);
 
   // "Show more" moves focus to the first row it added, so keyboard users continue from there.
   const body = useRef<HTMLTableSectionElement>(null);
@@ -76,6 +82,7 @@ export function TestsPage({ report, state, sorted }: { report: LoupeReport; stat
       <p class="result-count" aria-live="polite" aria-atomic="true">
         {summary}
       </p>
+      {history?.analysis.statesShown && <HistoryHelp />}
       <RerunFailed tests={sorted} />
       {total === 0 ? (
         <p class="muted">No tests in this run.</p>
@@ -118,6 +125,7 @@ export function TestsPage({ report, state, sorted }: { report: LoupeReport; stat
                   chips={chips.get(test.id) ?? NO_CHIPS}
                   state={state}
                   colors={colors}
+                  marker={markerOf(history, test, markerLinks)}
                 />
               ))}
             </tbody>
@@ -229,6 +237,53 @@ interface TestRowProps {
   chips: readonly TestChip[];
   state: FilterState;
   colors: ReadonlyMap<string, string>;
+  /** The history marker of a failing test that has a state; null for every other row, and without history. */
+  marker: MarkerLink | null;
+}
+
+/** What a marker shows and where it links: its state added to the filter, or removed when active. */
+interface MarkerLink {
+  value: HistoryState;
+  href: string;
+  active: boolean;
+}
+
+function markerLinksOf(state: FilterState): ReadonlyMap<HistoryState, MarkerLink> {
+  return new Map(
+    (['new-failure', 'failed-again', 'still-failing', 'new-test'] as const).map((value) => {
+      const chip = { facet: 'history' as const, value };
+      return [value, { value, href: filtersHref(chipFilters(state, chip), { page: 'tests' }), active: isChipActive(state, chip) }];
+    }),
+  );
+}
+
+/** The marker of a row: a failing test's state only; never Fixed, which is a passing test's. */
+function markerOf(history: ReportHistory | null, test: TestCase, links: ReadonlyMap<HistoryState, MarkerLink>): MarkerLink | null {
+  if (test.outcome !== 'failed') return null;
+  const state = history?.byTest.get(test)?.state ?? null;
+  return state === null || state === 'fixed' ? null : (links.get(state) ?? null);
+}
+
+/**
+ * A failing test's history state, under its status: an icon (hidden from
+ * assistive technologies) and the state's name. A link, like the row's
+ * chips: it adds the state to the filter, or removes it when active. Its
+ * definition is its description, from the view's HistoryHelp list, so it is
+ * read on focus; the tooltip repeats it for the mouse.
+ */
+function HistoryStateMarker({ marker: { value, href, active } }: { marker: MarkerLink }) {
+  return (
+    <a
+      class={`test-chip history-marker state-${value}${active ? ' test-chip-active' : ''}`}
+      href={href}
+      title={STATE_HELP[value]}
+      aria-describedby={stateHelpId(value)}
+      aria-label={active ? `Remove filter History: ${STATE_LABEL[value]}` : undefined}
+    >
+      <HistoryStateIcon state={value} />
+      {STATE_LABEL[value]}
+    </a>
+  );
 }
 
 /**
@@ -238,8 +293,8 @@ interface TestRowProps {
  */
 class TestRow extends Component<TestRowProps> {
   override shouldComponentUpdate(next: TestRowProps): boolean {
-    const { test, chips, state, colors } = this.props;
-    return next.test !== test || next.chips !== chips || next.state !== state || next.colors !== colors;
+    const { test, chips, state, colors, marker } = this.props;
+    return next.test !== test || next.chips !== chips || next.state !== state || next.colors !== colors || next.marker !== marker;
   }
 
   override render() {
@@ -247,12 +302,13 @@ class TestRow extends Component<TestRowProps> {
   }
 }
 
-function TestRowCells({ test, chips, state, colors }: TestRowProps) {
+function TestRowCells({ test, chips, state, colors, marker }: TestRowProps) {
   const reason = skipReason(test);
   return (
     <tr>
       <td>
         <OutcomeIcon outcome={test.outcome} labelled />
+        {marker && <HistoryStateMarker marker={marker} />}
       </td>
       <td class="cell-title">
         <a href={testHref(test)}>{titlePath(test)}</a>

@@ -46,6 +46,15 @@ export const STATE_HELP: Record<HistoryState, string> = {
   fixed: 'Passing now; its last earlier result failed',
 };
 
+/**
+ * The id of a state's definition in the view's "What the history states
+ * mean" list (HistoryHelp): markers and links point to it with
+ * aria-describedby, so the definition is read on focus. One list per view.
+ */
+export function stateHelpId(state: HistoryState): string {
+  return `history-help-${state}`;
+}
+
 /** "+3 pts", "−1.5 pts", "no change": the pass rate change, in percentage points. */
 export function formatPoints(points: number): string {
   const rounded = Math.round(points * 10) / 10;

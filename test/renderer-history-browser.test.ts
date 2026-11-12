@@ -2,10 +2,10 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { chromium, type Browser, type Page } from '@playwright/test';
+import { chromium, expect as expectLocator, type Browser, type Page } from '@playwright/test';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DEFAULT_RENDERER_SETTINGS, injectData, injectHistory, injectSettings } from '../src/core/inject.js';
-import { NO_STATES_TEXT, loadHistory, stateCount } from '../src/renderer/history.js';
+import { NO_STATES_TEXT, STATE_HELP, STATE_LABEL, loadHistory, stateCount } from '../src/renderer/history.js';
 import type { LoupeReport } from '../src/schema/v1.js';
 import { HISTORY_STATES } from '../src/shared/history.js';
 import { ROOT, assertBuilt } from './helpers/fixtures.js';
@@ -16,7 +16,8 @@ import { historyScenario, type HistoryScenario } from './helpers/history-scenari
  * renderer (file://): without history no zone and no facet at all; with
  * history the change since the previous run or why there is none, the tests
  * by state linking to the filtered Tests view, the reason when no state is
- * shown, and the run-level notices.
+ * shown, and the run-level notices. In the Tests view, a marker on the rows
+ * of failing tests that have a state, and the definitions of the states.
  */
 
 const RENDERER = path.join(ROOT, 'dist/renderer/index.html');
@@ -121,5 +122,57 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
     expect(await zone(skipped).getByText(/^3 earlier run files of this stream could not be read/).count()).toBe(1);
     expect(await zone(skipped).locator('.history-states').count()).toBe(1);
     await skipped.close();
+  });
+
+  describe('Tests view: the state marker', () => {
+    it.each(['none', 'placeholder', 'first-run', 'skipped', 'all-excluded'] as const)('%s: no marker, no definitions', async (name) => {
+      const page = await open(name, '#/tests');
+      await page.locator('.tests-table').waitFor();
+      expect([await page.locator('.history-marker').count(), await page.locator('.history-help').count()]).toEqual([0, 0]);
+      await page.close();
+    });
+
+    it('on the rows of failing tests that have a state only, as many as the dashboard counts', async () => {
+      const { report, history } = historyScenario('normal', sample);
+      const loadedHistory = loadHistory(JSON.stringify(history), report);
+      if (!loadedHistory) throw new Error('no history');
+      const page = await open('normal', '#/tests');
+      await page.locator('.tests-table').waitFor();
+      const rows = page.locator('.tests-table tbody tr');
+      expect(await rows.count()).toBe(report.tests.length);
+      // Passing, flaky and skipped rows are unchanged, Fixed tests included.
+      expect(await page.locator('tbody tr:not(:has(.outcome-failed)) .history-marker').count()).toBe(0);
+      const shown = await page.locator('.history-marker').allInnerTexts();
+      for (const state of ['new-failure', 'failed-again', 'still-failing', 'new-test'] as const) {
+        expect(shown.filter((text) => text === STATE_LABEL[state]), state).toHaveLength(loadedHistory.analysis.counts[state]);
+      }
+      expect(shown).not.toContain(STATE_LABEL.fixed);
+      await page.close();
+    });
+
+    it('its label is visible text, its icon hidden, its definition read on focus with the definitions closed', async () => {
+      const page = await open('normal', '#/tests');
+      const marker = page.locator('.history-marker', { hasText: STATE_LABEL['still-failing'] }).first();
+      await expectLocator(marker).toHaveAccessibleName(STATE_LABEL['still-failing']);
+      await expectLocator(marker).toHaveAccessibleDescription(`${STATE_HELP['still-failing']}.`);
+      expect(await marker.locator('svg').getAttribute('aria-hidden')).toBe('true');
+      expect(await page.locator('.history-help').getAttribute('open')).toBeNull();
+      // The definitions open with the keyboard.
+      await page.locator('.history-help summary').focus();
+      await page.keyboard.press('Enter');
+      await expectLocator(page.locator('.history-help dd').first()).toBeVisible();
+      await page.close();
+    });
+
+    it('filters on its state, like a chip; active, it removes the filter', async () => {
+      const page = await open('normal', '#/tests');
+      await page.locator('.history-marker', { hasText: STATE_LABEL['failed-again'] }).first().click();
+      await expectLocator(page).toHaveURL(/#\/tests\?history=failed-again$/);
+      const active = page.locator('.history-marker.test-chip-active').first();
+      await expectLocator(active).toHaveAccessibleName(`Remove filter History: ${STATE_LABEL['failed-again']}`);
+      await active.click();
+      await expectLocator(page).toHaveURL(/#\/tests$/);
+      await page.close();
+    });
   });
 });
