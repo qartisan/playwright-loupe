@@ -32,8 +32,11 @@ describe('dev history scenarios', () => {
     expect(result.history.runs.map((run) => [run.scope, run.excluded !== null, run.origin]).filter(([scope, excluded, origin]) => scope === 'partial' || excluded || origin === 'ide')).toHaveLength(3);
   });
 
-  it('first run after enabling: one earlier run', () => {
-    expect(analysis('first-run').history.runs).toHaveLength(1);
+  it('first run of a stream: no test states; second run: one earlier run, test states', () => {
+    const first = analysis('first-run');
+    expect([first.history.runs.length, first.history.others.length, first.statesShown, first.noStates, stateTotal(first)]).toEqual([0, 2, false, 'first-run', 0]);
+    const second = analysis('second-run');
+    expect([second.history.runs.length, second.statesShown, stateTotal(second) > 0]).toEqual([1, true, true]);
   });
 
   it('broken: one status change for every failing test that ran before; alternating: many', () => {

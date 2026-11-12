@@ -264,10 +264,18 @@ describe('notices', () => {
     expect([analysis.skipped, analysis.statesShown, analysis.noStates, analysis.tests[0]?.state]).toEqual([2, true, null, 'still-failing']);
   });
 
-  it('an empty window with nothing skipped (a new stream, other streams known): states shown, every failing test new', () => {
-    const { block, report } = history({ outcomes: ['failed'], past: [{ codes: 'P' }] });
-    const analysis = analyzeHistory({ ...block, runs: [], cells: '' }, report);
-    expect([analysis.statesShown, analysis.noStates, analysis.tests[0]?.state]).toEqual([true, null, 'new-test']);
+  it('first run of a stream (no earlier run, nothing skipped, other streams known): no test state, not every failing test "New test"', () => {
+    const { block, report } = history({ outcomes: ['failed', 'passed'], past: [{ codes: 'FF' }] });
+    const other = { stream: { environment: 'staging', origin: 'ci' }, id: 'o1', startedAt: day(3), cells: 'FP' };
+    const analysis = analyzeHistory({ ...block, runs: [], cells: '', others: [other] }, report);
+    expect([analysis.statesShown, analysis.noStates, analysis.noDelta]).toEqual([false, 'first-run', 'no-earlier-run']);
+    expect(analysis.tests.map((test) => test.state)).toEqual([null, null]);
+    expect(Object.values(analysis.counts)).toEqual([0, 0, 0, 0, 0]);
+  });
+
+  it('"New test" stays for a test without results in a stream that has earlier runs', () => {
+    const analysis = analyze({ outcomes: ['failed', 'failed'], past: [{ codes: 'P-' }] });
+    expect([analysis.statesShown, analysis.noStates, analysis.tests.map((test) => test.state)]).toEqual([true, null, ['new-failure', 'new-test']]);
   });
 });
 

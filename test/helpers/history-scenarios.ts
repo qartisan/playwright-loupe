@@ -13,6 +13,7 @@ import { makeRunFile } from './history.js';
 export const HISTORY_SCENARIOS = [
   'none',
   'first-run',
+  'second-run',
   'normal',
   'alternating',
   'broken',
@@ -31,7 +32,8 @@ export type HistoryScenario = (typeof HISTORY_SCENARIOS)[number];
 /** What each scenario shows, for the dev server's message. */
 export const SCENARIO_HELP: Record<HistoryScenario, string> = {
   none: 'no history: the block is null',
-  'first-run': 'the run after history was enabled: one earlier run',
+  'first-run': 'first run of this stream, two other streams known: no test states, nothing to compare yet',
+  'second-run': 'the second run of the stream: one earlier run',
   normal: 'a local stream of 20 runs, with a partial, an excluded and an ide run among them',
   alternating: 'normal, every failing test alternating pass and fail',
   broken: 'normal, every failing test passing for 15 runs, then failing for 5',
@@ -161,6 +163,13 @@ export function historyScenario(name: HistoryScenario, sample: LoupeReport): { r
     case 'none':
       return { report: sample, history: null };
     case 'first-run':
+      // The stream is new; only the other streams have runs (otherwise the block would be null).
+      others = [
+        pastRuns(report, { pattern: normal, count: 1, stream: { environment: 'staging', origin: 'ci' } }),
+        pastRuns(report, { pattern: normal, count: 1, stream: { environment: 'default', origin: 'ide' } }),
+      ].map((files) => files[0] as HistoryRunFile);
+      break;
+    case 'second-run':
       runs = pastRuns(report, { pattern: normal, count: 1 });
       break;
     case 'normal':

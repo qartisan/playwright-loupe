@@ -140,7 +140,7 @@ export interface TestHistory {
 }
 
 /** Why no test state is shown. */
-export type NoStatesReason = 'all-excluded' | 'all-skipped';
+export type NoStatesReason = 'first-run' | 'all-excluded' | 'all-skipped';
 
 /** Why the verdict shows no delta. */
 export type NoDeltaReason = 'current-excluded' | 'current-ide' | 'current-partial' | 'no-earlier-run';
@@ -163,8 +163,12 @@ export interface HistoryAnalysis {
   /** False when the window holds no earlier result to compare with (see `noStates`): no states, one run-level line. */
   statesShown: boolean;
   /**
-   * Why no test state is shown; null when they are. `all-excluded`: every
-   * earlier run of the stream is excluded. `all-skipped`: every run file of
+   * Why no test state is shown; null when they are. `first-run`: the stream
+   * has no earlier run and nothing was skipped (a new stream, other streams
+   * possibly known): every failing test would be "New test", which says
+   * nothing and suggests new tests when other streams know them; "New test"
+   * is for a test without results in a stream that has earlier runs.
+   * `all-excluded`: every earlier run of the stream is excluded. `all-skipped`: every run file of
    * the window was skipped (a newer history format, corrupt or unreadable),
    * so the tests' past is unreadable, not empty: "New test" would be wrong.
    */
@@ -187,8 +191,8 @@ export function analyzeHistory(history: EmbeddedHistory, report: CurrentReport):
   const { runs, include } = history;
   const width = runs.length;
   const forTests = runs.map((run) => countsForTests(run, include));
-  // An empty window is a new stream (states shown, every failing test new), unless its files were skipped.
-  const noStates: NoStatesReason | null = width === 0 ? (history.skipped > 0 ? 'all-skipped' : null) : forTests.some(Boolean) ? null : 'all-excluded';
+  // An empty window: a new stream, or one whose files were all skipped. Either way, nothing to compare with.
+  const noStates: NoStatesReason | null = width === 0 ? (history.skipped > 0 ? 'all-skipped' : 'first-run') : forTests.some(Boolean) ? null : 'all-excluded';
   const statesShown = noStates === null;
   const currentForTests = countsForTests(history.current, include);
 
