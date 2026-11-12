@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-11-12
+
 No change to the JSON shape: `schemaVersion` stays 1.
 
 ### Security
@@ -394,7 +396,8 @@ First public release. Work in progress: the reporter and its JSON model are usab
 - Node.js **22.12 or later** (`engines.node`), needed to load ES module config files. CI tests the latest Node.js 22.x and 24.x.
 - `@playwright/test` **1.52 or later** (peer dependency). CI tests 1.52 (on Node.js 22) and the latest version. Playwright 1.52 hangs on recent Node.js 24 releases, independently of Loupe: see [Compatibility](README.md#compatibility).
 
-[Unreleased]: https://github.com/qartisan/playwright-loupe/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/qartisan/playwright-loupe/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/qartisan/playwright-loupe/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/qartisan/playwright-loupe/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/qartisan/playwright-loupe/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/qartisan/playwright-loupe/compare/v0.2.0...v0.2.1
