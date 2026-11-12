@@ -34,6 +34,18 @@ export const HOMES: readonly string[] = [
   `/cygdrive/c/Users/${name}/a.json`,
   `\\\\wsl$\\Ubuntu\\home\\${name}\\a.json`,
   `\\\\wsl.localhost\\Ubuntu\\home\\${name}\\a.json`,
+  // Converted by Playwright on Windows: its own `fileURLToPath` turns a `file://` frame
+  // into backslashes, without a drive for a POSIX path and without the `\\` of a share.
+  `\\home\\${name}\\a b.json`,
+  `\\Users\\${name}\\a.json`,
+  `\\Users\\John ${name}\\a.json`,
+  `\\var\\home\\${name}\\a.json`,
+  `\\mnt\\c\\Users\\${name}\\a.json`,
+  `\\c\\Users\\${name}\\a.json`,
+  `\\cygdrive\\c\\Users\\${name}\\a.json`,
+  `wsl.localhost\\Ubuntu\\home\\${name}\\a.json`,
+  `wsl$\\Ubuntu\\home\\${name}\\a.json`,
+  JSON.stringify(`\\home\\${name}\\a.json`),
   // Lists.
   `PATH=/home/${name}/bin:/home/${name}/.local/bin`,
   `PATH=/mnt/c/Users/${name}/bin:/c/Users/${name}/bin`,
