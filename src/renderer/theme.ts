@@ -1,5 +1,5 @@
 import { effect, signal } from '@preact/signals';
-import type { RendererSettings } from '../core/inject.js';
+import type { RendererSettings } from '../shared/settings.js';
 import { readPreference, writePreference } from './storage.js';
 
 export type ThemeChoice = RendererSettings['theme'];

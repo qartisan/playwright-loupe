@@ -1,6 +1,6 @@
 import { Fragment } from 'preact';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
-import type { RendererSettings } from '../../core/inject.js';
+import type { RendererSettings } from '../../shared/settings.js';
 import type { LoupeReport, TestCase } from '../../schema/v1.js';
 import { announce, announcement } from '../announce.js';
 import { closeNarrowSidebar, closeNarrowSidebarOnEscape, isNarrow, overlayOpen, pageScrolls, sidebarOpen } from '../layout.js';

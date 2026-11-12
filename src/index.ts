@@ -20,5 +20,5 @@ export type {
   TagDimensionConfig,
   Theme,
 } from './config/types.js';
-export type { RendererSettings } from './core/inject.js';
+export type { RendererSettings } from './shared/settings.js';
 export type * from './schema/v1.js';

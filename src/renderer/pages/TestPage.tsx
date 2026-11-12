@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useRef } from 'preact/hooks';
-import type { RendererSettings } from '../../core/inject.js';
+import type { RendererSettings } from '../../shared/settings.js';
 import type { Annotation, Attempt, LoupeReport, TestCase } from '../../schema/v1.js';
 import { mergeAnnotations } from '../../shared/annotations.js';
 import { categoryColorMap } from '../categoryColors.js';

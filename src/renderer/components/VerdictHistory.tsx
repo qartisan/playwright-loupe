@@ -2,7 +2,7 @@ import { HISTORY_STATES } from '../../shared/history.js';
 import { formatRunStart } from '../datetime.js';
 import { plural } from '../format.js';
 import { NO_STATES_TEXT, STATE_HELP, formatFailedChange, formatPoints, noDeltaText, stateCount, streamName, type ReportHistory } from '../history.js';
-import { facetHref } from './widgets.js';
+import { facetHref } from '../filters/store.js';
 
 /**
  * The history part of the verdict: the change since the previous run that

@@ -7,28 +7,10 @@ export const SETTINGS_PLACEHOLDER = '<script id="loupe-settings" type="applicati
 /** Placeholder for the embedded history (`EmbeddedHistory` or null), outside the report data contract. */
 export const HISTORY_PLACEHOLDER = '<script id="loupe-history" type="application/json">__LOUPE_HISTORY__</script>';
 
-/**
- * Renderer settings: presentation choices injected next to the report data.
- * Not part of the data contract (see "Renderer settings" in docs/schema/v1.md).
- * Kept free of Node imports so the renderer can import it.
- */
-export interface RendererSettings {
-  title: string;
-  theme: 'system' | 'light' | 'dark';
-  screenshots: { defaultView: 'side-by-side' | 'slider' | 'overlay' | 'diff' };
-  /** The copyable AI prompt of the test detail. */
-  aiPrompt: { includeStack: boolean };
-  /** Folder of the trace viewer, relative to the report; set only after a successful copy, null otherwise. */
-  traceViewer: string | null;
-}
+import type { RendererSettings } from '../shared/settings.js';
 
-export const DEFAULT_RENDERER_SETTINGS: RendererSettings = {
-  title: 'Loupe report',
-  theme: 'system',
-  screenshots: { defaultView: 'side-by-side' },
-  aiPrompt: { includeStack: true },
-  traceViewer: null,
-};
+// The settings live in src/shared, read by the renderer too; re-exported for the core and its callers.
+export { DEFAULT_RENDERER_SETTINGS, type RendererSettings } from '../shared/settings.js';
 
 const UNSAFE_CHARS: Record<string, string> = {
   '<': '\\u003c',

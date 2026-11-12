@@ -27,8 +27,8 @@ import {
   type SkippedTest,
 } from '../dashboard.js';
 import type { FailurePoint } from '../failure-points/points.js';
-import { filters, filtersHref } from '../filters/store.js';
-import { EMPTY_FILTERS, dimensionFacet, type FacetId } from '../filters/url.js';
+import { facetHref, filters, filtersHref } from '../filters/store.js';
+import { dimensionFacet } from '../filters/url.js';
 import { formatDuration, plural } from '../format.js';
 import { foldedGroupsText, groupCountText } from '../secondary.js';
 import { revealInSidebar } from '../layout.js';
@@ -63,11 +63,6 @@ export function testHref(test: TestCase): string {
 export function groupHref(signature: string, category?: string): string {
   const state = filters.value;
   return filtersHref({ ...state, facets: { ...state.facets, category: category === undefined ? [] : [category] } }, { page: 'group', signature });
-}
-
-/** Link to the Tests view showing the tests with this value, replacing the current filters. */
-export function facetHref(facet: FacetId, value: string): string {
-  return filtersHref({ ...EMPTY_FILTERS, facets: { [facet]: [value] } }, { page: 'tests' });
 }
 
 export function projectLabel(name: string): string {

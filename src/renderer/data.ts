@@ -1,4 +1,4 @@
-import { DEFAULT_RENDERER_SETTINGS, type RendererSettings } from '../core/inject.js';
+import { DEFAULT_RENDERER_SETTINGS, type RendererSettings } from '../shared/settings.js';
 import type { LoupeReport } from '../schema/v1.js';
 
 export type ReportResult = { ok: true; report: LoupeReport } | { ok: false; message: string };

@@ -5,7 +5,7 @@ import { currentLocation, setLocation, setSearchNormalizer } from '../navigation
 import { formatHash, type Route } from '../router.js';
 import { joinQuery, parseDetailParams, serializeDetailParams } from '../detail/params.js';
 import { NO_FILTER_CONTEXT, filterContext, filterDomain, type FilterContext } from './match.js';
-import { parseFilters, serializeFilters, type FilterDomain, type FilterState } from './url.js';
+import { EMPTY_FILTERS, parseFilters, serializeFilters, type FacetId, type FilterDomain, type FilterState } from './url.js';
 
 /**
  * The one filter state of the report, read from the URL query. Components
@@ -38,6 +38,11 @@ export const filters = computed<FilterState>(() => parseFilters(currentLocation.
 /** Link to a route with this filter state. */
 export function filtersHref(state: FilterState, route: Route = currentLocation.value.route): string {
   return formatHash({ route, search: serializeFilters(state) });
+}
+
+/** Link to the Tests view showing the tests with this value, replacing the current filters. */
+export function facetHref(facet: FacetId, value: string): string {
+  return filtersHref({ ...EMPTY_FILTERS, facets: { [facet]: [value] } }, { page: 'tests' });
 }
 
 /**
