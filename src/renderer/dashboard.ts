@@ -1,6 +1,7 @@
 import { OUTCOMES } from '../schema/v1.js';
 import type { Attempt, DimensionDefinition, LoupeError, LoupeReport, Outcome, Project, Stats, TestCase } from '../schema/v1.js';
 import { dimensionValues } from '../shared/tags.js';
+import { passRate } from '../shared/stats.js';
 import { isSecondaryError } from './secondary.js';
 import { skipReason, type SkipReason } from './skip.js';
 
@@ -199,15 +200,8 @@ export function outcomeShares(stats: Stats): OutcomeShare[] {
   }));
 }
 
-/**
- * The pass rate, one definition everywhere (verdict, projects): passed /
- * (total − skipped). Skipped tests are left out; flaky tests do not count as
- * passed. Null when no test ran.
- */
-export function passRate(stats: Stats): number | null {
-  const ran = stats.total - stats.skipped;
-  return ran > 0 ? stats.passed / ran : null;
-}
+/** The pass rate, one definition everywhere: in src/shared, for the history views too. */
+export { passRate };
 
 /** Explains the pass rate wherever it is shown. */
 export const PASS_RATE_HELP = 'Pass rate: passed / (total − skipped). Skipped tests are excluded; flaky tests do not count as passed.';

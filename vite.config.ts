@@ -4,6 +4,8 @@ import { gzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
 import { DEFAULT_RENDERER_SETTINGS, injectData, injectHistory, injectSettings } from './src/core/inject.js';
+import type { LoupeReport } from './src/schema/v1.js';
+import { HISTORY_SCENARIOS, SCENARIO_HELP, historyScenario, type HistoryScenario } from './test/helpers/history-scenarios.js';
 
 const SAMPLE_JSON = fileURLToPath(new URL('./src/renderer/dev/sample.json', import.meta.url));
 /** The sample's attachment files, copied by `npm run sample:update` (gitignored). */
@@ -79,14 +81,33 @@ function formatKb(bytes: number): string {
   return `${(bytes / 1000).toFixed(1)} kB`;
 }
 
-/** Dev server only: injects the sample report and reloads the page when it changes. */
+/**
+ * The history scenario of a dev page: `?history=<name>` before the hash
+ * (`http://localhost:5173/?history=normal#/`). None by default: no history.
+ */
+function scenarioOf(url: string | undefined, warn: (message: string) => void): HistoryScenario {
+  const name = new URL(url ?? '/', 'http://localhost').searchParams.get('history');
+  if (name === null) return 'none';
+  if ((HISTORY_SCENARIOS as readonly string[]).includes(name)) return name as HistoryScenario;
+  warn(`loupe: unknown history scenario "${name}"; one of:\n${HISTORY_SCENARIOS.map((scenario) => `  ${scenario}: ${SCENARIO_HELP[scenario]}`).join('\n')}`);
+  return 'none';
+}
+
+/** Dev server only: injects the sample report, and a history scenario, and reloads the page when the sample changes. */
 function sampleData(): Plugin {
+  let warn: (message: string) => void = console.warn;
   return {
     name: 'loupe:sample-data',
     apply: 'serve',
-    transformIndexHtml(html) {
+    configResolved(config) {
+      warn = (message) => config.logger.warn(message);
+    },
+    transformIndexHtml(html, context) {
       const settings = { ...DEFAULT_RENDERER_SETTINGS, title: 'Loupe sample' };
-      return injectHistory(injectSettings(injectData(html, JSON.parse(readFileSync(SAMPLE_JSON, 'utf8'))), settings), null);
+      const sample = JSON.parse(readFileSync(SAMPLE_JSON, 'utf8')) as LoupeReport;
+      // Built with the real deriveEmbedded, in Node: the renderer itself never imports src/core.
+      const { report, history } = historyScenario(scenarioOf(context.originalUrl, warn), sample);
+      return injectHistory(injectSettings(injectData(html, report), settings), history);
     },
     configureServer(server) {
       // Attachment links are relative to the report folder (`data/<test>/<attempt>/<file>`): serve the sample's copy there.
