@@ -1,4 +1,4 @@
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -396,6 +396,53 @@ describe('history: the default folder overlapping the report folder', () => {
     readReport(dir, result.output);
     expect(result.output.match(/Loupe: history is off for this run/g), result.output).toHaveLength(1);
     expect(existsSync(path.join(dir, 'loupe-history'))).toBe(false);
+  }, 120_000);
+});
+
+describe('history: a run without git information, one project, no retries setting', () => {
+  /**
+   * The reader rejects a run file without run.git or run.projects as corrupt:
+   * the writer must write both when git is unknown, or such a project loses
+   * every run from its window. Outside any git repository, without CI
+   * variables, with one unnamed project and no retries setting. The local git
+   * read is on (it fails), off, or git is not on PATH at all.
+   */
+  const VARIANTS = [
+    { name: 'the local git read on, outside a repository', env: { LOUPE_GIT_LOCAL: '' }, noGit: false },
+    { name: 'the local git read off', env: { LOUPE_GIT_LOCAL: '0' }, noGit: false },
+    // POSIX only: on Windows, cmd.exe and npx need a PATH this test cannot narrow down to node alone.
+    ...(process.platform === 'win32' ? [] : [{ name: 'git not on PATH', env: { LOUPE_GIT_LOCAL: '' }, noGit: true }]),
+  ];
+
+  it.each(VARIANTS)('$name: both runs write git and projects, and the second reads the first back', ({ name, env, noGit }) => {
+    const dir = path.join(workDir, `no-git-${VARIANTS.findIndex((variant) => variant.name === name)}`);
+    mkdirSync(dir);
+    // The point of the test: the config directory, where the local git read starts, is in no repository.
+    expect(() => execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd: dir, stdio: 'pipe' })).toThrow();
+    const config = path.join(dir, 'playwright.config.mjs');
+    const report = path.join(dir, 'report');
+    // No projects (one unnamed project), no retries setting.
+    writeFileSync(config, `export default ${JSON.stringify({ testDir: path.join(ROOT, 'fixtures', 'history'), workers: 1, reporter: [[path.join(ROOT, 'dist', 'index.js'), { outputFolder: report }]] })};\n`);
+    const runEnv = { ...LOCAL, ...env, LOUPE_HISTORY: 'on', LOUPE_HISTORY_DIR: path.join(dir, 'loupe-history') };
+    const run = (): string => {
+      if (!noGit) return playwright(['test', '--config', config, '--output', path.join(dir, 'results')], runEnv).output;
+      // npx needs a shell on PATH: Playwright's CLI is started with node itself, PATH holding no git.
+      const result = spawnSync(process.execPath, [CLI, 'test', '--config', config, '--output', path.join(dir, 'results')], { cwd: ROOT, env: { ...process.env, ...runEnv, PATH: path.join(dir, 'no-bin') }, encoding: 'utf8' });
+      return `${result.stdout}\n${result.stderr}`;
+    };
+    readReport(report, run());
+    const output = run();
+    readReport(report, output);
+    expect(output).not.toContain('Loupe: history');
+
+    const files = runFiles(path.join(dir, 'loupe-history'));
+    expect(files).toHaveLength(2);
+    for (const file of files) {
+      const recorded = readRun(path.join(dir, 'loupe-history'), file).run;
+      expect([recorded.git, recorded.projects]).toEqual([{ commit: null, branch: null }, [{ name: '', retries: 0 }]]);
+    }
+    const value = embedded(report);
+    expect([value?.runs.length, value?.skipped, value?.runs[0]?.projects, value?.runs[0]?.commit, value?.runs[0]?.branch]).toEqual([1, 0, [['', 0]], null, null]);
   }, 120_000);
 });
 
