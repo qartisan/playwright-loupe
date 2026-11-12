@@ -19,7 +19,7 @@ const STREAM = { environment: 'default', origin: 'local' };
 function embedded(report: LoupeReport, otherStreams: number): EmbeddedHistory {
   const runs = simulateWindow(report, 20, STREAM);
   const others = Array.from({ length: otherStreams }, (_, index) => simulateWindow(report, 1, { environment: `other-${index}`, origin: 'ci' }, random(100 + index))[0]!);
-  const value = deriveEmbedded(report, { runs, others }, { include: 'full', stream: STREAM, currentRunId: 'current' });
+  const value = deriveEmbedded(report, { runs, others, skipped: 0 }, { include: 'full', stream: STREAM, current: { origin: 'local', excluded: null }, currentRunId: 'current' });
   if (value === null) throw new Error('no embedded history');
   return value;
 }

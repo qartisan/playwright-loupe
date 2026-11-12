@@ -135,7 +135,7 @@ The path rewriting of 0.1.8 and 0.2.1 changed no signature: they are computed fr
 <script id="loupe-history" type="application/json">{"v":1,…}</script>
 ```
 
-It is derived from the run files read when the run starts, **never from the run itself**, and is **not in `report.json`**, whose shape does not change. It is `null` when there is no history: off, empty, or not derived (one warning). It is written with the same safe serialisation as the other blocks. The renderer does not use it yet.
+It is derived from the run files read when the run starts, **never from the run itself**, and is **not in `report.json`**, whose shape does not change. It is `null` when there is no history: off, empty, or not derived (one warning). When run files exist but none of the window could be used (written by a newer Loupe, corrupt), it is a block with no run and `skipped` above 0, not `null`, so the report can say why. It is written with the same safe serialisation as the other blocks. The renderer does not use it yet.
 
 Statuses are one character per test and run, aligned with the report's `tests`, so no test id is repeated; signatures are indexes into one dictionary.
 
@@ -147,6 +147,8 @@ Statuses are one character per test and run, aligned with the report's `tests`, 
 | `include` | `'full' \| 'all'` | `history.include`: whether partial, excluded and `ide` runs count in run-level statistics. |
 | `signatureVersion` | `number` | The current run's. |
 | `stream` | `object` | The current run's stream, as `HistoryRun.stream`. |
+| `current` | `{ origin, excluded }` | What the report does not say about the current run: its [origin](../history.md#origins) (`stream` holds it only when the key has `origin`) and its exclusion reason, masked as in the run file, `null` when it is not excluded. Its scope is the report's `run.scope`. |
+| `skipped` | `number` | Run files of the window that could not be used: written by a newer Loupe, corrupt, or unreadable. The window is that much shorter. A file removed by another run's retention since the listing is not counted. |
 | `runs` | `EmbeddedRun[]` | The window: the newest runs of the current stream, at most 20, **oldest first**. Run `k` is column `k` of `cells`. A merge job re-run does not find its own earlier file in it. |
 | `cells` | `string` | `cells[test * runs.length + run]`: the outcome code (`P`, `F`, `K`, `S`) of report test `test` in run `run`, or `-` when that run has no result for it. |
 | `failures` | `number[][]` | For each test with an `F` or `K` cell: `[test, sig, sig, …]`, one index into `signatures` per `F` or `K` cell, in run order. The signature of a cell is the first error of its first failed attempt; `-1` when there is none to compare (no error, or a run of another signature version). |
@@ -159,10 +161,11 @@ Statuses are one character per test and run, aligned with the report's `tests`, 
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| `id`, `reportRunId`, `startedAt`, `durationMs`, `status`, `origin`, `scope`, `stats` | | As in `HistoryRun`. |
+| `id`, `reportRunId`, `startedAt`, `durationMs`, `status`, `origin`, `scope`, `scopeReasons`, `stats` | | As in `HistoryRun`. |
 | `excluded` | `string \| null` | The exclusion reason. |
 | `commit`, `branch` | `string \| null` | From `HistoryRun.git`. |
-| `comparable` | `boolean` | False when the run has another `signatureVersion`: its statuses compare, its signatures do not. |
+| `projects` | `[name, retries][]` | The retries of each project of the run, from `HistoryRun.projects`: whether a pass on retry was possible in that run. |
+| `sameSignatures` | `boolean` | False when the run has another `signatureVersion`: its statuses compare, its signatures do not. |
 
 ### EmbeddedOtherRun
 

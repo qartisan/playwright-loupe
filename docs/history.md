@@ -151,11 +151,12 @@ Every recorded run is a data point for its tests. At the level of runs (pass rat
 `index.html` embeds data derived from the history, never the run files themselves, in its own block, separate from `report.json` (which does not change):
 
 - for each test of the report, its **last 20 results in the current stream**: the status, the outcome of each attempt, and the error signatures of its failures;
-- the metadata of those 20 runs (date, status, duration, origin, scope, exclusion, commit, branch, counts);
+- the metadata of those 20 runs (date, status, duration, origin, scope and its reasons, exclusion, commit, branch, counts, retries of each project);
+- the origin and exclusion reason of the current run, and how many run files of the window could not be used (written by a newer Loupe, corrupt);
 - the **latest result of each test in every other stream**: the status in the newest run of that stream;
 - the category and extract of the error signatures of the window, the 300 most recently seen.
 
-The data comes from the runs read when the run starts, never from the run itself. About 35 kB gzipped for a realistic 5,000-test suite. The format is in [`schema/history-v1.md`](schema/history-v1.md#embedded-history).
+The data comes from the runs read when the run starts, never from the run itself. About 38 kB gzipped for a realistic 5,000-test suite. The format is in [`schema/history-v1.md`](schema/history-v1.md#embedded-history).
 
 Limits:
 

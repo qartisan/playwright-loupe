@@ -128,10 +128,23 @@ export interface EmbeddedHistory {
   v: typeof EMBEDDED_HISTORY_VERSION;
   /** `history.include`: whether partial, excluded and `ide` runs count in run-level statistics. */
   include: 'full' | 'all';
-  /** The signature version of the current run; a run of another version has `comparable: false`. */
+  /** The signature version of the current run; a run of another version has `sameSignatures: false`. */
   signatureVersion: number;
   /** The stream of the current run. */
   stream: HistoryRun['stream'];
+  /**
+   * What the report does not say about the current run and the statistics
+   * need: its origin (the stream holds it only when the key has `origin`)
+   * and its exclusion reason (`LOUPE_EXCLUDE`, masked), null when not excluded.
+   */
+  current: { origin: Origin; excluded: string | null };
+  /**
+   * Run files of the stream's window that could not be used: written by a
+   * newer Loupe (another `historyVersion`), corrupt, or unreadable. The
+   * window is that much shorter. When every file is skipped, the block is
+   * embedded with no run rather than null, so the report can say why.
+   */
+  skipped: number;
   /** The runs of the window, oldest first: run `k` is column `k` of `cells`. */
   runs: EmbeddedRun[];
   /**
@@ -176,13 +189,17 @@ export interface EmbeddedRun {
   status: string;
   origin: Origin;
   scope: 'full' | 'partial';
+  /** Why the run is partial (`grep`, `project`, …), as `HistoryRun.scopeReasons`; empty for a full run. */
+  scopeReasons: string[];
   /** The exclusion reason, null when the run is not excluded. */
   excluded: string | null;
   commit: string | null;
   branch: string | null;
   stats: HistoryRun['stats'];
+  /** The retries of each project of the run: `[name, retries]`, as `HistoryRun.projects`. */
+  projects: Array<[name: string, retries: number]>;
   /** False when the run has another signature version: its statuses compare, its signatures do not. */
-  comparable: boolean;
+  sameSignatures: boolean;
 }
 
 export interface EmbeddedOtherRun {

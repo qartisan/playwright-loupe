@@ -43,7 +43,7 @@ describe('readHistory and files changing under it', () => {
     const { dir, gone } = setup();
     failOn(gone, 'ENOENT');
     const read = await readHistory(dir, streamHash(STREAM), (text) => text);
-    expect([read.runs.map((run) => run.run.id), read.problems]).toEqual([['kept'], []]);
+    expect([read.runs.map((run) => run.run.id), read.problems, read.skipped]).toEqual([['kept'], [], 0]);
   });
 
   // A file Windows holds while it is read keeps its warning: a data point is missing from the report.
@@ -51,6 +51,6 @@ describe('readHistory and files changing under it', () => {
     const { dir, gone } = setup();
     failOn(gone, code);
     const read = await readHistory(dir, streamHash(STREAM), (text) => text);
-    expect([read.runs.map((run) => run.run.id), read.problems]).toEqual([['kept'], [`could not read runs/${gone}`]]);
+    expect([read.runs.map((run) => run.run.id), read.problems, read.skipped]).toEqual([['kept'], [`could not read runs/${gone}`], 1]);
   });
 });

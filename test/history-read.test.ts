@@ -70,6 +70,9 @@ describe('parseRunFile', () => {
     ['a test without id', JSON.stringify({ ...file, tests: [{ t: [], o: 'P', d: 1 }] })],
     ['a failure without signatures', JSON.stringify({ ...file, tests: [{ id: 'x', t: [], o: 'F', d: 1, f: [{ i: 0 }] }] })],
     ['a run without stream', JSON.stringify({ ...file, run: { ...file.run, stream: undefined } })],
+    ['a run without projects', JSON.stringify({ ...file, run: { ...file.run, projects: undefined } })],
+    ['a project without retries', JSON.stringify({ ...file, run: { ...file.run, projects: [{ name: 'p' }] } })],
+    ['a run without git', JSON.stringify({ ...file, run: { ...file.run, git: undefined } })],
   ])('%s is corrupt', (_label, text) => {
     expect(parseRunFile(text)).toBe('corrupt');
   });
@@ -118,7 +121,7 @@ describe('listing and the window', () => {
 
   it('a missing folder is an empty history', async () => {
     expect(await listRunFiles(dir)).toEqual([]);
-    expect(await readHistory(dir, streamHash(A), identity)).toEqual({ stream: streamHash(A), runs: [], others: [], problems: [] });
+    expect(await readHistory(dir, streamHash(A), identity)).toEqual({ stream: streamHash(A), runs: [], others: [], skipped: 0, problems: [] });
   });
 
   it('lists run files newest first, without temporary, foreign or plain JSON files', async () => {
@@ -166,6 +169,16 @@ describe('listing and the window', () => {
     expect(readdirSync(path.join(dir, 'runs')).sort()).toEqual([good, corrupt, newer, plain, truncated].sort());
     expect(readRunFile(path.join(dir, 'runs', newer))).toBe('{"historyVersion":2}');
     expect(readFileSync(path.join(dir, 'runs', plain), 'utf8')).toContain('"id":"plain"');
+    // The window is four files shorter, and says so.
+    expect(read.skipped).toBe(4);
+  });
+
+  it("counts as skipped only the files of the stream's window, not those of other streams", async () => {
+    putRunFile(dir, makeRunFile({ id: 'good', startedAt: daysAgo(NOW, 1), stream: A }));
+    putRunFile(dir, makeRunFile({ id: 'newer', startedAt: daysAgo(NOW, 2), stream: A }), '{"historyVersion":2}');
+    putRunFile(dir, makeRunFile({ id: 'other', startedAt: daysAgo(NOW, 1), stream: B }), '{"historyVersion":2}');
+    const read = await readHistory(dir, streamHash(A), identity);
+    expect([read.runs.length, read.others.length, read.skipped, read.problems.length]).toEqual([1, 0, 1, 1]);
   });
 
   it('names three files at most', async () => {

@@ -16,6 +16,8 @@ export interface EmbedOptions {
   include: EmbeddedHistory['include'];
   /** The stream of the current run. */
   stream: HistoryRun['stream'];
+  /** The current run's origin and masked exclusion reason. */
+  current: EmbeddedHistory['current'];
   /** The history run id of the current run: a re-run merge finds its own earlier file in the window, which is not its past. */
   currentRunId: string;
 }
@@ -37,11 +39,13 @@ function embeddedRun(file: HistoryRunFile): EmbeddedRun {
     status: run.status,
     origin: run.origin,
     scope: run.scope,
+    scopeReasons: run.scopeReasons,
     excluded: run.excluded?.reason ?? null,
     commit: run.git.commit,
     branch: run.git.branch,
     stats: run.stats,
-    comparable: file.signatureVersion === SIGNATURE_VERSION,
+    projects: run.projects.map((project): [string, number] => [project.name, project.retries]),
+    sameSignatures: file.signatureVersion === SIGNATURE_VERSION,
   };
 }
 
@@ -57,24 +61,26 @@ const failing = (code: string | undefined): boolean => code === 'F' || code === 
 /**
  * The embedded history of a report, from the runs read at the start of the
  * run (already replayed through the current redaction). Null when there is no
- * past run to show.
+ * past run to show and no run file was skipped: a window emptied by skipped
+ * files (a newer Loupe's, corrupt) is embedded with no run, so the report can
+ * say why.
  */
-export function deriveEmbedded(report: LoupeReport, read: Pick<HistoryRead, 'runs' | 'others'>, options: EmbedOptions): EmbeddedHistory | null {
+export function deriveEmbedded(report: LoupeReport, read: Pick<HistoryRead, 'runs' | 'others' | 'skipped'>, options: EmbedOptions): EmbeddedHistory | null {
   const past = (file: HistoryRunFile) => file.run.id !== options.currentRunId;
   // Oldest first, as columns read left to right.
   const window = read.runs.filter(past).reverse();
   const others = read.others.filter(past);
-  if (window.length === 0 && others.length === 0) return null;
+  if (window.length === 0 && others.length === 0 && read.skipped === 0) return null;
 
   const keys = report.tests.map((test) => key(test.id, test.repeatEachIndex));
   const rows = window.map(byTest);
-  const comparable = window.map((file) => file.signatureVersion === SIGNATURE_VERSION);
+  const sameSignatures = window.map((file) => file.signatureVersion === SIGNATURE_VERSION);
 
   // The dictionary, most recently seen first: the extract cap keeps the newest ones.
   const signatures: EmbeddedHistory['signatures'] = [];
   const index = new Map<string, number>();
   for (let run = window.length - 1; run >= 0; run--) {
-    if (!comparable[run]) continue;
+    if (!sameSignatures[run]) continue;
     for (const testKey of keys) {
       const test = rows[run]?.get(testKey);
       if (!failing(test?.o)) continue;
@@ -99,7 +105,7 @@ export function deriveEmbedded(report: LoupeReport, read: Pick<HistoryRead, 'run
         return;
       }
       failureAttempts.push(test?.a ?? '');
-      const failure = comparable[run] ? cellFailure(test) : null;
+      const failure = sameSignatures[run] ? cellFailure(test) : null;
       sigs.push(failure === null ? -1 : (index.get(failure.sig) ?? -1));
     });
     if (sigs.length > 0) failures.push([testIndex, ...sigs]);
@@ -110,6 +116,8 @@ export function deriveEmbedded(report: LoupeReport, read: Pick<HistoryRead, 'run
     include: options.include,
     signatureVersion: SIGNATURE_VERSION,
     stream: options.stream,
+    current: options.current,
+    skipped: read.skipped,
     runs: window.map(embeddedRun),
     cells,
     failures,

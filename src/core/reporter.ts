@@ -12,7 +12,7 @@ import type { EmbeddedHistory } from '../schema/history-v1.js';
 import { historyRunId } from './history/detect.js';
 import { deriveEmbedded } from './history/embed.js';
 import { createReplay, readHistory, windowOfStream, type HistoryRead } from './history/read.js';
-import { recordRun, reportIdentity, runIdentity, type RecordContext } from './history/record.js';
+import { maskedExcludeReason, recordRun, reportIdentity, runIdentity, type RecordContext } from './history/record.js';
 import { LOCAL_GIT_TIMEOUT_MS, readLocalGit, type LocalGit } from './git.js';
 import { injectData, injectHistory, injectSettings, type RendererSettings } from './inject.js';
 import { detectGit } from './metadata.js';
@@ -121,7 +121,7 @@ export class LoupeReporter implements Reporter {
       stream = runIdentity({ ...context, environmentName: this.loupeConfig.environment?.trim() || null, branch }).streamHash;
       return await this.readStream(context, stream);
     } catch (error) {
-      return { stream, runs: [], others: [], problems: [`the history could not be read (${error instanceof Error ? error.message : String(error)})`] };
+      return { stream, runs: [], others: [], skipped: 0, problems: [`the history could not be read (${error instanceof Error ? error.message : String(error)})`] };
     }
   }
 
@@ -192,8 +192,10 @@ export class LoupeReporter implements Reporter {
   /** The embedded history, derived from the runs read at the start. A failure is a problem and no block, never a lost report. */
   private embedHistory(report: LoupeReport, config: FullConfig, read: HistoryRead, currentRunId: string): { value: EmbeddedHistory | null; problems: string[] } {
     try {
-      const { stream } = reportIdentity(report, this.historyContext(config));
-      return { value: deriveEmbedded(report, read, { include: this.loupeConfig.history.include, stream, currentRunId }), problems: [] };
+      const context = this.historyContext(config);
+      const { stream, origin } = reportIdentity(report, context);
+      const current = { origin, excluded: maskedExcludeReason(context) };
+      return { value: deriveEmbedded(report, read, { include: this.loupeConfig.history.include, stream, current, currentRunId }), problems: [] };
     } catch (error) {
       return { value: null, problems: [`the history could not be embedded (${error instanceof Error ? error.message : String(error)})`] };
     }
@@ -206,7 +208,7 @@ export class LoupeReporter implements Reporter {
     try {
       return await windowOfStream(read, reportIdentity(report, context).streamHash, (stream) => this.readStream(context, stream));
     } catch (error) {
-      return { ...read, runs: [], others: [], problems: [...read.problems, `the history could not be read (${error instanceof Error ? error.message : String(error)})`] };
+      return { ...read, runs: [], others: [], skipped: 0, problems: [...read.problems, `the history could not be read (${error instanceof Error ? error.message : String(error)})`] };
     }
   }
 

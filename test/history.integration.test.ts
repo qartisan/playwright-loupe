@@ -144,12 +144,21 @@ describe('history: the embedded window', () => {
     const run = folders('embed');
     const first = readReport(run.report, playwright(['test', '--config', CONFIG], run.env).output);
     const [firstFile] = runFiles(run.history);
-    const result = playwright(['test', '--config', CONFIG], run.env);
+    // The second run is excluded: the block gives the current run's facts, the exclusion as the run file records it.
+    const result = playwright(['test', '--config', CONFIG], { ...run.env, LOUPE_EXCLUDE: '  staging restored  ' });
     const second = readReport(run.report, result.output);
     expect(result.output).not.toContain('Loupe: history');
     const value = embedded(run.report);
-    expect(value?.runs.map((entry) => [entry.id, entry.reportRunId])).toEqual([[readRun(run.history, firstFile as string).run.id, first.run.id]]);
+    const past = readRun(run.history, firstFile as string);
+    expect(value?.runs.map((entry) => [entry.id, entry.reportRunId])).toEqual([[past.run.id, first.run.id]]);
     expect(value?.stream).toEqual(fixtureStream());
+    expect([value?.current, value?.skipped]).toEqual([{ origin: 'local', excluded: 'staging restored' }, 0]);
+    const secondFile = runFiles(run.history).find((name) => name !== firstFile) as string;
+    expect(readRun(run.history, secondFile).run.excluded).toEqual({ reason: 'staging restored' });
+    // Retries per project, as the run file of that run has them.
+    expect(value?.runs[0]?.projects).toEqual(past.run.projects.map((project) => [project.name, project.retries]));
+    expect(value?.runs[0]?.projects.length).toBeGreaterThan(0);
+    expect(value?.runs[0]?.sameSignatures).toBe(true);
     // One status per test of this report, for its one past run.
     expect(value?.cells).toBe(second.tests.map((test) => ({ passed: 'P', failed: 'F', flaky: 'K', skipped: 'S' })[test.outcome]).join(''));
     expect(value?.failures.length).toBeGreaterThan(0);
@@ -285,6 +294,8 @@ describe('history: reading the folder', () => {
       `Loupe: history: skipped 2 corrupt run files: ${[corrupt, plain].sort().map((name) => `runs/${name}`).join(', ')}; skipped a run file written by a newer Loupe: runs/${newer}. The report is not affected.`,
     ]);
     expect(runFiles(run.history)).toHaveLength(4);
+    // Every file of the window skipped: a block with no run, not null, so the report can say why.
+    expect(embedded(run.report)).toMatchObject({ runs: [], skipped: 3 });
     expect(readRunFile(path.join(run.history, 'runs', corrupt))).toBe('{"historyVersion":1,');
     expect(readRunFile(path.join(run.history, 'runs', newer))).toBe('{"historyVersion":2}');
     expect(readFileSync(path.join(run.history, 'runs', plain), 'utf8')).toBe('{"historyVersion":1}');

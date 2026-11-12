@@ -97,11 +97,22 @@ function isRunError(value: unknown): boolean {
   return isObject(value) && isString(value['sig']) && isNullable(value['cat'], isString) && isString(value['x']) && isNullable(value['at'], isString);
 }
 
+function isProject(value: unknown): boolean {
+  return isObject(value) && isString(value['name']) && isNumber(value['retries']);
+}
+
+function isGit(value: unknown): boolean {
+  return isObject(value) && isNullable(value['commit'], isString) && isNullable(value['branch'], isString);
+}
+
 /** What readers rely on; other keys are not checked, so an optional key added later is read as before. */
 function isRun(value: unknown): boolean {
   if (!isObject(value)) return false;
   const excluded = value['excluded'];
   return (
+    isGit(value['git']) &&
+    Array.isArray(value['projects']) &&
+    value['projects'].every(isProject) &&
     isString(value['id']) &&
     isString(value['startedAt']) &&
     isNumber(value['durationMs']) &&
@@ -186,6 +197,12 @@ export interface HistoryRead {
   runs: HistoryRunFile[];
   /** The newest run of every other stream, newest first. */
   others: HistoryRunFile[];
+  /**
+   * Files of the window that could not be used (corrupt, written by a newer
+   * Loupe, unreadable): the window is that much shorter. A file that vanished
+   * since the listing is not counted: another run's retention removed it.
+   */
+  skipped: number;
   /** Problems for the run's single history warning; empty when none. */
   problems: string[];
 }
@@ -205,7 +222,7 @@ function named(names: readonly string[]): string {
  * `signatureVersion` is kept: its statuses compare, its signatures do not.
  */
 export async function readHistory(dir: string, stream: string, replay: (text: string) => string, size: number = WINDOW_RUNS): Promise<HistoryRead> {
-  const empty: HistoryRead = { stream, runs: [], others: [], problems: [] };
+  const empty: HistoryRead = { stream, runs: [], others: [], skipped: 0, problems: [] };
   let files: RunFileName[];
   try {
     files = await listRunFiles(dir);
@@ -216,27 +233,32 @@ export async function readHistory(dir: string, stream: string, replay: (text: st
   const corrupt: string[] = [];
   const newer: string[] = [];
   const unreadable: string[] = [];
-  const read = async (file: RunFileName): Promise<HistoryRunFile | null> => {
+  // Files of the window not used, other than vanished ones: the window is that much shorter.
+  let skipped = 0;
+  const read = async (file: RunFileName, own: boolean): Promise<HistoryRunFile | null> => {
     let content: Buffer;
     try {
       content = await readFile(path.join(dir, RUNS_FOLDER, file.name));
     } catch (error) {
-      if (code(error) !== 'ENOENT') unreadable.push(file.name);
+      if (code(error) !== 'ENOENT') {
+        unreadable.push(file.name);
+        if (own) skipped++;
+      }
       return null;
     }
     const parsed = await decodeRunFile(content);
-    if (parsed === 'corrupt') corrupt.push(file.name);
-    else if (parsed === 'newer') newer.push(file.name);
-    else return replayRun(parsed, replay);
+    if (parsed !== 'corrupt' && parsed !== 'newer') return replayRun(parsed, replay);
+    (parsed === 'corrupt' ? corrupt : newer).push(file.name);
+    if (own) skipped++;
     return null;
   };
   const present = (runs: Array<HistoryRunFile | null>) => runs.filter((run): run is HistoryRunFile => run !== null);
-  const [runs, latest] = await Promise.all([Promise.all(own.map(read)), Promise.all(others.map(read))]);
+  const [runs, latest] = await Promise.all([Promise.all(own.map((file) => read(file, true))), Promise.all(others.map((file) => read(file, false)))]);
   const problems: string[] = [];
   if (corrupt.length > 0) problems.push(`skipped ${corrupt.length === 1 ? 'a corrupt run file' : `${corrupt.length} corrupt run files`}: ${named(corrupt.sort())}`);
   if (newer.length > 0) problems.push(`skipped ${newer.length === 1 ? 'a run file' : `${newer.length} run files`} written by a newer Loupe: ${named(newer.sort())}`);
   if (unreadable.length > 0) problems.push(`could not read ${named(unreadable.sort())}`);
-  return { stream, runs: present(runs), others: present(latest), problems };
+  return { stream, runs: present(runs), others: present(latest), skipped, problems };
 }
 
 /**

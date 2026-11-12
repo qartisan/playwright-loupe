@@ -58,6 +58,17 @@ export function excludeReason(env: Env): string | null {
   return reason.length > MAX_REASON ? `${reason.slice(0, MAX_REASON - 1)}…` : reason;
 }
 
+/**
+ * The exclusion reason of the run as it is recorded, masked like the rest of
+ * the report (`redact`, home directory): the only text not taken from the
+ * report. Null when the run is not excluded.
+ */
+export function maskedExcludeReason(context: Pick<RecordContext, 'env' | 'redact' | 'home'>): string | null {
+  const reason = excludeReason(context.env);
+  if (reason === null) return null;
+  return createPathRewriter({ roots: [], home: context.home }).selection(createRedactor(context.redact).strings(reason));
+}
+
 export interface RunIdentity {
   origin: Origin;
   environment: string;
@@ -96,10 +107,7 @@ export function buildRunFile(report: LoupeReport, context: RecordContext): Histo
   const skipped = skipReason(report, context);
   if (skipped) return skipped;
   const { origin, environment, stream } = reportIdentity(report, context);
-  const reason = excludeReason(context.env);
-  // The reason is the only text not taken from the report: masked the same way.
-  const paths = createPathRewriter({ roots: [], home: context.home });
-  const masked = reason === null ? null : paths.selection(createRedactor(context.redact).strings(reason));
+  const masked = maskedExcludeReason(context);
   return encodeRun(report, {
     id: historyRunId({ env: context.env, merged: context.merged, tests: report.tests }),
     origin,
