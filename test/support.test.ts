@@ -11,6 +11,43 @@ import {
 } from '../src/core/support.js';
 import { ROOT } from './helpers/fixtures.js';
 
+/**
+ * The `on:` block of a workflow, read by indentation: each event, then each of
+ * its keys with its values (a flow list `['a', 'b']`, a block list of `- a`
+ * items, or a scalar). Comments and blank lines are ignored. Enough for the
+ * triggers of ci.yml; not a YAML parser.
+ */
+function workflowTriggers(workflow: string): Map<string, Map<string, string[]>> {
+  const lines = workflow.split(/\r?\n/);
+  const start = lines.findIndex((line) => /^on:\s*(#.*)?$/.test(line));
+  const events = new Map<string, Map<string, string[]>>();
+  if (start === -1) return events;
+  const unquote = (value: string) => value.trim().replace(/^(['"])(.*)\1$/, '$2');
+  let event: Map<string, string[]> | undefined;
+  let key: string[] | undefined;
+  for (const raw of lines.slice(start + 1)) {
+    const line = raw.replace(/(^|\s)#.*$/, '').trimEnd();
+    if (line.trim() === '') continue;
+    // The next top-level key ends the block.
+    if (!line.startsWith(' ')) break;
+    const indent = line.length - line.trimStart().length;
+    const text = line.trim();
+    if (indent === 2) {
+      event = new Map();
+      key = undefined;
+      events.set(text.replace(/:.*$/, ''), event);
+    } else if (text.startsWith('- ')) {
+      key?.push(unquote(text.slice(2)));
+    } else if (event) {
+      const [name = '', value = ''] = text.split(/:\s*/, 2);
+      const list = /^\[(.*)\]$/.exec(value.trim());
+      key = list ? (list[1] ?? '').split(',').map(unquote).filter((item) => item !== '') : value.trim() === '' ? [] : [unquote(value)];
+      event.set(name, key);
+    }
+  }
+  return events;
+}
+
 describe('parseMinorVersion', () => {
   it('reads major and minor', () => {
     expect(parseMinorVersion('1.64.1')).toEqual([1, 64]);
@@ -96,8 +133,11 @@ describe('Playwright floors', () => {
     expect(job).toContain('run: npx vitest run test/history test/leak.integration.test.ts');
     expect(job).not.toMatch(/playwright install|if:/);
     expect(existsSync(path.join(ROOT, 'test/history-windows-locks.test.ts'))).toBe(true);
-    // On every push, like the other jobs: no path filter in ci.yml.
-    expect(ci).toMatch(/^on:\n {2}push:\n {2}pull_request:\n/m);
+    // Like the other jobs: on every branch push and pull request, never on a tag (a tag runs demo.yml), no path filter.
+    const triggers = workflowTriggers(ci);
+    expect([...triggers.keys()].sort()).toEqual(['pull_request', 'push']);
+    expect([...(triggers.get('push')?.keys() ?? [])]).toEqual(['branches']);
+    expect(triggers.get('push')?.get('branches')).toEqual(['**']);
     const releasing = readFileSync(path.join(ROOT, 'docs/releasing.md'), 'utf8');
     expect(releasing).toContain('the seven jobs of `.github/workflows/ci.yml` must be green');
     expect(releasing).toContain('`History on Windows`');
