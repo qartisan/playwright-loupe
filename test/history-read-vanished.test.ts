@@ -46,9 +46,10 @@ describe('readHistory and files changing under it', () => {
     expect([read.runs.map((run) => run.run.id), read.problems]).toEqual([['kept'], []]);
   });
 
-  it('a file that cannot be read is skipped and named', async () => {
+  // A file Windows holds while it is read keeps its warning: a data point is missing from the report.
+  it.each(['EACCES', 'EPERM', 'EBUSY', 'EIO'])('a file that cannot be read (%s) is skipped and named', async (code) => {
     const { dir, gone } = setup();
-    failOn(gone, 'EACCES');
+    failOn(gone, code);
     const read = await readHistory(dir, streamHash(STREAM), (text) => text);
     expect([read.runs.map((run) => run.run.id), read.problems]).toEqual([['kept'], [`could not read runs/${gone}`]]);
   });

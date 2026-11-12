@@ -1,4 +1,4 @@
-import { closeSync, constants, existsSync, mkdtempSync, openSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { closeSync, constants, mkdtempSync, openSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -10,10 +10,10 @@ import { daysAgo, makeRunFile, putRunFile, readRunFile } from './helpers/history
 
 /**
  * Windows only: a file another process holds open blocks a rename onto it and
- * its removal, which is what the writer's rename retry and the warnings of the
- * reader and the pruner are for. Node always opens files sharing read, write
- * and delete, so a Loupe reader never blocks; an antivirus, the search indexer
- * or a backup tool does. libuv's `UV_FS_O_EXLOCK` (exclusive sharing, Windows
+ * its removal, which is what the writer's rename retry, the reader's warning
+ * and the pruner's silent skip are for. Node always opens files sharing read,
+ * write and delete, so a Loupe reader never blocks; an antivirus, the search
+ * indexer or a backup tool does. libuv's `UV_FS_O_EXLOCK` (exclusive sharing, Windows
  * only, not exported by Node) opens a file the way they do, for real.
  * Elsewhere a rename never fails because the target is open: skipped.
  */
@@ -101,18 +101,16 @@ describe.runIf(process.platform === 'win32')('history under Windows file locks',
     expect(read.problems).toEqual([`could not read runs/${locked}`]);
   });
 
-  it('an old file held while it is pruned: the prune throws for the caller to warn, the other old files are removed', async () => {
+  it('an old file held while it is pruned: skipped without a word, the other old files removed, removed at the next prune', async () => {
     const keep = putRunFile(dir, makeRunFile({ id: 'new', startedAt: daysAgo(NOW, 1), stream: STREAM }));
     const locked = putRunFile(dir, makeRunFile({ id: 'old-locked', startedAt: daysAgo(NOW, 2), stream: STREAM }));
     const free = putRunFile(dir, makeRunFile({ id: 'old-free', startedAt: daysAgo(NOW, 3), stream: STREAM }));
-    held(path.join(dir, 'runs', locked));
+    const release = held(path.join(dir, 'runs', locked));
     const prune = { stream: streamHash(STREAM), maxRuns: 1, maxAgeDays: 90, now: NOW, keep };
-    const error = await pruneHistory(dir, prune).then(
-      () => null,
-      (reason: NodeJS.ErrnoException) => reason,
-    );
-    expect(LOCK_CODES).toContain(error?.code);
-    expect(existsSync(path.join(dir, 'runs', free))).toBe(false);
+    expect(await pruneHistory(dir, prune)).toEqual([free]);
     expect(runs()).toEqual([keep, locked].sort());
+    release();
+    expect(await pruneHistory(dir, prune)).toEqual([locked]);
+    expect(runs()).toEqual([keep]);
   });
 });

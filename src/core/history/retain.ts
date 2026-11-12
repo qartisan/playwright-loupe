@@ -39,10 +39,25 @@ export function planPrune(files: readonly RunFileName[], options: RetentionOptio
 
 const code = (error: unknown): string | undefined => (error as NodeJS.ErrnoException | null)?.code;
 
+/** Windows: removing a file another process holds open (an antivirus, the indexer, a reader) fails. */
+const HELD_CODES = new Set(['EPERM', 'EACCES', 'EBUSY']);
+
+/**
+ * Whether a removal failed because Windows holds the file: the file is left
+ * for the next run's prune, which plans it again from the names. Elsewhere
+ * these codes mean a permission problem that will not go away on its own,
+ * which is worth a warning.
+ */
+export function isHeldFile(error: unknown, platform: NodeJS.Platform = process.platform): boolean {
+  const value = code(error);
+  return platform === 'win32' && value !== undefined && HELD_CODES.has(value);
+}
+
 /**
  * Applies the retention to the history folder, then removes the temporary
  * files older than an hour. Another run may be pruning the same folder: a
- * file already gone is no error. Any other failure is thrown after every
+ * file already gone is no error, nor, on Windows, a file another process
+ * holds (it goes at the next run). Any other failure is thrown after every
  * removal was tried. Returns the names removed.
  */
 export async function pruneHistory(dir: string, options: RetentionOptions): Promise<string[]> {
@@ -56,7 +71,7 @@ export async function pruneHistory(dir: string, options: RetentionOptions): Prom
       await unlink(path.join(runs, name));
       removed.push(name);
     } catch (error) {
-      if (code(error) !== 'ENOENT') failure ??= error;
+      if (code(error) !== 'ENOENT' && !isHeldFile(error)) failure ??= error;
     }
   };
   await Promise.all(planPrune(files, options).map(remove));
