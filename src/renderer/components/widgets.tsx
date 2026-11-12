@@ -37,6 +37,8 @@ import { UNNAMED_PROJECT, projectKey } from '../tree.js';
 import { RERUN_HELP, commandLimit, commandNotice, failedTests, rerunCommand, type RerunTarget } from '../detail/rerun.js';
 import { CategoryBadge } from './CategoryBadge.js';
 import { CopyButton } from './CopyButton.js';
+import type { ReportHistory } from '../history.js';
+import { VerdictHistory } from './VerdictHistory.js';
 import { GroupSplit } from './GroupSplit.js';
 import { SkipReasonText } from './SkipReason.js';
 import { AlertIcon, ChevronIcon, CopyIcon, OutcomeIcon, outcomeLabel } from './icons.js';
@@ -106,8 +108,10 @@ export function Widget({
 /**
  * The run's outcome, a stacked bar of the outcomes, the pass rate and the
  * duration. The counts are in the header, so they are not repeated here.
+ * With history, the change since the previous run and the history states
+ * (VerdictHistory); without it, nothing of the history.
  */
-export function Verdict({ report, children }: { report: LoupeReport; children?: ComponentChildren }) {
+export function Verdict({ report, history = null, children }: { report: LoupeReport; history?: ReportHistory | null; children?: ComponentChildren }) {
   const outcome = verdict(report);
   const { stats } = report.run;
   const shares = outcomeShares(stats);
@@ -132,6 +136,7 @@ export function Verdict({ report, children }: { report: LoupeReport; children?: 
           {plural(stats.total, 'test')} in <strong>{formatDuration(report.run.durationMs)}</strong>
         </p>
       </div>
+      {history && <VerdictHistory history={history} />}
       {children}
       {shares.length > 0 && (
         <>

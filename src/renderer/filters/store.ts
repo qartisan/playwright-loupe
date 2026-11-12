@@ -1,5 +1,6 @@
 import { computed, signal } from '@preact/signals';
 import type { LoupeReport } from '../../schema/v1.js';
+import type { ReportHistory } from '../history.js';
 import { currentLocation, setLocation, setSearchNormalizer } from '../navigation.js';
 import { formatHash, type Route } from '../router.js';
 import { joinQuery, parseDetailParams, serializeDetailParams } from '../detail/params.js';
@@ -17,13 +18,13 @@ export const domain = signal<FilterDomain>(new Map());
 export const context = signal<FilterContext>(NO_FILTER_CONTEXT);
 
 /**
- * Takes the facet values from the report and normalizes the current URL
- * against them: a value outside them, such as a tag a dimension takes, is
- * dropped.
+ * Takes the facet values from the report (and its history, when it has one)
+ * and normalizes the current URL against them: a value outside them, such as
+ * a tag a dimension takes, or a history state without history, is dropped.
  */
-export function initFilters(report: Pick<LoupeReport, 'projects' | 'tests' | 'dimensions' | 'categories'>): void {
-  domain.value = filterDomain(report);
-  context.value = filterContext(report);
+export function initFilters(report: Pick<LoupeReport, 'projects' | 'tests' | 'dimensions' | 'categories'>, history: ReportHistory | null = null): void {
+  domain.value = filterDomain(report, history);
+  context.value = filterContext(report, history);
   setSearchNormalizer((search, route) => joinQuery(serializeFilters(parseFilters(search, domain.value)), detailQuery(search, route)));
 }
 

@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'preact/hooks';
 import type { Outcome } from '../../schema/v1.js';
+import type { HistoryState } from '../../shared/history.js';
+import { STATE_HELP, STATE_LABEL } from '../history.js';
 import type { Colors } from './widgets.js';
 import { setFilters } from '../filters/store.js';
 import { activeFacets, clearFilters, facetDimension, withFacetValue, type FacetId, type FilterDomain, type FilterState } from '../filters/url.js';
@@ -10,14 +12,14 @@ import { ChevronIcon, CloseIcon, OutcomeIcon, outcomeLabel } from './icons.js';
 /**
  * Filter bar of the Tests view: one multi-select menu per facet, then the
  * active filters as removable chips, both in the order of the domain (status,
- * error category, failure point, project, tag, dimensions).
+ * history state, error category, failure point, project, tag, dimensions).
  */
 
 export function facetLabel(facet: FacetId): string {
   const dimension = facetDimension(facet);
   if (dimension !== null) return dimension;
   // The URL parameter stays `category`.
-  return { status: 'Status', project: 'Project', tag: 'Tag', category: 'Error category', point: 'Failure point' }[facet as 'status'];
+  return { status: 'Status', project: 'Project', tag: 'Tag', category: 'Error category', point: 'Failure point', history: 'History' }[facet as 'status'];
 }
 
 /** A failure point key, `<file>#<function>`, split at its last `#`. */
@@ -30,6 +32,7 @@ function splitPoint(key: string): { file: string; fn: string } {
 function valueText(facet: FacetId, value: string): string {
   if (facet === 'status') return outcomeLabel(value as Outcome);
   if (facet === 'project') return value || UNNAMED_PROJECT;
+  if (facet === 'history') return STATE_LABEL[value as HistoryState] ?? value;
   if (facet === 'point') {
     const { file, fn } = splitPoint(value);
     return `${fn} (${file})`;
@@ -45,6 +48,13 @@ function ValueLabel({ facet, value, colors }: { facet: FacetId; value: string; c
     return (
       <span class="facet-value facet-point" title={valueText(facet, value)}>
         <code>{fn}</code> <span class="facet-point-file">{file}</span>
+      </span>
+    );
+  }
+  if (facet === 'history') {
+    return (
+      <span class="facet-value" title={STATE_HELP[value as HistoryState]}>
+        {valueText(facet, value)}
       </span>
     );
   }

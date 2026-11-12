@@ -1,7 +1,9 @@
 import { OUTCOMES, type DimensionDefinition, type LoupeReport, type TestCase } from '../../schema/v1.js';
+import { HISTORY_STATES, type HistoryState } from '../../shared/history.js';
 import { dimensionValues, splitPrefixedTag } from '../../shared/tags.js';
 import { NO_CATEGORY, isFailingAttempt } from '../dashboard.js';
 import { failurePoints } from '../failure-points/points.js';
+import type { ReportHistory } from '../history.js';
 import { skipReason } from '../skip.js';
 import { activeFacets, dimensionFacet, facetDimension, type FacetId, type FilterDomain, type FilterState } from './url.js';
 
@@ -30,15 +32,20 @@ import { activeFacets, dimensionFacet, facetDimension, type FacetId, type Filter
 export interface FilterContext {
   dimensionTagPrefixes: ReadonlySet<string>;
   failurePoints: ReadonlyMap<TestCase, readonly string[]>;
+  /** The history state of each test that has one; empty without history, or when no state is shown. */
+  historyStates: ReadonlyMap<TestCase, HistoryState>;
 }
 
-/** No dimension: every tag is in the tag facet. No failure point. */
-export const NO_FILTER_CONTEXT: FilterContext = { dimensionTagPrefixes: new Set(), failurePoints: new Map() };
+/** No dimension: every tag is in the tag facet. No failure point. No history. */
+export const NO_FILTER_CONTEXT: FilterContext = { dimensionTagPrefixes: new Set(), failurePoints: new Map(), historyStates: new Map() };
 
-export function filterContext(report: { dimensions: readonly DimensionDefinition[]; tests?: readonly TestCase[] }): FilterContext {
+export function filterContext(report: { dimensions: readonly DimensionDefinition[]; tests?: readonly TestCase[] }, history: ReportHistory | null = null): FilterContext {
+  const historyStates = new Map<TestCase, HistoryState>();
+  for (const [test, { state }] of history?.byTest ?? []) if (state !== null) historyStates.set(test, state);
   return {
     dimensionTagPrefixes: new Set(report.dimensions.filter((dimension) => dimension.source === 'tag').map((dimension) => dimension.key)),
     failurePoints: report.tests ? failurePoints({ tests: report.tests }).byTest : new Map(),
+    historyStates,
   };
 }
 
@@ -133,6 +140,10 @@ export function testFacetValues(test: TestCase, facet: FacetId, context: FilterC
       return categoriesOf(test);
     case 'point':
       return context.failurePoints.get(test) ?? [];
+    case 'history': {
+      const state = context.historyStates.get(test);
+      return state === undefined ? [] : [state];
+    }
     default:
       return dimensionValues(test.dimensions, facetDimension(facet) ?? '');
   }
@@ -206,18 +217,19 @@ export function facetCounts(
 
 /**
  * The values each facet can take in a report. Facets come in display order:
- * status, error category, failure point, project, tag, then dimensions in
- * report order (configured ones in config order, then automatic ones by
+ * status, history state, error category, failure point, project, tag, then
+ * dimensions in report order (configured ones in config order, then automatic ones by
  * name). Values come in display order too: statuses by severity, categories
  * in rule order, failure points as ranked on the Overview (only the shown
- * ones), projects in report order, tags sorted, dimension values as the dimension
- * declares them, then sorted. Values
- * no test has are left out, and so are facets without values: the tag facet
- * is hidden when every tag belongs to a dimension. Projects without a name
+ * ones), history states in their fixed order, projects in report order,
+ * tags sorted, dimension values as the dimension declares them, then sorted.
+ * Values no test has are left out, and so are facets without values: the tag
+ * facet is hidden when every tag belongs to a dimension, and the history
+ * facet without history or when no state is shown (absent, not empty). Projects without a name
  * cannot be written in the URL and are left out.
  */
-export function filterDomain(report: Pick<LoupeReport, 'projects' | 'tests' | 'dimensions' | 'categories'>): Map<FacetId, Set<string>> {
-  const context = filterContext(report);
+export function filterDomain(report: Pick<LoupeReport, 'projects' | 'tests' | 'dimensions' | 'categories'>, history: ReportHistory | null = null): Map<FacetId, Set<string>> {
+  const context = filterContext(report, history);
   const present = (facet: FacetId): Set<string> => new Set(report.tests.flatMap((test) => testFacetValues(test, facet, context)));
   const ordered = (order: readonly string[], values: Set<string>): Set<string> =>
     new Set([...order.filter((value) => values.has(value)), ...[...values].filter((value) => !order.includes(value)).sort((a, b) => a.localeCompare(b))]);
@@ -227,6 +239,7 @@ export function filterDomain(report: Pick<LoupeReport, 'projects' | 'tests' | 'd
     if (values.size > 0) domain.set(facet, values);
   };
   set('status', ordered(['failed', 'flaky', ...OUTCOMES.filter((outcome) => outcome !== 'failed' && outcome !== 'flaky')], present('status')));
+  set('history', ordered(HISTORY_STATES, present('history')));
   set('category', ordered(report.categories.map((category) => category.name), present('category')));
   set('point', new Set(failurePoints(report).points.map((point) => point.key)));
   const projects = present('project');

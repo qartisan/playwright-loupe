@@ -8,6 +8,7 @@ import { failurePoints } from '../failure-points/points.js';
 import { plural } from '../format.js';
 import { hrefTo } from '../navigation.js';
 import { foldedMention } from '../secondary.js';
+import type { ReportHistory } from '../history.js';
 
 /**
  * Overview (`#/`): the verdict, run errors when there are any, the common
@@ -23,8 +24,11 @@ export function OverviewPage({
   groups,
   matched,
   section,
+  history = null,
 }: {
   report: LoupeReport;
+  /** The run history; null without history: the verdict then has no history zone. */
+  history?: ReportHistory | null;
   groups: readonly ErrorGroup[];
   matched: readonly TestCase[];
   section?: 'run-details' | undefined;
@@ -42,7 +46,7 @@ export function OverviewPage({
   return (
     <div class="page view view-overview">
       <h1>Overview</h1>
-      <Verdict report={report}>
+      <Verdict report={report} history={history}>
         <RerunFailed tests={matched} />
       </Verdict>
       {report.run.errors.length > 0 && <RunErrorsSummary errors={report.run.errors} />}

@@ -12,6 +12,7 @@ import { buildSortRanks, sortTests } from '../filters/sort.js';
 import { context, filters } from '../filters/store.js';
 import { DEFAULT_SORT, serializeFilters } from '../filters/url.js';
 import { commonDirectoryPrefix } from '../paths.js';
+import type { ReportHistory } from '../history.js';
 import { forwardScrollKeys } from '../forwardScrollKeys.js';
 import { useShortcuts } from '../shortcuts.js';
 import { ErrorsPage } from '../pages/ErrorsPage.js';
@@ -28,7 +29,8 @@ import { Footer } from './Footer.js';
 import { Header } from './Header.js';
 import { Sidebar, VIEW_SHORTCUTS } from './Sidebar.js';
 
-export function App({ report, settings }: { report: LoupeReport; settings: RendererSettings }) {
+/** `history`: the run history, null without one (no history zone anywhere). */
+export function App({ report, settings, history = null }: { report: LoupeReport; settings: RendererSettings; history?: ReportHistory | null }) {
   // One filter state for the sidebar and the Tests view; the sort only matters to the Tests view.
   const state = filters.value;
   const filterKey = serializeFilters({ ...state, sort: DEFAULT_SORT });
@@ -118,7 +120,7 @@ export function App({ report, settings }: { report: LoupeReport; settings: Rende
   let page;
   switch (route.page) {
     case 'dashboard':
-      page = <OverviewPage report={report} groups={groups} matched={sorted} section={route.section} />;
+      page = <OverviewPage report={report} groups={groups} matched={sorted} section={route.section} history={history} />;
       break;
     case 'errors':
       page = <ErrorsPage report={report} groups={groups} category={route.category} />;

@@ -586,6 +586,14 @@ pre.message {
 .verdict-outcome.outcome-flaky { padding: 2px 12px 2px 8px; border-radius: 8px; background: var(--status-flaky-bg); }
 .verdict-meta { margin: 0; color: var(--fg-secondary); font-variant-numeric: tabular-nums; }
 .verdict-meta strong { color: var(--fg); }
+/* History (only with an embedded history): the change since the previous run, the tests by state, notices. */
+.verdict-history { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.verdict-history-title { margin: 0 0 4px; font-size: 14px; font-weight: 600; }
+.verdict-history-stream { margin-left: 6px; color: var(--fg-secondary); font-weight: 400; }
+.history-delta, .history-note { margin: 4px 0; color: var(--fg-secondary); }
+.history-delta strong { color: var(--fg); font-variant-numeric: tabular-nums; }
+.history-states { display: flex; flex-wrap: wrap; gap: 4px 20px; margin: 8px 0 0; padding: 0; list-style: none; font-variant-numeric: tabular-nums; }
+.history-state-empty { color: var(--fg-secondary); }
 
 /* Stacked bar of outcomes; parts are separated by a gap so neighbours never blend. */
 .outcome-bar { display: flex; gap: 2px; height: 10px; margin: 12px 0 8px; overflow: hidden; border-radius: 5px; }
