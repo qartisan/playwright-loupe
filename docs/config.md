@@ -52,7 +52,7 @@ Four layers, each one overriding the previous:
 - **Inline options**: the second element of the reporter entry, `['@qartisan/playwright-loupe', { title: 'Nightly' }]`. They accept every option of the config file, plus `configFile`.
 - **Environment variables**: see [Environment variables](#environment-variables).
 
-Merging is done key by key for nested objects (`categories`, `dimensions`, `screenshots`, `aiPrompt`, `redact`, `git`): inline `{ categories: { mode: 'replace' } }` keeps the rules of the config file. **Arrays replace**: inline `categories.rules` replaces the rules of the config file entirely, it does not add to them. One exception: `LOUPE_REDACT_ENV` **adds** names to `redact.env`, so the environment can extend redaction but never reduce or disable it; only the config file and inline options can. An option set to `undefined` is ignored, so `title: process.env.SUITE_TITLE` falls back to the lower layer when the variable is unset.
+Merging is done key by key for nested objects (`categories`, `dimensions`, `screenshots`, `aiPrompt`, `redact`, `git`, `history`): inline `{ categories: { mode: 'replace' } }` keeps the rules of the config file. **Arrays replace**: inline `categories.rules` replaces the rules of the config file entirely, it does not add to them. One exception: `LOUPE_REDACT_ENV` **adds** names to `redact.env`, so the environment can extend redaction but never reduce or disable it; only the config file and inline options can. An option set to `undefined` is ignored, so `title: process.env.SUITE_TITLE` falls back to the lower layer when the variable is unset.
 
 ## Options
 
@@ -74,6 +74,13 @@ Merging is done key by key for nested objects (`categories`, `dimensions`, `scre
 | `redact.env` | `string[]` | `[]` | Names of environment variables whose values are redacted everywhere. `LOUPE_REDACT_ENV` adds to it. |
 | `traceViewer` | `'off' \| 'bundled'` | `'off'` | `bundled` copies the Trace Viewer of your Playwright (1.61 or later) into `trace-viewer/` in the report folder, when the run has at least one trace. `LOUPE_TRACE_VIEWER` overrides it. See [Trace viewer](#trace-viewer). |
 | `git.local` | `boolean` | `true` | Read commit, branch and remote from the local repository when Playwright's metadata and the CI variables do not give them. `LOUPE_GIT_LOCAL` overrides it. See [Git information](#git-information). |
+| `history` | `boolean \| object` | on | Run history. `false` turns it off. See [History](#history). |
+| `history.enabled` | `boolean` | `true` | `LOUPE_HISTORY` overrides it. |
+| `history.dir` | `string` | `'loupe-history'` | History folder, relative to the Playwright config file's directory. Never inside `outputFolder`, nor containing it. `LOUPE_HISTORY_DIR` overrides it. |
+| `history.stream.key` | `('environment' \| 'origin' \| 'branch')[]` | `['environment', 'origin']` | What makes a stream: runs are compared, and `maxRuns` counted, within one. |
+| `history.retention.maxRuns` | positive integer | `200` | Runs kept per stream. |
+| `history.retention.maxAgeDays` | positive integer | `90` | Age in days after which a run is removed, in every stream. |
+| `history.include` | `'full' \| 'all'` | `'full'` | `full`: partial, excluded and IDE runs are left out of run-level statistics. `all`: they count. |
 | `configFile` | `string` | none | **Inline options only.** Config file to load instead of the default lookup, relative to the Playwright config file's directory. |
 
 ### Error categories
@@ -227,6 +234,33 @@ On CI, the CI variables are read in any case.
 
 The option never fails a run. On any of these, one `Loupe: …` line on stderr, and the report is written without the viewer: Playwright older than 1.61 (see [why](support.md#known-playwright-issues)), the viewer not found, a failed copy. When `merge-reports` runs a Playwright older than the blob reports, the viewer is copied with one warning, as traces from newer versions may not open in it. Only the version Playwright gives the reporter is compared, `config.version`, the one of the last blob.
 
+### History
+
+Loupe records each run in `loupe-history/`, next to the Playwright config, and the report embeds the recent past of its tests. What is recorded, when, and how it is kept is in [`history.md`](history.md).
+
+```ts
+history: {
+  dir: 'loupe-history',
+  stream: { key: ['environment', 'origin'] },
+  retention: { maxRuns: 200, maxAgeDays: 90 }, // the first limit reached wins
+  include: 'full',
+},
+// or
+history: false,
+```
+
+- `history: false` is the same as `history: { enabled: false }`, and `true` as `{ enabled: true }`, in every layer. A higher layer can turn history back on and keep the options of a lower one: `LOUPE_HISTORY=on` with `history: { enabled: false, dir: '.history' }` in the config file records into `.history`.
+- `stream.key` is a non-empty list, each part at most once. Its order does not matter; adding or removing a part starts new streams ([Streams](history.md#streams)). Arrays replace, as for the other options.
+- `retention.maxRuns` applies to the run's own stream, `retention.maxAgeDays` to every stream ([Retention](history.md#retention)).
+- `include` is embedded in the report for the history views of a later release; it changes nothing else yet.
+
+**The history folder and `outputFolder` must not overlap** (neither inside the other): the report folder is published and replaced, the history must survive it.
+
+- When you set the folder (`history.dir` or `LOUPE_HISTORY_DIR`) and it overlaps `outputFolder`, the run stops with a config error, before any test runs. History off skips the check.
+- When the overlap comes from the default `loupe-history` (an `outputFolder` of `.` or a parent folder), history is off for that run, with one `Loupe: …` line on stderr, and the run goes on: a config that worked before history existed keeps working. Set `history.dir` to a folder outside `outputFolder`, or `history: false`, to silence it.
+
+History never stops a run once it has started: any problem reading or writing the folder is one `Loupe: history: …` line on stderr, and the report is written without history.
+
 ### Renderer settings
 
 `title`, `theme`, `screenshots.defaultView` and `aiPrompt.includeStack` are presentation choices, not data. They are written next to the report data in `index.html`, not in `report.json`, and are not part of the data contract. See [Renderer settings](schema/v1.md#renderer-settings).
@@ -243,8 +277,11 @@ The option never fails a run. On any of these, one `Loupe: …` line on stderr, 
 | `LOUPE_RUN_SCOPE` | Forces the run scope: `full` or `partial`. See [Run scope](schema/v1.md#run-scope). | |
 | `LOUPE_GIT_LOCAL` | Overrides `git.local`: `true` or `1` reads the local repository, `false` or `0` does not. | |
 | `LOUPE_TRACE_VIEWER` | Overrides `traceViewer`: `off` or `bundled`. | |
+| `LOUPE_HISTORY` | Overrides `history.enabled`: `on`, `true` or `1` records, `off`, `false` or `0` does not. The other history options are kept. | |
+| `LOUPE_HISTORY_DIR` | Overrides `history.dir`. | Working directory, like `LOUPE_OUTPUT_FOLDER` |
+| `LOUPE_EXCLUDE` | Records the run as excluded from run-level statistics, with this text as the reason (trimmed, at most 200 characters). See [Excluding a run](history.md#excluding-a-run). | |
 
-Empty values are ignored, as if the variable were unset. An invalid `LOUPE_RUN_SCOPE`, `LOUPE_GIT_LOCAL` or `LOUPE_TRACE_VIEWER` stops the run.
+Empty values are ignored, as if the variable were unset. An invalid `LOUPE_RUN_SCOPE`, `LOUPE_GIT_LOCAL`, `LOUPE_TRACE_VIEWER` or `LOUPE_HISTORY` stops the run, and so does a `LOUPE_HISTORY_DIR` that overlaps `outputFolder` while history is on. `LOUPE_EXCLUDE` takes any text.
 
 ## Lookup
 

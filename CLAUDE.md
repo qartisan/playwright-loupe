@@ -97,6 +97,7 @@ Claude Code prepares and verifies a release; the maintainer runs `npm version`, 
 - **`schemaVersion` is independent** from the package version (`src/schema/v1.ts`, policy in `docs/schema/v1.md`). It changes only with the JSON shape, noted in the CHANGELOG. A change in how signatures are computed keeps `schemaVersion` but always gets a CHANGELOG note.
 - **CI**: seven jobs in `ci.yml` (lockfile Playwright on Node 22 and 24, 1.52 and 1.57 on Node 22, latest on Node 24, history on Windows, demo), all green before a release, even when a job is red for an environment reason; `weekly.yml` runs the latest Playwright every week. Both call `checks.yml`.
 - **Minor release**: check the supported floor against the policy with the npm `time` field before preparing it (`docs/releasing.md`, step 4).
+- **Phase 2 lives on `feat/history`.** `main` stays releasable for 0.3.x patches, released from `main`; after each one the maintainer merges `main` into `feat/history`. Phase 2 work never goes to `main` directly.
 - **Patch from an older tag** (as 0.1.9): a `release/<version>` branch cut at the tag in a worktree, released from it, then merged into `main`.
 - **What Claude Code prepares**, left in the working tree:
   - the CHANGELOG: `## [Unreleased]` becomes `## [<version>] - <YYYY-MM-DD>` under a new empty `## [Unreleased]`; at the bottom, `[Unreleased]` compares `v<version>...HEAD` and a new `[<version>]` line compares `v<previous>...v<version>`. It proposes the commit `docs: prepare <version>`, which the maintainer commits and pushes before `npm version`;
@@ -121,6 +122,12 @@ To try a local build in a consumer project, give it a prerelease version first, 
 - Every such script starts with `set -euo pipefail` and a guard that
   aborts if the current directory is the repository (compare
   `git rev-parse --show-toplevel` with the repository path).
+- Before handing over a change, run `scripts/ci-order.sh`: the checks
+  of `checks.yml` in CI order (`npm ci`, typecheck, build, tests,
+  fixtures) in a clean copy of the working tree with a throwaway git
+  repository, then the history and leak canary tests under simulated
+  GitHub Actions variables. It refuses a copy folder inside any git
+  repository. Say in the report that it passed.
 - The session scratchpad can be wiped between sessions: anything Gilles
   must use later (a Windows kit, a report) goes to a stable path
   outside /tmp and its path is given in the report.

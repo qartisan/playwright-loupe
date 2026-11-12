@@ -150,7 +150,7 @@ The config is validated at startup with explicit error messages. An invalid conf
 | `title`, `logo`, `theme` | Visual identity, light and dark themes (`theme`: `system`, `light` or `dark`) |
 | `environment` | Environment name of the run (`LOUPE_ENV` overrides it) |
 | `locale` | English and French |
-| `history` | Storage location, retention, analysis window, and when runs are recorded (`history.record`) |
+| `history` | Storage folder, stream key, retention, and what counts in run-level statistics (`history.include`); `false` turns it off (`LOUPE_HISTORY` overrides it) |
 | `attachments` | Embed or link, maximum video size |
 | `traceViewer` | `off` or `bundled`: copy Playwright's Trace Viewer into the report (`LOUPE_TRACE_VIEWER` overrides it) |
 | `dashboard` | Widget list or role preset |
@@ -159,7 +159,7 @@ The config is validated at startup with explicit error messages. An invalid conf
 
 Every run produces a report, but not every run counts in statistics.
 
-- **Recorded in CI only by default.** `history.record: 'ci-only'` is the default: only runs in CI are added to the history, so local and IDE runs never pollute statistics, whatever their scope. Scope detection (below) remains complementary information: a partial CI run is recorded, and what it counts in depends on its scope.
+- **Recorded locally and in CI by default.** Every run is recorded in `loupe-history/`, next to the Playwright config, with its origin (`local`, `ci`, or `ide` for the VS Code extension, UI mode and watch mode) and its environment. Runs are compared within a **stream**, environment and origin by default, so local and IDE runs never pollute CI statistics. Partial, excluded and `ide` runs are recorded but left out of run-level statistics by default (`history.include: 'all'` counts them); at test level they still count as data points, flagged. History is files only (one gzipped file per run, no index, no server) and never stops a run. Reference: [`docs/history.md`](history.md); run file contract, with its own `historyVersion`: [`docs/schema/history-v1.md`](schema/history-v1.md).
 - **Partial runs.** Loupe detects the run scope and marks it `full` or `partial`, with its reasons (`run.scopeReasons`: `env`, `file-filter`, `grep`, `project-filter`, `last-failed`, `only-changed`, `test-list`, `only`, `shard`, `list`). "Partial" is not binary: a run filtered on one project is complete for that project, while `--last-failed` covers a biased slice. Statistics follow the scope:
   - **Scope signature.** History compares runs of the same scope signature: the projects covered, plus the kind and value of the filter. A run filtered on `--project api` is compared with other `--project api` runs, not with full runs.
   - **Excluded from run-level statistics by default:** `last-failed`, `only-changed`, `test-list`, `only`, `list`, `file-filter`, an unmerged `shard`, and `env` unless the signature matches.
@@ -168,10 +168,10 @@ Every run produces a report, but not every run counts in statistics.
   - **Known limit:** shards that were filtered and then merged produce a report marked `full`, since `merge-reports` does not see the shards' filters. This is the largest bias. It is not excluded automatically: such runs are flagged.
   - Manual exclusion with a reason stays, for anything the rules above miss.
 - **Comments.** Notes can be attached to a run or to a test result and are stored with the history. Durable test-level notes (known bug, ticket) belong in annotations or configuration.
-- **Excluded runs.** A run can be excluded with a mandatory reason, after the fact or at launch through an environment variable. It stays visible but no longer counts. Loupe may suggest an exclusion when most failures are infrastructure-related, but never applies one by itself.
-- **Retention vs analysis window.** Retention defines what is kept (maximum runs and/or age, whichever limit is reached first). The analysis window defines what statistics are computed on (last N runs or last N days) and can be changed in the UI.
+- **Excluded runs.** A run can be excluded with a mandatory reason, after the fact or at launch through an environment variable (`LOUPE_EXCLUDE`, available). It stays visible but no longer counts. Loupe may suggest an exclusion when most failures are infrastructure-related, but never applies one by itself.
+- **Retention vs analysis window.** Retention defines what is kept (maximum runs per stream and maximum age across streams, whichever limit is reached first). The analysis window defines what statistics are computed on (last N runs or last N days) and can be changed in the UI.
 
-Since a static report cannot write, how comments and exclusions are written is to be designed together with history storage (phase 2); it must not require a separate CLI or a server (see the abandoned `show` command in [Architecture](#architecture)).
+History storage is settled (a folder of run files, keyed by run id). Since a static report cannot write, how comments and after-the-fact exclusions are written is still to be designed, on top of that run id; it must not require a separate CLI or a server (see the abandoned `show` command in [Architecture](#architecture)).
 
 ## Roadmap
 

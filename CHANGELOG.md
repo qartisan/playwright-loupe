@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+No change to the JSON shape: `schemaVersion` stays 1. Run history is a second contract, with its own `historyVersion` (1).
+
+### Added
+
+- **Run history, recorded by default, locally and in CI.** Each run adds one gzipped file to `loupe-history/`, next to the Playwright config and outside the report folder, and the next report embeds the recent past of its tests. **Nothing is visible in the report yet**: this release records, reads and embeds; the views come in a later release. No change to your tests, no configuration, no server, no network call. See [Run history](docs/history.md).
+  - **What is recorded**: per run, its status, duration, origin (`local`, `ci`, or `ide` for the VS Code extension, UI mode and watch mode), environment, scope, git commit and branch, and counts; per test, its status, the outcome of each attempt and, for each failed attempt, the error signatures, the category, the location and the first lines of the message (about 300 characters). No screenshot, video, trace or stack. Format: [`docs/schema/history-v1.md`](docs/schema/history-v1.md).
+  - **Streams and retention**: runs are compared within a stream, environment and origin by default (`history.stream.key`), so local runs never shift CI trends. Each run keeps the 200 newest runs of its own stream (`retention.maxRuns`) and removes runs older than 90 days in every stream (`retention.maxAgeDays`).
+  - **Never recorded**: `--list`, a run where no test ran, a shard that writes a blob report. `merge-reports` records the merged run: set `LOUPE_ENV` on the merge job. Re-running the merge job alone rewrites the same file.
+  - **`LOUPE_EXCLUDE="<reason>"`** records the run as excluded from run-level statistics, with that reason. Partial, excluded and `ide` runs are left out of run-level statistics by default; `history.include: 'all'` counts them.
+  - **Embedded in `index.html`**, in a block of its own, not in `report.json`: each test's last 20 results in the current stream, the metadata of those runs, each test's latest result in the other streams, and the error extracts of the window (300 signatures at most). About 35 kB gzipped for a realistic 5,000-test suite.
+  - **Privacy**: the home directory and `redact.env` values never appear in clear in the run files, as in the report. The current redaction is replayed on everything read back, so a value added to `redact.env` later is masked in the next report; the run files written before keep it, so delete the history folder when in doubt.
+  - **Never stops a run**: a corrupt or unreadable file, a file from a newer Loupe, a folder that cannot be written, a file another run removed: one `Loupe: history: …` line on stderr, and the report is written as without history. On Windows, a run file another process holds is skipped during pruning and removed by the next run.
+  - **Configuration**: `history: false` or `LOUPE_HISTORY=off` turns it off; `history.dir` or `LOUPE_HISTORY_DIR` moves the folder. A folder set explicitly that overlaps `outputFolder` stops the run with a config error; when the overlap comes from the default folder (an `outputFolder` of `.` or above), history is off for that run with one warning, so a config that worked on 0.3.x keeps working. See [History](docs/config.md#history).
+  - **Kept out of git**: Loupe writes a `.gitignore` containing `*` in the history folder when it creates it; your own `.gitignore` is not touched. On a CI runner, the folder lasts only as long as the workspace: recipes to keep it between runs come in a later release.
+
 ## [0.3.2] - 2026-11-12
 
 ### Fixed
