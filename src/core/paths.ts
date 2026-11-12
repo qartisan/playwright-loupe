@@ -60,6 +60,12 @@ import { renameDimensions } from './dimensions.js';
  * two segments, needs no boundary before it: `-L/home/me/lib` becomes `-L~/lib`
  * and `http://host/home/me/x` becomes `http://host~/x`. It is the user name.
  *
+ * On Windows, Playwright converts a `file://` stack frame itself: `\` for every
+ * `/`, so a POSIX path loses its drive (`\home\me\x`) and a share its leading
+ * `\\` (`wsl.localhost\Ubuntu\home\me\x`). The generic homes have these forms
+ * too, and a UNC root also matches without its `\\` (its ancestors do not).
+ * Accepted false positive: `D:\home\bob\x` becomes `D:~/x`.
+ *
  * `node:internal/…`, `<anonymous>` and relative paths are not absolute and
  * stay as they are.
  */
@@ -73,7 +79,7 @@ interface Directory {
   segments: string[];
 }
 
-interface Entry {
+export interface Entry {
   flavor: Flavor;
   /** Length of the prefix as text: the longest prefix wins within a rule. */
   length: number;
@@ -176,8 +182,8 @@ const POSIX_NAME = (separator: string): string =>
 const WINDOWS_NAME = `(?:(?![A-Za-z]:(?:\\\\|/))[^\\\\/:*?"<>|\\r\\n])+${NAME_END}`;
 const USERS = sourceOf('Users', 'win32');
 
-/** Generic home directories, rule 3. */
-const GENERIC_HOMES: readonly Entry[] = [
+/** Generic home directories, rule 3. Exported for test/leak.integration.test.ts, which keeps scripts/home-paths.mjs aligned. */
+export const GENERIC_HOMES: readonly Entry[] = [
   { flavor: 'posix', length: 0, source: `/(?:home|Users|var/home)/${POSIX_NAME('/')}`, encoded: null, replacement: home },
   { flavor: 'posix', length: 0, source: '/root', encoded: null, replacement: home },
   { flavor: 'win32', length: 0, source: `[A-Za-z]:${WINDOWS_SEPARATOR}${USERS}${WINDOWS_SEPARATOR}${WINDOWS_NAME}`, encoded: null, replacement: home },
@@ -190,6 +196,21 @@ const GENERIC_HOMES: readonly Entry[] = [
     flavor: 'win32',
     length: 0,
     source: `(?:\\\\{2,}|//)(?:${sourceOf('wsl$', 'win32')}|${sourceOf('wsl.localhost', 'win32')})${WINDOWS_SEPARATOR}[^\\\\/\\r\\n]+${WINDOWS_SEPARATOR}home${WINDOWS_SEPARATOR}${POSIX_NAME('\\\\/')}`,
+    encoded: null,
+    replacement: home,
+  },
+  // Converted by Playwright on Windows: its own `fileURLToPath` (playwright-core) writes a `file://` frame
+  // with `\`, without a drive for a POSIX path and without the leading `\\` of a share. Windows paths, so
+  // the rest gets `/`; a `\` possibly escaped; `Users` any case, `home` lowercase.
+  { flavor: 'win32', length: 0, source: `\\\\+(?:home|var${WINDOWS_SEPARATOR}home)${WINDOWS_SEPARATOR}${POSIX_NAME('\\\\/')}`, encoded: null, replacement: home },
+  { flavor: 'win32', length: 0, source: `\\\\+${USERS}${WINDOWS_SEPARATOR}${POSIX_NAME('\\\\/')}`, encoded: null, replacement: home },
+  { flavor: 'win32', length: 0, source: '\\\\+root', encoded: null, replacement: home },
+  { flavor: 'win32', length: 0, source: `\\\\+(?:mnt|cygdrive)${WINDOWS_SEPARATOR}[A-Za-z]${WINDOWS_SEPARATOR}${USERS}${WINDOWS_SEPARATOR}${WINDOWS_NAME}`, encoded: null, replacement: home },
+  { flavor: 'win32', length: 0, source: `\\\\+[A-Za-z]${WINDOWS_SEPARATOR}${USERS}${WINDOWS_SEPARATOR}${WINDOWS_NAME}`, encoded: null, replacement: home },
+  {
+    flavor: 'win32',
+    length: 0,
+    source: `(?:${sourceOf('wsl$', 'win32')}|${sourceOf('wsl.localhost', 'win32')})${WINDOWS_SEPARATOR}[^\\\\/\\r\\n]+${WINDOWS_SEPARATOR}home${WINDOWS_SEPARATOR}${POSIX_NAME('\\\\/')}`,
     encoded: null,
     replacement: home,
   },
@@ -259,8 +280,9 @@ export function createPathRewriter(options: PathRewriterOptions): PathRewriter {
   // so a home that is also an ancestor is still masked where rule 2 does not apply.
   const seen = new Set<string>();
   const seenHomes = new Set<string>();
-  const add = (list: Entry[], directory: Directory, count: number, replacement: Entry['replacement']): void => {
-    const prefix = prefixOf(directory, count);
+  /** `converted`: a UNC prefix without its leading `\\`, as Playwright writes a `file://` frame on Windows (see `GENERIC_HOMES`). */
+  const add = (list: Entry[], directory: Directory, count: number, replacement: Entry['replacement'], converted = false): void => {
+    const prefix = converted ? prefixOf(directory, count).slice(2) : prefixOf(directory, count);
     const key = keyOf(prefix, directory.flavor);
     const keys = list === homes ? seenHomes : seen;
     if (keys.has(key)) return;
@@ -271,7 +293,7 @@ export function createPathRewriter(options: PathRewriterOptions): PathRewriter {
       flavor: directory.flavor,
       length: prefix.length,
       source: sourceOf(prefix, directory.flavor),
-      encoded: url === raw ? null : sourceOf(url, directory.flavor),
+      encoded: converted || url === raw ? null : sourceOf(url, directory.flavor),
       replacement,
     });
   };
@@ -279,8 +301,11 @@ export function createPathRewriter(options: PathRewriterOptions): PathRewriter {
   const directories = options.roots
     .map(parseDirectory)
     .filter((directory): directory is Directory => directory !== null && directory.segments.length > 0);
+  const toRoot = (separator: boolean): string => (separator ? '' : '.');
   for (const directory of directories) {
-    add(roots, directory, directory.segments.length, (separator) => (separator ? '' : '.'));
+    add(roots, directory, directory.segments.length, toRoot);
+    // A root only, not its ancestors: a converted path outside it falls to the generic homes.
+    if (directory.flavor === 'win32' && directory.base.startsWith('\\\\')) add(roots, directory, directory.segments.length, toRoot, true);
   }
   for (const directory of directories) {
     for (let count = directory.segments.length - 1; count >= 1; count--) {

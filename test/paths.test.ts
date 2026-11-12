@@ -97,7 +97,9 @@ describe('createPathRewriter, POSIX', () => {
     expect(posixRewriter.text('-L/home/alice/lib')).toBe('-L~/lib');
     expect(posixRewriter.text('http://localhost:5173/@fs/home/alice/x.ts')).toBe('http://localhost:5173/@fs~/x.ts');
     expect(posixRewriter.text('/mnt/backup/home/alice/x')).toBe('/mnt/backup~/x');
-    expect(winRewriter.text('\\\\?\\C:\\Users\\Alice\\x')).toBe('\\\\?\\~\\x');
+    // A long path: the drive has no boundary before it, the converted `\Users\<name>` form masks it, any user.
+    expect(winRewriter.text('\\\\?\\C:\\Users\\Alice\\x')).toBe('\\\\?\\C:~/x');
+    expect(winRewriter.text('\\\\?\\C:\\Users\\bob\\x')).toBe('\\\\?\\C:~/x');
   });
 
   it('keeps the boundary after the real home, and both around a single-segment one', () => {
@@ -755,6 +757,123 @@ describe('generic home forms', () => {
     expect(wsl.text('/mnt/c/Users/me/proj/tests/a.ts:1:1')).toBe('a.ts:1:1');
     expect(wsl.text('/mnt/c/Users/me/other/a.ts')).toBe('~/other/a.ts');
     expect(wsl.selection('/mnt/c/Users/me/proj/tests/a.ts')).toBe('~/proj/tests/a.ts');
+  });
+});
+
+/** A frame as Playwright writes it on Windows, with its own `fileURLToPath` (playwright-core, 1.52 to 1.65). */
+function convertedByPlaywright(url: string): string {
+  let file = decodeURIComponent(url.slice('file://'.length));
+  if (file.startsWith('/') && /^[a-zA-Z]:/.test(file.slice(1))) file = file.slice(1);
+  return file.replace(/\//g, '\\');
+}
+
+describe('home forms converted by Playwright on Windows', () => {
+  const rewrite = createPathRewriter({ roots: ['C:\\work\\shop'], home: 'C:\\Users\\other' });
+  const { text, file, selection } = rewrite;
+  const frame = (url: string): string => rewrite.stack(`Error: x\n    at f (${convertedByPlaywright(url)}:3:5)`).split('\n')[1] as string;
+
+  it('writes the frames of the brief as the investigation found them', () => {
+    expect(convertedByPlaywright('file:///home/bob/a%20b.json')).toBe('\\home\\bob\\a b.json');
+    expect(convertedByPlaywright('file:///mnt/c/Users/bob/a.json')).toBe('\\mnt\\c\\Users\\bob\\a.json');
+    expect(convertedByPlaywright('file:///C:/Users/bob/a.ts')).toBe('C:\\Users\\bob\\a.ts');
+    expect(convertedByPlaywright('file://wsl.localhost/Ubuntu/home/bob/a.ts')).toBe('wsl.localhost\\Ubuntu\\home\\bob\\a.ts');
+  });
+
+  it('masks `\\home\\<name>`, the rest with `/`', () => {
+    expect(frame('file:///home/bob/lib/a%20b.ts')).toBe('    at f (~/lib/a b.ts:3:5)');
+    expect(text('\\home\\bob')).toBe('~');
+    expect(text('\\home\\John bob\\a.json')).toBe('~/a.json');
+    expect(text('\\home\\dashboard returns 200')).toBe('~ returns 200');
+  });
+
+  it('masks `\\Users\\<name>`, any case on `Users`', () => {
+    expect(frame('file:///Users/bob/lib/c.ts')).toBe('    at f (~/lib/c.ts:3:5)');
+    expect(text('\\users\\John bob\\a.json')).toBe('~/a.json');
+  });
+
+  it('masks `\\var\\home\\<name>`', () => {
+    expect(frame('file:///var/home/bob/lib/c.ts')).toBe('    at f (~/lib/c.ts:3:5)');
+    expect(text('\\var\\lib\\bob\\a.json')).toBe('\\var\\lib\\bob\\a.json');
+  });
+
+  it('masks `\\root`, with the boundaries of a single segment', () => {
+    expect(frame('file:///root/lib/c.ts')).toBe('    at f (~/lib/c.ts:3:5)');
+    expect(text('\\root')).toBe('~');
+    expect(text('\\rooted\\a.json')).toBe('\\rooted\\a.json');
+    expect(text('x\\root\\a.json')).toBe('x\\root\\a.json');
+  });
+
+  it('masks `\\mnt\\<drive>\\Users\\<name>`, a spaced profile included', () => {
+    expect(frame('file:///mnt/c/Users/bob/a.json')).toBe('    at f (~/a.json:3:5)');
+    expect(text('\\mnt\\D\\users\\John Smith\\a.json')).toBe('~/a.json');
+    expect(text('\\mnt\\data\\Users\\bob\\a.json')).toBe('\\mnt\\data\\Users\\bob\\a.json');
+  });
+
+  it('masks `\\<drive>\\Users\\<name>`, the MSYS form', () => {
+    expect(frame('file:///c/Users/bob/a.json')).toBe('    at f (~/a.json:3:5)');
+    expect(text('\\D\\users\\bob\\a.json')).toBe('~/a.json');
+  });
+
+  it('masks `\\cygdrive\\<drive>\\Users\\<name>`', () => {
+    expect(frame('file:///cygdrive/c/Users/bob/a.json')).toBe('    at f (~/a.json:3:5)');
+    expect(text('\\cygdrive\\d\\USERS\\John Smith\\a.json')).toBe('~/a.json');
+  });
+
+  it('masks a WSL home without the leading `\\\\` of its share', () => {
+    expect(frame('file://wsl.localhost/Ubuntu-22.04/home/bob/a.ts')).toBe('    at f (~/a.ts:3:5)');
+    expect(frame('file://wsl$/Ubuntu/home/bob/a.ts')).toBe('    at f (~/a.ts:3:5)');
+    expect(text('WSL.localhost\\Ubuntu\\home\\bob')).toBe('~');
+    expect(text('wsl$\\Ubuntu\\opt\\a.json')).toBe('wsl$\\Ubuntu\\opt\\a.json');
+    expect(text('mywsl$\\Ubuntu\\home\\bob\\a.json')).toBe('mywsl$\\Ubuntu\\home\\bob\\a.json');
+  });
+
+  it('accepts escaped separators, as JSON.stringify prints them', () => {
+    expect(text(JSON.stringify('\\home\\bob\\a.json'))).toBe('"~/a.json"');
+    expect(text(JSON.stringify('\\mnt\\c\\Users\\bob\\a.json'))).toBe('"~/a.json"');
+    expect(text(JSON.stringify('wsl.localhost\\Ubuntu\\home\\bob\\a.json'))).toBe('"~/a.json"');
+  });
+
+  it('keeps the rest as written in the fields that select a test', () => {
+    expect(selection('reads \\home\\bob\\a b.json')).toBe('reads ~\\a b.json');
+    expect(selection('wsl$\\Ubuntu\\home\\bob\\a\\b')).toBe('~\\a\\b');
+    expect(selection('\\c\\Users\\bob\\a')).toBe('~\\a');
+  });
+
+  it('leaves a project path holding the same segments alone, under the root or after a word', () => {
+    expect(file('    at C:\\work\\shop\\src\\home\\user\\x.ts:1:1')).toBe('    at src/home/user/x.ts:1:1');
+    expect(text('D:\\data\\src\\home\\user\\x.ts')).toBe('D:\\data\\src\\home\\user\\x.ts');
+    expect(text('src\\Users\\bob\\x.ts')).toBe('src\\Users\\bob\\x.ts');
+  });
+
+  it('masks too much after a drive: an accepted false positive', () => {
+    expect(text('D:\\home\\bob\\lib\\x.ts')).toBe('D:~/lib/x.ts');
+  });
+});
+
+describe('a UNC root converted by Playwright on Windows', () => {
+  it('matches without its leading `\\\\`, so a frame under the project becomes relative', () => {
+    const rewrite = createPathRewriter({ roots: ['\\\\wsl.localhost\\Ubuntu\\home\\jane\\proj'], home: 'C:\\Users\\jane' });
+    const frame = (url: string): string => rewrite.file(`    at f (${convertedByPlaywright(url)}:3:5)`);
+    expect(frame('file://wsl.localhost/Ubuntu/home/jane/proj/tests/a.spec.ts')).toBe('    at f (tests/a.spec.ts:3:5)');
+    expect(rewrite.text('cwd WSL.LOCALHOST\\Ubuntu\\home\\jane\\proj')).toBe('cwd .');
+    // No ancestor in converted form: the generic WSL home masks it.
+    expect(frame('file://wsl.localhost/Ubuntu/home/jane/other/b.ts')).toBe('    at f (~/other/b.ts:3:5)');
+    // The raw form still matches, ancestors included.
+    expect(rewrite.file('    at f (\\\\wsl.localhost\\Ubuntu\\home\\jane\\other\\b.ts:3:5)')).toBe('    at f (../other/b.ts:3:5)');
+  });
+
+  it('matches for any share, its boundary kept', () => {
+    const rewrite = createPathRewriter({ roots: ['\\\\server\\share\\shop'], home: null });
+    expect(rewrite.file(`    at f (${convertedByPlaywright('file://server/share/shop/tests/a.ts')}:1:1)`)).toBe('    at f (tests/a.ts:1:1)');
+    expect(rewrite.text('myserver\\share\\shop\\a.ts')).toBe('myserver\\share\\shop\\a.ts');
+    // A UNC home that is not a WSL `home`, outside the root: in clear, a documented limit.
+    expect(rewrite.text('server\\share\\jane\\a.ts')).toBe('server\\share\\jane\\a.ts');
+    expect(rewrite.text('\\\\server\\share\\jane\\a.ts')).toBe('\\\\server\\share\\jane\\a.ts');
+  });
+
+  it('is not added for a drive root', () => {
+    const rewrite = createPathRewriter({ roots: ['C:\\work\\shop'], home: null });
+    expect(rewrite.text('work\\shop\\a.ts')).toBe('work\\shop\\a.ts');
   });
 });
 

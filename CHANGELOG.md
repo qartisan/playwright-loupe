@@ -10,6 +10,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - **On Travis CI, the report had no commit or branch** unless Playwright's own git information was on: Loupe detected Travis CI but never read its variables. It now reads `TRAVIS_COMMIT`, and the branch from `TRAVIS_PULL_REQUEST_BRANCH`, else `TRAVIS_BRANCH`. There is still no remote: Travis CI gives the repository without its host ([Git and CI detection](docs/schema/v1.md#git-and-ci-detection)).
 
+No change to the JSON shape: `schemaVersion` stays 1.
+
+### Security
+
+- **On Windows, home directories in stack frames converted by Playwright were left in clear.** Playwright rewrites a `file://` stack frame itself, with `\` separators, without the drive of a POSIX path and without the leading `\\` of a share: `\home\<name>\…`, `\mnt\<drive>\Users\<name>\…`, `wsl.localhost\<distro>\home\<name>\…`. Loupe did not recognize these forms. They stayed in `errors[].stack` and `steps[].error.stack`, in `report.json` and in `index.html`, and in the names of attachment files under `data/`. Affects 0.1.8 to 0.3.1, on Windows only.
+  - Who is exposed: a project opened from a WSL or UNC share (`\\wsl.localhost\Ubuntu\home\<name>\…`) with ES module tests, whose frames show the user's own name; and any project using a dependency built on Linux or macOS whose source maps point to `file:///home/<author>/…`, a name usually public already.
+  - Not affected: homes in the usual Windows form, `C:\Users\<name>`, were always masked, on any drive, in any case, with either separator.
+  - Now masked: `\home\<name>`, `\Users\<name>`, `\var\home\<name>`, `\root`, `\mnt\<drive>\Users\<name>`, `\<drive>\Users\<name>` (MSYS), `\cygdrive\<drive>\Users\<name>`, and `wsl$` and `wsl.localhost` shares without their `\\`. A root dir on a share is also recognized without its `\\`, so frames under the project become relative. A Windows long path of another user, `\\?\C:\Users\<name>\…`, is masked too. See [Paths in text](docs/schema/v1.md#paths-in-text), with two accepted false positives and one remaining limit (a non-WSL UNC home outside the root dir).
+  - **If your project is opened from a WSL or UNC share, regenerate its reports with 0.3.2, and treat reports written for it by 0.1.8 to 0.3.1 as possibly holding your user name; do not publish them.** Reports already written are not rewritten.
+  - The check run by the demo and README screenshot scripts before a report is published (`scripts/home-paths.mjs`) now finds these forms too.
+
 ## [0.3.1] - 2026-11-09
 
 No change to the JSON shape: `schemaVersion` stays 1.
