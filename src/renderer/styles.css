@@ -979,10 +979,16 @@ span.dimension-tile { cursor: default; }
 .strip-excluded .strip-mark { stroke: currentColor; }
 .strip-none .strip-disc { fill: none; stroke-dasharray: 0.8 2.2; stroke-linecap: round; }
 .strip-flagged::after { content: ''; position: absolute; bottom: -4px; left: calc(50% - 2px); width: 4px; height: 4px; border-radius: 50%; background: var(--fg-secondary); }
-.strip-details { margin-top: 10px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-muted); font-size: 13px; }
+/* The hovered or focused cell's facts float over what follows: showing them moves nothing. */
+.strip-block { position: relative; }
+.strip-details { position: absolute; z-index: 5; top: 100%; left: 0; right: 0; max-width: 64rem; margin-top: 6px; padding: 8px 12px; border: 1px solid var(--border-control); border-radius: 6px; background: var(--bg-card); box-shadow: 0 4px 16px rgb(0 0 0 / 0.18); font-size: 13px; }
 .strip-facts { display: flex; flex-wrap: wrap; gap: 2px 16px; margin: 0; padding: 0; list-style: none; }
 .strip-extract { max-height: 8em; margin: 8px 0 0; overflow: auto; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .history-counters { margin: 10px 0 4px; font-variant-numeric: tabular-nums; }
+/* Counters, no-retries line and other streams: closed by default, the counters as the summary. */
+.history-more { margin-top: 10px; }
+.history-more > summary { width: max-content; max-width: 100%; margin: 0; cursor: pointer; }
+.history-more[open] > summary { margin-bottom: 6px; }
 .history-others-title { margin: 14px 0 6px; font-size: 14px; }
 .history-others { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
 .history-other { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }

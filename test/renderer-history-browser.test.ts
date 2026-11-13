@@ -321,6 +321,56 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
       await page.close();
     });
 
+    it('compact: no cell details until a cell is hovered or focused; they float, moving nothing', async () => {
+      const page = await open('normal', testHash(failing));
+      const details = page.locator('.strip-details');
+      expect(await details.count()).toBe(0);
+      const below = page.locator('.history-counters');
+      const before = await below.boundingBox();
+      await cells(page).nth(3).hover();
+      await expectLocator(details).toBeVisible();
+      expect(await below.boundingBox()).toEqual(before);
+      await page.mouse.move(0, 0);
+      await expectLocator(details).toHaveCount(0);
+      // Focus shows them too, also for the current run; leaving the strip hides them.
+      await cells(page).last().focus();
+      await expectLocator(details).toBeVisible();
+      await page.keyboard.press('Tab');
+      await expectLocator(details).toHaveCount(0);
+      await page.close();
+    });
+
+    it('compact: the rest in a disclosure, closed, whose summary is the counters line', async () => {
+      const { report, history } = historyScenario('several-streams', sample);
+      const facts = loadHistory(JSON.stringify(history), report)?.byTest.get(report.tests[failingIndex] as never);
+      if (!facts) throw new Error('no history');
+      const page = await open('several-streams', testHash(failing));
+      const more = page.locator('details.history-more');
+      expect(await more.getAttribute('open')).toBeNull();
+      await expectLocator(more.locator('> summary')).toHaveText(countersText(facts.counters));
+      await expectLocator(page.locator('.history-other').first()).toBeHidden();
+      await more.locator('> summary').focus();
+      await page.keyboard.press('Enter');
+      await expectLocator(page.locator('.history-other').first()).toBeVisible();
+      await page.close();
+    });
+
+    it('compact: counters alone are a plain line; without counters the summary names the other streams; nothing inside, no disclosure', async () => {
+      // normal: counters, retries in the stream, no other stream.
+      const normal = await open('normal', testHash(failing));
+      expect([await normal.locator('details.history-more').count(), await normal.locator('p.history-counters').count()]).toEqual([0, 1]);
+      await normal.close();
+      // first-run: no strip, no counters, two other streams.
+      const first = await open('first-run', testHash(failing));
+      await expectLocator(first.locator('details.history-more > summary')).toHaveText('Latest result in other streams');
+      expect(await first.locator('details.history-more').getAttribute('open')).toBeNull();
+      await first.close();
+      // all-excluded: no counters, no other stream.
+      const excluded = await open('all-excluded', testHash(failing));
+      expect([await excluded.locator('details.history-more').count(), await excluded.locator('.history-counters').count()]).toEqual([0, 0]);
+      await excluded.close();
+    });
+
     it('no state shown (every earlier run excluded): the strip, hollow, without state or counters', async () => {
       const page = await open('all-excluded', testHash(failing));
       expect(await page.locator('.strip-excluded').count()).toBe(await cells(page).count() - 1);
@@ -344,6 +394,11 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
       expect(await items.count()).toBe(history?.others.length);
       const codes = history?.others.map((other) => other.cells[0]) ?? [];
       expect(codes).toContain('-');
+      // Inside the closed disclosure: opened with the keyboard.
+      await expectLocator(page.getByText(NO_RESULT_NOTE)).toBeHidden();
+      await page.locator('.history-more > summary').focus();
+      await page.keyboard.press('Enter');
+      await expectLocator(page.getByText(NO_RESULT_NOTE)).toBeVisible();
       const texts = await items.allInnerTexts();
       codes.forEach((code, index) => {
         const text = (texts[index] ?? '').replace(/\s+/g, ' ');
@@ -352,7 +407,6 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
           expect(text).not.toMatch(/passed/);
         }
       });
-      await expectLocator(page.getByText(NO_RESULT_NOTE)).toBeVisible();
       await page.close();
     });
   });

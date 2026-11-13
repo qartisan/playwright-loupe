@@ -116,14 +116,16 @@ function CellDetails({ cell, date }: { cell: StripCell; date: string }) {
  * The strip: one cell per run of the window, oldest first, then the current
  * run, set apart. One tab stop (roving tabindex): arrow keys move between
  * cells and stop at the ends, Home and End go to them. Each cell has a full
- * accessible name, and its facts as its description; the panel under the
- * strip shows the focused or hovered cell. A cell keeps its run id
- * (`data-run-id`) for a later link to that run's report.
+ * accessible name, and its facts as its description. The panel under the
+ * strip shows the hovered or focused cell, only then: it floats over what
+ * follows, so nothing moves, and stays while the pointer is over it. A cell
+ * keeps its run id (`data-run-id`) for a later link to that run's report.
  */
 function Strip({ cells }: { cells: readonly StripCell[] }) {
   const last = cells.length - 1;
   const [active, setActive] = useState(last);
   const [hovered, setHovered] = useState<number | null>(null);
+  const [focused, setFocused] = useState<number | null>(null);
   const list = useRef<HTMLDivElement>(null);
   const dates = useMemo(() => cells.map((cell) => formatRunStart(cell.run.startedAt)?.label ?? cell.run.startedAt), [cells]);
   const focusCell = (index: number): void => {
@@ -131,15 +133,15 @@ function Strip({ cells }: { cells: readonly StripCell[] }) {
     setActive(target);
     list.current?.querySelector<HTMLElement>(`[data-cell="${target}"]`)?.focus();
   };
-  const shown = cells[hovered ?? active] ?? cells[last];
+  const shownIndex = hovered ?? focused;
+  const shown = shownIndex === null ? null : cells[shownIndex];
   return (
-    <div class="strip-block">
+    <div class="strip-block" onMouseLeave={() => setHovered(null)}>
       <div
         class="strip"
         role="list"
         aria-label={`Results in this stream, oldest first, then this run (${cells.length})`}
         ref={list}
-        onMouseLeave={() => setHovered(null)}
         onKeyDown={(event) => {
           const moves: Record<string, number> = { ArrowRight: active + 1, ArrowDown: active + 1, ArrowLeft: active - 1, ArrowUp: active - 1, Home: 0, End: last };
           const target = moves[event.key];
@@ -156,7 +158,7 @@ function Strip({ cells }: { cells: readonly StripCell[] }) {
             cell.runCounts ? '' : 'strip-excluded',
             cell.runCounts && (cell.flags.includes('partial') || cell.flags.includes('ide')) ? 'strip-flagged' : '',
             cell.current ? 'strip-current' : '',
-            index === active ? 'strip-active' : '',
+            index === shownIndex ? 'strip-active' : '',
           ];
           return [
             cell.current && cells.length > 1 ? <span key="gap" class="strip-gap" aria-hidden="true" /> : null,
@@ -169,7 +171,11 @@ function Strip({ cells }: { cells: readonly StripCell[] }) {
               data-run-id={cell.run.id}
               aria-label={cell.current ? `This run: ${name}` : name}
               aria-describedby={`strip-facts-${index}`}
-              onFocus={() => setActive(index)}
+              onFocus={() => {
+                setActive(index);
+                setFocused(index);
+              }}
+              onBlur={() => setFocused(null)}
               onMouseEnter={() => setHovered(index)}
               onClick={() => focusCell(index)}
             >
@@ -181,17 +187,64 @@ function Strip({ cells }: { cells: readonly StripCell[] }) {
           ];
         })}
       </div>
-      {shown && <CellDetails cell={shown} date={dates[cells.indexOf(shown)] ?? ''} />}
+      {shown && shownIndex !== null && <CellDetails cell={shown} date={dates[shownIndex] ?? ''} />}
     </div>
   );
 }
 
 /**
- * The history of a test in its detail: its state with its N, its strip, the
- * counters and the no-retries line, then its latest result in every other
- * stream. Rendered only with history. When no state is shown (first run,
- * earlier runs unreadable or all excluded), the strip and the other streams
- * still show, without state or counters.
+ * The rest of a test's history, closed by default so that the error stays
+ * near the top: a native disclosure whose summary is the counters line, so the
+ * key facts read while closed; inside, the no-retries line and the latest
+ * result in every other stream. Without counters (no state shown), its
+ * summary names the other streams. With nothing inside, no disclosure: the
+ * counters alone are a plain line, and nothing at all without them.
+ */
+function HistoryMore({ counters, noRetries, others }: { counters: string | null; noRetries: boolean; others: ReturnType<typeof otherStreams> }) {
+  const inside = noRetries || others.length > 0;
+  if (!inside) return counters ? <p class="history-counters">{counters}</p> : null;
+  return (
+    <details class="history-more">
+      <summary class={counters ? 'history-counters' : undefined}>{counters ?? 'Latest result in other streams'}</summary>
+      {noRetries && <p class="history-note">{NO_RETRIES_TEXT}</p>}
+      {others.length > 0 && (
+        <>
+          {counters && <h3 class="history-others-title">Latest result in other streams</h3>}
+          <ul class="history-others">
+            {others.map((other) => {
+              const date = formatRunStart(other.startedAt);
+              return (
+                <li key={other.id} class={`history-other strip-${other.code === '-' ? 'none' : other.code}`} data-run-id={other.id}>
+                  <ResultGlyph code={other.code} />
+                  <span class="history-other-stream">{streamName(other.stream)}</span>
+                  {date && <time dateTime={date.utc}>{date.label}</time>}
+                  <span>
+                    {other.code === '-' ? (
+                      <>
+                        No result<span aria-hidden="true">*</span>
+                      </>
+                    ) : (
+                      RESULT_TEXT[other.code]
+                    )}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          {others.some((other) => other.code === '-') && <p class="history-note">* {NO_RESULT_NOTE}</p>}
+        </>
+      )}
+    </details>
+  );
+}
+
+/**
+ * The history of a test in its detail, compact so that the error stays near
+ * the top: always its state with its N and its strip; the counters, the
+ * no-retries line and the other streams in a closed disclosure (HistoryMore).
+ * Rendered only with history. When no state is shown (first run, earlier runs
+ * unreadable or all excluded), the strip and the other streams still show,
+ * without state or counters.
  */
 export function TestHistory({ history, report, test }: { history: ReportHistory; report: LoupeReport; test: TestCase }) {
   const row = history.rows.get(test);
@@ -222,35 +275,7 @@ export function TestHistory({ history, report, test }: { history: ReportHistory;
         </p>
       )}
       {cells.length > 0 && <Strip cells={cells} />}
-      {shown && facts.counters.considered > 0 && <p class="history-counters">{countersText(facts.counters)}</p>}
-      {shown && facts.noRetries && <p class="history-note">{NO_RETRIES_TEXT}</p>}
-      {others.length > 0 && (
-        <>
-          <h3 class="history-others-title">Latest result in other streams</h3>
-          <ul class="history-others">
-            {others.map((other) => {
-              const date = formatRunStart(other.startedAt);
-              return (
-                <li key={other.id} class={`history-other strip-${other.code === '-' ? 'none' : other.code}`} data-run-id={other.id}>
-                  <ResultGlyph code={other.code} />
-                  <span class="history-other-stream">{streamName(other.stream)}</span>
-                  {date && <time dateTime={date.utc}>{date.label}</time>}
-                  <span>
-                    {other.code === '-' ? (
-                      <>
-                        No result<span aria-hidden="true">*</span>
-                      </>
-                    ) : (
-                      RESULT_TEXT[other.code]
-                    )}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-          {others.some((other) => other.code === '-') && <p class="history-note">* {NO_RESULT_NOTE}</p>}
-        </>
-      )}
+      <HistoryMore counters={shown && facts.counters.considered > 0 ? countersText(facts.counters) : null} noRetries={Boolean(shown && facts.noRetries)} others={others} />
     </section>
   );
 }
