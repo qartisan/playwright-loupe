@@ -956,6 +956,39 @@ span.dimension-tile { cursor: default; }
 .history-help dl > div { display: contents; }
 .history-help dt { display: flex; align-items: center; gap: 4px; font-weight: 600; }
 .history-help dd { margin: 0; color: var(--fg-secondary); }
+/*
+ * The strip of a test's results (TestHistory). Shape and colour per status. A run that does not count
+ * at test level (excluded) is hollow and dashed; a result that counts from a partial or IDE run gets
+ * a dot under it; an absent result is a dotted empty circle; the current run is set apart, boxed.
+ */
+.history-test-state { margin: 4px 0 10px; }
+.history-marker-static { margin-right: 4px; vertical-align: 1px; }
+.strip { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+.strip-cell { position: relative; display: inline-flex; width: 22px; height: 22px; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: 4px; cursor: default; }
+.strip-cell:hover, .strip-active { border-color: var(--border); background: var(--bg-muted); }
+.strip-current { border-color: var(--border-control); }
+.strip-gap { width: 1px; height: 18px; margin: 0 6px; background: var(--border-control); }
+.strip-P { color: var(--status-passed); }
+.strip-F { color: var(--status-failed); }
+.strip-K { color: var(--status-flaky); }
+.strip-S, .strip-none { color: var(--status-skipped); }
+.strip-glyph { flex: none; }
+.strip-disc { fill: currentColor; stroke: currentColor; stroke-width: 1.4; }
+.strip-mark { fill: none; stroke: var(--bg-card); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.strip-excluded .strip-disc { fill: none; stroke-dasharray: 2.4 1.6; }
+.strip-excluded .strip-mark { stroke: currentColor; }
+.strip-none .strip-disc { fill: none; stroke-dasharray: 0.8 2.2; stroke-linecap: round; }
+.strip-flagged::after { content: ''; position: absolute; bottom: -4px; left: calc(50% - 2px); width: 4px; height: 4px; border-radius: 50%; background: var(--fg-secondary); }
+.strip-details { margin-top: 10px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-muted); font-size: 13px; }
+.strip-facts { display: flex; flex-wrap: wrap; gap: 2px 16px; margin: 0; padding: 0; list-style: none; }
+.strip-extract { max-height: 8em; margin: 8px 0 0; overflow: auto; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.history-counters { margin: 10px 0 4px; font-variant-numeric: tabular-nums; }
+.history-others-title { margin: 14px 0 6px; font-size: 14px; }
+.history-others { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.history-other { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.history-other > span:last-child { color: var(--fg); }
+.history-other-stream { font-weight: 600; color: var(--fg); }
+.history-other time { color: var(--fg-secondary); }
 .table-more { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .table-more p { margin: 0 8px 0 0; color: var(--fg-secondary); font-variant-numeric: tabular-nums; }
 .sort-button {

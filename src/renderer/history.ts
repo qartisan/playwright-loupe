@@ -1,6 +1,19 @@
 import type { HistoryRun } from '../schema/history-v1.js';
 import type { LoupeReport, TestCase } from '../schema/v1.js';
-import { analyzeHistory, decodeHistory, type HistoryAnalysis, type HistoryState, type NoDeltaReason, type NoStatesReason, type TestHistory } from '../shared/history.js';
+import {
+  analyzeHistory,
+  decodeHistory,
+  indexHistory,
+  type Counters,
+  type HistoryAnalysis,
+  type HistoryCell,
+  type HistoryIndex,
+  type HistoryState,
+  type NoDeltaReason,
+  type NoStatesReason,
+  type ResultCode,
+  type TestHistory,
+} from '../shared/history.js';
 import { plural } from './format.js';
 
 /**
@@ -13,6 +26,10 @@ export interface ReportHistory {
   analysis: HistoryAnalysis;
   /** The history of each test of the report. */
   byTest: ReadonlyMap<TestCase, TestHistory>;
+  /** Each test's row in the block (its index in the report), for its strip and other streams. */
+  rows: ReadonlyMap<TestCase, number>;
+  /** Lookups into the block for the strips, built once. */
+  index: HistoryIndex;
 }
 
 /** Never throws: anything unreadable is no history. */
@@ -26,7 +43,12 @@ export function loadHistory(text: string | null | undefined, report: LoupeReport
   const block = decodeHistory(value, report.tests.length);
   if (block === null) return null;
   const analysis = analyzeHistory(block, report);
-  return { analysis, byTest: new Map(report.tests.map((test, index) => [test, analysis.tests[index] as TestHistory])) };
+  return {
+    analysis,
+    byTest: new Map(report.tests.map((test, index) => [test, analysis.tests[index] as TestHistory])),
+    rows: new Map(report.tests.map((test, index) => [test, index])),
+    index: indexHistory(block),
+  };
 }
 
 export const STATE_LABEL: Record<HistoryState, string> = {
@@ -98,3 +120,88 @@ export function noDeltaText(reason: NoDeltaReason, excluded: string | null, incl
       return include === 'all' ? 'No earlier run in this stream to compare with.' : 'No earlier full run in this stream to compare with.';
   }
 }
+
+/** A result in a strip or another stream, in words: "passed", "failed", "flaky (passed on retry)", "skipped", "no result". */
+export const RESULT_TEXT: Record<ResultCode, string> = {
+  P: 'passed',
+  F: 'failed',
+  K: 'flaky (passed on retry)',
+  S: 'skipped',
+  '-': 'no result',
+};
+
+const ATTEMPT_TEXT: Record<string, string> = { P: 'passed', F: 'failed', T: 'timed out', S: 'skipped', I: 'interrupted' };
+
+/** "2 attempts: failed, passed"; "1 attempt: timed out"; null without attempts. */
+export function attemptsText(attempts: string | null): string | null {
+  if (!attempts) return null;
+  return `${plural(attempts.length, 'attempt')}: ${[...attempts].map((code) => ATTEMPT_TEXT[code] ?? code).join(', ')}`;
+}
+
+/** The last status of the first failing attempt, as the cell's name ends with it: "Timeout" for `T`. */
+function failureWord(cell: Pick<HistoryCell, 'attempts' | 'failure'>): string | null {
+  if (cell.failure?.category) return cell.failure.category;
+  return cell.attempts?.includes('T') ? 'timed out' : null;
+}
+
+/**
+ * Why a cell is drawn apart, in words: the run is excluded (it does not
+ * count), or it counts but is partial or from the IDE. Empty for a full run
+ * that counts.
+ */
+export function cellCounting(cell: Pick<HistoryCell, 'run' | 'runCounts' | 'flags'>): string[] {
+  const notes: string[] = [];
+  if (!cell.runCounts) notes.push(`not counted: run excluded${cell.run.excluded ? ` (${cell.run.excluded})` : ''}`);
+  else if (cell.flags.includes('excluded')) notes.push(`excluded run${cell.run.excluded ? ` (${cell.run.excluded})` : ''}, counted with history.include: 'all'`);
+  if (cell.flags.includes('partial')) notes.push(`partial run${cell.run.scopeReasons.length > 0 ? ` (${cell.run.scopeReasons.join(', ')})` : ''}`);
+  if (cell.flags.includes('ide')) notes.push('run from the IDE');
+  return notes;
+}
+
+/**
+ * The full accessible name of a strip cell: "21 Oct 2026, 18:45, ci,
+ * failed, Timeout", then why it is drawn apart. `date` is the run's start as
+ * the report formats it.
+ */
+export function cellName(cell: Pick<HistoryCell, 'run' | 'code' | 'attempts' | 'failure' | 'runCounts' | 'flags'>, date: string): string {
+  const failure = cell.code === 'F' || cell.code === 'K' ? failureWord(cell) : null;
+  return [date, cell.run.origin, RESULT_TEXT[cell.code], ...(failure ? [failure] : []), ...cellCounting(cell)].join(', ');
+}
+
+/** Why a failure shows no error text: another signature version, or beyond the extracts kept. Null when it has one, or no failure. */
+export function failureGap(cell: Pick<HistoryCell, 'failure'>): string | null {
+  const { failure } = cell;
+  if (failure === null) return null;
+  if (!failure.compared) return "Error not compared: this run was recorded with another version of Loupe's error signatures.";
+  if (failure.extract === null) return 'Error text not kept: the report keeps the text of the 300 most recently seen errors.';
+  return null;
+}
+
+/** "Failed 5 of the last 20 runs · changed status 9 times · passed on retry 3 times". */
+export function countersText(counters: Counters): string {
+  const times = (count: number) => (count === 1 ? 'once' : `${count} times`);
+  return `Failed ${counters.failures} of the last ${plural(counters.considered, 'run')} · changed status ${times(counters.statusChanges)} · passed on retry ${times(counters.passedOnRetry)}`;
+}
+
+/** The state of a test in its detail, after its name, with its N for a new failure: "no failure in its last 7 runs in this stream". */
+export function stateDetail(state: HistoryState, earlier: number): string {
+  switch (state) {
+    case 'new-failure':
+      return `no failure in its last ${plural(earlier, 'run')} in this stream`;
+    case 'failed-again':
+      return 'its last earlier result passed, and an earlier one failed';
+    case 'still-failing':
+      return 'it failed in its last earlier result too';
+    case 'new-test':
+      return 'no earlier result in this stream, which has earlier runs';
+    case 'fixed':
+      return 'its last earlier result failed';
+  }
+}
+
+/** Shown when no run of the window, nor the current run, had retries for the test's project. */
+export const NO_RETRIES_TEXT = 'No retries in this stream: only instability across runs can show.';
+
+/** Why another stream may show "no result", reachable as visible text. */
+export const NO_RESULT_NOTE =
+  "No result: the test is not in that stream's latest run (it was filtered out, or added since). Only the latest run of each other stream is in this report.";

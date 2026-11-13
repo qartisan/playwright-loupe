@@ -314,11 +314,12 @@ describe('the strip of a test', () => {
     });
     const index = indexHistory(block);
     const cells = testCells(block, index, 0);
-    expect(cells.map(({ index: column, code, attempts, flags, counts, failure }) => ({ column, code, attempts, flags, counts, failure }))).toEqual([
-      { column: 0, code: 'F', attempts: 'FT', flags: [], counts: true, failure: { category: null, extract: null, compared: false } },
-      { column: 1, code: 'K', attempts: 'FP', flags: ['partial'], counts: true, failure: { category: 'Timeout', extract: 'extract t0 1', compared: true } },
-      { column: 2, code: 'F', attempts: 'FT', flags: ['excluded'], counts: false, failure: { category: 'Assertion', extract: 'extract t0 2', compared: true } },
-      { column: 3, code: 'S', attempts: 'S', flags: ['ide'], counts: false, failure: null },
+    expect(cells.map(({ index: column, code, attempts, flags, runCounts, counts, failure }) => ({ column, code, attempts, flags, runCounts, counts, failure }))).toEqual([
+      { column: 0, code: 'F', attempts: 'FT', flags: [], runCounts: true, counts: true, failure: { category: null, extract: null, compared: false } },
+      { column: 1, code: 'K', attempts: 'FP', flags: ['partial'], runCounts: true, counts: true, failure: { category: 'Timeout', extract: 'extract t0 1', compared: true } },
+      { column: 2, code: 'F', attempts: 'FT', flags: ['excluded'], runCounts: false, counts: false, failure: { category: 'Assertion', extract: 'extract t0 2', compared: true } },
+      // A skipped result in a run that counts: the run counts, the result does not decide anything.
+      { column: 3, code: 'S', attempts: 'S', flags: ['ide'], runCounts: true, counts: false, failure: null },
     ]);
     expect(cells[1]?.run.scopeReasons).toEqual(['grep']);
     expect(testCells(block, index, 1).map((cell) => [cell.code, cell.attempts])).toEqual([

@@ -6,6 +6,7 @@ import { categoryColorMap } from '../categoryColors.js';
 import { CategoryBadge } from '../components/CategoryBadge.js';
 import { CopyButton } from '../components/CopyButton.js';
 import { OutcomeIcon } from '../components/icons.js';
+import { TestHistory } from '../components/TestHistory.js';
 import { Pager } from '../components/Pager.js';
 import { Attachments } from '../components/Media.js';
 import { ErrorCard, OutputBlock, StepTree } from '../components/TestDetail.js';
@@ -22,6 +23,7 @@ import { isSecondaryError } from '../secondary.js';
 import { NOT_RUN_EXPLANATION, skipLabel, skipReason } from '../skip.js';
 import { formatDuration, plural } from '../format.js';
 import { currentLocation, navigate } from '../navigation.js';
+import type { ReportHistory } from '../history.js';
 import { useShortcuts } from '../shortcuts.js';
 import { NotFoundPage } from './NotFoundPage.js';
 
@@ -206,6 +208,7 @@ function AttemptContent({ test, attempt, params, groups, colors, playwrightVersi
  * Test detail (`#/test/<id>`): header, copy actions, then one attempt at a
  * time (`?attempt=<index>`, the last failing attempt by default): errors,
  * steps, attachments and output. Previous / next walk the Tests view's list.
+ * With history, the test's history comes before its attempts (TestHistory).
  */
 export function TestPage({
   report,
@@ -213,6 +216,7 @@ export function TestPage({
   sequence,
   groups,
   settings,
+  history = null,
 }: {
   report: LoupeReport;
   test: TestCase | undefined;
@@ -220,6 +224,8 @@ export function TestPage({
   sequence: readonly TestCase[];
   groups: ReadonlyMap<string, ErrorGroup>;
   settings: RendererSettings;
+  /** The run history; null without one: no history section. */
+  history?: ReportHistory | null;
 }) {
   const colors = useMemo(() => categoryColorMap(report.categories), [report]);
   const params = parseDetailParams(currentLocation.value.search);
@@ -292,6 +298,7 @@ export function TestPage({
           )}
         </div>
       </header>
+      {history && <TestHistory history={history} report={report} test={test} />}
       {attempt && test.attempts.length > 1 && <AttemptTabs test={test} selected={attempt} select={select} />}
       {attempt && (
         <div

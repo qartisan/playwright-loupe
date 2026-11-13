@@ -254,7 +254,9 @@ export interface HistoryCell {
   attempts: string | null;
   /** Why the run is left out of run-level statistics by default. */
   flags: RunFlag[];
-  /** The result decides the test's state and counters. */
+  /** The run counts at test level: not excluded, or `include: 'all'`. False draws the cell as not counting. */
+  runCounts: boolean;
+  /** The result decides the test's state and counters: the run counts and the test ran in it. */
   counts: boolean;
   /** The first error of the first failed attempt: null when the result has none to show. `compared` is false for another signature version. */
   failure: { category: string | null; extract: string | null; compared: boolean } | null;
@@ -289,7 +291,8 @@ export function testCells(history: EmbeddedHistory, index: HistoryIndex, test: n
   let failing = 0;
   return history.runs.map((run, column): HistoryCell => {
     const code = history.cells[test * width + column] as ResultCode;
-    const base = { index: column, run, code, flags: runFlags(run), counts: ran(code) && countsForTests(run, history.include) };
+    const runCounts = countsForTests(run, history.include);
+    const base = { index: column, run, code, flags: runFlags(run), runCounts, counts: ran(code) && runCounts };
     if (code === 'F' || code === 'K') {
       const ordinal = failing++;
       const sig = row?.sigs[ordinal] ?? -1;

@@ -2,9 +2,24 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { facetCounts, filterContext, filterDomain, filterTests } from '../src/renderer/filters/match.js';
 import { EMPTY_FILTERS, parseFilters, serializeFilters } from '../src/renderer/filters/url.js';
-import { NO_STATES_TEXT, formatFailedChange, formatPoints, loadHistory, noDeltaText, stateCount, streamName, type ReportHistory } from '../src/renderer/history.js';
+import {
+  NO_STATES_TEXT,
+  attemptsText,
+  cellCounting,
+  cellName,
+  countersText,
+  failureGap,
+  formatFailedChange,
+  formatPoints,
+  loadHistory,
+  noDeltaText,
+  stateCount,
+  stateDetail,
+  streamName,
+  type ReportHistory,
+} from '../src/renderer/history.js';
 import type { LoupeReport } from '../src/schema/v1.js';
-import { HISTORY_STATES, type HistoryState } from '../src/shared/history.js';
+import { HISTORY_STATES, type HistoryCell, type HistoryState } from '../src/shared/history.js';
 import { historyScenario, type HistoryScenario } from './helpers/history-scenarios.js';
 
 const sample = JSON.parse(readFileSync(new URL('../src/renderer/dev/sample.json', import.meta.url), 'utf8')) as LoupeReport;
@@ -130,5 +145,41 @@ describe('verdict history texts', () => {
 
   it('the stream by its key parts, an unknown branch named', () => {
     expect(streamName({ environment: 'staging', origin: 'ci', branch: null })).toBe('staging · ci · no branch');
+  });
+});
+
+describe('test detail texts', () => {
+  const run = { origin: 'ci', excluded: null, scopeReasons: [] } as unknown as HistoryCell['run'];
+  const cell = (fields: Partial<HistoryCell> = {}): HistoryCell =>
+    ({ index: 0, run, code: 'F', attempts: 'FT', flags: [], runCounts: true, counts: true, failure: { category: 'Timeout', extract: 'x', compared: true }, ...fields }) as HistoryCell;
+
+  it('the name of a cell: date, origin, result, category, then why it is drawn apart', () => {
+    expect(cellName(cell(), '12 Nov 14:03')).toBe('12 Nov 14:03, ci, failed, Timeout');
+    expect(cellName(cell({ code: 'P', failure: null, attempts: 'P' }), 'd')).toBe('d, ci, passed');
+    expect(cellName(cell({ code: '-', failure: null, attempts: null }), 'd')).toBe('d, ci, no result');
+    const excluded = { ...run, excluded: 'restore' };
+    expect(cellName(cell({ run: excluded, flags: ['excluded'], runCounts: false, counts: false }), 'd')).toBe('d, ci, failed, Timeout, not counted: run excluded (restore)');
+  });
+
+  it('a counted result of a partial or ide run is flagged, not marked as not counted; include all names the exclusion', () => {
+    const partial = { ...run, scopeReasons: ['grep', 'project'] };
+    expect(cellCounting(cell({ run: partial, flags: ['partial', 'ide'] }))).toEqual(['partial run (grep, project)', 'run from the IDE']);
+    expect(cellCounting(cell({ run: { ...run, excluded: 'x' }, flags: ['excluded'], runCounts: true }))).toEqual(["excluded run (x), counted with history.include: 'all'"]);
+    expect(cellCounting(cell())).toEqual([]);
+  });
+
+  it('why a failure shows no error text', () => {
+    expect(failureGap(cell({ failure: { category: null, extract: null, compared: false } }))).toMatch(/^Error not compared: /);
+    expect(failureGap(cell({ failure: { category: 'Timeout', extract: null, compared: true } }))).toMatch(/^Error text not kept: .*300/);
+    expect(failureGap(cell())).toBeNull();
+    expect(failureGap(cell({ failure: null }))).toBeNull();
+  });
+
+  it('attempts, counters, the state with its N', () => {
+    expect([attemptsText('FTP'), attemptsText('P'), attemptsText(null)]).toEqual(['3 attempts: failed, timed out, passed', '1 attempt: passed', null]);
+    expect(countersText({ failures: 5, statusChanges: 9, passedOnRetry: 3, considered: 20 })).toBe('Failed 5 of the last 20 runs · changed status 9 times · passed on retry 3 times');
+    expect(countersText({ failures: 1, statusChanges: 1, passedOnRetry: 0, considered: 1 })).toBe('Failed 1 of the last 1 run · changed status once · passed on retry 0 times');
+    expect(stateDetail('new-failure', 7)).toBe('no failure in its last 7 runs in this stream');
+    for (const state of HISTORY_STATES) expect(stateDetail(state, 3)).not.toMatch(/root cause|because/i);
   });
 });

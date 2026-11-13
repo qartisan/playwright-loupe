@@ -139,6 +139,7 @@ export function App({ report, settings, history = null }: { report: LoupeReport;
           sequence={sorted}
           groups={groupsBySignature}
           settings={settings}
+          history={history}
         />
       );
       break;
