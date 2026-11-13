@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'preact/hooks';
 import type { Outcome } from '../../schema/v1.js';
 import type { HistoryState } from '../../shared/history.js';
-import { STATE_HELP, STATE_LABEL } from '../history.js';
+import { STATE_HELP, STATE_LABEL, stateHelpId } from '../history.js';
 import type { Colors } from './widgets.js';
 import { setFilters } from '../filters/store.js';
 import { activeFacets, clearFilters, facetDimension, withFacetValue, type FacetId, type FilterDomain, type FilterState } from '../filters/url.js';
@@ -122,6 +122,8 @@ function FacetMenu({
               <input
                 type="checkbox"
                 checked={checked}
+                // A history state's definition, from the view's "What the history states mean" list, read on focus.
+                aria-describedby={facet === 'history' ? stateHelpId(value as HistoryState) : undefined}
                 onChange={(event) => setFilters(withFacetValue(state, facet, value, event.currentTarget.checked))}
               />
               <ValueLabel facet={facet} value={value} colors={colors} />

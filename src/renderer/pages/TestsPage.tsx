@@ -82,7 +82,7 @@ export function TestsPage({ report, state, sorted, history = null }: { report: L
       <p class="result-count" aria-live="polite" aria-atomic="true">
         {summary}
       </p>
-      {history?.analysis.statesShown && <HistoryHelp />}
+      {history?.analysis.statesShown && <HistoryHelp headingLevel={2} />}
       <RerunFailed tests={sorted} />
       {total === 0 ? (
         <p class="muted">No tests in this run.</p>

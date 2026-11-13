@@ -91,6 +91,30 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
     await page.close();
   });
 
+  it('the Overview holds one closed "What the history states mean"; each count link is described by its definition', async () => {
+    const { report, history } = historyScenario('normal', sample);
+    const counts = loadHistory(JSON.stringify(history), report)?.analysis.counts;
+    if (!counts) throw new Error('no history');
+    const page = await open('normal', '#/');
+    const help = page.locator('.history-help');
+    expect(await help.count()).toBe(1);
+    expect(await help.getAttribute('open')).toBeNull();
+    const linked = HISTORY_STATES.filter((state) => counts[state] > 0);
+    expect(linked.length).toBeGreaterThan(1);
+    for (const state of linked) {
+      const link = zone(page).getByRole('link', { name: stateCount(state, counts[state]) });
+      // Read on focus while the definitions are closed; the title stays for the mouse.
+      await expectLocator(link).toHaveAccessibleDescription(`${STATE_HELP[state]}.`);
+      expect(await link.locator('xpath=..').getAttribute('title')).toBe(STATE_HELP[state]);
+    }
+    // Opened with the keyboard: the definitions, then which runs are used, under a heading one level below the zone's.
+    await help.locator('summary').focus();
+    await page.keyboard.press('Enter');
+    await expectLocator(help.locator('dd').first()).toBeVisible();
+    await expectLocator(help.getByRole('heading', { name: 'Which runs are used', level: 4 })).toBeVisible();
+    await page.close();
+  });
+
   it.each([
     ['first-run', 'first-run'],
     ['skipped', 'all-skipped'],
@@ -99,6 +123,7 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
     const page = await open(name, '#/');
     expect(await zone(page).locator('.history-note').allInnerTexts()).toEqual([NO_STATES_TEXT[reason]]);
     expect(await zone(page).locator('.history-states').count()).toBe(0);
+    expect(await page.locator('.history-help').count()).toBe(0);
     await page.close();
     const tests = await open(name, '#/tests?history=new-test');
     expect(new URL(tests.url()).hash).toBe('#/tests');
@@ -165,6 +190,26 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
       await expectLocator(page.locator('.history-help > p')).toHaveText(
         "Run comparisons (the changes since the last run, on the dashboard) use full runs outside the IDE that are not excluded. A test's history (its state, counters and strip) uses every run where it ran, except excluded ones.",
       );
+      await page.close();
+    });
+
+    it('the facet: each value is described by its definition, from the one list of the view', async () => {
+      const { report, history } = historyScenario('normal', sample);
+      const counts = loadHistory(JSON.stringify(history), report)?.analysis.counts;
+      if (!counts) throw new Error('no history');
+      const page = await open('normal', '#/tests');
+      expect(await page.locator('.history-help').count()).toBe(1);
+      await expectLocator(page.locator('.history-help').getByRole('heading', { name: 'Which runs are used', level: 2, includeHidden: true })).toHaveCount(1);
+      const facet = page.locator('[data-facet="history"]');
+      await facet.locator('summary').focus();
+      await page.keyboard.press('Enter');
+      const boxes = facet.getByRole('checkbox');
+      const present = HISTORY_STATES.filter((state) => counts[state] > 0);
+      expect(await boxes.count()).toBe(present.length);
+      for (const [index, state] of present.entries()) {
+        await expectLocator(boxes.nth(index)).toHaveAccessibleName(new RegExp(`^${STATE_LABEL[state]}`));
+        await expectLocator(boxes.nth(index)).toHaveAccessibleDescription(`${STATE_HELP[state]}.`);
+      }
       await page.close();
     });
 

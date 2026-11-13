@@ -8,9 +8,11 @@ import { HistoryStateIcon } from './icons.js';
  * that markers and links of the view point to with aria-describedby, so a
  * screen reader reads it on focus even while the disclosure is closed. Render
  * it once per view, only when states are shown. It ends with which runs
- * each level uses, as cells of the strip say it for their run (cellUse).
+ * each level uses, as cells of the strip say it for their run (cellUse),
+ * under a heading at `headingLevel`, the next level in its view.
  */
-export function HistoryHelp() {
+export function HistoryHelp({ headingLevel }: { headingLevel: 2 | 3 | 4 }) {
+  const Heading = `h${headingLevel}` as 'h2';
   return (
     <details class="history-help">
       <summary>What the history states mean</summary>
@@ -24,7 +26,7 @@ export function HistoryHelp() {
           </div>
         ))}
       </dl>
-      <h3 class="history-help-title">Which runs are used</h3>
+      <Heading class="history-help-title">Which runs are used</Heading>
       <p>
         Run comparisons (the changes since the last run, on the dashboard) use full runs outside the IDE that are not excluded. A test's history (its
         state, counters and strip) uses every run where it ran, except excluded ones.
