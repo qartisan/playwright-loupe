@@ -174,5 +174,31 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
       await expectLocator(page).toHaveURL(/#\/tests$/);
       await page.close();
     });
+
+    it.each([
+      ['wide', 1280],
+      ['narrow', 400],
+    ] as const)('%s: on the line of the chips, the row no taller than one without a marker', async (_label, width) => {
+      const page = await open('normal', '#/tests');
+      await page.setViewportSize({ width, height: 900 });
+      const rows = await page.locator('.tests-table tbody').evaluate((body) =>
+        [...body.querySelectorAll('tr')].map((row) => {
+          const top = row.getBoundingClientRect().top;
+          const offset = (selector: string) => {
+            const element = row.querySelector(selector);
+            return element ? element.getBoundingClientRect().top - top : null;
+          };
+          const title = row.querySelector('.cell-title > a');
+          return { marker: offset('.history-marker'), chips: offset('.test-chips'), oneLine: (title?.getClientRects().length ?? 0) === 1, height: row.getBoundingClientRect().height };
+        }),
+      );
+      const both = rows.filter((row) => row.marker !== null && row.chips !== null && row.oneLine);
+      expect(both.length).toBeGreaterThan(0);
+      for (const row of both) expect(Math.abs((row.marker as number) - (row.chips as number))).toBeLessThan(0.5);
+      // A one-line title with chips: the same height with a marker as without.
+      const without = rows.find((row) => row.marker === null && row.chips !== null && row.oneLine);
+      expect(Math.abs((both[0]?.height ?? 0) - (without?.height ?? 0))).toBeLessThan(0.5);
+      await page.close();
+    });
   });
 });

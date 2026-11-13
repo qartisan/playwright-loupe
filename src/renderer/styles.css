@@ -944,6 +944,11 @@ span.dimension-tile { cursor: default; }
 .test-chip-more:hover { border-color: var(--chip-border); color: var(--fg); }
 /* A failing test's history state, under its status: a chip on its own line (see HistoryStateMarker). */
 .history-marker { display: flex; width: max-content; gap: 4px; margin-top: 4px; white-space: nowrap; }
+/*
+ * A status with a marker: its first line as tall as the title's, so the marker lines up with the chips
+ * under the title. Inline-flex (the default) makes a taller line box; only cells with a marker change.
+ */
+.tests-table td:has(> .history-marker) > .outcome-icon { display: flex; }
 /* What the history states mean: a native disclosure, once per view. */
 .history-help { margin: 0 0 8px; font-size: 13px; }
 .history-help > summary { width: max-content; color: var(--fg-secondary); cursor: pointer; }
