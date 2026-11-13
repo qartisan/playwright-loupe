@@ -680,15 +680,24 @@ describe('rerun commands', () => {
     expect(fileRerun(moved, moved[0]!)).toBeNull();
   });
 
-  it('labels the failed tests of the file by tests per project, naming the projects when there are several', () => {
+  it('labels the failed tests of the file in short, by distinct tests; the scope names the projects', () => {
     const one = [makeTest({ project: 'a', outcome: 'failed', title: 'x' }), makeTest({ project: 'a', outcome: 'failed', title: 'y' })];
-    expect(fileRerun(one, one[0]!)?.label).toBe('2 failed tests in this file');
+    expect(fileRerun(one, one[0]!)).toMatchObject({ label: '2 failed tests in this file', scope: '2 failed tests in this file, in a' });
     const same = [...one, makeTest({ project: 'b', outcome: 'failed', title: 'x' }), makeTest({ project: 'b', outcome: 'failed', title: 'y' })];
-    expect(fileRerun(same, same[0]!)).toMatchObject({ label: '2 failed tests in this file, in a, b' });
+    expect(fileRerun(same, same[0]!)).toMatchObject({ label: '2 failed tests in this file', scope: '2 failed tests in this file, in a, b' });
     const different = [...one, makeTest({ project: 'b', outcome: 'failed', title: 'x' })];
-    expect(fileRerun(different, different[0]!)?.label).toBe('failed tests in this file: 2 in a, 1 in b');
+    expect(fileRerun(different, different[0]!)).toMatchObject({ label: '2 failed tests in this file', scope: 'failed tests in this file: 2 in a, 1 in b' });
+    // As many in each project, not the same tests: per project, never "1 failed test, in a, b" beside "2 failed tests".
+    const crossed = [makeTest({ project: 'a', outcome: 'failed', title: 'x' }), makeTest({ project: 'b', outcome: 'failed', title: 'y' })];
+    expect(fileRerun(crossed, crossed[0]!)).toMatchObject({ label: '2 failed tests in this file', scope: 'failed tests in this file: 1 in a, 1 in b' });
     const repeated = [...one, makeTest({ project: 'a', outcome: 'failed', title: 'x', repeatEachIndex: 1 })];
     expect(fileRerun(repeated, repeated[0]!)?.label).toBe('2 failed tests in this file');
+  });
+
+  it('keeps the label short whatever the projects', () => {
+    const projects = Array.from({ length: 12 }, (_, index) => `project-with-a-long-name-${index}`);
+    const tests = projects.flatMap((project) => ['x', 'y'].map((title) => makeTest({ project, outcome: 'failed', title })));
+    expect(fileRerun(tests, tests[0]!)).toMatchObject({ label: '2 failed tests in this file', scope: `2 failed tests in this file, in ${projects.join(', ')}` });
   });
 
   it('counts as one the titles left identical by two home directories, as with a secret', () => {

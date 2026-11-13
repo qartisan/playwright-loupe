@@ -133,7 +133,7 @@ const MATRIX: State[] = [
   ['lightbox: screenshot', 'sample', `#/test/${SCREENSHOT}`, { arrange: click('.thumb'), reached: 'dialog.lightbox[open] img' }],
   ['lightbox: comparison', 'sample', `#/test/${COMPARISON}`, { arrange: clickText('button', 'Open in viewer'), reached: 'dialog.lightbox[open] .comparison' }],
   ['dialog: keyboard shortcuts', 'sample', '#/', { arrange: click('[aria-keyshortcuts="?"]'), reached: 'dialog.shortcuts-dialog[open]' }],
-  ['dialog: copy fallback', 'sample', `#/test/${FAILING}`, { init: NO_CLIPBOARD, arrange: clickText('button', 'Copy rerun command'), reached: 'dialog.copy-dialog[open]' }],
+  ['dialog: copy fallback', 'sample', `#/test/${FAILING}`, { init: NO_CLIPBOARD, arrange: (page) => page.getByRole('button', { name: 'Copy rerun command for this test' }).click(), reached: 'dialog.copy-dialog[open]' }],
   ['not found', 'sample', '#/no/such/page'],
   // Forced colours: bars kept, pressed and selected states in system colours.
   ['forced colours: overview', 'sample', '#/', { forcedColors: true, reached: '.outcome-bar-part' }],

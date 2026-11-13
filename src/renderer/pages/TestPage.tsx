@@ -292,8 +292,20 @@ export function TestPage({
         {skip?.kind === 'notRun' && <p class="skip-explanation">{NOT_RUN_EXPLANATION}</p>}
         <TestMeta test={test} report={report} />
         <div class="test-actions">
-          <RerunButton tests={[test]}>Copy rerun command</RerunButton>
-          {inFile && <RerunButton tests={inFile.tests}>Copy rerun command · {inFile.label}</RerunButton>}
+          {/* The scope first: the group says what is copied, each button what it selects. Each name is complete and holds the visible text. */}
+          <div class="rerun-group" role="group" aria-labelledby="rerun-group-label">
+            <span id="rerun-group-label" class="rerun-group-label">
+              Copy rerun command:
+            </span>
+            <RerunButton tests={[test]} name="Copy rerun command for this test">
+              This test
+            </RerunButton>
+            {inFile && (
+              <RerunButton tests={inFile.tests} name={`Copy rerun command for ${inFile.label}`} scope={inFile.scope}>
+                {inFile.label}
+              </RerunButton>
+            )}
+          </div>
           {attempt && attempt.errors.length > 0 && (
             <CopyButton
               label="AI prompt"

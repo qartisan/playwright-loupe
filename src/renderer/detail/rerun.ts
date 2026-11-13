@@ -290,25 +290,32 @@ function titlePathKey(test: Pick<TestCase, 'suitePath' | 'title'>): string {
  * The "failed tests in this file" rerun of a test detail: the failed tests of
  * its file, every project included. Null unless the file has another failed
  * test than `test`: the same test failing in several projects is not "other
- * failed tests". The label counts tests, a test repeated with `--repeat-each`
- * once.
+ * failed tests". Tests are counted by title path: a test repeated with
+ * `--repeat-each` or run in several projects counts once.
+ *
+ * `label`, the button's visible text, stays short whatever the projects:
+ * "2 failed tests in this file". `scope` says it whole, projects included,
+ * for its description and tooltip: "2 failed tests in this file, in
+ * chromium-a, chromium-b" when the projects failed the same tests, otherwise
+ * per project, "failed tests in this file: 2 in a, 1 in b".
  */
 export function fileRerun<T extends RerunTarget & Pick<TestCase, 'outcome'>>(
   tests: readonly T[],
   test: Pick<TestCase, 'file' | 'suitePath' | 'title'>,
-): { tests: T[]; label: string } | null {
+): { tests: T[]; label: string; scope: string } | null {
   const inFile = failedTestsInFile(tests, test.file);
   if (!inFile.some((other) => titlePathKey(other) !== titlePathKey(test))) return null;
   const byProject = new Map<string, Set<string>>();
   for (const other of inFile) byProject.set(other.project, (byProject.get(other.project) ?? new Set()).add(titlePathKey(other)));
   const counts = [...byProject].map(([project, titlePaths]) => ({ project: project || '(unnamed project)', count: titlePaths.size }));
   const noun = (count: number): string => (count === 1 ? 'failed test' : 'failed tests');
-  const [first] = counts;
-  if (counts.length === 1 && first) return { tests: inFile, label: `${first.count} ${noun(first.count)} in this file` };
-  if (first && counts.every(({ count }) => count === first.count)) {
-    return { tests: inFile, label: `${first.count} ${noun(first.count)} in this file, in ${counts.map(({ project }) => project).join(', ')}` };
+  const total = new Set(inFile.map(titlePathKey)).size;
+  const label = `${total} ${noun(total)} in this file`;
+  // The projects together only when each failed every one of these tests; otherwise per project.
+  if ([...byProject.values()].every((titlePaths) => titlePaths.size === total)) {
+    return { tests: inFile, label, scope: `${label}, in ${counts.map(({ project }) => project).join(', ')}` };
   }
-  return { tests: inFile, label: `failed tests in this file: ${counts.map(({ project, count }) => `${count} in ${project}`).join(', ')}` };
+  return { tests: inFile, label, scope: `failed tests in this file: ${counts.map(({ project, count }) => `${count} in ${project}`).join(', ')}` };
 }
 
 /** Help text of every rerun button. */

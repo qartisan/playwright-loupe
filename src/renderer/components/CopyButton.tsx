@@ -10,18 +10,22 @@ const CONFIRMATION_MS = 2000;
  * Copies a text built on click. Success is shown on the button and announced
  * to screen readers; when the Clipboard API is unavailable, the fallback
  * dialog opens. `help` describes the button (tooltip and accessible
- * description).
+ * description). `name`, when the visible text is a short part of it, is the
+ * full accessible name, and must contain that text (WCAG 2.5.3).
  */
 export function CopyButton({
   label,
   text,
   help,
+  name,
   children,
 }: {
   /** What is copied, for messages: "Rerun command". */
   label: string;
   text: () => string;
   help?: string | undefined;
+  /** The full accessible name: "Copy rerun command for this test" for "This test". */
+  name?: string | undefined;
   children: ComponentChildren;
 }) {
   const [copied, setCopied] = useState(false);
@@ -35,6 +39,7 @@ export function CopyButton({
         type="button"
         class="button copy-button"
         title={help}
+        aria-label={name}
         aria-describedby={help ? helpId : undefined}
         onClick={async () => {
           if (!(await copyText(label, text()))) return;

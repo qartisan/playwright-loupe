@@ -1053,7 +1053,12 @@ span.dimension-tile { cursor: default; }
 .test-meta dd { margin: 0; }
 .chips { display: flex; flex-wrap: wrap; gap: 4px; padding: 0; margin: 0; list-style: none; }
 .tag { padding: 0 8px; border: 1px solid var(--border-control); border-radius: 999px; background: var(--bg-card); font-size: 12px; line-height: 20px; overflow-wrap: anywhere; }
-.test-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+/* More space between actions than inside the rerun group, so the AI prompt does not read as one of its scopes. */
+.test-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; }
+/* "Copy rerun command:" then one button per scope; wraps as a whole first, then between its buttons. */
+.rerun-group { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.rerun-group-label { color: var(--fg-secondary); }
+.rerun-group .rerun-note { flex-basis: 100%; }
 
 .attempt-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 20px; border-bottom: 1px solid var(--border-control); }
 .attempt-tab {

@@ -325,13 +325,17 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     const failing = find('fails on a wrong heading (intentional)');
     const { page, errors } = await open(testHash(failing), { init: CLIPBOARD_STUB });
     const copied = () => page.evaluate<string[]>('window.__copied');
-    const button = page.getByRole('button', { name: 'Copy rerun command', exact: true });
+    const button = page.getByRole('button', { name: 'Copy rerun command for this test', exact: true });
     expect(await button.getAttribute('title')).toContain('from the folder that holds your Playwright config');
+    // The scope first: the group's label, then the button's own scope as its visible text.
+    const group = page.getByRole('group', { name: 'Copy rerun command:' });
+    expect(await group.getByRole('button').count()).toBe(1);
+    expect(await button.innerText()).toBe('This test');
     await button.click();
     await expect.poll(copied).toEqual([rerunCommand([failing])]);
     await expect.poll(() => page.getByRole('status').textContent()).toContain('Rerun command copied to the clipboard.');
     // It says so on screen, its accessible name unchanged: the live region is what announces the copy.
-    expect(await page.locator('.test-actions .copy-button').first().textContent()).toBe('Copy rerun command · Copied');
+    expect(await page.locator('.test-actions .copy-button').first().textContent()).toBe('This test · Copied');
     expect(await button.isVisible()).toBe(true);
 
     // Its file has no other failed test: the same test failing in the other project does not count.
@@ -369,7 +373,7 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     await prompt.click();
     await expect.poll(announced).toEqual([message, '', message]);
     // Another copy: cleared first too, so its whole message is new text.
-    await page.getByRole('button', { name: 'Copy rerun command', exact: true }).click();
+    await page.getByRole('button', { name: 'Copy rerun command for this test', exact: true }).click();
     await expect.poll(announced).toEqual([message, '', message, '', 'Rerun command copied to the clipboard.']);
     await page.waitForTimeout(300);
     expect(await announced()).toHaveLength(5);
@@ -394,7 +398,13 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     const { page } = await open(testHash(timeout), { init: CLIPBOARD_STUB });
     const failedInFile = report.tests.filter((test) => test.file === timeout.file && test.outcome === 'failed');
     const count = failedInFile.filter((test) => test.project === 'chromium-a').length;
-    const fileButton = page.getByRole('button', { name: `Copy rerun command · ${count} failed tests in this file, in chromium-a, chromium-b` });
+    // Its visible text is the scope alone, its name complete; the projects in its description and tooltip, first.
+    const fileButton = page.getByRole('group', { name: 'Copy rerun command:' }).getByRole('button', { name: `Copy rerun command for ${count} failed tests in this file`, exact: true });
+    expect(await fileButton.innerText()).toBe(`${count} failed tests in this file`);
+    const scope = `Reruns ${count} failed tests in this file, in chromium-a, chromium-b.`;
+    expect(await fileButton.getAttribute('title')).toMatch(new RegExp(`^${scope.replace(/[.]/g, '\\.')} Paste it`));
+    const [helpId] = ((await fileButton.getAttribute('aria-describedby')) ?? '').split(' ');
+    expect(await page.locator(`[id="${helpId}"]`).textContent()).toMatch(new RegExp(`^${scope.replace(/[.]/g, '\\.')} Paste it`));
     await fileButton.click();
     await expect.poll(async () => (await page.evaluate<string[]>('window.__copied'))[0]).toBe(rerunCommand(failedInFile));
     await page.close();
@@ -421,7 +431,7 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
   it('falls back to a dialog with the text selected when the Clipboard API is missing', async () => {
     const failing = find('fails on a wrong heading (intentional)');
     const { page, errors } = await open(testHash(failing), { init: NO_CLIPBOARD });
-    const button = page.getByRole('button', { name: 'Copy rerun command', exact: true });
+    const button = page.getByRole('button', { name: 'Copy rerun command for this test', exact: true });
     await button.click();
     const dialog = page.getByRole('dialog', { name: 'Copy rerun command' });
     await dialog.waitFor();
@@ -505,18 +515,31 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     const failing = find('fails on a wrong heading (intentional)');
     const { page } = await open(testHash(failing), { init: CLIPBOARD_STUB, reportUrl: writeReport('too-long-file', withLongTitles(50)) });
     await page.locator('.test-actions .rerun-note').waitFor();
-    expect(await page.getByRole('button', { name: /in this file/ }).getAttribute('aria-disabled')).toBe('true');
-    expect(await page.getByRole('button', { name: 'Copy rerun command', exact: true }).getAttribute('aria-disabled')).toBeNull();
+    const disabled = page.getByRole('button', { name: /^Copy rerun command for \d+ failed tests? in this file$/ });
+    expect(await disabled.getAttribute('aria-disabled')).toBe('true');
+    expect(await page.getByRole('button', { name: 'Copy rerun command for this test', exact: true }).getAttribute('aria-disabled')).toBeNull();
+    // Disabled, it still says its scope with the projects, then why it does nothing.
+    expect(await disabled.getAttribute('title')).toMatch(/^Reruns .*in chromium-a\b.*\. Too long/);
+    const ids = ((await disabled.getAttribute('aria-describedby')) ?? '').split(' ');
+    expect(ids).toHaveLength(2);
+    expect(await page.locator(`[id="${ids[0]}"]`).textContent()).toMatch(/^Reruns .*in chromium-a\b.*\.$/);
     await page.close();
   });
 
-  it('never says "Rerun" alone on a button: it copies, it runs nothing', async () => {
+  it('never says "Rerun" alone on a button, and every copy button names what it shows', async () => {
     const failing = report.tests.find((test) => test.outcome === 'failed');
-    for (const fragment of ['#/', '#/tests', `#/test/${failing?.id}`]) {
+    // A test whose file has other failed tests: both rerun buttons, the AI prompt and the trace card.
+    const inFile = find('times out (intentional)');
+    for (const fragment of ['#/', '#/tests', `#/test/${failing?.id}`, testHash(inFile)]) {
       const { page } = await open(fragment);
-      const labels = await page.locator('main .copy-button').allTextContents();
-      expect(labels.filter((text) => /rerun/i.test(text)).length, fragment).toBeGreaterThan(0);
-      for (const text of labels.filter((candidate) => /rerun/i.test(candidate))) expect(text, fragment).toMatch(/^Copy rerun command( · .+)?$/);
+      // Accessible names: aria-label, or the text. Every copy button's name holds its visible text (WCAG 2.5.3).
+      const buttons = await page.locator('main .copy-button').evaluateAll((elements) =>
+        elements.map((element) => ({ name: element.getAttribute('aria-label') ?? element.textContent ?? '', visible: (element as unknown as { innerText: string }).innerText })),
+      );
+      const names = buttons.map(({ name }) => name);
+      expect(names.filter((text) => /rerun/i.test(text)).length, fragment).toBeGreaterThan(0);
+      for (const text of names.filter((candidate) => /rerun/i.test(candidate))) expect(text, fragment).toMatch(/^Copy rerun command( · .+| for .+)?$/);
+      for (const { name, visible } of buttons) expect(name.toLowerCase(), fragment).toContain(visible.trim().toLowerCase());
       await page.close();
     }
   });

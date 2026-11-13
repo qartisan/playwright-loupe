@@ -166,18 +166,36 @@ export function Verdict({ report, history = null, children }: { report: LoupeRep
  * button does nothing, and the notice explains why and gives the alternative.
  * `aria-disabled`, not `disabled`, which would leave the tab order and show no
  * tooltip: keyboard and screen reader users must be able to learn why.
+ * `name` is the full accessible name when the visible text is only the
+ * scope; `scope` says whole what the command selects (projects included),
+ * first in the description and the tooltip.
  */
-export function RerunButton({ tests, children }: { tests: readonly RerunTarget[]; children: ComponentChildren }) {
+export function RerunButton({ tests, name, scope, children }: { tests: readonly RerunTarget[]; name?: string; scope?: string; children: ComponentChildren }) {
   const command = useMemo(() => rerunCommand(tests), [tests]);
   const notice = commandNotice(command);
   const noticeId = useId();
+  const scopeId = useId();
+  // What the command selects, when the visible text says it in short: first in the description and the tooltip.
+  const what = scope ? `Reruns ${scope}.` : null;
   if (commandLimit(command) === 'linux') {
     return (
       <>
-        <button type="button" class="button copy-button" aria-disabled="true" aria-describedby={noticeId} title={notice ?? undefined}>
+        <button
+          type="button"
+          class="button copy-button"
+          aria-disabled="true"
+          aria-label={name}
+          aria-describedby={what ? `${scopeId} ${noticeId}` : noticeId}
+          title={[what, notice].filter(Boolean).join(' ') || undefined}
+        >
           <CopyIcon />
           <span>{children}</span>
         </button>
+        {what && (
+          <span id={scopeId} hidden>
+            {what}
+          </span>
+        )}
         <p id={noticeId} class="rerun-note">
           {notice}
         </p>
@@ -186,7 +204,7 @@ export function RerunButton({ tests, children }: { tests: readonly RerunTarget[]
   }
   return (
     <>
-      <CopyButton label="Rerun command" help={notice ? `${RERUN_HELP} ${notice}` : RERUN_HELP} text={() => command}>
+      <CopyButton label="Rerun command" name={name} help={[what, RERUN_HELP, notice].filter(Boolean).join(' ')} text={() => command}>
         {children}
       </CopyButton>
       {notice && <p class="rerun-note">{notice}</p>}
