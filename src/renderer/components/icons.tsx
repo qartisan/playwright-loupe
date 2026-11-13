@@ -119,6 +119,17 @@ export function DashboardIcon(props: IconProps) {
   );
 }
 
+/** Information: a note, neither a warning nor an error. */
+export function InfoIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="8" cy="8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.3" />
+      <path d="M8 7.2v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      <circle cx="8" cy="4.9" r=".9" fill="currentColor" />
+    </Svg>
+  );
+}
+
 export function AlertIcon(props: IconProps) {
   return (
     <Svg {...props}>

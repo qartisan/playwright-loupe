@@ -1,9 +1,28 @@
+import type { ComponentChildren } from 'preact';
 import { HISTORY_STATES } from '../../shared/history.js';
 import { formatRunStart } from '../datetime.js';
 import { plural } from '../format.js';
 import { NO_STATES_TEXT, STATE_HELP, formatFailedChange, formatPoints, noDeltaText, stateCount, stateHelpId, streamName, type ReportHistory } from '../history.js';
 import { facetHref } from '../filters/store.js';
 import { HistoryHelp } from './HistoryHelp.js';
+import { InfoIcon } from './icons.js';
+
+/**
+ * A run-level notice, set apart so that it is not missed inside the verdict:
+ * a note, not an error (a neutral background, an information icon). The icon
+ * is hidden; "Note:" is its text alternative.
+ */
+function HistoryNotice({ children }: { children: ComponentChildren }) {
+  return (
+    <p class="history-notice">
+      <InfoIcon />
+      <span>
+        <span class="visually-hidden">Note: </span>
+        {children}
+      </span>
+    </p>
+  );
+}
 
 /**
  * The history part of the verdict: the change since the previous run that
@@ -63,14 +82,14 @@ export function VerdictHistory({ history }: { history: ReportHistory }) {
         analysis.noStates && <p class="history-note">{NO_STATES_TEXT[analysis.noStates]}</p>
       )}
       {signatures && (
-        <p class="history-note">
+        <HistoryNotice>
           Loupe's error signatures changed: errors before <time dateTime={signatures.utc}>{signatures.label}</time> are not compared.
-        </p>
+        </HistoryNotice>
       )}
       {analysis.skipped > 0 && analysis.noStates !== 'all-skipped' && (
-        <p class="history-note">
+        <HistoryNotice>
           {plural(analysis.skipped, 'earlier run file')} of this stream could not be read (a newer history format, or unreadable files): the window is shorter.
-        </p>
+        </HistoryNotice>
       )}
       {analysis.statesShown && <HistoryHelp headingLevel={4} include={block.include} />}
     </div>

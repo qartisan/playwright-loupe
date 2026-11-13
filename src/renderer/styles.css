@@ -591,6 +591,9 @@ pre.message {
 .verdict-history-title { margin: 0 0 4px; font-size: 14px; font-weight: 600; }
 .verdict-history-stream { margin-left: 6px; color: var(--fg-secondary); font-weight: 400; }
 .history-delta, .history-note { margin: 4px 0; color: var(--fg-secondary); }
+/* A run-level notice: a note, not an error. Neutral (neither red nor amber), full-contrast text; the transparent border shows in forced colours. */
+.history-notice { display: flex; align-items: flex-start; gap: 8px; margin: 8px 0 0; padding: 6px 10px; border: 1px solid transparent; border-radius: 6px; background: var(--bg-muted); color: var(--fg); }
+.history-notice > .icon { flex: none; margin-top: 2px; color: var(--fg-secondary); }
 .history-delta strong { color: var(--fg); font-variant-numeric: tabular-nums; }
 .history-states { display: flex; flex-wrap: wrap; gap: 4px 20px; margin: 8px 0 0; padding: 0; list-style: none; font-variant-numeric: tabular-nums; }
 .history-state-empty { color: var(--fg-secondary); }

@@ -54,8 +54,8 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
     if (workDir) rmSync(workDir, { recursive: true, force: true });
   });
 
-  async function open(name: Page_, hash: string): Promise<Page> {
-    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  async function open(name: Page_, hash: string, colorScheme: 'light' | 'dark' = 'light'): Promise<Page> {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, colorScheme });
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(String(error)));
     await page.goto(`${urls[name]}${hash}`);
@@ -158,14 +158,64 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
     await page.close();
   });
 
-  it('run-level notices: the signature version break, the skipped files', async () => {
+  it('run-level notices: the signature version break, the skipped files, each a note with its text alternative', async () => {
     const versions = await open('version-break', '#/');
-    expect(await zone(versions).getByText(/^Loupe's error signatures changed: errors before .+ are not compared\.$/).count()).toBe(1);
+    expect(await zone(versions).locator('.history-notice').allTextContents()).toEqual([expect.stringMatching(/^Note: Loupe's error signatures changed: errors before .+ are not compared\.$/)]);
     await versions.close();
     const skipped = await open('skipped-some', '#/');
-    expect(await zone(skipped).getByText(/^3 earlier run files of this stream could not be read/).count()).toBe(1);
+    expect(await zone(skipped).locator('.history-notice').allTextContents()).toEqual([expect.stringMatching(/^Note: 3 earlier run files of this stream could not be read/)]);
     expect(await zone(skipped).locator('.history-states').count()).toBe(1);
+    // The icon is hidden: "Note:" is its text alternative.
+    expect(await zone(skipped).locator('.history-notice svg').getAttribute('aria-hidden')).toBe('true');
     await skipped.close();
+    // No notice without a reason for one.
+    const normal = await open('normal', '#/');
+    expect(await zone(normal).locator('.history-notice').count()).toBe(0);
+    await normal.close();
+  });
+
+  it.each(['light', 'dark'] as const)('run-level notices in the %s theme: contrast met, styled as a note, not as an error', async (colorScheme) => {
+    const page = await open('version-break', '#/', colorScheme);
+    await page.locator('.history-notice').waitFor();
+    // Colours as the page computes them: the note's text, icon and background, and the failure and warning colours.
+    const colours = await page.evaluate<Record<string, string>>(`(() => {
+      const notice = document.querySelector('.history-notice');
+      const probe = (property) => {
+        const element = document.createElement('span');
+        element.style.color = 'var(' + property + ')';
+        document.body.append(element);
+        const value = getComputedStyle(element).color;
+        element.remove();
+        return value;
+      };
+      return {
+        text: getComputedStyle(notice).color,
+        icon: getComputedStyle(notice.querySelector('svg')).color,
+        background: getComputedStyle(notice).backgroundColor,
+        failed: probe('--status-failed'),
+        flaky: probe('--status-flaky'),
+        flakyBackground: probe('--status-flaky-bg'),
+      };
+    })()`);
+    const rgb = (value: string) => (value.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+    const luminance = (value: string) => {
+      const [r, g, b] = rgb(value).map((channel) => {
+        const c = channel / 255;
+        return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * (r ?? 0) + 0.7152 * (g ?? 0) + 0.0722 * (b ?? 0);
+    };
+    const contrast = (a: string, b: string) => {
+      const [high, low] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+      return ((high ?? 0) + 0.05) / ((low ?? 0) + 0.05);
+    };
+    // Text at least 4.5:1 (WCAG 1.4.3), the icon at least 3:1 (1.4.11).
+    expect(contrast(colours.text ?? '', colours.background ?? '')).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(colours.icon ?? '', colours.background ?? '')).toBeGreaterThanOrEqual(3);
+    // A background of its own, not the failure or warning colours.
+    expect(colours.background).not.toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
+    for (const colour of [colours.text, colours.icon, colours.background]) expect([colours.failed, colours.flaky, colours.flakyBackground]).not.toContain(colour);
+    await page.close();
   });
 
   describe('Tests view: the state marker', () => {
