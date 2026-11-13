@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { EmbeddedRun } from '../../schema/history-v1.js';
 import type { AttemptStatus, LoupeReport, TestCase } from '../../schema/v1.js';
 import { countsForTests, otherStreams, runFlags, testCells, type HistoryCell, type ResultCode } from '../../shared/history.js';
@@ -100,10 +100,10 @@ function cellFacts(cell: StripCell, date: string, include: Include): string[] {
   return facts;
 }
 
-function CellDetails({ cell, date, include }: { cell: StripCell; date: string; include: Include }) {
+function CellDetails({ cell, date, include, above }: { cell: StripCell; date: string; include: Include; above: boolean }) {
   const gap = failureGap(cell);
   return (
-    <div class="strip-details" data-run-id={cell.run.id}>
+    <div class={`strip-details${above ? ' strip-details-above' : ''}`} data-run-id={cell.run.id}>
       <ul class="strip-facts">
         {cellFacts(cell, date, include).map((fact) => (
           <li key={fact}>{fact}</li>
@@ -120,27 +120,84 @@ function CellDetails({ cell, date, include }: { cell: StripCell; date: string; i
  * The strip: one cell per run of the window, oldest first, then the current
  * run, set apart. One tab stop (roving tabindex): arrow keys move between
  * cells and stop at the ends, Home and End go to them. Each cell has a full
- * accessible name, and its facts as its description. The panel under the
- * strip shows the hovered or focused cell, only then: it floats over what
- * follows, so nothing moves, and stays while the pointer is over it. A cell
- * keeps its run id (`data-run-id`) for a later link to that run's report.
+ * accessible name, and its facts as its description. A cell keeps its run id
+ * (`data-run-id`) for a later link to that run's report.
+ *
+ * The panel shows the hovered or focused cell, only then, and meets WCAG
+ * 1.4.13 (content on hover or focus):
+ * - it floats over what follows, so nothing moves, and never over the cells:
+ *   under the strip, or above it when the visible area has no room below;
+ * - hoverable: it stays while the pointer moves to it and over it (a
+ *   transparent bridge covers the gap);
+ * - persistent: it stays until the pointer and focus leave, or Escape;
+ * - dismissible: Escape hides it without moving pointer or focus; another
+ *   cell, or leaving and coming back, shows it again;
+ * - on touch, a tap focuses the cell, which shows it; only a mouse hovers,
+ *   so a tap elsewhere hides it.
  */
 function Strip({ cells, include }: { cells: readonly StripCell[]; include: Include }) {
   const last = cells.length - 1;
   const [active, setActive] = useState(last);
   const [hovered, setHovered] = useState<number | null>(null);
   const [focused, setFocused] = useState<number | null>(null);
+  // The cell whose panel Escape hid: hidden until another cell is shown, or none.
+  const [dismissed, setDismissed] = useState<number | null>(null);
+  const [above, setAbove] = useState(false);
   const list = useRef<HTMLDivElement>(null);
+  const block = useRef<HTMLDivElement>(null);
   const dates = useMemo(() => cells.map((cell) => formatRunStart(cell.run.startedAt)?.label ?? cell.run.startedAt), [cells]);
   const focusCell = (index: number): void => {
     const target = Math.min(Math.max(index, 0), last);
     setActive(target);
     list.current?.querySelector<HTMLElement>(`[data-cell="${target}"]`)?.focus();
   };
-  const shownIndex = hovered ?? focused;
+  const current = hovered ?? focused;
+  const shownIndex = current === dismissed ? null : current;
   const shown = shownIndex === null ? null : cells[shownIndex];
+  // Leaving the strip and its panel ends a dismissal; another cell is not dismissed.
+  useEffect(() => {
+    if (current === null || (dismissed !== null && current !== dismissed)) setDismissed(null);
+  }, [current]);
+  // Escape from anywhere: the pointer may rest on a cell while focus is elsewhere. Neither moves, and the event
+  // goes on unchanged. One listener for the strip's life, reading the cell shown from refs that the focus and
+  // pointer handlers set at once: an Escape pressed right after a focus, before the render, still dismisses it.
+  const live = useRef<{ hovered: number | null; focused: number | null }>({ hovered: null, focused: null });
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      const index = live.current.hovered ?? live.current.focused;
+      if (event.key === 'Escape' && index !== null) setDismissed(index);
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
+  }, []);
+  const hover = (index: number | null): void => {
+    live.current.hovered = index;
+    setHovered(index);
+  };
+  const focus = (index: number | null): void => {
+    live.current.focused = index;
+    setFocused(index);
+  };
+  // Under the strip, or above it when the visible area has no room below and more above. Before paint.
+  useLayoutEffect(() => {
+    const panel = block.current?.querySelector<HTMLElement>('.strip-details');
+    if (!block.current || !panel) return;
+    const box = block.current.getBoundingClientRect();
+    const scroller = block.current.closest('main')?.getBoundingClientRect();
+    const top = Math.max(0, scroller?.top ?? 0);
+    const bottom = Math.min(window.innerHeight, scroller?.bottom ?? window.innerHeight);
+    const needed = panel.offsetHeight + 8;
+    const room = { below: bottom - box.bottom, above: box.top - top };
+    setAbove(room.below < needed && room.above > room.below);
+  }, [shownIndex]);
   return (
-    <div class="strip-block" onMouseLeave={() => setHovered(null)}>
+    <div
+      class="strip-block"
+      ref={block}
+      onPointerLeave={(event) => {
+        if (event.pointerType === 'mouse') hover(null);
+      }}
+    >
       <div
         class="strip"
         role="list"
@@ -177,10 +234,13 @@ function Strip({ cells, include }: { cells: readonly StripCell[]; include: Inclu
               aria-describedby={`strip-facts-${index}`}
               onFocus={() => {
                 setActive(index);
-                setFocused(index);
+                focus(index);
               }}
-              onBlur={() => setFocused(null)}
-              onMouseEnter={() => setHovered(index)}
+              onBlur={() => focus(null)}
+              // Hover from a mouse only: on touch, the tap focuses the cell, and a tap elsewhere hides its panel.
+              onPointerEnter={(event) => {
+                if (event.pointerType === 'mouse') hover(index);
+              }}
               onClick={() => focusCell(index)}
             >
               <ResultGlyph code={cell.code} />
@@ -191,7 +251,7 @@ function Strip({ cells, include }: { cells: readonly StripCell[]; include: Inclu
           ];
         })}
       </div>
-      {shown && shownIndex !== null && <CellDetails cell={shown} date={dates[shownIndex] ?? ''} include={include} />}
+      {shown && shownIndex !== null && <CellDetails cell={shown} date={dates[shownIndex] ?? ''} include={include} above={above} />}
     </div>
   );
 }

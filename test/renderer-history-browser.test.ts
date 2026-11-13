@@ -503,6 +503,102 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
       await page.close();
     });
 
+    describe('the cell panel, WCAG 1.4.13 (content on hover or focus)', () => {
+      const panel = (page: Page) => page.locator('.strip-details');
+      const active = (page: Page) => page.evaluate<string | null>("document.activeElement?.getAttribute('data-cell') ?? document.activeElement?.tagName ?? null");
+
+      it('dismissible: Escape hides it without moving pointer or focus; another cell shows it again', async () => {
+        const page = await open('normal', testHash(failing));
+        // Hovered, focus elsewhere.
+        await cells(page).nth(3).hover();
+        await expectLocator(panel(page)).toBeVisible();
+        const before = await active(page);
+        await page.keyboard.press('Escape');
+        await expectLocator(panel(page)).toHaveCount(0);
+        expect(await active(page)).toBe(before);
+        // The pointer has not moved: it stays hidden, until another cell.
+        await page.waitForTimeout(300);
+        await expectLocator(panel(page)).toHaveCount(0);
+        await cells(page).nth(4).hover();
+        await expectLocator(panel(page)).toHaveAttribute('data-run-id', (await cells(page).nth(4).getAttribute('data-run-id')) ?? '');
+        // Focused, pointer away.
+        await page.mouse.move(0, 0);
+        const last = String((await cells(page).count()) - 1);
+        await cells(page).last().focus();
+        await expectLocator(panel(page)).toBeVisible();
+        await page.keyboard.press('Escape');
+        await expectLocator(panel(page)).toHaveCount(0);
+        expect(await active(page)).toBe(last);
+        await page.keyboard.press('ArrowLeft');
+        await expectLocator(panel(page)).toBeVisible();
+        await page.close();
+      });
+
+      it('hoverable and persistent: the pointer reaches it across the gap and it stays', async () => {
+        const page = await open('normal', testHash(failing));
+        const cell = cells(page).nth(3);
+        await cell.hover();
+        const from = await cell.boundingBox();
+        const to = await panel(page).boundingBox();
+        if (!from || !to) throw new Error('no box');
+        // Straight down from the cell into the panel, through the gap, in small steps.
+        await page.mouse.move(from.x + from.width / 2, to.y + 12, { steps: 12 });
+        await expectLocator(panel(page)).toBeVisible();
+        await page.waitForTimeout(1500);
+        await expectLocator(panel(page)).toBeVisible();
+        await expectLocator(panel(page)).toHaveAttribute('data-run-id', (await cell.getAttribute('data-run-id')) ?? '');
+        await page.close();
+      });
+
+      it('touch: a tap shows it, a tap elsewhere hides it', async () => {
+        const context = await browser.newContext({ viewport: { width: 400, height: 800 }, hasTouch: true });
+        const page = await context.newPage();
+        await page.goto(`${urls.normal}${testHash(failing)}`);
+        await cells(page).first().waitFor();
+        await cells(page).nth(3).tap();
+        await expectLocator(panel(page)).toHaveAttribute('data-run-id', (await cells(page).nth(3).getAttribute('data-run-id')) ?? '');
+        await page.locator('.test-title').tap();
+        await expectLocator(panel(page)).toHaveCount(0);
+        await context.close();
+      });
+
+      it.each([
+        ['wide, the strip high on the page', 1280, false],
+        ['wide, the strip at the bottom of the visible area', 1280, true],
+        ['narrow, at the bottom', 400, true],
+        ['narrowest, at the bottom', 320, true],
+      ] as const)('%s: readable in the visible area, never over the cells', async (_, width, atBottom) => {
+        const page = await browser.newPage({ viewport: { width, height: 900 } });
+        await page.goto(`${urls.normal}${testHash(failing)}`);
+        await cells(page).first().waitFor();
+        // At the bottom: the visible area ends 20 px under the strip.
+        const strip = await page.locator('.strip-block').boundingBox();
+        if (!strip) throw new Error('no strip');
+        const height = atBottom ? Math.ceil(strip.y + strip.height + 20) : 900;
+        await page.setViewportSize({ width, height });
+        const above = atBottom;
+        await cells(page).nth(2).focus();
+        await expectLocator(panel(page)).toBeVisible();
+        expect(await panel(page).evaluate((element) => element.classList.contains('strip-details-above'))).toBe(above);
+        const box = await panel(page).boundingBox();
+        const main = await page.locator('main').boundingBox();
+        if (!box || !main) throw new Error('no box');
+        const top = Math.max(0, main.y);
+        expect(box.y).toBeGreaterThanOrEqual(top - 0.5);
+        expect(box.y + box.height).toBeLessThanOrEqual(height + 0.5);
+        expect(box.x).toBeGreaterThanOrEqual(0);
+        expect(box.x + box.width).toBeLessThanOrEqual(width + 0.5);
+        // Never over a cell, the focused one included.
+        for (const cell of await cells(page).all()) {
+          const c = await cell.boundingBox();
+          if (!c) continue;
+          const overlaps = c.x < box.x + box.width && box.x < c.x + c.width && c.y < box.y + box.height && box.y < c.y + c.height;
+          expect(overlaps).toBe(false);
+        }
+        await page.close();
+      });
+    });
+
     it('compact: the rest in a disclosure, closed, whose summary is the counters line', async () => {
       const { report, history } = historyScenario('several-streams', sample);
       const facts = loadHistory(JSON.stringify(history), report)?.byTest.get(report.tests[failingIndex] as never);
