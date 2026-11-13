@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { chromium, expect as expectLocator, type Browser, type Page } from '@playwright/test';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DEFAULT_RENDERER_SETTINGS, injectData, injectHistory, injectSettings } from '../src/core/inject.js';
-import { NO_RESULT_NOTE, NO_STATES_TEXT, STATE_HELP, STATE_LABEL, countersText, loadHistory, stateCount } from '../src/renderer/history.js';
+import { NO_RESULT_NOTE, NO_STATES_TEXT, ORIGIN_TEXT, STATE_HELP, STATE_LABEL, countersText, loadHistory, stateCount, streamDefinition, streamName } from '../src/renderer/history.js';
 import type { LoupeReport } from '../src/schema/v1.js';
 import { HISTORY_STATES, testCells } from '../src/shared/history.js';
 import { ROOT, assertBuilt } from './helpers/fixtures.js';
@@ -161,6 +161,10 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
       await page.locator('.history-help summary').focus();
       await page.keyboard.press('Enter');
       await expectLocator(page.locator('.history-help dd').first()).toBeVisible();
+      // Which runs each level uses, in words.
+      await expectLocator(page.locator('.history-help > p')).toHaveText(
+        "Run comparisons (the changes since the last run, on the dashboard) use full runs outside the IDE that are not excluded. A test's history (its state, counters and strip) uses every run where it ran, except excluded ones.",
+      );
       await page.close();
     });
 
@@ -228,21 +232,31 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
       await page.close();
     });
 
-    it('an excluded run is drawn hollow, as not counted; a partial or ide run that counts gets a flag only', async () => {
+    it('an excluded run is drawn hollow, not used; a partial or ide run, used in the test history, gets a flag only; the same words everywhere', async () => {
       const page = await open('normal', testHash(failing));
       const excluded = cells(page).nth(9);
       expect(await excluded.getAttribute('class')).toContain('strip-excluded');
-      await expectLocator(excluded).toHaveAccessibleName(/, not counted: run excluded \(staging database restored during the run\)$/);
-      for (const [index, note] of [
-        [5, 'partial run (grep)'],
-        [13, 'run from the IDE'],
+      const excludedUse = "Excluded run (staging database restored during the run): not used in this test's history";
+      for (const [index, use, flagged] of [
+        [9, excludedUse, false],
+        [5, "Partial run (grep): used in this test's history, not in run comparisons", true],
+        [13, "Run from the IDE: used in this test's history, not in run comparisons", true],
       ] as const) {
         const cell = cells(page).nth(index);
         const classes = (await cell.getAttribute('class')) ?? '';
-        expect(classes).toContain('strip-flagged');
-        expect(classes).not.toContain('strip-excluded');
-        await expectLocator(cell).toHaveAccessibleName(new RegExp(`, ${note.replace(/[()]/g, '\\$&')}$`));
+        expect(classes.includes('strip-flagged'), String(index)).toBe(flagged);
+        expect(classes.includes('strip-excluded'), String(index)).toBe(!flagged);
+        // The name ends with the sentence, the description and the panel give it whole.
+        expect(await cell.getAttribute('aria-label')).toMatch(new RegExp(`, ${(use.charAt(0).toLowerCase() + use.slice(1)).replace(/[()]/g, '\\$&')}$`));
+        await expectLocator(cell).toHaveAccessibleDescription(new RegExp(use.replace(/[()]/g, '\\$&')));
+        await cell.hover();
+        await expectLocator(page.locator('.strip-facts')).toContainText(use);
       }
+      // No "Counting" field, and nothing about use for an ordinary run.
+      const ordinary = cells(page).nth(0);
+      await ordinary.hover();
+      await expectLocator(page.locator('.strip-facts')).not.toContainText(/Counting|used in|not used/);
+      expect(await page.locator('.test-history').innerText()).not.toMatch(/Counting/);
       // Every other run counts and is full: neither hollow nor flagged.
       expect(await page.locator('.strip-excluded').count()).toBe(1);
       expect(await page.locator('.strip-flagged').count()).toBe(2);
@@ -290,7 +304,7 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
       const cell = strip[column] as (typeof strip)[number];
       const page = await open('normal', testHash(failing));
       const element = cells(page).nth(column);
-      await expectLocator(element).toHaveAccessibleName(new RegExp(`, ${cell.run.origin}, failed, ${cell.failure?.category}`));
+      await expectLocator(element).toHaveAccessibleName(new RegExp(`, ${ORIGIN_TEXT[cell.run.origin]}, failed, ${cell.failure?.category}`));
       await element.focus();
       await expectLocator(element).toHaveAccessibleDescription(/Run duration: .+/);
       await expectLocator(page.locator('.strip-details')).toHaveAttribute('data-run-id', cell.run.id);
@@ -399,6 +413,10 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
       await page.locator('.history-more > summary').focus();
       await page.keyboard.press('Enter');
       await expectLocator(page.getByText(NO_RESULT_NOTE)).toBeVisible();
+      // Streams in words, and what a stream is.
+      await expectLocator(page.locator('.history-other-stream')).toHaveText((history?.others ?? []).map((other) => streamName(other.stream)));
+      await expectLocator(page.locator('.history-other-stream').first()).toHaveText('staging, CI');
+      await expectLocator(page.getByText(streamDefinition(history?.stream ?? {}))).toBeVisible();
       const texts = await items.allInnerTexts();
       codes.forEach((code, index) => {
         const text = (texts[index] ?? '').replace(/\s+/g, ' ');

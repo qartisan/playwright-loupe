@@ -95,11 +95,26 @@ export function stateCount(state: HistoryState, count: number): string {
   return state === 'new-failure' || state === 'new-test' ? plural(count, STATE_LABEL[state].toLowerCase()) : `${count} ${STATE_LABEL[state].toLowerCase()}`;
 }
 
-/** The stream, as its key parts: `default · local`, `staging · ci · main`. */
+/** An origin in words: "CI", "local", "IDE". */
+export const ORIGIN_TEXT: Record<HistoryRun['origin'], string> = { ci: 'CI', local: 'local', ide: 'IDE' };
+
+/** The stream, as its key parts in words: "staging, CI", "default environment, IDE", "staging, CI, branch main". */
 export function streamName(stream: HistoryRun['stream']): string {
-  return Object.values(stream)
-    .map((part) => part ?? 'no branch')
-    .join(' · ');
+  return Object.entries(stream)
+    .map(([part, value]) => {
+      if (part === 'origin') return ORIGIN_TEXT[value as HistoryRun['origin']] ?? value ?? 'no origin';
+      if (part === 'branch') return value === null || value === undefined ? 'no branch' : `branch ${value}`;
+      return value === 'default' ? 'default environment' : (value ?? 'no environment');
+    })
+    .join(', ');
+}
+
+const STREAM_PART_TEXT: Record<string, string> = { environment: 'an environment', origin: 'an origin (CI, local, IDE)', branch: 'a branch' };
+
+/** What a stream is, from the parts of its key: "A stream is an environment plus an origin (CI, local, IDE); each has its own history." */
+export function streamDefinition(stream: HistoryRun['stream']): string {
+  const parts = Object.keys(stream).map((part) => STREAM_PART_TEXT[part] ?? part);
+  return `A stream is ${parts.join(' plus ')}; each has its own history.`;
 }
 
 export const NO_STATES_TEXT: Record<NoStatesReason, string> = {
@@ -145,27 +160,32 @@ function failureWord(cell: Pick<HistoryCell, 'attempts' | 'failure'>): string | 
 }
 
 /**
- * Why a cell is drawn apart, in words: the run is excluded (it does not
- * count), or it counts but is partial or from the IDE. Empty for a full run
- * that counts.
+ * How a run drawn apart is used, in one sentence; null for an ordinary run
+ * (full, not excluded, outside the IDE). Run comparisons (the verdict delta)
+ * use only ordinary runs, a test's history every run but excluded ones;
+ * `history.include: 'all'` uses every run for both.
  */
-export function cellCounting(cell: Pick<HistoryCell, 'run' | 'runCounts' | 'flags'>): string[] {
-  const notes: string[] = [];
-  if (!cell.runCounts) notes.push(`not counted: run excluded${cell.run.excluded ? ` (${cell.run.excluded})` : ''}`);
-  else if (cell.flags.includes('excluded')) notes.push(`excluded run${cell.run.excluded ? ` (${cell.run.excluded})` : ''}, counted with history.include: 'all'`);
-  if (cell.flags.includes('partial')) notes.push(`partial run${cell.run.scopeReasons.length > 0 ? ` (${cell.run.scopeReasons.join(', ')})` : ''}`);
-  if (cell.flags.includes('ide')) notes.push('run from the IDE');
-  return notes;
+export function cellUse(cell: Pick<HistoryCell, 'run' | 'flags'>, include: 'full' | 'all'): string | null {
+  const { run, flags } = cell;
+  const all = "used, because history.include is 'all'";
+  if (flags.includes('excluded')) return `Excluded run${run.excluded ? ` (${run.excluded})` : ''}: ${include === 'all' ? all : "not used in this test's history"}`;
+  const partial = flags.includes('partial');
+  const ide = flags.includes('ide');
+  if (!partial && !ide) return null;
+  const reasons = partial && run.scopeReasons.length > 0 ? ` (${run.scopeReasons.join(', ')})` : '';
+  const subject = partial ? `Partial run${ide ? ' from the IDE' : ''}${reasons}` : 'Run from the IDE';
+  return `${subject}: ${include === 'all' ? all : "used in this test's history, not in run comparisons"}`;
 }
 
 /**
- * The full accessible name of a strip cell: "21 Oct 2026, 18:45, ci,
- * failed, Timeout", then why it is drawn apart. `date` is the run's start as
- * the report formats it.
+ * The full accessible name of a strip cell: "21 Oct 2026, 18:45, CI,
+ * failed, Timeout", then how the run is used when it is drawn apart
+ * (cellUse). `date` is the run's start as the report formats it.
  */
-export function cellName(cell: Pick<HistoryCell, 'run' | 'code' | 'attempts' | 'failure' | 'runCounts' | 'flags'>, date: string): string {
+export function cellName(cell: Pick<HistoryCell, 'run' | 'code' | 'attempts' | 'failure' | 'flags'>, date: string, include: 'full' | 'all'): string {
   const failure = cell.code === 'F' || cell.code === 'K' ? failureWord(cell) : null;
-  return [date, cell.run.origin, RESULT_TEXT[cell.code], ...(failure ? [failure] : []), ...cellCounting(cell)].join(', ');
+  const use = cellUse(cell, include);
+  return [date, ORIGIN_TEXT[cell.run.origin], RESULT_TEXT[cell.code], ...(failure ? [failure] : []), ...(use ? [use.charAt(0).toLowerCase() + use.slice(1)] : [])].join(', ');
 }
 
 /** Why a failure shows no error text: another signature version, or beyond the extracts kept. Null when it has one, or no failure. */

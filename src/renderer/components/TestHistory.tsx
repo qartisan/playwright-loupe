@@ -10,11 +10,13 @@ import {
   RESULT_TEXT,
   STATE_LABEL,
   attemptsText,
-  cellCounting,
+  ORIGIN_TEXT,
   cellName,
+  cellUse,
   countersText,
   failureGap,
   stateDetail,
+  streamDefinition,
   streamName,
   type ReportHistory,
 } from '../history.js';
@@ -22,6 +24,7 @@ import { HistoryStateIcon } from './icons.js';
 
 /** A cell of the strip: a run of the window, or the current run, set apart at the end. */
 type StripCell = HistoryCell & { current: boolean };
+type Include = ReportHistory['analysis']['history']['include'];
 
 const ATTEMPT_CODE: Record<AttemptStatus, string> = { passed: 'P', failed: 'F', timedOut: 'T', skipped: 'S', interrupted: 'I' };
 const OUTCOME_CODE = { passed: 'P', failed: 'F', flaky: 'K', skipped: 'S' } as const;
@@ -82,26 +85,27 @@ function ResultGlyph({ code }: { code: ResultCode }) {
 const shortCommit = (commit: string) => commit.slice(0, 7);
 
 /** The facts of a cell, as lines of text: for its description (read on focus) and the visible panel. */
-function cellFacts(cell: StripCell, date: string): string[] {
+function cellFacts(cell: StripCell, date: string, include: Include): string[] {
   const facts = [cell.current ? `This run, ${date}` : `Run of ${date}`, `Result: ${RESULT_TEXT[cell.code]}`];
   const attempts = attemptsText(cell.attempts);
   if (attempts) facts.push(attempts);
-  facts.push(`Origin: ${cell.run.origin}`);
+  facts.push(`Origin: ${ORIGIN_TEXT[cell.run.origin]}`);
   if (cell.run.branch) facts.push(`Branch: ${cell.run.branch}`);
   if (cell.run.commit) facts.push(`Commit: ${shortCommit(cell.run.commit)}`);
   facts.push(`Run duration: ${formatDuration(cell.run.durationMs)}`);
-  const counting = cellCounting(cell);
-  facts.push(counting.length > 0 ? `Counting: ${counting.join('; ')}` : cell.runCounts ? 'Counting: counted' : 'Counting: not counted');
+  // Nothing for an ordinary run; otherwise how the run is used, in one sentence.
+  const use = cellUse(cell, include);
+  if (use) facts.push(use);
   if (cell.failure?.category) facts.push(`Category: ${cell.failure.category}`);
   return facts;
 }
 
-function CellDetails({ cell, date }: { cell: StripCell; date: string }) {
+function CellDetails({ cell, date, include }: { cell: StripCell; date: string; include: Include }) {
   const gap = failureGap(cell);
   return (
     <div class="strip-details" data-run-id={cell.run.id}>
       <ul class="strip-facts">
-        {cellFacts(cell, date).map((fact) => (
+        {cellFacts(cell, date, include).map((fact) => (
           <li key={fact}>{fact}</li>
         ))}
       </ul>
@@ -121,7 +125,7 @@ function CellDetails({ cell, date }: { cell: StripCell; date: string }) {
  * follows, so nothing moves, and stays while the pointer is over it. A cell
  * keeps its run id (`data-run-id`) for a later link to that run's report.
  */
-function Strip({ cells }: { cells: readonly StripCell[] }) {
+function Strip({ cells, include }: { cells: readonly StripCell[]; include: Include }) {
   const last = cells.length - 1;
   const [active, setActive] = useState(last);
   const [hovered, setHovered] = useState<number | null>(null);
@@ -151,7 +155,7 @@ function Strip({ cells }: { cells: readonly StripCell[] }) {
         }}
       >
         {cells.map((cell, index) => {
-          const name = cellName(cell, dates[index] ?? '');
+          const name = cellName(cell, dates[index] ?? '', include);
           const classes = [
             'strip-cell',
             `strip-${cell.code === '-' ? 'none' : cell.code}`,
@@ -181,13 +185,13 @@ function Strip({ cells }: { cells: readonly StripCell[] }) {
             >
               <ResultGlyph code={cell.code} />
               <span id={`strip-facts-${index}`} hidden>
-                {[...cellFacts(cell, dates[index] ?? '').slice(2), ...(cell.current ? [] : [cell.failure?.extract ?? failureGap(cell) ?? ''])].filter(Boolean).join('. ')}
+                {[...cellFacts(cell, dates[index] ?? '', include).slice(2), ...(cell.current ? [] : [cell.failure?.extract ?? failureGap(cell) ?? ''])].filter(Boolean).join('. ')}
               </span>
             </span>,
           ];
         })}
       </div>
-      {shown && shownIndex !== null && <CellDetails cell={shown} date={dates[shownIndex] ?? ''} />}
+      {shown && shownIndex !== null && <CellDetails cell={shown} date={dates[shownIndex] ?? ''} include={include} />}
     </div>
   );
 }
@@ -200,7 +204,7 @@ function Strip({ cells }: { cells: readonly StripCell[] }) {
  * summary names the other streams. With nothing inside, no disclosure: the
  * counters alone are a plain line, and nothing at all without them.
  */
-function HistoryMore({ counters, noRetries, others }: { counters: string | null; noRetries: boolean; others: ReturnType<typeof otherStreams> }) {
+function HistoryMore({ counters, noRetries, others, stream }: { counters: string | null; noRetries: boolean; others: ReturnType<typeof otherStreams>; stream: ReportHistory['analysis']['history']['stream'] }) {
   const inside = noRetries || others.length > 0;
   if (!inside) return counters ? <p class="history-counters">{counters}</p> : null;
   return (
@@ -210,6 +214,7 @@ function HistoryMore({ counters, noRetries, others }: { counters: string | null;
       {others.length > 0 && (
         <>
           {counters && <h3 class="history-others-title">Latest result in other streams</h3>}
+          <p class="history-note">{streamDefinition(stream)}</p>
           <ul class="history-others">
             {others.map((other) => {
               const date = formatRunStart(other.startedAt);
@@ -274,8 +279,8 @@ export function TestHistory({ history, report, test }: { history: ReportHistory;
           {stateDetail(facts.state, facts.earlier)}
         </p>
       )}
-      {cells.length > 0 && <Strip cells={cells} />}
-      <HistoryMore counters={shown && facts.counters.considered > 0 ? countersText(facts.counters) : null} noRetries={Boolean(shown && facts.noRetries)} others={others} />
+      {cells.length > 0 && <Strip cells={cells} include={block.include} />}
+      <HistoryMore counters={shown && facts.counters.considered > 0 ? countersText(facts.counters) : null} noRetries={Boolean(shown && facts.noRetries)} others={others} stream={block.stream} />
     </section>
   );
 }

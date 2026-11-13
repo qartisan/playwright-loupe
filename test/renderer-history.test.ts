@@ -5,8 +5,8 @@ import { EMPTY_FILTERS, parseFilters, serializeFilters } from '../src/renderer/f
 import {
   NO_STATES_TEXT,
   attemptsText,
-  cellCounting,
   cellName,
+  cellUse,
   countersText,
   failureGap,
   formatFailedChange,
@@ -15,6 +15,7 @@ import {
   noDeltaText,
   stateCount,
   stateDetail,
+  streamDefinition,
   streamName,
   type ReportHistory,
 } from '../src/renderer/history.js';
@@ -143,8 +144,16 @@ describe('verdict history texts', () => {
     }
   });
 
-  it('the stream by its key parts, an unknown branch named', () => {
-    expect(streamName({ environment: 'staging', origin: 'ci', branch: null })).toBe('staging · ci · no branch');
+  it('the stream by its key parts in words, an unknown branch named', () => {
+    expect(streamName({ environment: 'staging', origin: 'ci' })).toBe('staging, CI');
+    expect(streamName({ environment: 'default', origin: 'ide' })).toBe('default environment, IDE');
+    expect(streamName({ environment: 'staging', origin: 'local', branch: null })).toBe('staging, local, no branch');
+    expect(streamName({ origin: 'ci', branch: 'main' })).toBe('CI, branch main');
+  });
+
+  it('what a stream is, from the parts of its key', () => {
+    expect(streamDefinition({ environment: 'default', origin: 'local' })).toBe('A stream is an environment plus an origin (CI, local, IDE); each has its own history.');
+    expect(streamDefinition({ environment: 'x', origin: 'ci', branch: 'main' })).toMatch(/^A stream is an environment plus an origin \(CI, local, IDE\) plus a branch;/);
   });
 });
 
@@ -153,19 +162,28 @@ describe('test detail texts', () => {
   const cell = (fields: Partial<HistoryCell> = {}): HistoryCell =>
     ({ index: 0, run, code: 'F', attempts: 'FT', flags: [], runCounts: true, counts: true, failure: { category: 'Timeout', extract: 'x', compared: true }, ...fields }) as HistoryCell;
 
-  it('the name of a cell: date, origin, result, category, then why it is drawn apart', () => {
-    expect(cellName(cell(), '12 Nov 14:03')).toBe('12 Nov 14:03, ci, failed, Timeout');
-    expect(cellName(cell({ code: 'P', failure: null, attempts: 'P' }), 'd')).toBe('d, ci, passed');
-    expect(cellName(cell({ code: '-', failure: null, attempts: null }), 'd')).toBe('d, ci, no result');
+  it('the name of a cell: date, origin, result, category, then how a run drawn apart is used', () => {
+    expect(cellName(cell(), '12 Nov 14:03', 'full')).toBe('12 Nov 14:03, CI, failed, Timeout');
+    expect(cellName(cell({ code: 'P', failure: null, attempts: 'P' }), 'd', 'full')).toBe('d, CI, passed');
+    expect(cellName(cell({ code: '-', failure: null, attempts: null }), 'd', 'full')).toBe('d, CI, no result');
     const excluded = { ...run, excluded: 'restore' };
-    expect(cellName(cell({ run: excluded, flags: ['excluded'], runCounts: false, counts: false }), 'd')).toBe('d, ci, failed, Timeout, not counted: run excluded (restore)');
+    expect(cellName(cell({ run: excluded, flags: ['excluded'], runCounts: false, counts: false }), 'd', 'full')).toBe(
+      "d, CI, failed, Timeout, excluded run (restore): not used in this test's history",
+    );
   });
 
-  it('a counted result of a partial or ide run is flagged, not marked as not counted; include all names the exclusion', () => {
+  it('how a run is used: nothing for an ordinary run, one sentence otherwise', () => {
+    expect(cellUse(cell(), 'full')).toBeNull();
+    expect(cellUse(cell(), 'all')).toBeNull();
     const partial = { ...run, scopeReasons: ['grep', 'project'] };
-    expect(cellCounting(cell({ run: partial, flags: ['partial', 'ide'] }))).toEqual(['partial run (grep, project)', 'run from the IDE']);
-    expect(cellCounting(cell({ run: { ...run, excluded: 'x' }, flags: ['excluded'], runCounts: true }))).toEqual(["excluded run (x), counted with history.include: 'all'"]);
-    expect(cellCounting(cell())).toEqual([]);
+    expect(cellUse(cell({ run: partial, flags: ['partial'] }), 'full')).toBe("Partial run (grep, project): used in this test's history, not in run comparisons");
+    expect(cellUse(cell({ flags: ['ide'] }), 'full')).toBe("Run from the IDE: used in this test's history, not in run comparisons");
+    expect(cellUse(cell({ run: partial, flags: ['ide', 'partial'] }), 'full')).toBe("Partial run from the IDE (grep, project): used in this test's history, not in run comparisons");
+    expect(cellUse(cell({ run: { ...run, excluded: 'x' }, flags: ['excluded'], runCounts: false }), 'full')).toBe("Excluded run (x): not used in this test's history");
+    expect(cellUse(cell({ run: { ...run, excluded: 'x' }, flags: ['excluded'], runCounts: true }), 'all')).toBe("Excluded run (x): used, because history.include is 'all'");
+    // With include: 'all', run comparisons use partial and IDE runs too.
+    expect(cellUse(cell({ flags: ['ide'] }), 'all')).toBe("Run from the IDE: used, because history.include is 'all'");
+    for (const flags of [['ide'], ['partial']] as const) expect(cellUse(cell({ run: partial, flags: [...flags] }), 'full')).not.toMatch(/not used/);
   });
 
   it('why a failure shows no error text', () => {

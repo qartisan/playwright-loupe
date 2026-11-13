@@ -956,6 +956,8 @@ span.dimension-tile { cursor: default; }
 .history-help dl > div { display: contents; }
 .history-help dt { display: flex; align-items: center; gap: 4px; font-weight: 600; }
 .history-help dd { margin: 0; color: var(--fg-secondary); }
+.history-help-title { margin: 12px 0 4px; font-size: 13px; font-weight: 600; }
+.history-help > p { margin: 0; max-width: 72ch; color: var(--fg-secondary); }
 /*
  * The strip of a test's results (TestHistory). Shape and colour per status. A run that does not count
  * at test level (excluded) is hollow and dashed; a result that counts from a partial or IDE run gets
