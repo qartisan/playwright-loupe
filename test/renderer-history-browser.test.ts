@@ -282,6 +282,21 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
       await page.close();
     });
 
+    it('every state icon is its own shape, and none draws an arc: curved arrows are flaky\'s sign', async () => {
+      const page = await open('normal', '#/tests');
+      // The definitions hold every state's icon, also while closed.
+      const shapes = await page.locator('.history-help dt').evaluateAll((terms) =>
+        terms.map((term) => [term.textContent?.trim(), [...term.querySelectorAll('path')].map((path) => path.getAttribute('d')).join(' ')]),
+      );
+      expect(shapes.map(([label]) => label)).toEqual(HISTORY_STATES.map((state) => STATE_LABEL[state]));
+      expect(new Set(shapes.map(([, d]) => d)).size).toBe(HISTORY_STATES.length);
+      for (const [label, d] of shapes) expect(d, label).not.toMatch(/[Aa]/);
+      // The rule means something: flaky's status icon is drawn with arcs (the strip's flaky mark too, ResultGlyph).
+      const flaky = await page.locator('.outcome-flaky path').first().getAttribute('d');
+      expect(flaky).toMatch(/A/);
+      await page.close();
+    });
+
     it('filters on its state, like a chip; active, it removes the filter', async () => {
       const page = await open('normal', '#/tests');
       await page.locator('.history-marker', { hasText: STATE_LABEL['failed-again'] }).first().click();

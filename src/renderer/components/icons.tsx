@@ -236,13 +236,16 @@ export function KeyboardIcon(props: IconProps) {
  * The shape of a history state, always next to its label (never alone, so
  * hidden from assistive technologies): a spark for a new failure, a return
  * arrow for a failure that came back, two bars for one that goes on, a plus
- * for a new test, a check for a fixed test.
+ * for a new test, a check for a fixed test. Straight strokes only: curved
+ * arrows are flaky's sign (OutcomeIcon, the strip), so no state may draw an
+ * arc (test/renderer-history-browser.test.ts).
  */
 export function HistoryStateIcon({ state, ...props }: IconProps & { state: 'new-failure' | 'failed-again' | 'still-failing' | 'new-test' | 'fixed' }) {
   const stroke = { fill: 'none', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' } as const;
   const shape = {
     'new-failure': <path d="M8 2.5v3M8 10.5v3M2.5 8h3M10.5 8h3M4.3 4.3l1.6 1.6M10.1 10.1l1.6 1.6M11.7 4.3l-1.6 1.6M5.9 10.1l-1.6 1.6" {...stroke} />,
-    'failed-again': <path d="M12.5 9A4.5 4.5 0 1 1 11 4.2M11.5 1.8v2.8H8.7" {...stroke} />,
+    // A return arrow of straight segments: curved arrows are flaky's sign everywhere in the report.
+    'failed-again': <path d="M12.5 3v5.5H4M6.8 5.7L4 8.5l2.8 2.8" {...stroke} />,
     'still-failing': <path d="M3 6h10M3 10h10" {...stroke} />,
     'new-test': <path d="M8 3.5v9M3.5 8h9" {...stroke} />,
     fixed: <path d="M3.5 8.4l3 3 6-6.6" {...stroke} />,
