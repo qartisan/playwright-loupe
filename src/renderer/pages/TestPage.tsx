@@ -17,7 +17,7 @@ import { attemptLabel, selectAttempt } from '../detail/attempts.js';
 import { parseDetailParams, serializeDetailParams, type DetailParams } from '../detail/params.js';
 import { fileRerun } from '../detail/rerun.js';
 import { neighbors } from '../detail/sequence.js';
-import { shownCategories } from '../filters/match.js';
+import { facetTags, filterContext, shownCategories } from '../filters/match.js';
 import { setDetailQuery } from '../filters/store.js';
 import { isSecondaryError } from '../secondary.js';
 import { NOT_RUN_EXPLANATION, skipLabel, skipReason } from '../skip.js';
@@ -38,17 +38,24 @@ function annotationText({ type, description }: Annotation): string {
   return description ? `${type}: ${description}` : type;
 }
 
-/** Tags, annotations and dimensions of the test; rows without values are left out. */
-function TestMeta({ test }: { test: TestCase }) {
+/**
+ * Tags, annotations and dimensions of the test; rows without values are left
+ * out. A tag a dimension takes (`@layer:api`, with a Layer dimension on the
+ * `layer` prefix) shows only as that dimension's value, as in the filters and
+ * the Tests view's chips; its values outside the declared ones included. The
+ * Tags row keeps the other tags, and is absent when none is left.
+ */
+function TestMeta({ test, report }: { test: TestCase; report: LoupeReport }) {
   const dimensions = Object.entries(test.dimensions).filter(([, values]) => values.length > 0);
-  if (test.tags.length === 0 && test.annotations.length === 0 && dimensions.length === 0) return null;
+  const tags = useMemo(() => facetTags(test.tags, filterContext({ dimensions: report.dimensions })), [test, report]);
+  if (tags.length === 0 && test.annotations.length === 0 && dimensions.length === 0) return null;
   return (
     <dl class="test-meta">
-      {test.tags.length > 0 && (
+      {tags.length > 0 && (
         <div>
           <dt>Tags</dt>
           <dd class="chips">
-            {test.tags.map((tag) => (
+            {tags.map((tag) => (
               <span key={tag} class="tag">
                 {tag}
               </span>
@@ -283,7 +290,7 @@ export function TestPage({
           {primary !== null && <CategoryBadge name={primary} color={colors.get(primary)} />}
         </div>
         {skip?.kind === 'notRun' && <p class="skip-explanation">{NOT_RUN_EXPLANATION}</p>}
-        <TestMeta test={test} />
+        <TestMeta test={test} report={report} />
         <div class="test-actions">
           <RerunButton tests={[test]}>Copy rerun command</RerunButton>
           {inFile && <RerunButton tests={inFile.tests}>Copy rerun command · {inFile.label}</RerunButton>}

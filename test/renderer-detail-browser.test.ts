@@ -253,6 +253,52 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     await page.close();
   });
 
+  it('shows a tag a dimension takes only as that dimension, unknown values included; search and filters still find it', async () => {
+    /** The rows of the detail's tags, annotations and dimensions, as [label, value]. */
+    const meta = (page: Page) =>
+      page.locator('.test-meta > div').evaluateAll((rows) => rows.map((row) => [row.querySelector('dt')?.textContent, row.querySelector('dd')?.textContent]));
+    // @area:checkout and @layer:ui are taken by the area and Layer dimensions; ui is not among Layer's declared values.
+    const nested = find('runs nested steps');
+    expect(nested.tags).toEqual(['@area:checkout', '@layer:ui', '@smoke']);
+    expect(report.dimensions.find((dimension) => dimension.name === 'Layer')?.values).not.toContain('ui');
+    for (const colorScheme of ['light', 'dark'] as const) {
+      const { page, errors } = await open(testHash(nested), { colorScheme });
+      await page.locator('.test-meta').waitFor();
+      expect(await meta(page)).toEqual([
+        ['Tags', '@smoke'],
+        ['Layer', 'ui'],
+        ['area', 'checkout'],
+      ]);
+      expect(errors).toEqual([]);
+      await page.close();
+    }
+    // Only taken tags: no Tags row.
+    const single = await open(testHash(find('computes a value')));
+    await single.page.locator('.test-meta').waitFor();
+    expect(await meta(single.page)).toEqual([['Layer', 'api']]);
+    await single.page.close();
+    // No dimension takes them: every tag in the Tags row.
+    const bare = { ...report, dimensions: [], tests: report.tests.map((test) => ({ ...test, dimensions: {} })) };
+    const plain = await open(testHash(nested), { reportUrl: writeReport('no-dimensions', bare) });
+    await plain.page.locator('.test-meta').waitFor();
+    expect(await meta(plain.page)).toEqual([['Tags', '@area:checkout@layer:ui@smoke']]);
+    await plain.page.close();
+
+    // The Tests view: the search by the full raw tag, the dimension filter for a taken tag, the tag filter for a free one.
+    const titles = async (query: string) => {
+      const { page } = await open(`#/tests?${query}`);
+      await page.locator('.tests-table, .empty-state').first().waitFor();
+      const found = [...new Set((await page.locator('.cell-title > a').allTextContents()).map((title) => title.split(' › ').at(-1)))];
+      await page.close();
+      return found;
+    };
+    expect(await titles('q=%40area%3Acheckout')).toEqual(['runs nested steps']);
+    expect(await titles('q=%40layer%3Aui')).toContain('runs nested steps');
+    expect(await titles('dim.area=checkout')).toEqual(['runs nested steps']);
+    expect(await titles('dim.Layer=ui')).toContain('runs nested steps');
+    expect(await titles('tag=%40smoke')).toEqual(['runs nested steps']);
+  });
+
   it("shows an attempt's own annotations only, each once", async () => {
     const failing = find('fails on a wrong heading (intentional)');
     const section = (page: Page) => page.getByRole('region', { name: 'Annotations of this attempt' });
