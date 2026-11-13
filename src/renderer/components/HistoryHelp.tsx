@@ -1,5 +1,5 @@
 import { HISTORY_STATES } from '../../shared/history.js';
-import { STATE_HELP, STATE_LABEL, stateHelpId } from '../history.js';
+import { STATE_HELP, STATE_LABEL, WHICH_RUNS_TEXT, stateHelpId } from '../history.js';
 import { HistoryStateIcon } from './icons.js';
 
 /**
@@ -9,9 +9,10 @@ import { HistoryStateIcon } from './icons.js';
  * screen reader reads it on focus even while the disclosure is closed. Render
  * it once per view, only when states are shown. It ends with which runs
  * each level uses, as cells of the strip say it for their run (cellUse),
- * under a heading at `headingLevel`, the next level in its view.
+ * under a heading at `headingLevel`, the next level in its view, in the
+ * words of the report's `history.include`.
  */
-export function HistoryHelp({ headingLevel }: { headingLevel: 2 | 3 | 4 }) {
+export function HistoryHelp({ headingLevel, include }: { headingLevel: 2 | 3 | 4; include: 'full' | 'all' }) {
   const Heading = `h${headingLevel}` as 'h2';
   return (
     <details class="history-help">
@@ -27,10 +28,7 @@ export function HistoryHelp({ headingLevel }: { headingLevel: 2 | 3 | 4 }) {
         ))}
       </dl>
       <Heading class="history-help-title">Which runs are used</Heading>
-      <p>
-        Run comparisons (the changes since the last run, on the dashboard) use full runs outside the IDE that are not excluded. A test's history (its
-        state, counters and strip) uses every run where it ran, except excluded ones.
-      </p>
+      <p>{WHICH_RUNS_TEXT[include]}</p>
     </details>
   );
 }

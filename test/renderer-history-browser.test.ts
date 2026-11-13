@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { chromium, expect as expectLocator, type Browser, type Page } from '@playwright/test';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DEFAULT_RENDERER_SETTINGS, injectData, injectHistory, injectSettings } from '../src/core/inject.js';
-import { NO_RESULT_NOTE, NO_STATES_TEXT, ORIGIN_TEXT, STATE_HELP, STATE_LABEL, countersText, loadHistory, stateCount, streamDefinition, streamName } from '../src/renderer/history.js';
+import { NO_RESULT_NOTE, NO_RETRIES_TEXT, NO_STATES_TEXT, ORIGIN_TEXT, WHICH_RUNS_TEXT, STATE_HELP, STATE_LABEL, countersText, loadHistory, stateCount, streamDefinition, streamName } from '../src/renderer/history.js';
 import type { LoupeReport } from '../src/schema/v1.js';
 import { HISTORY_STATES, testCells } from '../src/shared/history.js';
 import { ROOT, assertBuilt } from './helpers/fixtures.js';
@@ -23,9 +23,9 @@ import { historyScenario, type HistoryScenario } from './helpers/history-scenari
 const RENDERER = path.join(ROOT, 'dist/renderer/index.html');
 const SAMPLE = path.join(ROOT, 'src/renderer/dev/sample.json');
 
-/** `placeholder`: a page whose history placeholder was never replaced (an older reporter). */
-type Page_ = HistoryScenario | 'placeholder';
-const PAGES: Page_[] = ['none', 'placeholder', 'normal', 'first-run', 'skipped', 'all-excluded', 'current-partial', 'version-break', 'skipped-some', 'several-streams'];
+/** `placeholder`: a page whose history placeholder was never replaced (an older reporter); `include-all`: `normal` with `history.include: 'all'`. */
+type Page_ = HistoryScenario | 'placeholder' | 'include-all';
+const PAGES: Page_[] = ['none', 'placeholder', 'normal', 'first-run', 'skipped', 'all-excluded', 'current-partial', 'version-break', 'skipped-some', 'several-streams', 'no-retries', 'include-all'];
 
 describe('history on the Overview and in the filters (file://)', { timeout: 60_000 }, () => {
   let browser: Browser;
@@ -38,7 +38,9 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
     workDir = mkdtempSync(path.join(tmpdir(), 'loupe-history-ui-'));
     const template = readFileSync(RENDERER, 'utf8');
     for (const name of PAGES) {
-      const { report, history } = historyScenario(name === 'placeholder' ? 'none' : name, sample);
+      const scenario = historyScenario(name === 'placeholder' ? 'none' : name === 'include-all' ? 'normal' : name, sample);
+      const { report } = scenario;
+      const history = name === 'include-all' && scenario.history ? { ...scenario.history, include: 'all' as const } : scenario.history;
       const page = injectSettings(injectData(template, report), DEFAULT_RENDERER_SETTINGS);
       const file = path.join(workDir, `${name}.html`);
       writeFileSync(file, name === 'placeholder' ? page : injectHistory(page, history));
@@ -115,6 +117,23 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
     await page.close();
   });
 
+  it("which runs are used follows history.include, on the Overview and in the Tests view", async () => {
+    for (const [name, include] of [
+      ['normal', 'full'],
+      ['include-all', 'all'],
+    ] as const) {
+      for (const hash of ['#/', '#/tests']) {
+        const page = await open(name, hash);
+        await expectLocator(page.locator('.history-help > p')).toHaveText(WHICH_RUNS_TEXT[include]);
+        await page.close();
+      }
+    }
+    // The verdict's own wording already follows it.
+    const all = await open('include-all', '#/');
+    await expect.poll(() => zone(all).locator('.history-delta').innerText()).toMatch(/^Since the previous run \(/);
+    await all.close();
+  });
+
   it.each([
     ['first-run', 'first-run'],
     ['skipped', 'all-skipped'],
@@ -188,7 +207,7 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
       await expectLocator(page.locator('.history-help dd').first()).toBeVisible();
       // Which runs each level uses, in words.
       await expectLocator(page.locator('.history-help > p')).toHaveText(
-        "Run comparisons (the changes since the last run, on the dashboard) use full runs outside the IDE that are not excluded. A test's history (its state, counters and strip) uses every run where it ran, except excluded ones.",
+        WHICH_RUNS_TEXT.full,
       );
       await page.close();
     });
@@ -376,8 +395,28 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
       if (!facts?.state) throw new Error('no state');
       const page = await open('normal', testHash(failing));
       await expectLocator(page.locator('.history-test-state')).toContainText(STATE_LABEL[facts.state]);
-      await expectLocator(page.locator('.history-counters')).toHaveText(countersText(facts.counters));
+      await expectLocator(page.locator('.history-counters')).toHaveText(countersText(facts.counters, true));
       await page.close();
+    });
+
+    it('the retry counter only when the stream had retries; without, the no-retries line says why', async () => {
+      for (const [name, retries] of [
+        ['no-retries', false],
+        ['several-streams', true],
+      ] as const) {
+        const { report, history } = historyScenario(name, sample);
+        const facts = loadHistory(JSON.stringify(history), report)?.byTest.get(report.tests[failingIndex] as never);
+        if (!facts) throw new Error('no history');
+        expect(facts.noRetries, name).toBe(!retries);
+        const page = await open(name, testHash(failing));
+        const counters = page.locator('.history-counters');
+        await expectLocator(counters).toHaveText(countersText(facts.counters, retries));
+        expect((await counters.innerText()).includes('passed on retry'), name).toBe(retries);
+        await page.locator('.history-more > summary').focus();
+        await page.keyboard.press('Enter');
+        await expectLocator(page.getByText(NO_RETRIES_TEXT)).toHaveCount(retries ? 0 : 1);
+        await page.close();
+      }
     });
 
     it('compact: no cell details until a cell is hovered or focused; they float, moving nothing', async () => {
@@ -406,7 +445,7 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
       const page = await open('several-streams', testHash(failing));
       const more = page.locator('details.history-more');
       expect(await more.getAttribute('open')).toBeNull();
-      await expectLocator(more.locator('> summary')).toHaveText(countersText(facts.counters));
+      await expectLocator(more.locator('> summary')).toHaveText(countersText(facts.counters, true));
       await expectLocator(page.locator('.history-other').first()).toBeHidden();
       await more.locator('> summary').focus();
       await page.keyboard.press('Enter');

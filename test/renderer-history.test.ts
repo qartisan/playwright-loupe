@@ -15,6 +15,7 @@ import {
   noDeltaText,
   stateCount,
   stateDetail,
+  WHICH_RUNS_TEXT,
   streamDefinition,
   streamName,
   type ReportHistory,
@@ -151,6 +152,11 @@ describe('verdict history texts', () => {
     expect(streamName({ origin: 'ci', branch: 'main' })).toBe('CI, branch main');
   });
 
+  it('which runs are used, as history.include sets it', () => {
+    expect(WHICH_RUNS_TEXT.full).toMatch(/^Run comparisons .* use full runs outside the IDE that are not excluded\. A test's history .* except excluded ones\.$/);
+    expect(WHICH_RUNS_TEXT.all).toMatch(/^Run comparisons .* use every run, partial, excluded and IDE runs included, because history\.include is 'all'\. A test's history .* excluded ones included\.$/);
+  });
+
   it('what a stream is, from the parts of its key', () => {
     expect(streamDefinition({ environment: 'default', origin: 'local' })).toBe('A stream is an environment plus an origin (CI, local, IDE); each has its own history.');
     expect(streamDefinition({ environment: 'x', origin: 'ci', branch: 'main' })).toMatch(/^A stream is an environment plus an origin \(CI, local, IDE\) plus a branch;/);
@@ -195,8 +201,10 @@ describe('test detail texts', () => {
 
   it('attempts, counters, the state with its N', () => {
     expect([attemptsText('FTP'), attemptsText('P'), attemptsText(null)]).toEqual(['3 attempts: failed, timed out, passed', '1 attempt: passed', null]);
-    expect(countersText({ failures: 5, statusChanges: 9, passedOnRetry: 3, considered: 20 })).toBe('Failed 5 of the last 20 runs · changed status 9 times · passed on retry 3 times');
-    expect(countersText({ failures: 1, statusChanges: 1, passedOnRetry: 0, considered: 1 })).toBe('Failed 1 of the last 1 run · changed status once · passed on retry 0 times');
+    expect(countersText({ failures: 5, statusChanges: 9, passedOnRetry: 3, considered: 20 }, true)).toBe('Failed 5 of the last 20 runs · changed status 9 times · passed on retry 3 times');
+    expect(countersText({ failures: 1, statusChanges: 1, passedOnRetry: 0, considered: 1 }, true)).toBe('Failed 1 of the last 1 run · changed status once · passed on retry 0 times');
+    // Without retries in the stream, no retry counter: "passed on retry 0 times" would say nothing.
+    expect(countersText({ failures: 5, statusChanges: 9, passedOnRetry: 0, considered: 20 }, false)).toBe('Failed 5 of the last 20 runs · changed status 9 times');
     expect(stateDetail('new-failure', 7)).toBe('no failure in its last 7 runs in this stream');
     for (const state of HISTORY_STATES) expect(stateDetail(state, 3)).not.toMatch(/root cause|because/i);
   });

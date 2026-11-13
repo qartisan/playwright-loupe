@@ -280,7 +280,7 @@ export function TestHistory({ history, report, test }: { history: ReportHistory;
         </p>
       )}
       {cells.length > 0 && <Strip cells={cells} include={block.include} />}
-      <HistoryMore counters={shown && facts.counters.considered > 0 ? countersText(facts.counters) : null} noRetries={Boolean(shown && facts.noRetries)} others={others} stream={block.stream} />
+      <HistoryMore counters={shown && facts.counters.considered > 0 ? countersText(facts.counters, !facts.noRetries) : null} noRetries={Boolean(shown && facts.noRetries)} others={others} stream={block.stream} />
     </section>
   );
 }

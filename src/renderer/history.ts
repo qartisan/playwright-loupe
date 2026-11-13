@@ -197,11 +197,24 @@ export function failureGap(cell: Pick<HistoryCell, 'failure'>): string | null {
   return null;
 }
 
-/** "Failed 5 of the last 20 runs · changed status 9 times · passed on retry 3 times". */
-export function countersText(counters: Counters): string {
+/**
+ * "Failed 5 of the last 20 runs · changed status 9 times · passed on retry 3
+ * times". The retry counter only when the stream had retries (`retries`):
+ * without them, "passed on retry 0 times" says nothing, and the no-retries
+ * line says why.
+ */
+export function countersText(counters: Counters, retries: boolean): string {
   const times = (count: number) => (count === 1 ? 'once' : `${count} times`);
-  return `Failed ${counters.failures} of the last ${plural(counters.considered, 'run')} · changed status ${times(counters.statusChanges)} · passed on retry ${times(counters.passedOnRetry)}`;
+  const parts = [`Failed ${counters.failures} of the last ${plural(counters.considered, 'run')}`, `changed status ${times(counters.statusChanges)}`];
+  if (retries) parts.push(`passed on retry ${times(counters.passedOnRetry)}`);
+  return parts.join(' · ');
 }
+
+/** Which runs each level uses, as `history.include` sets it: the "Which runs are used" paragraph of HistoryHelp. */
+export const WHICH_RUNS_TEXT: Record<'full' | 'all', string> = {
+  full: "Run comparisons (the change since the previous run) use full runs outside the IDE that are not excluded. A test's history (its state, counters and strip) uses every run where it ran, except excluded ones.",
+  all: "Run comparisons (the change since the previous run) use every run, partial, excluded and IDE runs included, because history.include is 'all'. A test's history (its state, counters and strip) uses every run where it ran, excluded ones included.",
+};
 
 /** The state of a test in its detail, after its name, with its N for a new failure: "no failure in its last 7 runs in this stream". */
 export function stateDetail(state: HistoryState, earlier: number): string {

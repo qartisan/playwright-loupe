@@ -72,7 +72,7 @@ export function VerdictHistory({ history }: { history: ReportHistory }) {
           {plural(analysis.skipped, 'earlier run file')} of this stream could not be read (a newer history format, or unreadable files): the window is shorter.
         </p>
       )}
-      {analysis.statesShown && <HistoryHelp headingLevel={4} />}
+      {analysis.statesShown && <HistoryHelp headingLevel={4} include={block.include} />}
     </div>
   );
 }
