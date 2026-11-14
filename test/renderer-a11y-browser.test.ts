@@ -5,11 +5,12 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { chromium, type Browser, type Page } from '@playwright/test';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { DEFAULT_RENDERER_SETTINGS, injectData, injectSettings } from '../src/core/inject.js';
+import { DEFAULT_RENDERER_SETTINGS, injectData, injectHistory, injectSettings } from '../src/core/inject.js';
 import type { Attachment, LoupeReport } from '../src/schema/v1.js';
 import { A11Y_ALLOWLIST } from './a11y-allowlist.js';
 import { audit, describeFinding, type AllowEntry, type Finding } from './helpers/axe.js';
 import { cascadeReport } from './helpers/cascade.js';
+import { historyScenario, type HistoryScenario } from './helpers/history-scenarios.js';
 import { ROOT, assertBuilt, isMissingAttachmentFile } from './helpers/fixtures.js';
 import { solidPng } from './helpers/png.js';
 
@@ -46,7 +47,20 @@ const FAILING = 'e6c8105b02e8ef4c';
 // Of the cascade: a test stopped by its timeout, with an error raised after it.
 const AFTER_TIMEOUT = 'ccccccccccccccc4';
 
-type Dataset = 'sample' | 'cascade' | 'noPoints' | 'tiles' | 'many' | 'missingMedia' | 'longCommand' | 'tooLongCommand' | 'traceViewer';
+type PlainDataset = 'sample' | 'cascade' | 'noPoints' | 'tiles' | 'many' | 'missingMedia' | 'longCommand' | 'tooLongCommand' | 'traceViewer';
+
+/** The sample with an embedded run history, one dataset per dev scenario used (test/helpers/history-scenarios.ts). */
+const HISTORY_DATASETS = {
+  history: 'normal',
+  historyStreams: 'several-streams',
+  historyVersionBreak: 'version-break',
+  historySkipped: 'skipped-some',
+  historyFirstRun: 'first-run',
+  historyAllExcluded: 'all-excluded',
+  historyNoRetries: 'no-retries',
+} as const satisfies Record<string, HistoryScenario>;
+
+type Dataset = PlainDataset | keyof typeof HISTORY_DATASETS;
 
 interface StateOptions {
   arrange?: (page: Page) => Promise<void>;
@@ -143,6 +157,39 @@ const MATRIX: State[] = [
   ['test: trace with the bundled viewer at 320px', 'traceViewer', `#/test/${COMPARISON}`, { http: true, width: 320, reached: '.trace-open' }],
   ['forced colours: trace with the bundled viewer', 'traceViewer', `#/test/${COMPARISON}`, { http: true, forcedColors: true, reached: '.trace-open' }],
   ['forced colours: comparison slider', 'sample', `#/test/${COMPARISON}`, { ...comparisonMode('Slider'), forcedColors: true, reached: '.cmp-range' }],
+  // History (every state above runs without one: no history zone). The overview's verdict zone, the Tests view's
+  // markers and facet, the test detail's strip, cell panel and disclosure; definitions closed and open.
+  ['history: overview, states and definitions closed', 'history', '#/', { reached: '.verdict-history .history-help:not([open])' }],
+  ['history: overview, definitions open', 'history', '#/', { arrange: click('.verdict-history .history-help > summary'), reached: '.verdict-history .history-help[open]' }],
+  ['history: overview, signature break note', 'historyVersionBreak', '#/', { reached: '.history-notice' }],
+  ['history: overview, skipped files note', 'historySkipped', '#/', { reached: '.history-notice' }],
+  ['history: overview, first run of the stream', 'historyFirstRun', '#/', { reached: '.verdict-history .history-note' }],
+  ['history: overview at 360px', 'history', '#/', { width: 360, reached: '.verdict-history' }],
+  ['history: tests, markers and definitions closed', 'history', '#/tests', { reached: '.history-marker' }],
+  ['history: tests, definitions open', 'history', '#/tests', { arrange: click('.history-help > summary'), reached: '.history-help[open]' }],
+  ['history: tests, history facet open', 'history', '#/tests', { arrange: click('.facet[data-facet="history"] > summary'), reached: '.facet[data-facet="history"][open]' }],
+  ['history: tests, filtered on a state', 'history', '#/tests?history=still-failing', { reached: '.history-marker' }],
+  ['history: tests at 360px', 'history', '#/tests', { width: 360, reached: '.history-marker' }],
+  ['history: test, strip', 'history', `#/test/${FAILING}`, { reached: '.strip-cell' }],
+  ['history: test, cell focused with its panel', 'history', `#/test/${FAILING}`, { arrange: (page) => page.locator('.strip-cell').nth(5).focus(), reached: '.strip-details' }],
+  ['history: test, current run focused', 'history', `#/test/${FAILING}`, { arrange: (page) => page.locator('.strip-cell').last().focus(), reached: '.strip-details' }],
+  ['history: test, other streams closed', 'historyStreams', `#/test/${FAILING}`, { reached: 'details.history-more:not([open])' }],
+  ['history: test, other streams open', 'historyStreams', `#/test/${FAILING}`, { arrange: click('details.history-more > summary'), reached: 'details.history-more[open]' }],
+  ['history: test, no retries, disclosure open', 'historyNoRetries', `#/test/${FAILING}`, { arrange: click('details.history-more > summary'), reached: 'details.history-more[open]' }],
+  ['history: test, every earlier run excluded', 'historyAllExcluded', `#/test/${FAILING}`, { reached: '.strip-excluded' }],
+  ['history: test, first run, other streams open', 'historyFirstRun', `#/test/${FAILING}`, { arrange: click('details.history-more > summary'), reached: 'details.history-more[open]' }],
+  ['history: test at 320px, cell panel above the strip', 'history', `#/test/${FAILING}`, {
+    width: 320,
+    height: 568,
+    arrange: async (page) => {
+      const strip = await page.locator('.strip-block').boundingBox();
+      if (strip) await page.setViewportSize({ width: 320, height: Math.ceil(strip.y + strip.height + 20) });
+      await page.locator('.strip-cell').nth(2).focus();
+    },
+    reached: '.strip-details-above',
+  }],
+  ['forced colours: history, test strip and panel', 'history', `#/test/${FAILING}`, { forcedColors: true, arrange: (page) => page.locator('.strip-cell').nth(5).focus(), reached: '.strip-details' }],
+  ['forced colours: history, overview note', 'historyVersionBreak', '#/', { forcedColors: true, reached: '.history-notice' }],
 ];
 
 /** A file at each attachment path of `report` that a viewer shows: PNGs and a recorded video. */
@@ -164,7 +211,7 @@ async function writeMedia(report: LoupeReport, root: string, browser: Browser): 
   }
 }
 
-function variants(sample: LoupeReport): Record<Dataset, LoupeReport> {
+function variants(sample: LoupeReport): Record<PlainDataset, LoupeReport> {
   const missing = (name: string, contentType: string, kind: Attachment['kind']): Attachment => ({
     name,
     contentType,
@@ -292,10 +339,16 @@ describe('accessibility matrix (axe-core, file://)', { timeout: 60_000 }, () => 
     const sample = JSON.parse(readFileSync(SAMPLE, 'utf8')) as LoupeReport;
     await writeMedia(sample, workDir, browser);
     const template = readFileSync(RENDERER, 'utf8');
-    for (const [name, report] of Object.entries(variants(sample)) as Array<[Dataset, LoupeReport]>) {
+    for (const [name, report] of Object.entries(variants(sample)) as Array<[PlainDataset, LoupeReport]>) {
       const file = path.join(workDir, `${name}.html`);
       const traceViewer = name === 'traceViewer' ? 'trace-viewer' : null;
       writeFileSync(file, injectSettings(injectData(template, report), { ...DEFAULT_RENDERER_SETTINGS, title: 'Storefront', traceViewer }));
+      urls[name] = pathToFileURL(file).href;
+    }
+    for (const [name, scenario] of Object.entries(HISTORY_DATASETS) as Array<[keyof typeof HISTORY_DATASETS, HistoryScenario]>) {
+      const { report, history } = historyScenario(scenario, sample);
+      const file = path.join(workDir, `${name}.html`);
+      writeFileSync(file, injectHistory(injectSettings(injectData(template, report), { ...DEFAULT_RENDERER_SETTINGS, title: 'Storefront' }), history));
       urls[name] = pathToFileURL(file).href;
     }
     server = createServer((req, res) => {
