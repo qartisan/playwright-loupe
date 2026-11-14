@@ -2,7 +2,7 @@
 
 Loupe keeps a history of your runs: each run adds one small file to a folder next to your Playwright config, and the next report embeds the recent past of every test it contains. It needs no change to your tests and no configuration: history is on by default, locally and in CI.
 
-Nothing is visible in the report yet. This release records runs, reads them back and embeds the derived data in `index.html`; the views that show it come in a later release.
+The report shows it in three places: the Overview's verdict (the change since the previous run, and how many failing tests are new or keep failing), the Tests view (a marker on failing tests, and a History filter), and each test's detail (its last results, and how often it failed or changed status). See [In the report](#in-the-report).
 
 History is files only: no server, no database, no network call. Turn it off with `history: false` in the [configuration](config.md#history) or `LOUPE_HISTORY=off`.
 
@@ -114,6 +114,91 @@ On Windows, a file another process holds open (an antivirus scanning it, the sea
 
 Partial runs (`--grep`, `--project`, `--last-failed`, …) are recorded, flagged with their scope.
 
+## In the report
+
+Everything below comes from the block `index.html` embeds ([What the report embeds](#what-the-report-embeds)): the report never reads `loupe-history/`. **Without history** (history off, no run recorded yet, or a history that could not be read: one `Loupe: history: …` warning), the report has no history zone at all: no delta, no marker, no filter, no empty card. All of it reads one stream, the stream of the current run, named in words: "staging, CI", "default environment, local", "default environment, IDE".
+
+### Which runs are used
+
+There are two levels, and they do not use the same runs.
+
+- **Run comparisons**, the change since the previous run in the verdict, use the runs that count in [run-level statistics](#what-counts-in-statistics): full, not excluded, outside the IDE. With `history.include: 'all'`, every run.
+- **A test's history**, its state, counters and strip, uses **every run where the test ran** (passed, failed or flaky; not skipped, not absent from the run), **except excluded runs**. Partial and IDE runs count, and are flagged in the strip. With `history.include: 'all'`, excluded runs count too.
+
+The current run joins a test's counters unless it is excluded. Its state is computed in every case, since a state compares the current result with the past.
+
+The report says this in a "What the history states mean" disclosure, on the Overview and in the Tests view, and each run drawn apart in the strip says how it is used: "Partial run (grep): used in this test's history, not in run comparisons", "Run from the IDE: used in this test's history, not in run comparisons", "Excluded run (staging restored): not used in this test's history".
+
+### On the Overview
+
+The verdict gains a History zone, titled with the stream:
+
+- **The change since the previous run** that counts at run level: "Since the previous full run (12 Nov, 14:03): pass rate +3 pts · 2 fewer failed tests" (the pass rate is the one of the [report](schema/v1.md#stats): passed / (total − skipped)). There is no delta when the current run does not count at run level, or when no earlier run does, and one line says why: "This run is partial: it is not compared with earlier runs", "This run comes from the IDE …", "This run is excluded (reason) …", "No earlier full run in this stream to compare with".
+- **The number of tests in each state** below, each linking to the Tests view filtered on it (`#/tests?history=new-failure`). A count of 0 stays plain text.
+- **Notes**, set apart from the rest, when the past is not complete (see [Notes](#notes)).
+
+### Failure states
+
+A test whose final status in the current run is a failure (failed, timed out or interrupted) gets exactly one state, from its earlier results in the stream as [defined above](#which-runs-are-used):
+
+| State | When |
+| --- | --- |
+| **New test** | No earlier result (skipped and absent ones do not count), in a stream that has earlier runs. |
+| **New failure** | Earlier results exist, and **no failed attempt** in any of them. A flaky result counts as a failure here: one of its attempts failed. |
+| **Still failing** | Its most recent earlier result is a failure. |
+| **Failed again** | Its most recent earlier result passed (or was flaky), and an earlier one has a failed attempt. |
+
+A passing (or flaky) test whose most recent earlier result failed is **Fixed**. Other passing tests have no state.
+
+A failed attempt is a failed or flaky result. An expected failure (`test.fail()`) passes, as everywhere in the report.
+
+"New failure" never means "first failure": the report reads the last 20 runs of the stream, retention keeps more, and the history starts at the first recorded run. The detail gives the number of results it is based on, the test's own: "New failure: no failure in its last 7 runs in this stream".
+
+**When no state is shown**, one line in the verdict says why, and the Tests view has no History filter:
+
+- "First run of this stream: nothing to compare yet." The stream has no earlier run (other streams may have some). Calling every failing test "New test" would say nothing.
+- "Every earlier run of this stream is excluded; history.include: 'all' counts them."
+- "The earlier runs of this stream could not be read (a newer history format, or unreadable files): nothing to compare." The past exists but is unreadable, so the tests are not called new.
+
+### In the Tests view
+
+- **A marker** under the status of each failing test with a state: its icon and its label ("Still failing"). Like the row's chips, it filters on its state, or removes that filter when it is active. Passing rows are unchanged, Fixed ones included: the History filter finds them.
+- **The History filter**, with the other filters: New failure, Failed again, Still failing, New test, Fixed, with the count each would give. In the URL, `history=new-failure,failed-again`, combined like the other filters (OR within the filter, AND across filters). A report without history drops a `history=` parameter from the URL.
+
+Each marker, count and filter value is described by its state's definition for assistive technologies, and the "What the history states mean" disclosure shows the definitions to everyone.
+
+### In a test's detail
+
+A History section, after the test's header and before its attempts, keeps to a few lines:
+
+- the stream, and the test's state with its explanation;
+- **the strip** of its results: one cell per run of the window, oldest on the left, then the current run set apart at the end;
+- **the counters**, one line, which opens on the rest: the no-retries line and the other streams.
+
+**The strip** shows each result by its colour and its shape: a tick for passed, a cross for failed, curved arrows for flaky (passed on retry), a dash for skipped, an empty dotted circle for no result (the test was not in that run). A run whose results the test's history does not use (an excluded run) is drawn hollow, with a dashed outline; a partial or IDE run, which it uses, has a dot under its cell.
+
+Hovering a cell, focusing it or tapping it shows its details, over the content below: the date, the origin, the branch and commit when known, the run's duration (a test's own duration in a past run is not kept), the attempts, and for a failure the category and extract of its first error. Escape hides them, the pointer can move onto them, and they stay until the pointer or focus leaves. The strip is one tab stop: the arrow keys move between cells, Home and End go to the ends, and each cell has a full name, such as "12 Nov 2026, 14:03, CI, failed, Timeout" (dates in the browser's locale). There is no link to older reports yet.
+
+**The counters** are facts side by side, with no score and no threshold: "Failed 5 of the last 20 runs · changed status 9 times · passed on retry 3 times".
+
+- *failed*: results whose final status is a failure;
+- *changed status*: changes between consecutive results, from pass to fail or back; a flaky result counts as a pass here;
+- *passed on retry*: flaky results, the instability within one run. Shown only when the stream had retries for the test's project;
+- *the last N runs*: the results counted, the current run included unless it is excluded.
+
+Both of the first two are needed. A test that passed 15 times then failed 5 times (`✓✓✓✓✓✓✓✓✓✓✓✓✓✓✓✗✗✗✗✗`, broken five runs ago) failed 5 of 20 and changed status once; a test that alternates, with 5 failures among 20, changed status 9 times. Same failure count, opposite diagnoses.
+
+**No retries.** When no run of the window, nor the current run, had retries for the test's project, the detail says "No retries in this stream: only instability across runs can show." A stream without retries cannot show a test passing on retry, so it would otherwise look more stable than it is. A run without the test's project counts as a run without retries.
+
+**Other streams.** The latest result of the test in each other stream, with its date and status: "staging, CI", then the date, then "failed". A stream is an environment and an origin by default ([Streams](#streams)), so the same environment run from the IDE is another stream. "No result" means the test is not in that stream's latest run; only the latest run of each other stream is embedded ([Limits](#what-the-report-embeds)).
+
+### Notes
+
+Two notes in the verdict say when the past the report reads is incomplete. They are notes, not errors:
+
+- **"Loupe's error signatures changed: errors before {date} are not compared."** Runs recorded with another [signature version](schema/history-v1.md#signature-version) stay in the window: their statuses count for the states and counters, only their errors are not compared with the current ones. Their cells in the strip say so.
+- **"N earlier run files of this stream could not be read (a newer history format, or unreadable files): the window is shorter."** Files written by a newer Loupe (after a downgrade), corrupt or unreadable files of the stream. The states are still shown, on the runs that are left. When no run is left, the verdict says it instead of showing states ([above](#failure-states)).
+
 ## Run id
 
 The run id is the key of a run in the history. It is:
@@ -144,7 +229,7 @@ Every recorded run is a data point for its tests. At the level of runs (pass rat
 - excluded runs;
 - `ide` runs.
 
-`history.include: 'all'` counts them too. The report does not show statistics yet: the setting is embedded for the views of a later release.
+`history.include: 'all'` counts them too. A test's own history uses more runs than that: see [Which runs are used](#which-runs-are-used).
 
 ## What the report embeds
 

@@ -135,7 +135,7 @@ The path rewriting of 0.1.8 and 0.2.1 changed no signature: they are computed fr
 <script id="loupe-history" type="application/json">{"v":1,…}</script>
 ```
 
-It is derived from the run files read when the run starts, **never from the run itself**, and is **not in `report.json`**, whose shape does not change. It is `null` when there is no history: off, empty, or not derived (one warning). When run files exist but none of the window could be used (written by a newer Loupe, corrupt), it is a block with no run and `skipped` above 0, not `null`, so the report can say why. It is written with the same safe serialisation as the other blocks. The renderer does not use it yet.
+It is derived from the run files read when the run starts, **never from the run itself**, and is **not in `report.json`**, whose shape does not change. It is `null` when there is no history: off, empty, or not derived (one warning). When run files exist but none of the window could be used (written by a newer Loupe, corrupt), it is a block with no run and `skipped` above 0, not `null`, so the report can say why. It is written with the same safe serialisation as the other blocks. The renderer reads only this block, never `loupe-history/`; what it shows is described in [In the report](../history.md#in-the-report).
 
 Statuses are one character per test and run, aligned with the report's `tests`, so no test id is repeated; signatures are indexes into one dictionary.
 

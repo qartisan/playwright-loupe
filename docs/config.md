@@ -252,7 +252,7 @@ history: false,
 - `history: false` is the same as `history: { enabled: false }`, and `true` as `{ enabled: true }`, in every layer. A higher layer can turn history back on and keep the options of a lower one: `LOUPE_HISTORY=on` with `history: { enabled: false, dir: '.history' }` in the config file records into `.history`.
 - `stream.key` is a non-empty list, each part at most once. Its order does not matter; adding or removing a part starts new streams ([Streams](history.md#streams)). Arrays replace, as for the other options.
 - `retention.maxRuns` applies to the run's own stream, `retention.maxAgeDays` to every stream ([Retention](history.md#retention)).
-- `include` is embedded in the report for the history views of a later release; it changes nothing else yet.
+- `include: 'all'` counts partial, excluded and `ide` runs in run comparisons, and excluded runs in each test's history ([Which runs are used](history.md#which-runs-are-used)). It changes nothing in what is recorded.
 
 **The history folder and `outputFolder` must not overlap** (neither inside the other): the report folder is published and replaced, the history must survive it.
 
