@@ -80,8 +80,8 @@ export function pickMode(modes: readonly ComparisonMode[], chosen: ComparisonMod
 
 /**
  * The absolute disk path of a report file, from the URL of the page showing
- * the report: only known over file://. Null over http(s) (the dev server, a
- * future `show` command) and for a file:// URL with a host (a UNC share),
+ * the report: only known over file://. Null over http(s) (the dev server,
+ * `npx playwright show-report`) and for a file:// URL with a host (a UNC share),
  * where the disk path cannot be told. A Windows drive path loses the leading
  * `/` of its URL form (`/C:/Users/…` → `C:/Users/…`).
  */

@@ -7,7 +7,7 @@
  * `historyVersion`; any other change of shape or meaning needs a new version,
  * and readers keep a reader for every older one.
  *
- * Written minified, one file per run: `runs/<startedAt>-<stream hash>-<run id>.json`.
+ * Written minified, gzipped, one file per run: `runs/<startedAt>-<stream hash>-<run id>.json.gz`.
  * The stream hash names the stream (`stream`) in 8 hex characters, so readers
  * pick a stream's runs from file names alone.
  * Kept free of Node imports so the renderer can import it too.
