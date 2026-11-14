@@ -3,6 +3,7 @@ import type { EmbeddedRun } from '../../schema/history-v1.js';
 import type { AttemptStatus, LoupeReport, TestCase } from '../../schema/v1.js';
 import { countsForTests, otherStreams, runFlags, testCells, type HistoryCell, type ResultCode } from '../../shared/history.js';
 import { formatRunStart } from '../datetime.js';
+import { overlayOpen } from '../layout.js';
 import { formatDuration } from '../format.js';
 import {
   NO_RESULT_NOTE,
@@ -159,13 +160,20 @@ function Strip({ cells, include }: { cells: readonly StripCell[]; include: Inclu
     if (current === null || (dismissed !== null && current !== dismissed)) setDismissed(null);
   }, [current]);
   // Escape from anywhere: the pointer may rest on a cell while focus is elsewhere. Neither moves, and the event
-  // goes on unchanged. One listener for the strip's life, reading the cell shown from refs that the focus and
-  // pointer handlers set at once: an Escape pressed right after a focus, before the render, still dismisses it.
-  const live = useRef<{ hovered: number | null; focused: number | null }>({ hovered: null, focused: null });
+  // goes on unchanged (never stopped nor cancelled). One listener for the strip's life, reading the cell shown
+  // from refs that the focus and pointer handlers set at once: an Escape pressed right after a focus, before the
+  // render, still dismisses it. It acts only while the panel is shown on top: not once dismissed, and not while
+  // a dialog or the narrow drawer covers the page, whose Escape is theirs alone.
+  const live = useRef<{ hovered: number | null; focused: number | null; dismissed: number | null }>({ hovered: null, focused: null, dismissed: null });
+  live.current.dismissed = dismissed;
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return;
       const index = live.current.hovered ?? live.current.focused;
-      if (event.key === 'Escape' && index !== null) setDismissed(index);
+      if (index === null || index === live.current.dismissed) return;
+      if (overlayOpen.value || document.querySelector('dialog[open]')) return;
+      live.current.dismissed = index;
+      setDismissed(index);
     };
     document.addEventListener('keydown', onKeyDown, true);
     return () => document.removeEventListener('keydown', onKeyDown, true);

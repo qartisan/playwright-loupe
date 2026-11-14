@@ -534,6 +534,90 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
         await page.close();
       });
 
+      describe('Escape: the strip acts only while its panel is shown on top, and never takes the key from the drawer or a dialog', () => {
+        const SCREENSHOT = '2622e3552e16fe29';
+        const NO_CLIPBOARD = "Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });";
+        /** Opens a page whose pointer rests on a strip cell, its panel shown. */
+        async function withPanel(test: LoupeReport['tests'][number], options: { width?: number; init?: string } = {}): Promise<{ page: Page; close: () => Promise<void> }> {
+          const context = await browser.newContext({ viewport: { width: options.width ?? 1280, height: 900 } });
+          if (options.init) await context.addInitScript({ content: options.init });
+          const page = await context.newPage();
+          await page.goto(`${urls.normal}${testHash(test)}`);
+          await cells(page).nth(3).hover();
+          await expectLocator(panel(page)).toBeVisible();
+          return { page, close: () => context.close() };
+        }
+        const pointerCell = (page: Page) => cells(page).nth(3).getAttribute('data-run-id');
+        /**
+         * Chromium moves the hover off the cell when a modal opens; another browser may keep it. As such a
+         * browser would: the pointer back on the cell under the dialog, so its panel counts as shown.
+         */
+        const keepHover = (page: Page) => page.evaluate("document.querySelectorAll('.strip-cell')[3].dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'mouse' }))");
+
+        it('no panel shown: Escape does nothing to the strip, and a later hover shows the panel', async () => {
+          const page = await open('normal', testHash(failing));
+          await cells(page).first().waitFor();
+          await page.keyboard.press('Escape');
+          await cells(page).nth(3).hover();
+          await expectLocator(panel(page)).toHaveAttribute('data-run-id', (await pointerCell(page)) ?? '');
+          await page.close();
+        });
+
+        it('the narrow drawer: Escape closes it, focus back on its toggle; the panel under it is not dismissed', async () => {
+          const { page, close } = await withPanel(failing, { width: 400 });
+          const toggle = page.locator('#sidebar-toggle');
+          await toggle.focus();
+          await page.keyboard.press('Enter');
+          await expectLocator(page.locator('#sidebar')).toBeVisible();
+          await page.keyboard.press('Escape');
+          await expectLocator(page.locator('#sidebar')).toBeHidden();
+          await expectLocator(toggle).toBeFocused();
+          // The pointer never left the cell: its panel is still there.
+          await expectLocator(panel(page)).toHaveAttribute('data-run-id', (await pointerCell(page)) ?? '');
+          await close();
+        });
+
+        it('the screenshot viewer: Escape closes it; the panel under it is not dismissed', async () => {
+          const screenshot = sample.tests.find((test) => test.id === SCREENSHOT);
+          if (!screenshot) throw new Error('no screenshot test');
+          const { page, close } = await withPanel(screenshot);
+          await page.locator('.thumb').first().focus();
+          await page.keyboard.press('Enter');
+          await expectLocator(page.locator('dialog.lightbox[open]')).toHaveCount(1);
+          await keepHover(page);
+          await page.keyboard.press('Escape');
+          await expectLocator(page.locator('dialog.lightbox[open]')).toHaveCount(0);
+          await expectLocator(page.locator('.thumb').first()).toBeFocused();
+          await expectLocator(panel(page)).toHaveAttribute('data-run-id', (await pointerCell(page)) ?? '');
+          await close();
+        });
+
+        it('the copy fallback dialog: Escape closes it; the panel under it is not dismissed', async () => {
+          const { page, close } = await withPanel(failing, { init: NO_CLIPBOARD });
+          const button = page.getByRole('button', { name: 'Copy rerun command for this test' });
+          await button.focus();
+          await page.keyboard.press('Enter');
+          await expectLocator(page.locator('dialog.copy-dialog[open]')).toHaveCount(1);
+          await keepHover(page);
+          await page.keyboard.press('Escape');
+          await expectLocator(page.locator('dialog.copy-dialog[open]')).toHaveCount(0);
+          await expectLocator(button).toBeFocused();
+          await expectLocator(panel(page)).toHaveAttribute('data-run-id', (await pointerCell(page)) ?? '');
+          await close();
+        });
+
+        it('never stops nor cancels the key: listeners after it see Escape unhandled', async () => {
+          const page = await open('normal', testHash(failing));
+          await cells(page).nth(3).hover();
+          await expectLocator(panel(page)).toBeVisible();
+          await page.evaluate("window.__escape = null; window.addEventListener('keydown', (event) => { if (event.key === 'Escape') window.__escape = event.defaultPrevented; })");
+          await page.keyboard.press('Escape');
+          await expectLocator(panel(page)).toHaveCount(0);
+          expect(await page.evaluate('window.__escape')).toBe(false);
+          await page.close();
+        });
+      });
+
       it('hoverable and persistent: the pointer reaches it across the gap and it stays', async () => {
         const page = await open('normal', testHash(failing));
         const cell = cells(page).nth(3);
