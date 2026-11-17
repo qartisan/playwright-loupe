@@ -75,3 +75,27 @@ export const SECRETS = { LOUPE_LEAK_SECRET: 's3cretvalue', LOUPE_LEAK_OTHER: 'an
 
 /** A project name holding a home of each kind. */
 export const PROJECT = `on /home/${name}/project and ${real}/project`;
+
+/** The characters of stdout or stderr kept per attempt: `OUTPUT_LIMIT` (src/core/output.ts), checked equal by the canary. */
+export const OUTPUT_LIMIT_CHARS = 32 * 1024;
+
+/**
+ * Values written across the cut of a long output (leak/cut.spec.ts), with the words that must never show,
+ * not even in part: a `redact.env` value, a home of another machine (its name holds a space) and the real
+ * home, glued to the text before it as in `-L<home>/lib`.
+ */
+export const ACROSS_CUT = [
+  { stream: 'stdout', value: SECRETS.LOUPE_LEAK_OTHER, word: SECRETS.LOUPE_LEAK_OTHER },
+  { stream: 'stderr', value: `/Users/John ${name}/a.json`, word: name },
+  { stream: 'stdout', value: `-L${real}/lib`, word: real.split(/[\\/]/).filter(Boolean).at(-1) ?? '' },
+] as const;
+
+/**
+ * An output of more than OUTPUT_LIMIT_CHARS whose cut falls before the last character of `word`, inside
+ * `value`. Spaces before it (a boundary for the home rules), a line end after it: a Windows profile name
+ * runs to the end of its line.
+ */
+export function acrossCut(value: string, word: string): string {
+  const at = value.indexOf(word) + word.length - 1;
+  return `${' '.repeat(OUTPUT_LIMIT_CHARS - at)}${value}\n${' '.repeat(1000)}\n`;
+}

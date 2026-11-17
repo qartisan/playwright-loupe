@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+No change to the JSON shape: `schemaVersion` stays 1.
+
+### Security
+
+- **A secret or a home directory running across the cut of a long output could stay partly in clear.** A report keeps the first 32,768 characters of each attempt's stdout and stderr. The cut came before the masking, so a `redact.env` value or a home directory that started before character 32,768 and ended after it was only partly there when masking ran, and no longer matched: its first characters stayed in `stdout.text` or `stderr.text`, in `report.json` and in `index.html` (`S3cr3tTokenV` for `S3cr3tTokenValue0123456789`, `-L/home/som` for `-L/home/someuser/lib`). Outputs are now masked whole, then cut: the 32,768 characters kept are the start of the masked output. Affects 0.1.2 to 0.3.2 for `redact.env` values, 0.1.8 to 0.3.2 for home directories; only outputs longer than 32,768 characters, with such a value at the cut. URL parameters with a secret-looking name were already masked when cut. An output that masking brings under the limit is now kept whole (`truncated: false`). Outputs are masked one at a time, as they are collected, so the report never holds more than one whole output; masking a long output whole takes about 20 ms per MB on a recent desktop.
+
+### Fixed
+
+- **An output that masking made longer than 32,768 characters broke the schema.** A `[redacted]` marker is longer than a short `redact.env` value, so an output cut to 32,768 characters could grow past them once masked, and `stdout.text` or `stderr.text` exceeded the `maxLength` of [`report-v1.schema.json`](docs/schema/report-v1.schema.json). The cut now comes after the masking: an output never exceeds 32,768 characters. Affects 0.1.2 to 0.3.2.
+
 ## [0.3.2] - 2026-11-12
 
 No change to the JSON shape: `schemaVersion` stays 1.

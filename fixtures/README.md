@@ -56,7 +56,7 @@ Everything runs offline, through `page.setContent` and local servers on 127.0.0.
 
 ## Leak canary
 
-`leak.config.ts` runs `leak/`, a browserless suite for `test/leak.integration.test.ts`: one test per form of home directory, each writing it in its title, `describe`, tags, annotations, step, messages, stack, stdout, stderr and attachment names. **Every test of `leak.spec.ts` fails on purpose.** `secrets.spec.ts` holds invented `redact.env` secrets in its tags, and passes. The real home comes from `os.homedir()`; other machines' homes use a canary user name that lives only in `leak/homes.ts`, so that a line of the spec never carries it into a snippet. To add a form, add one line to `HOMES`.
+`leak.config.ts` runs `leak/`, a browserless suite for `test/leak.integration.test.ts`: one test per form of home directory, each writing it in its title, `describe`, tags, annotations, step, messages, stack, stdout, stderr and attachment names. **Every test of `leak.spec.ts` fails on purpose.** `secrets.spec.ts` holds invented `redact.env` secrets in its tags, and passes. `cut.spec.ts` writes outputs longer than the 32,768 characters a report keeps, with a secret or a home running across the cut, and passes. The real home comes from `os.homedir()`; other machines' homes use a canary user name that lives only in `leak/homes.ts`, so that a line of the spec never carries it into a snippet. To add a form, add one line to `HOMES`.
 
 ## Prototype keys
 
