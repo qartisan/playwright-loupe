@@ -79,7 +79,9 @@ function leaked(text: string, placed: Placed): string | null {
 const placedAt = (offset: number, placed: Placed, before = '', after = ''): string =>
   `${before}${' '.repeat(offset)}${placed.text}${' '.repeat(64)}\n${'.'.repeat(256)}${after}`;
 
-describe('an output masked before it is cut', () => {
+// The sweeps mask thousands of outputs of 33 to 70 kB: about 1 s for the longest on the desktop alone, over
+// 5 s (Vitest's default) beside the other test files, and 4 to 5 times more on a slower machine.
+describe('an output masked before it is cut', { timeout: 60_000 }, () => {
   for (const placed of PLACED) {
     it(`masks ${placed.name} at every offset across the cut`, () => {
       const start = OUTPUT_LIMIT - placed.text.length - 64;
