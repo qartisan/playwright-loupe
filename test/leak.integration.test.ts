@@ -3,11 +3,12 @@ import { createRequire } from 'node:module';
 import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { CANARY, HOMES, LATE, SECRETS } from '../fixtures/leak/homes.js';
+import { ACROSS_CUT, CANARY, HOMES, OUTPUT_LIMIT_CHARS, LATE, SECRETS, acrossCut } from '../fixtures/leak/homes.js';
 import { homePaths } from '../scripts/home-paths.mjs';
 import type { LoupeReport, Step, TestCase } from '../src/schema/v1.js';
 import { REDACTED } from '../src/shared/redaction.js';
 import { MIN_PLAYWRIGHT_TRACE_VIEWER, isBelow } from '../src/core/support.js';
+import { OUTPUT_LIMIT } from '../src/core/output.js';
 import { GENERIC_HOMES, createPathRewriter } from '../src/core/paths.js';
 import { assertBuilt, playwright, readReport } from './helpers/fixtures.js';
 import { readRunFile } from './helpers/history.js';
@@ -106,6 +107,30 @@ describe('the leak canary', () => {
       expect(text).not.toContain(home);
       expect(text).not.toContain(JSON.stringify(home).slice(1, -1));
     }
+  });
+
+  it('masks a secret or a home running across the cut of a long output, before the cut', () => {
+    expect(OUTPUT_LIMIT_CHARS).toBe(OUTPUT_LIMIT);
+    // The start of a word, 3 characters or more: the filler, `[redacted]` and `~/` hold none.
+    const part = (text: string, word: string): string | null => {
+      for (let length = word.length; length >= 3; length--) if (text.includes(word.slice(0, length))) return word.slice(0, length);
+      return null;
+    };
+    // A real home of one segment (`/root`) is no name to find, as above.
+    const realHome = homedir().split(/[\\/]/).filter(Boolean).length >= 2;
+    let checked = 0;
+    for (const [index, { stream, value, word }] of ACROSS_CUT.entries()) {
+      if (value.startsWith('-L') && !realHome) continue;
+      checked++;
+      const test = report.tests.find((candidate) => candidate.title === `writes a long ${stream} with value ${index} across the cut`);
+      const output = test?.attempts[0]?.[stream];
+      expect(part(output?.text ?? '', word), `value ${index}`).toBeNull();
+      expect(output?.truncated, `value ${index}`).toBe(true);
+      expect(output?.text.length).toBeLessThanOrEqual(OUTPUT_LIMIT);
+      // Positive control: unmasked, the output cut at the limit holds all of the word but its last character.
+      expect(part(acrossCut(value, word).slice(0, OUTPUT_LIMIT), word), `value ${index}`).toBe(word.slice(0, -1));
+    }
+    expect(checked).toBeGreaterThanOrEqual(2);
   });
 
   it('holds no canary name in the names of the files it wrote', () => {

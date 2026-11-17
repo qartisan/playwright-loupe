@@ -40,11 +40,11 @@ import { DEFAULT_CATEGORIES, createCategorizer, type CategoriesOptions, type Err
 import { DEFAULT_DIMENSIONS, createDimensions, type DimensionsOptions } from './dimensions.js';
 import { computeTestId, relativePosix } from './identity.js';
 import { detectEnvironment, detectGit, type LocalGitSource } from './metadata.js';
-import { collectOutput } from './output.js';
+import { EMPTY_OUTPUT, limitOutputs, maskOutput } from './output.js';
 import { createPathRewriter, isStrictlyUnder, rewriteReportPaths, rootsFromStack, type PathRewriter } from './paths.js';
 import { esmImportLocation, isUsableLocation } from './runErrors.js';
 import { detectScopeReasons, resolveScope } from './scope.js';
-import { DEFAULT_REDACT, createRedactor, mapReportStrings, type AttemptRedactor, type RedactOptions } from './redact.js';
+import { DEFAULT_REDACT, createRedactor, mapReportStrings, type AttemptRedactor, type RedactOptions, type Redactor } from './redact.js';
 import { errorSignature, stripAnsi, stripMergeTagPrefix } from './signature.js';
 import { TRACE_VIEWER_FOLDER } from './traceViewer.js';
 
@@ -396,13 +396,16 @@ export async function buildReport(
     };
   };
 
+  // Outputs are collected once the path rewriter exists (it needs every test's stacks), one at a time:
+  // each is joined, masked and cut before the next, so the report holds one whole output at a time.
+  const outputs: Array<{ target: Attempt; source: TestResult }> = [];
   const toAttempt = async (attempt: TestResult, folder: string): Promise<Attempt> => {
     const attachments: Attachment[] = [];
     for (const attachment of attempt.attachments) {
       attachments.push(await store.add(`${folder}/${attempt.retry}`, attachment));
     }
     const redact = redactor.attempt(attempt.steps);
-    return {
+    const result: Attempt = {
       index: attempt.retry,
       status: attempt.status,
       startedAt: attempt.startTime.toISOString(),
@@ -412,9 +415,11 @@ export async function buildReport(
       steps: attempt.steps.map((step) => toStep(step, [], redact)),
       attachments,
       annotations: attempt.annotations.map(toAnnotation),
-      stdout: collectOutput(attempt.stdout),
-      stderr: collectOutput(attempt.stderr),
+      stdout: EMPTY_OUTPUT,
+      stderr: EMPTY_OUTPUT,
     };
+    outputs.push({ target: result, source: attempt });
+    return result;
   };
 
   await store.reset();
@@ -564,7 +569,22 @@ export async function buildReport(
     }
   }
   errors.forEach(relocate);
-  // URL parameters and env values (redact.env) are redacted in every other string: test titles, annotations, outputs, attachment bodies...
+  for (const { target, source } of outputs) {
+    target.stdout = maskOutput(source.stdout, redactor, paths);
+    target.stderr = maskOutput(source.stderr, redactor, paths);
+  }
+  return maskReport(report, redactor, paths);
+}
+
+/**
+ * The last masking of a report, in this order: URL parameters and env values
+ * (`redact.env`) in every other string (test titles, annotations, attachment
+ * bodies...), then the paths, then the outputs cut to their limit. Outputs
+ * arrive masked and cut already (`maskOutput`, with the same functions):
+ * masking them again can only mask more, and the cut, last, keeps them
+ * within the limit.
+ */
+export function maskReport(report: LoupeReport, redactor: Pick<Redactor, 'strings' | 'rewritesStrings'>, paths: PathRewriter): LoupeReport {
   const redacted = redactor.rewritesStrings ? mapReportStrings(report, redactor.strings) : report;
-  return rewriteReportPaths(redacted, paths);
+  return limitOutputs(rewriteReportPaths(redacted, paths));
 }

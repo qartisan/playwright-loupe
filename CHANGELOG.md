@@ -34,6 +34,18 @@ No change to the JSON shape: `schemaVersion` stays 1. Run history is a second co
 - **The test detail showed a prefixed tag twice**, in its Tags row (`@layer:api`) and as its dimension (Layer `api`). A tag a dimension takes now shows only as that dimension's value, as in the filters and the Tests view chips. The search still matches the raw tag.
 - **The test detail's two rerun buttons read almost the same**, and the second one's label grew with the projects ("Copy rerun command · 2 failed tests in this file, in chromium-a, chromium-b"). They are now a group, "Copy rerun command:", whose buttons show only their scope ("This test", "2 failed tests in this file"), with complete accessible names; the projects are in the second button's description and tooltip.
 
+## [0.3.3] - 2026-11-17
+
+No change to the JSON shape: `schemaVersion` stays 1.
+
+### Security
+
+- **A secret or a home directory running across the cut of a long output could stay partly in clear.** A report keeps the first 32,768 characters of each attempt's stdout and stderr. The cut came before the masking, so a `redact.env` value or a home directory that started before character 32,768 and ended after it was only partly there when masking ran, and no longer matched: its first characters stayed in `stdout.text` or `stderr.text`, in `report.json` and in `index.html` (`S3cr3tTokenV` for `S3cr3tTokenValue0123456789`, `-L/home/som` for `-L/home/someuser/lib`). Outputs are now masked whole, then cut: the 32,768 characters kept are the start of the masked output. Affects 0.1.2 to 0.3.2 for `redact.env` values, 0.1.8 to 0.3.2 for home directories; only outputs longer than 32,768 characters, with such a value at the cut. URL parameters with a secret-looking name were already masked when cut. An output that masking brings under the limit is now kept whole (`truncated: false`). Outputs are masked one at a time, as they are collected, so the report never holds more than one whole output; masking a long output whole takes about 20 ms per MB on a recent desktop.
+
+### Fixed
+
+- **An output that masking made longer than 32,768 characters broke the schema.** A `[redacted]` marker is longer than a short `redact.env` value, so an output cut to 32,768 characters could grow past them once masked, and `stdout.text` or `stderr.text` exceeded the `maxLength` of [`report-v1.schema.json`](docs/schema/report-v1.schema.json). The cut now comes after the masking: an output never exceeds 32,768 characters. Affects 0.1.2 to 0.3.2.
+
 ## [0.3.2] - 2026-11-12
 
 ### Fixed
@@ -428,7 +440,8 @@ First public release. Work in progress: the reporter and its JSON model are usab
 - Node.js **22.12 or later** (`engines.node`), needed to load ES module config files. CI tests the latest Node.js 22.x and 24.x.
 - `@playwright/test` **1.52 or later** (peer dependency). CI tests 1.52 (on Node.js 22) and the latest version. Playwright 1.52 hangs on recent Node.js 24 releases, independently of Loupe: see [Compatibility](README.md#compatibility).
 
-[Unreleased]: https://github.com/qartisan/playwright-loupe/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/qartisan/playwright-loupe/compare/v0.3.3...HEAD
+[0.3.3]: https://github.com/qartisan/playwright-loupe/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/qartisan/playwright-loupe/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/qartisan/playwright-loupe/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/qartisan/playwright-loupe/compare/v0.2.1...v0.3.0
