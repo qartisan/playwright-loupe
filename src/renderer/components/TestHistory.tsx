@@ -43,6 +43,9 @@ function currentCell(report: LoupeReport, test: TestCase, history: ReportHistory
     scope: report.run.scope,
     scopeReasons: report.run.scopeReasons,
     excluded: block.current.excluded,
+    // From loupe.notes.json: only a deterministic id (a merge or CI job run again) can be in it.
+    ...(block.current.notesExcluded !== undefined ? { notesExcluded: block.current.notesExcluded } : {}),
+    ...(block.current.note !== undefined ? { note: block.current.note } : {}),
     commit: report.run.git.commit,
     branch: report.run.git.branch,
     stats: report.run.stats,
@@ -97,6 +100,8 @@ function cellFacts(cell: StripCell, date: string, include: Include): string[] {
   // Nothing for an ordinary run; otherwise how the run is used, in one sentence.
   const use = cellUse(cell, include);
   if (use) facts.push(use);
+  // Text people wrote: rendered as text, never as HTML.
+  if (cell.run.note !== undefined) facts.push(`Note: ${cell.run.note}`);
   if (cell.failure?.category) facts.push(`Category: ${cell.failure.category}`);
   return facts;
 }

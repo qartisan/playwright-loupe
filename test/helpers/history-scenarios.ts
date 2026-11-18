@@ -6,9 +6,10 @@
  * imported by the renderer.
  */
 import { deriveEmbedded } from '../../src/core/history/embed.js';
-import type { EmbeddedHistory, HistoryRun, HistoryRunFile, HistoryTest } from '../../src/schema/history-v1.js';
+import type { EmbeddedHistory, HistoryRun, HistoryRunFile, HistoryTest, RunNotes } from '../../src/schema/history-v1.js';
+import type { NotesFileStatus } from '../../src/schema/notes-v1.js';
 import type { LoupeReport, TestCase } from '../../src/schema/v1.js';
-import { NO_NOTES, makeRunFile } from './history.js';
+import { makeRunFile } from './history.js';
 
 export const HISTORY_SCENARIOS = [
   'none',
@@ -26,6 +27,10 @@ export const HISTORY_SCENARIOS = [
   'skipped',
   'skipped-some',
   'all-excluded',
+  'notes',
+  'notes-invalid',
+  'notes-and-launch',
+  'notes-current',
 ] as const;
 export type HistoryScenario = (typeof HISTORY_SCENARIOS)[number];
 
@@ -46,6 +51,10 @@ export const SCENARIO_HELP: Record<HistoryScenario, string> = {
   skipped: 'every run file of the window skipped (written by a newer Loupe): no test states',
   'skipped-some': 'normal, the window shortened to 17 runs by 3 skipped files: test states and the skipped notice',
   'all-excluded': 'every earlier run excluded: no test states',
+  notes: 'normal, with loupe.notes.json: run 3 excluded from the file, notes on runs 3, 7 and 15 (one with markup, shown as text)',
+  'notes-invalid': 'normal, loupe.notes.json invalid: the verdict notes it, no entry applied',
+  'notes-and-launch': 'normal, run 9 excluded at launch and in loupe.notes.json: both reasons, with a note',
+  'notes-current': 'normal, loupe.notes.json excludes the current run (a merge job run again): no delta, the current cell excluded',
 };
 
 const STREAM: HistoryRun['stream'] = { environment: 'default', origin: 'local' };
@@ -157,6 +166,9 @@ export function historyScenario(name: HistoryScenario, sample: LoupeReport): { r
   let runs: HistoryRunFile[] = [];
   let others: HistoryRunFile[] = [];
   let skipped = 0;
+  // loupe.notes.json, as the core applies it (masked and cut); run ids of the normal stream are dev-local-<run>.
+  let notes = new Map<string, RunNotes>();
+  let notesFile: NotesFileStatus = 'absent';
   const stream = (pattern: Pattern, extra: Partial<RunOptions> = {}) => pastRuns(report, { pattern: withGrep(pattern), run: mixedRuns, ...extra });
 
   switch (name) {
@@ -224,7 +236,30 @@ export function historyScenario(name: HistoryScenario, sample: LoupeReport): { r
     case 'all-excluded':
       runs = pastRuns(report, { pattern: normal, run: (run) => ({ excluded: { reason: `maintenance window ${run}` } }) });
       break;
+    case 'notes':
+      runs = stream(normal);
+      notesFile = 'read';
+      notes = new Map([
+        ['dev-local-3', { notesExcluded: 'Staging was down (VPN)', note: 'Ops restarted the gateway at 14:10; rerun is dev-local-4' }],
+        ['dev-local-7', { note: 'First run after the auth refactor' }],
+        ['dev-local-15', { note: '<b>Checkout</b> flag on & retries at 2: <script>alert(1)</script> stays text' }],
+      ]);
+      break;
+    case 'notes-invalid':
+      runs = stream(normal);
+      notesFile = 'invalid';
+      break;
+    case 'notes-and-launch':
+      runs = stream(normal);
+      notesFile = 'read';
+      notes = new Map([['dev-local-9', { notesExcluded: 'Seed data missing after the restore', note: 'Restore took the whole afternoon' }]]);
+      break;
+    case 'notes-current':
+      runs = stream(normal);
+      notesFile = 'read';
+      notes = new Map([['current', { notesExcluded: 'Merge job run again on stale blobs', note: 'See the next run' }]]);
+      break;
   }
   const streamOfRuns = name === 'ide' ? { environment: 'default', origin: 'ide' } : STREAM;
-  return { report, history: deriveEmbedded(report, { runs, others, skipped }, { include: 'full', stream: streamOfRuns, current, currentRunId: 'current', ...NO_NOTES }) };
+  return { report, history: deriveEmbedded(report, { runs, others, skipped }, { include: 'full', stream: streamOfRuns, current, currentRunId: 'current', notes, notesFile }) };
 }

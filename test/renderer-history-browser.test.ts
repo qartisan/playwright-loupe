@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { chromium, expect as expectLocator, type Browser, type Page } from '@playwright/test';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DEFAULT_RENDERER_SETTINGS, injectData, injectHistory, injectSettings } from '../src/core/inject.js';
-import { NO_RESULT_NOTE, NO_RETRIES_TEXT, NO_STATES_TEXT, ORIGIN_TEXT, WHICH_RUNS_TEXT, STATE_HELP, STATE_LABEL, countersText, loadHistory, stateCount, streamDefinition, streamName } from '../src/renderer/history.js';
+import { NOTES_INVALID_TEXT, NO_RESULT_NOTE, NO_RETRIES_TEXT, NO_STATES_TEXT, ORIGIN_TEXT, WHICH_RUNS_TEXT, STATE_HELP, STATE_LABEL, countersText, loadHistory, stateCount, streamDefinition, streamName } from '../src/renderer/history.js';
 import type { LoupeReport } from '../src/schema/v1.js';
 import { HISTORY_STATES, testCells } from '../src/shared/history.js';
 import { ROOT, assertBuilt } from './helpers/fixtures.js';
@@ -23,9 +23,31 @@ import { historyScenario, type HistoryScenario } from './helpers/history-scenari
 const RENDERER = path.join(ROOT, 'dist/renderer/index.html');
 const SAMPLE = path.join(ROOT, 'src/renderer/dev/sample.json');
 
-/** `placeholder`: a page whose history placeholder was never replaced (an older reporter); `include-all`: `normal` with `history.include: 'all'`. */
-type Page_ = HistoryScenario | 'placeholder' | 'include-all';
-const PAGES: Page_[] = ['none', 'placeholder', 'normal', 'first-run', 'skipped', 'all-excluded', 'current-partial', 'version-break', 'skipped-some', 'several-streams', 'no-retries', 'include-all'];
+/**
+ * `placeholder`: a page whose history placeholder was never replaced (an older reporter); `include-all`: `normal`
+ * with `history.include: 'all'`; `notes-all`: `notes` with it.
+ */
+type Page_ = HistoryScenario | 'placeholder' | 'include-all' | 'notes-all';
+const PAGES: Page_[] = [
+  'none',
+  'placeholder',
+  'normal',
+  'first-run',
+  'skipped',
+  'all-excluded',
+  'current-partial',
+  'version-break',
+  'skipped-some',
+  'several-streams',
+  'no-retries',
+  'include-all',
+  'notes',
+  'notes-all',
+  'notes-invalid',
+  'notes-and-launch',
+  'notes-current',
+];
+const BASE: Partial<Record<Page_, HistoryScenario>> = { placeholder: 'none', 'include-all': 'normal', 'notes-all': 'notes' };
 
 describe('history on the Overview and in the filters (file://)', { timeout: 60_000 }, () => {
   let browser: Browser;
@@ -38,9 +60,9 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
     workDir = mkdtempSync(path.join(tmpdir(), 'loupe-history-ui-'));
     const template = readFileSync(RENDERER, 'utf8');
     for (const name of PAGES) {
-      const scenario = historyScenario(name === 'placeholder' ? 'none' : name === 'include-all' ? 'normal' : name, sample);
+      const scenario = historyScenario(BASE[name] ?? (name as HistoryScenario), sample);
       const { report } = scenario;
-      const history = name === 'include-all' && scenario.history ? { ...scenario.history, include: 'all' as const } : scenario.history;
+      const history = (name === 'include-all' || name === 'notes-all') && scenario.history ? { ...scenario.history, include: 'all' as const } : scenario.history;
       const page = injectSettings(injectData(template, report), DEFAULT_RENDERER_SETTINGS);
       const file = path.join(workDir, `${name}.html`);
       writeFileSync(file, name === 'placeholder' ? page : injectHistory(page, history));
@@ -172,6 +194,32 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
     const normal = await open('normal', '#/');
     expect(await zone(normal).locator('.history-notice').count()).toBe(0);
     await normal.close();
+  });
+
+  it('loupe.notes.json: one note in the verdict for an invalid file only, nothing for one read, none without history', async () => {
+    const invalid = await open('notes-invalid', '#/');
+    expect(await zone(invalid).locator('.history-notice').allTextContents()).toEqual([`Note: ${NOTES_INVALID_TEXT}`]);
+    // Its entries are ignored: the stream reads as the normal one.
+    expect(await zone(invalid).locator('.history-delta').count()).toBe(1);
+    await invalid.close();
+    for (const name of ['notes', 'notes-and-launch', 'normal'] as const) {
+      const page = await open(name, '#/');
+      expect(await zone(page).locator('.history-notice').count(), name).toBe(0);
+      expect(await zone(page).innerText(), name).not.toContain('loupe.notes.json');
+      await page.close();
+    }
+    for (const name of ['none', 'placeholder'] as const) {
+      const page = await open(name, '#/');
+      expect(await page.locator('body').innerText(), name).not.toMatch(/loupe\.notes\.json|Excluded run|Note: /);
+      await page.close();
+    }
+  });
+
+  it('the current run excluded by loupe.notes.json: no delta, the reason with its source', async () => {
+    const page = await open('notes-current', '#/');
+    expect(await zone(page).locator('.history-delta').count()).toBe(0);
+    expect(await zone(page).locator('.history-note').first().innerText()).toBe('This run is excluded (Merge job run again on stale blobs, from loupe.notes.json): it is not compared with earlier runs.');
+    await page.close();
   });
 
   it.each(['light', 'dark'] as const)('run-level notices in the %s theme: contrast met, styled as a note, not as an error', async (colorScheme) => {
@@ -389,6 +437,65 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
       // Every other run counts and is full: neither hollow nor flagged.
       expect(await page.locator('.strip-excluded').count()).toBe(1);
       expect(await page.locator('.strip-flagged').count()).toBe(2);
+      await page.close();
+    });
+
+    /** The sentence a cell's name ends with, as it ends it: lower case first. */
+    const nameEnd = (use: string) => new RegExp(`, ${(use.charAt(0).toLowerCase() + use.slice(1)).replace(/[()]/g, '\\$&')}$`);
+    const escaped = (text: string) => new RegExp(text.replace(/[()[\]]/g, '\\$&'));
+
+    it('a run excluded by loupe.notes.json: drawn hollow, the reason with its source in its name, description and panel; a note as text', async () => {
+      const page = await open('notes', testHash(failing));
+      const excluded = cells(page).nth(3);
+      expect(await excluded.getAttribute('class')).toContain('strip-excluded');
+      const use = "Excluded run (Staging was down (VPN), from loupe.notes.json): not used in this test's history";
+      expect(await excluded.getAttribute('aria-label')).toMatch(nameEnd(use));
+      const note = 'Note: Ops restarted the gateway at 14:10; rerun is dev-local-4';
+      await expectLocator(excluded).toHaveAccessibleDescription(escaped(`${use}. ${note}`));
+      await excluded.hover();
+      await expectLocator(page.locator('.strip-facts li')).toContainText([use, note]);
+      // A note alone: the run counts, its name says nothing more, its description and panel give the note.
+      const annotated = cells(page).nth(7);
+      expect(await annotated.getAttribute('class')).not.toContain('strip-excluded');
+      expect(await annotated.getAttribute('aria-label')).not.toMatch(/xcluded|Note/);
+      await expectLocator(annotated).toHaveAccessibleDescription(/Note: First run after the auth refactor/);
+      // Markup in a note is text: shown as written, no element made from it.
+      const markup = cells(page).nth(15);
+      await markup.hover();
+      await expectLocator(page.locator('.strip-facts')).toContainText('Note: <b>Checkout</b> flag on & retries at 2: <script>alert(1)</script> stays text');
+      expect(await page.locator('.strip-details b, .strip-details script, .test-history b').count()).toBe(0);
+      // The launch exclusion of run 9 keeps its wording.
+      expect(await cells(page).nth(9).getAttribute('aria-label')).toMatch(nameEnd("Excluded run (staging database restored during the run): not used in this test's history"));
+      expect(await page.locator('.strip-excluded').count()).toBe(2);
+      await page.close();
+    });
+
+    it("with include: 'all', a run excluded by loupe.notes.json is used, and says so", async () => {
+      const page = await open('notes-all', testHash(failing));
+      const excluded = cells(page).nth(3);
+      expect(await excluded.getAttribute('class')).not.toContain('strip-excluded');
+      expect(await excluded.getAttribute('aria-label')).toMatch(nameEnd("Excluded run (Staging was down (VPN), from loupe.notes.json): used, because history.include is 'all'"));
+      expect(await page.locator('.strip-excluded').count()).toBe(0);
+      await page.close();
+    });
+
+    it('a run excluded at launch and by loupe.notes.json: both reasons, each with its source', async () => {
+      const page = await open('notes-and-launch', testHash(failing));
+      const both = cells(page).nth(9);
+      const use = "Excluded run (staging database restored during the run, at launch; Seed data missing after the restore, from loupe.notes.json): not used in this test's history";
+      expect(await both.getAttribute('aria-label')).toMatch(nameEnd(use));
+      await both.focus();
+      await expectLocator(page.locator('.strip-facts li')).toContainText([use, 'Note: Restore took the whole afternoon']);
+      await page.close();
+    });
+
+    it('the current run excluded by loupe.notes.json: its cell drawn excluded, with the reason and the note', async () => {
+      const page = await open('notes-current', testHash(failing));
+      const current = cells(page).last();
+      const classes = (await current.getAttribute('class')) ?? '';
+      expect([classes.includes('strip-current'), classes.includes('strip-excluded')]).toEqual([true, true]);
+      expect(await current.getAttribute('aria-label')).toMatch(nameEnd("Excluded run (Merge job run again on stale blobs, from loupe.notes.json): not used in this test's history"));
+      await expectLocator(current).toHaveAccessibleDescription(/Note: See the next run/);
       await page.close();
     });
 

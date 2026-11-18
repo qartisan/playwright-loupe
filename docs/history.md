@@ -157,7 +157,7 @@ A failed attempt is a failed or flaky result. An expected failure (`test.fail()`
 **When no state is shown**, one line in the verdict says why, and the Tests view has no History filter:
 
 - "First run of this stream: nothing to compare yet." The stream has no earlier run (other streams may have some). Calling every failing test "New test" would say nothing.
-- "Every earlier run of this stream is excluded; history.include: 'all' counts them."
+- "Every earlier run of this stream is excluded (with LOUPE_EXCLUDE or in loupe.notes.json); history.include: 'all' counts them."
 - "The earlier runs of this stream could not be read (a newer history format, or unreadable files): nothing to compare." The past exists but is unreadable, so the tests are not called new.
 
 ### In the Tests view

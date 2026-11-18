@@ -5,6 +5,7 @@ import {
   decodeHistory,
   indexHistory,
   type Counters,
+  type Exclusion,
   type HistoryAnalysis,
   type HistoryCell,
   type HistoryIndex,
@@ -117,16 +118,34 @@ export function streamDefinition(stream: HistoryRun['stream']): string {
   return `A stream is ${parts.join(' plus ')}; each has its own history.`;
 }
 
+/** Where a run's exclusion comes from, for the run that is excluded from loupe.notes.json. */
+export const NOTES_SOURCE = 'from loupe.notes.json';
+/** What excludes a run, in the texts that explain which runs are used. */
+const EXCLUDED_BY = 'excluded (with LOUPE_EXCLUDE or in loupe.notes.json)';
+
+/**
+ * The reasons a run is excluded, with their sources: "staging restored" at launch (the wording from before the
+ * notes file), "VPN, from loupe.notes.json" from the file, both with their sources when it has both.
+ */
+export function exclusionReasons(run: Exclusion): string {
+  const file = run.notesExcluded === undefined ? null : `${run.notesExcluded}, ${NOTES_SOURCE}`;
+  if (run.excluded === null) return file ?? '';
+  return file === null ? run.excluded : `${run.excluded}, at launch; ${file}`;
+}
+
 export const NO_STATES_TEXT: Record<NoStatesReason, string> = {
   'first-run': 'First run of this stream: nothing to compare yet.',
   'all-skipped': 'The earlier runs of this stream could not be read (a newer history format, or unreadable files): nothing to compare.',
-  'all-excluded': "Every earlier run of this stream is excluded; history.include: 'all' counts them.",
+  'all-excluded': `Every earlier run of this stream is ${EXCLUDED_BY}; history.include: 'all' counts them.`,
 };
 
-export function noDeltaText(reason: NoDeltaReason, excluded: string | null, include: 'full' | 'all'): string {
+/** The invalid notes file, as one run-level note of the verdict. */
+export const NOTES_INVALID_TEXT = 'loupe.notes.json could not be read: its entries are ignored (see the run output).';
+
+export function noDeltaText(reason: NoDeltaReason, current: Exclusion, include: 'full' | 'all'): string {
   switch (reason) {
     case 'current-excluded':
-      return `This run is excluded${excluded ? ` (${excluded})` : ''}: it is not compared with earlier runs.`;
+      return `This run is excluded (${exclusionReasons(current)}): it is not compared with earlier runs.`;
     case 'current-ide':
       return 'This run comes from the IDE (VS Code extension, UI or watch mode): it is not compared with earlier runs.';
     case 'current-partial':
@@ -168,7 +187,7 @@ function failureWord(cell: Pick<HistoryCell, 'attempts' | 'failure'>): string | 
 export function cellUse(cell: Pick<HistoryCell, 'run' | 'flags'>, include: 'full' | 'all'): string | null {
   const { run, flags } = cell;
   const all = "used, because history.include is 'all'";
-  if (flags.includes('excluded')) return `Excluded run${run.excluded ? ` (${run.excluded})` : ''}: ${include === 'all' ? all : "not used in this test's history"}`;
+  if (flags.includes('excluded')) return `Excluded run (${exclusionReasons(run)}): ${include === 'all' ? all : "not used in this test's history"}`;
   const partial = flags.includes('partial');
   const ide = flags.includes('ide');
   if (!partial && !ide) return null;
@@ -212,8 +231,8 @@ export function countersText(counters: Counters, retries: boolean): string {
 
 /** Which runs each level uses, as `history.include` sets it: the "Which runs are used" paragraph of HistoryHelp. */
 export const WHICH_RUNS_TEXT: Record<'full' | 'all', string> = {
-  full: "Run comparisons (the change since the previous run) use full runs outside the IDE that are not excluded. A test's history (its state, counters and strip) uses every run where it ran, except excluded ones.",
-  all: "Run comparisons (the change since the previous run) use every run, partial, excluded and IDE runs included, because history.include is 'all'. A test's history (its state, counters and strip) uses every run where it ran, excluded ones included.",
+  full: `Run comparisons (the change since the previous run) use full runs outside the IDE that are not ${EXCLUDED_BY}. A test's history (its state, counters and strip) uses every run where it ran, except excluded ones.`,
+  all: `Run comparisons (the change since the previous run) use every run, partial, ${EXCLUDED_BY} and IDE runs included, because history.include is 'all'. A test's history (its state, counters and strip) uses every run where it ran, excluded ones included.`,
 };
 
 /** The state of a test in its detail, after its name, with its N for a new failure: "no failure in its last 7 runs in this stream". */
