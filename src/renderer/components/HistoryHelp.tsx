@@ -1,5 +1,5 @@
 import { HISTORY_STATES } from '../../shared/history.js';
-import { STATE_HELP, STATE_LABEL, WHICH_RUNS_TEXT, stateHelpId } from '../history.js';
+import { STATE_HELP, STATE_LABEL, stateHelpId, whichRunsText } from '../history.js';
 import { HistoryStateIcon } from './icons.js';
 
 /**
@@ -10,9 +10,9 @@ import { HistoryStateIcon } from './icons.js';
  * it once per view, only when states are shown. It ends with which runs
  * each level uses, as cells of the strip say it for their run (cellUse),
  * under a heading at `headingLevel`, the next level in its view, in the
- * words of the report's `history.include`.
+ * words of the report's `history.include`, naming its notes file (`notes`).
  */
-export function HistoryHelp({ headingLevel, include }: { headingLevel: 2 | 3 | 4; include: 'full' | 'all' }) {
+export function HistoryHelp({ headingLevel, include, notes }: { headingLevel: 2 | 3 | 4; include: 'full' | 'all'; notes: string | null }) {
   const Heading = `h${headingLevel}` as 'h2';
   return (
     <details class="history-help">
@@ -28,7 +28,7 @@ export function HistoryHelp({ headingLevel, include }: { headingLevel: 2 | 3 | 4
         ))}
       </dl>
       <Heading class="history-help-title">Which runs are used</Heading>
-      <p>{WHICH_RUNS_TEXT[include]}</p>
+      <p>{whichRunsText(include, notes)}</p>
     </details>
   );
 }

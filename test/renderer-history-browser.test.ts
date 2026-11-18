@@ -6,7 +6,7 @@ import { chromium, expect as expectLocator, type Browser, type Page } from '@pla
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DEFAULT_RENDERER_SETTINGS, injectData, injectHistory, injectSettings } from '../src/core/inject.js';
 import { parseNotes } from '../src/core/history/notes.js';
-import { EXCLUDE_PLACEHOLDER, NOTES_INVALID_TEXT, NO_RESULT_NOTE, NO_RETRIES_TEXT, NO_STATES_TEXT, ORIGIN_TEXT, WHICH_RUNS_TEXT, STATE_HELP, STATE_LABEL, countersText, loadHistory, stateCount, streamDefinition, streamName } from '../src/renderer/history.js';
+import { EXCLUDE_PLACEHOLDER, NO_RESULT_NOTE, NO_RETRIES_TEXT, ORIGIN_TEXT, STATE_HELP, noStatesText, notesInvalidText, whichRunsText, STATE_LABEL, countersText, loadHistory, stateCount, streamDefinition, streamName } from '../src/renderer/history.js';
 import type { EmbeddedHistory } from '../src/schema/history-v1.js';
 import type { LoupeReport } from '../src/schema/v1.js';
 import { HISTORY_STATES, testCells } from '../src/shared/history.js';
@@ -29,7 +29,7 @@ const SAMPLE = path.join(ROOT, 'src/renderer/dev/sample.json');
  * `placeholder`: a page whose history placeholder was never replaced (an older reporter); `include-all`: `normal`
  * with `history.include: 'all'`; `notes-all`: `notes` with it.
  */
-type Page_ = HistoryScenario | 'placeholder' | 'include-all' | 'notes-all' | 'notes-path' | 'absent-path' | 'notes-off' | 'unrecorded';
+type Page_ = HistoryScenario | 'placeholder' | 'include-all' | 'notes-all' | 'notes-path' | 'absent-path' | 'notes-off' | 'unrecorded' | 'invalid-above' | 'all-excluded-above' | 'current-above';
 const PAGES: Page_[] = [
   'none',
   'placeholder',
@@ -52,7 +52,12 @@ const PAGES: Page_[] = [
   'absent-path',
   'notes-off',
   'unrecorded',
+  'invalid-above',
+  'all-excluded-above',
+  'current-above',
 ];
+/** A notes file in a folder above the Playwright config's, as the block names it. */
+const ABOVE = '../shared/loupe.notes.json';
 const BASE: Partial<Record<Page_, HistoryScenario>> = {
   placeholder: 'none',
   'include-all': 'normal',
@@ -61,6 +66,9 @@ const BASE: Partial<Record<Page_, HistoryScenario>> = {
   'absent-path': 'normal',
   'notes-off': 'normal',
   unrecorded: 'normal',
+  'invalid-above': 'notes-invalid',
+  'all-excluded-above': 'all-excluded',
+  'current-above': 'notes-current',
 };
 /**
  * How a page's block differs from its scenario's: `history.include: 'all'`; a custom `history.notes` (read, or
@@ -73,6 +81,9 @@ const VARIANT: Partial<Record<Page_, (block: EmbeddedHistory) => EmbeddedHistory
   'absent-path': (block) => ({ ...block, notesPath: 'e2e/loupe.notes.json' }),
   'notes-off': (block) => ({ ...block, notesFile: 'off', notesPath: null }),
   unrecorded: (block) => ({ ...block, current: { ...block.current, id: null } }),
+  'invalid-above': (block) => ({ ...block, notesPath: ABOVE }),
+  'all-excluded-above': (block) => ({ ...block, notesPath: ABOVE }),
+  'current-above': (block) => ({ ...block, notesPath: ABOVE }),
 };
 
 describe('history on the Overview and in the filters (file://)', { timeout: 60_000 }, () => {
@@ -114,6 +125,56 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
   }
 
   const zone = (page: Page) => page.locator('[data-history]');
+
+  describe('the configured notes file, named in every text', () => {
+    const CUSTOM = 'e2e/team-notes.json';
+    /** The default name left once the configured path is removed: none. */
+    const noDefault = (text: string, notes: string) => expect(text.replaceAll(notes, '')).not.toContain('loupe.notes.json');
+
+    it('the invalid-file notice names the file', async () => {
+      const page = await open('invalid-above', '#/');
+      const notice = (await zone(page).locator('.history-notice').allTextContents()).join(' ');
+      expect(notice).toBe(`Note: ${ABOVE} could not be read: its entries are ignored (see the run output).`);
+      noDefault(notice, ABOVE);
+      await page.close();
+    });
+
+    it('the all-excluded line names the file', async () => {
+      const page = await open('all-excluded-above', '#/');
+      const note = (await zone(page).locator('.history-note').allInnerTexts()).join(' ');
+      expect(note).toContain(`excluded (with LOUPE_EXCLUDE or in ${ABOVE})`);
+      noDefault(note, ABOVE);
+      await page.close();
+    });
+
+    it('the current run excluded by the file: its no-delta line and its cell name the file', async () => {
+      const page = await open('current-above', '#/');
+      const line = (await zone(page).locator('.history-note').allInnerTexts()).join(' ');
+      expect(line).toContain(`, from ${ABOVE}): it is not compared with earlier runs.`);
+      noDefault(line, ABOVE);
+      await page.close();
+    });
+
+    it('a run excluded by the file and "Which runs are used": the name, description and panel of its cell, and the help', async () => {
+      const failingIndex = sample.tests.findIndex((test, index) => test.outcome === 'failed' && index % 4 === 0);
+      const failing = sample.tests[failingIndex] as LoupeReport['tests'][number];
+      const page = await open('notes-path', `#/test/${failing.id}${failing.repeatEachIndex > 0 ? `/repeat/${failing.repeatEachIndex}` : ''}`);
+      const cell = page.locator('.strip-cell').nth(3);
+      const source = `(Staging was down (VPN), from ${CUSTOM})`;
+      expect(await cell.getAttribute('aria-label')).toContain(source);
+      await expectLocator(cell).toHaveAccessibleDescription(new RegExp(source.replace(/[()]/g, '\\$&')));
+      await cell.hover();
+      await expectLocator(page.locator('.strip-facts')).toContainText(source);
+      noDefault((await page.locator('.test-history').innerText()) + ((await cell.getAttribute('aria-label')) ?? ''), CUSTOM);
+      await page.close();
+      for (const hash of ['#/', '#/tests']) {
+        const help = await open('notes-path', hash);
+        await expectLocator(help.locator('.history-help > p')).toHaveText(whichRunsText('full', CUSTOM));
+        await expectLocator(help.locator('.history-help > p')).toContainText(`excluded (with LOUPE_EXCLUDE or in ${CUSTOM})`);
+        await help.close();
+      }
+    });
+  });
 
   describe('Run details: copy an exclusion for this run', () => {
     /** Records copied texts instead of the real clipboard; or no Clipboard API at all, for the fallback dialog. */
@@ -260,7 +321,7 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
     ] as const) {
       for (const hash of ['#/', '#/tests']) {
         const page = await open(name, hash);
-        await expectLocator(page.locator('.history-help > p')).toHaveText(WHICH_RUNS_TEXT[include]);
+        await expectLocator(page.locator('.history-help > p')).toHaveText(whichRunsText(include, 'loupe.notes.json'));
         await page.close();
       }
     }
@@ -276,7 +337,7 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
     ['all-excluded', 'all-excluded'],
   ] as const)('%s: one line instead of the states, no facet', async (name, reason) => {
     const page = await open(name, '#/');
-    expect(await zone(page).locator('.history-note').allInnerTexts()).toEqual([NO_STATES_TEXT[reason]]);
+    expect(await zone(page).locator('.history-note').allInnerTexts()).toEqual([noStatesText(reason, 'loupe.notes.json')]);
     expect(await zone(page).locator('.history-states').count()).toBe(0);
     expect(await page.locator('.history-help').count()).toBe(0);
     await page.close();
@@ -312,7 +373,7 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
 
   it('loupe.notes.json: one note in the verdict for an invalid file only, nothing for one read, none without history', async () => {
     const invalid = await open('notes-invalid', '#/');
-    expect(await zone(invalid).locator('.history-notice').allTextContents()).toEqual([`Note: ${NOTES_INVALID_TEXT}`]);
+    expect(await zone(invalid).locator('.history-notice').allTextContents()).toEqual([`Note: ${notesInvalidText('loupe.notes.json')}`]);
     // Its entries are ignored: the stream reads as the normal one.
     expect(await zone(invalid).locator('.history-delta').count()).toBe(1);
     await invalid.close();
@@ -419,7 +480,7 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
       await expectLocator(page.locator('.history-help dd').first()).toBeVisible();
       // Which runs each level uses, in words.
       await expectLocator(page.locator('.history-help > p')).toHaveText(
-        WHICH_RUNS_TEXT.full,
+        whichRunsText('full', 'loupe.notes.json'),
       );
       await page.close();
     });

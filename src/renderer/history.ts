@@ -118,29 +118,54 @@ export function streamDefinition(stream: HistoryRun['stream']): string {
   return `A stream is ${parts.join(' plus ')}; each has its own history.`;
 }
 
-/** Where a run's exclusion comes from, for the run that is excluded from loupe.notes.json. */
-export const NOTES_SOURCE = 'from loupe.notes.json';
-/** What excludes a run, in the texts that explain which runs are used. */
-const EXCLUDED_BY = 'excluded (with LOUPE_EXCLUDE or in loupe.notes.json)';
+/**
+ * The notes file as the texts name it: the block's `notesPath` (relative to the Playwright config's folder, or a
+ * bare name), null with `history.notes: false` or a block that does not say.
+ */
+export function notesName(block: Pick<EmbeddedHistory, 'notesPath'>): string | null {
+  return typeof block.notesPath === 'string' && block.notesPath !== '' ? block.notesPath : null;
+}
+
+/** A file reason with no path to name: never reached with a well-formed block, where both go together. */
+const SOME_NOTES_FILE = 'the notes file';
+
+/** Where a run's exclusion comes from, for the run that is excluded by the notes file: "from loupe.notes.json". */
+export function notesSource(notes: string | null): string {
+  return `from ${notes ?? SOME_NOTES_FILE}`;
+}
+
+/** What excludes a run, in the texts that explain which runs are used; LOUPE_EXCLUDE alone when no file is read. */
+function excludedBy(notes: string | null): string {
+  return notes === null ? 'excluded (with LOUPE_EXCLUDE)' : `excluded (with LOUPE_EXCLUDE or in ${notes})`;
+}
 
 /**
  * The reasons a run is excluded, with their sources: "staging restored" at launch (the wording from before the
- * notes file), "VPN, from loupe.notes.json" from the file, both with their sources when it has both.
+ * notes file), "VPN, from loupe.notes.json" from the file (`notes`, as named), both with their sources when it has both.
  */
-export function exclusionReasons(run: Exclusion): string {
-  const file = run.notesExcluded === undefined ? null : `${run.notesExcluded}, ${NOTES_SOURCE}`;
+export function exclusionReasons(run: Exclusion, notes: string | null): string {
+  const file = run.notesExcluded === undefined ? null : `${run.notesExcluded}, ${notesSource(notes)}`;
   if (run.excluded === null) return file ?? '';
   return file === null ? run.excluded : `${run.excluded}, at launch; ${file}`;
 }
 
-export const NO_STATES_TEXT: Record<NoStatesReason, string> = {
-  'first-run': 'First run of this stream: nothing to compare yet.',
-  'all-skipped': 'The earlier runs of this stream could not be read (a newer history format, or unreadable files): nothing to compare.',
-  'all-excluded': `Every earlier run of this stream is ${EXCLUDED_BY}; history.include: 'all' counts them.`,
-};
+/** Why no state is shown; `notes` is the notes file as named (notesName). */
+export function noStatesText(reason: NoStatesReason, notes: string | null): string {
+  switch (reason) {
+    case 'first-run':
+      return 'First run of this stream: nothing to compare yet.';
+    case 'all-skipped':
+      return 'The earlier runs of this stream could not be read (a newer history format, or unreadable files): nothing to compare.';
+    case 'all-excluded':
+      return `Every earlier run of this stream is ${excludedBy(notes)}; history.include: 'all' counts them.`;
+  }
+}
 
 /** The invalid notes file, as one run-level note of the verdict. */
-export const NOTES_INVALID_TEXT = 'loupe.notes.json could not be read: its entries are ignored (see the run output).';
+export function notesInvalidText(notes: string | null): string {
+  // A file name starts the sentence as written: "loupe.notes.json could not be read".
+  return `${notes ?? 'The notes file'} could not be read: its entries are ignored (see the run output).`;
+}
 
 /** The reason of a copied exclusion, for whoever pastes it to replace. */
 export const EXCLUDE_PLACEHOLDER = '<reason>';
@@ -165,10 +190,10 @@ export function exclusionCopy(block: Pick<EmbeddedHistory, 'current' | 'notesFil
   };
 }
 
-export function noDeltaText(reason: NoDeltaReason, current: Exclusion, include: 'full' | 'all'): string {
+export function noDeltaText(reason: NoDeltaReason, current: Exclusion, include: 'full' | 'all', notes: string | null): string {
   switch (reason) {
     case 'current-excluded':
-      return `This run is excluded (${exclusionReasons(current)}): it is not compared with earlier runs.`;
+      return `This run is excluded (${exclusionReasons(current, notes)}): it is not compared with earlier runs.`;
     case 'current-ide':
       return 'This run comes from the IDE (VS Code extension, UI or watch mode): it is not compared with earlier runs.';
     case 'current-partial':
@@ -207,10 +232,10 @@ function failureWord(cell: Pick<HistoryCell, 'attempts' | 'failure'>): string | 
  * use only ordinary runs, a test's history every run but excluded ones;
  * `history.include: 'all'` uses every run for both.
  */
-export function cellUse(cell: Pick<HistoryCell, 'run' | 'flags'>, include: 'full' | 'all'): string | null {
+export function cellUse(cell: Pick<HistoryCell, 'run' | 'flags'>, include: 'full' | 'all', notes: string | null): string | null {
   const { run, flags } = cell;
   const all = "used, because history.include is 'all'";
-  if (flags.includes('excluded')) return `Excluded run (${exclusionReasons(run)}): ${include === 'all' ? all : "not used in this test's history"}`;
+  if (flags.includes('excluded')) return `Excluded run (${exclusionReasons(run, notes)}): ${include === 'all' ? all : "not used in this test's history"}`;
   const partial = flags.includes('partial');
   const ide = flags.includes('ide');
   if (!partial && !ide) return null;
@@ -224,9 +249,9 @@ export function cellUse(cell: Pick<HistoryCell, 'run' | 'flags'>, include: 'full
  * failed, Timeout", then how the run is used when it is drawn apart
  * (cellUse). `date` is the run's start as the report formats it.
  */
-export function cellName(cell: Pick<HistoryCell, 'run' | 'code' | 'attempts' | 'failure' | 'flags'>, date: string, include: 'full' | 'all'): string {
+export function cellName(cell: Pick<HistoryCell, 'run' | 'code' | 'attempts' | 'failure' | 'flags'>, date: string, include: 'full' | 'all', notes: string | null): string {
   const failure = cell.code === 'F' || cell.code === 'K' ? failureWord(cell) : null;
-  const use = cellUse(cell, include);
+  const use = cellUse(cell, include, notes);
   return [date, ORIGIN_TEXT[cell.run.origin], RESULT_TEXT[cell.code], ...(failure ? [failure] : []), ...(use ? [use.charAt(0).toLowerCase() + use.slice(1)] : [])].join(', ');
 }
 
@@ -253,10 +278,11 @@ export function countersText(counters: Counters, retries: boolean): string {
 }
 
 /** Which runs each level uses, as `history.include` sets it: the "Which runs are used" paragraph of HistoryHelp. */
-export const WHICH_RUNS_TEXT: Record<'full' | 'all', string> = {
-  full: `Run comparisons (the change since the previous run) use full runs outside the IDE that are not ${EXCLUDED_BY}. A test's history (its state, counters and strip) uses every run where it ran, except excluded ones.`,
-  all: `Run comparisons (the change since the previous run) use every run, partial, ${EXCLUDED_BY} and IDE runs included, because history.include is 'all'. A test's history (its state, counters and strip) uses every run where it ran, excluded ones included.`,
-};
+export function whichRunsText(include: 'full' | 'all', notes: string | null): string {
+  return include === 'full'
+    ? `Run comparisons (the change since the previous run) use full runs outside the IDE that are not ${excludedBy(notes)}. A test's history (its state, counters and strip) uses every run where it ran, except excluded ones.`
+    : `Run comparisons (the change since the previous run) use every run, partial, ${excludedBy(notes)} and IDE runs included, because history.include is 'all'. A test's history (its state, counters and strip) uses every run where it ran, excluded ones included.`;
+}
 
 /** The state of a test in its detail, after its name, with its N for a new failure: "no failure in its last 7 runs in this stream". */
 export function stateDetail(state: HistoryState, earlier: number): string {

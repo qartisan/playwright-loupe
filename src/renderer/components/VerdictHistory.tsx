@@ -2,7 +2,7 @@ import type { ComponentChildren } from 'preact';
 import { HISTORY_STATES } from '../../shared/history.js';
 import { formatRunStart } from '../datetime.js';
 import { plural } from '../format.js';
-import { NOTES_INVALID_TEXT, NO_STATES_TEXT, STATE_HELP, formatFailedChange, formatPoints, noDeltaText, stateCount, stateHelpId, streamName, type ReportHistory } from '../history.js';
+import { STATE_HELP, formatFailedChange, formatPoints, noDeltaText, noStatesText, notesInvalidText, notesName, stateCount, stateHelpId, streamName, type ReportHistory } from '../history.js';
 import { facetHref } from '../filters/store.js';
 import { HistoryHelp } from './HistoryHelp.js';
 import { InfoIcon } from './icons.js';
@@ -59,7 +59,7 @@ export function VerdictHistory({ history }: { history: ReportHistory }) {
         </p>
       ) : (
         // "No earlier run" says less than the reason no state is shown (first run, all skipped, all excluded): that line alone.
-        noDelta && !(noDelta === 'no-earlier-run' && analysis.noStates) && <p class="history-note">{noDeltaText(noDelta, block.current, block.include)}</p>
+        noDelta && !(noDelta === 'no-earlier-run' && analysis.noStates) && <p class="history-note">{noDeltaText(noDelta, block.current, block.include, notesName(block))}</p>
       )}
       {analysis.statesShown ? (
         <ul class="history-states" aria-label="Tests by history state">
@@ -79,7 +79,7 @@ export function VerdictHistory({ history }: { history: ReportHistory }) {
           })}
         </ul>
       ) : (
-        analysis.noStates && <p class="history-note">{NO_STATES_TEXT[analysis.noStates]}</p>
+        analysis.noStates && <p class="history-note">{noStatesText(analysis.noStates, notesName(block))}</p>
       )}
       {signatures && (
         <HistoryNotice>
@@ -91,8 +91,8 @@ export function VerdictHistory({ history }: { history: ReportHistory }) {
           {plural(analysis.skipped, 'earlier run file')} of this stream could not be read (a newer history format, or unreadable files): the window is shorter.
         </HistoryNotice>
       )}
-      {block.notesFile === 'invalid' && <HistoryNotice>{NOTES_INVALID_TEXT}</HistoryNotice>}
-      {analysis.statesShown && <HistoryHelp headingLevel={4} include={block.include} />}
+      {block.notesFile === 'invalid' && <HistoryNotice>{notesInvalidText(notesName(block))}</HistoryNotice>}
+      {analysis.statesShown && <HistoryHelp headingLevel={4} include={block.include} notes={notesName(block)} />}
     </div>
   );
 }

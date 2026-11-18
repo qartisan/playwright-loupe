@@ -15,7 +15,7 @@ import { nextSort, titlePath } from '../filters/sort.js';
 import { context, domain, filtersHref, setFilters } from '../filters/store.js';
 import { DEFAULT_SORT, clearFilters, serializeFilters, type FilterState, type SortColumn } from '../filters/url.js';
 import { formatDuration, plural } from '../format.js';
-import { STATE_HELP, STATE_LABEL, stateHelpId, type ReportHistory } from '../history.js';
+import { STATE_HELP, STATE_LABEL, notesName, stateHelpId, type ReportHistory } from '../history.js';
 import type { HistoryState } from '../../shared/history.js';
 import { skipReason } from '../skip.js';
 
@@ -82,7 +82,7 @@ export function TestsPage({ report, state, sorted, history = null }: { report: L
       <p class="result-count" aria-live="polite" aria-atomic="true">
         {summary}
       </p>
-      {history?.analysis.statesShown && <HistoryHelp headingLevel={2} include={history.analysis.history.include} />}
+      {history?.analysis.statesShown && <HistoryHelp headingLevel={2} include={history.analysis.history.include} notes={notesName(history.analysis.history)} />}
       <RerunFailed tests={sorted} />
       {total === 0 ? (
         <p class="muted">No tests in this run.</p>

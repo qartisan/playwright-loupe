@@ -16,6 +16,7 @@ import {
   cellUse,
   countersText,
   failureGap,
+  notesName,
   stateDetail,
   streamDefinition,
   streamName,
@@ -89,7 +90,7 @@ function ResultGlyph({ code }: { code: ResultCode }) {
 const shortCommit = (commit: string) => commit.slice(0, 7);
 
 /** The facts of a cell, as lines of text: for its description (read on focus) and the visible panel. */
-function cellFacts(cell: StripCell, date: string, include: Include): string[] {
+function cellFacts(cell: StripCell, date: string, include: Include, notes: string | null): string[] {
   const facts = [cell.current ? `This run, ${date}` : `Run of ${date}`, `Result: ${RESULT_TEXT[cell.code]}`];
   const attempts = attemptsText(cell.attempts);
   if (attempts) facts.push(attempts);
@@ -98,7 +99,7 @@ function cellFacts(cell: StripCell, date: string, include: Include): string[] {
   if (cell.run.commit) facts.push(`Commit: ${shortCommit(cell.run.commit)}`);
   facts.push(`Run duration: ${formatDuration(cell.run.durationMs)}`);
   // Nothing for an ordinary run; otherwise how the run is used, in one sentence.
-  const use = cellUse(cell, include);
+  const use = cellUse(cell, include, notes);
   if (use) facts.push(use);
   // Text people wrote: rendered as text, never as HTML.
   if (cell.run.note !== undefined) facts.push(`Note: ${cell.run.note}`);
@@ -106,12 +107,12 @@ function cellFacts(cell: StripCell, date: string, include: Include): string[] {
   return facts;
 }
 
-function CellDetails({ cell, date, include, above }: { cell: StripCell; date: string; include: Include; above: boolean }) {
+function CellDetails({ cell, date, include, notes, above }: { cell: StripCell; date: string; include: Include; notes: string | null; above: boolean }) {
   const gap = failureGap(cell);
   return (
     <div class={`strip-details${above ? ' strip-details-above' : ''}`} data-run-id={cell.run.id}>
       <ul class="strip-facts">
-        {cellFacts(cell, date, include).map((fact) => (
+        {cellFacts(cell, date, include, notes).map((fact) => (
           <li key={fact}>{fact}</li>
         ))}
       </ul>
@@ -141,7 +142,7 @@ function CellDetails({ cell, date, include, above }: { cell: StripCell; date: st
  * - on touch, a tap focuses the cell, which shows it; only a mouse hovers,
  *   so a tap elsewhere hides it.
  */
-function Strip({ cells, include }: { cells: readonly StripCell[]; include: Include }) {
+function Strip({ cells, include, notes }: { cells: readonly StripCell[]; include: Include; notes: string | null }) {
   const last = cells.length - 1;
   const [active, setActive] = useState(last);
   const [hovered, setHovered] = useState<number | null>(null);
@@ -225,7 +226,7 @@ function Strip({ cells, include }: { cells: readonly StripCell[]; include: Inclu
         }}
       >
         {cells.map((cell, index) => {
-          const name = cellName(cell, dates[index] ?? '', include);
+          const name = cellName(cell, dates[index] ?? '', include, notes);
           const classes = [
             'strip-cell',
             `strip-${cell.code === '-' ? 'none' : cell.code}`,
@@ -258,13 +259,13 @@ function Strip({ cells, include }: { cells: readonly StripCell[]; include: Inclu
             >
               <ResultGlyph code={cell.code} />
               <span id={`strip-facts-${index}`} hidden>
-                {[...cellFacts(cell, dates[index] ?? '', include).slice(2), ...(cell.current ? [] : [cell.failure?.extract ?? failureGap(cell) ?? ''])].filter(Boolean).join('. ')}
+                {[...cellFacts(cell, dates[index] ?? '', include, notes).slice(2), ...(cell.current ? [] : [cell.failure?.extract ?? failureGap(cell) ?? ''])].filter(Boolean).join('. ')}
               </span>
             </span>,
           ];
         })}
       </div>
-      {shown && shownIndex !== null && <CellDetails cell={shown} date={dates[shownIndex] ?? ''} include={include} above={above} />}
+      {shown && shownIndex !== null && <CellDetails cell={shown} date={dates[shownIndex] ?? ''} include={include} notes={notes} above={above} />}
     </div>
   );
 }
@@ -352,7 +353,7 @@ export function TestHistory({ history, report, test }: { history: ReportHistory;
           {stateDetail(facts.state, facts.earlier)}
         </p>
       )}
-      {cells.length > 0 && <Strip cells={cells} include={block.include} />}
+      {cells.length > 0 && <Strip cells={cells} include={block.include} notes={notesName(block)} />}
       <HistoryMore counters={shown && facts.counters.considered > 0 ? countersText(facts.counters, !facts.noRetries) : null} noRetries={Boolean(shown && facts.noRetries)} others={others} stream={block.stream} />
     </section>
   );

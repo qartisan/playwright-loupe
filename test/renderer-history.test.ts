@@ -4,8 +4,6 @@ import { facetCounts, filterContext, filterDomain, filterTests } from '../src/re
 import { EMPTY_FILTERS, parseFilters, serializeFilters } from '../src/renderer/filters/url.js';
 import {
   EXCLUDE_PLACEHOLDER,
-  NOTES_INVALID_TEXT,
-  NO_STATES_TEXT,
   attemptsText,
   cellName,
   cellUse,
@@ -17,14 +15,20 @@ import {
   formatPoints,
   loadHistory,
   noDeltaText,
+  noStatesText,
+  notesInvalidText,
+  notesName,
   stateCount,
   stateDetail,
-  WHICH_RUNS_TEXT,
   streamDefinition,
   streamName,
+  whichRunsText,
   type ReportHistory,
 } from '../src/renderer/history.js';
 import type { LoupeReport } from '../src/schema/v1.js';
+
+/** The default notes file, as the block names it. */
+const N = 'loupe.notes.json';
 import { HISTORY_STATES, type HistoryCell, type HistoryState } from '../src/shared/history.js';
 import { historyScenario, type HistoryScenario } from './helpers/history-scenarios.js';
 
@@ -141,17 +145,17 @@ describe('verdict history texts', () => {
 
   it('why there is no delta, why no state is shown; never a cause', () => {
     const none = { excluded: null };
-    expect(noDeltaText('current-excluded', { excluded: 'staging restored' }, 'full')).toBe('This run is excluded (staging restored): it is not compared with earlier runs.');
-    expect(noDeltaText('current-excluded', { excluded: null, notesExcluded: 'bad merge' }, 'full')).toBe('This run is excluded (bad merge, from loupe.notes.json): it is not compared with earlier runs.');
-    expect(noDeltaText('current-excluded', { excluded: 'restore', notesExcluded: 'bad merge' }, 'full')).toBe(
+    expect(noDeltaText('current-excluded', { excluded: 'staging restored' }, 'full', N)).toBe('This run is excluded (staging restored): it is not compared with earlier runs.');
+    expect(noDeltaText('current-excluded', { excluded: null, notesExcluded: 'bad merge' }, 'full', N)).toBe('This run is excluded (bad merge, from loupe.notes.json): it is not compared with earlier runs.');
+    expect(noDeltaText('current-excluded', { excluded: 'restore', notesExcluded: 'bad merge' }, 'full', N)).toBe(
       'This run is excluded (restore, at launch; bad merge, from loupe.notes.json): it is not compared with earlier runs.',
     );
-    expect(noDeltaText('no-earlier-run', none, 'full')).toBe('No earlier full run in this stream to compare with.');
-    expect(noDeltaText('no-earlier-run', none, 'all')).toBe('No earlier run in this stream to compare with.');
-    expect(NO_STATES_TEXT['first-run']).toBe('First run of this stream: nothing to compare yet.');
-    expect(NO_STATES_TEXT['all-excluded']).toBe("Every earlier run of this stream is excluded (with LOUPE_EXCLUDE or in loupe.notes.json); history.include: 'all' counts them.");
-    expect(NOTES_INVALID_TEXT).toBe('loupe.notes.json could not be read: its entries are ignored (see the run output).');
-    for (const text of [...Object.values(NO_STATES_TEXT), noDeltaText('current-ide', none, 'full'), noDeltaText('current-partial', none, 'full')]) {
+    expect(noDeltaText('no-earlier-run', none, 'full', N)).toBe('No earlier full run in this stream to compare with.');
+    expect(noDeltaText('no-earlier-run', none, 'all', N)).toBe('No earlier run in this stream to compare with.');
+    expect(noStatesText('first-run', N)).toBe('First run of this stream: nothing to compare yet.');
+    expect(noStatesText('all-excluded', N)).toBe("Every earlier run of this stream is excluded (with LOUPE_EXCLUDE or in loupe.notes.json); history.include: 'all' counts them.");
+    expect(notesInvalidText(N)).toBe('loupe.notes.json could not be read: its entries are ignored (see the run output).');
+    for (const text of [...(['first-run', 'all-skipped', 'all-excluded'] as const).map((reason) => noStatesText(reason, N)), noDeltaText('current-ide', none, 'full', N), noDeltaText('current-partial', none, 'full', N)]) {
       expect(text).not.toMatch(/root cause|because of/i);
     }
   });
@@ -164,8 +168,8 @@ describe('verdict history texts', () => {
   });
 
   it('which runs are used, as history.include sets it', () => {
-    expect(WHICH_RUNS_TEXT.full).toMatch(/^Run comparisons .* use full runs outside the IDE that are not excluded \(with LOUPE_EXCLUDE or in loupe\.notes\.json\)\. A test's history .* except excluded ones\.$/);
-    expect(WHICH_RUNS_TEXT.all).toMatch(
+    expect(whichRunsText('full', N)).toMatch(/^Run comparisons .* use full runs outside the IDE that are not excluded \(with LOUPE_EXCLUDE or in loupe\.notes\.json\)\. A test's history .* except excluded ones\.$/);
+    expect(whichRunsText('all', N)).toMatch(
       /^Run comparisons .* use every run, partial, excluded \(with LOUPE_EXCLUDE or in loupe\.notes\.json\) and IDE runs included, because history\.include is 'all'\. A test's history .* excluded ones included\.$/,
     );
   });
@@ -176,48 +180,83 @@ describe('verdict history texts', () => {
   });
 });
 
+describe('the notes file named as configured', () => {
+  const CUSTOM = 'e2e/team-notes.json';
+  const ABOVE = '../shared/loupe.notes.json';
+
+  it.each([CUSTOM, ABOVE])('every text that names the file names %s, never loupe.notes.json', (notes) => {
+    const texts = [
+      notesInvalidText(notes),
+      noStatesText('all-excluded', notes),
+      whichRunsText('full', notes),
+      whichRunsText('all', notes),
+      exclusionReasons({ excluded: null, notesExcluded: 'VPN' }, notes),
+      exclusionReasons({ excluded: 'restore', notesExcluded: 'VPN' }, notes),
+      noDeltaText('current-excluded', { excluded: null, notesExcluded: 'bad merge' }, 'full', notes),
+    ];
+    for (const text of texts) {
+      expect(text).toContain(notes);
+      // The configured path removed, the default name is nowhere left.
+      expect(text.replaceAll(notes, '')).not.toContain('loupe.notes.json');
+    }
+    expect(notesInvalidText(notes)).toBe(`${notes} could not be read: its entries are ignored (see the run output).`);
+    expect(noStatesText('all-excluded', notes)).toBe(`Every earlier run of this stream is excluded (with LOUPE_EXCLUDE or in ${notes}); history.include: 'all' counts them.`);
+    expect(whichRunsText('full', notes)).toContain(`that are not excluded (with LOUPE_EXCLUDE or in ${notes}).`);
+    expect(whichRunsText('all', notes)).toContain(`partial, excluded (with LOUPE_EXCLUDE or in ${notes}) and IDE runs included`);
+    expect(exclusionReasons({ excluded: 'restore', notesExcluded: 'VPN' }, notes)).toBe(`restore, at launch; VPN, from ${notes}`);
+  });
+
+  it('history.notes: false names no file: LOUPE_EXCLUDE alone; a block that does not say gives the notes file', () => {
+    expect(noStatesText('all-excluded', null)).toBe("Every earlier run of this stream is excluded (with LOUPE_EXCLUDE); history.include: 'all' counts them.");
+    expect(whichRunsText('full', null)).toContain('that are not excluded (with LOUPE_EXCLUDE).');
+    expect(exclusionReasons({ excluded: null, notesExcluded: 'VPN' }, null)).toBe('VPN, from the notes file');
+    expect(notesInvalidText(null)).toBe('The notes file could not be read: its entries are ignored (see the run output).');
+    expect([notesName({ notesPath: 'e2e/x.json' }), notesName({ notesPath: null }), notesName({ notesPath: '' }), notesName({} as never)]).toEqual(['e2e/x.json', null, null, null]);
+  });
+});
+
 describe('test detail texts', () => {
   const run = { origin: 'ci', excluded: null, scopeReasons: [] } as unknown as HistoryCell['run'];
   const cell = (fields: Partial<HistoryCell> = {}): HistoryCell =>
     ({ index: 0, run, code: 'F', attempts: 'FT', flags: [], runCounts: true, counts: true, failure: { category: 'Timeout', extract: 'x', compared: true }, ...fields }) as HistoryCell;
 
   it('the name of a cell: date, origin, result, category, then how a run drawn apart is used', () => {
-    expect(cellName(cell(), '12 Nov 14:03', 'full')).toBe('12 Nov 14:03, CI, failed, Timeout');
-    expect(cellName(cell({ code: 'P', failure: null, attempts: 'P' }), 'd', 'full')).toBe('d, CI, passed');
-    expect(cellName(cell({ code: '-', failure: null, attempts: null }), 'd', 'full')).toBe('d, CI, no result');
+    expect(cellName(cell(), '12 Nov 14:03', 'full', N)).toBe('12 Nov 14:03, CI, failed, Timeout');
+    expect(cellName(cell({ code: 'P', failure: null, attempts: 'P' }), 'd', 'full', N)).toBe('d, CI, passed');
+    expect(cellName(cell({ code: '-', failure: null, attempts: null }), 'd', 'full', N)).toBe('d, CI, no result');
     const excluded = { ...run, excluded: 'restore' };
-    expect(cellName(cell({ run: excluded, flags: ['excluded'], runCounts: false, counts: false }), 'd', 'full')).toBe(
+    expect(cellName(cell({ run: excluded, flags: ['excluded'], runCounts: false, counts: false }), 'd', 'full', N)).toBe(
       "d, CI, failed, Timeout, excluded run (restore): not used in this test's history",
     );
   });
 
   it('how a run is used: nothing for an ordinary run, one sentence otherwise', () => {
-    expect(cellUse(cell(), 'full')).toBeNull();
-    expect(cellUse(cell(), 'all')).toBeNull();
+    expect(cellUse(cell(), 'full', N)).toBeNull();
+    expect(cellUse(cell(), 'all', N)).toBeNull();
     const partial = { ...run, scopeReasons: ['grep', 'project'] };
-    expect(cellUse(cell({ run: partial, flags: ['partial'] }), 'full')).toBe("Partial run (grep, project): used in this test's history, not in run comparisons");
-    expect(cellUse(cell({ flags: ['ide'] }), 'full')).toBe("Run from the IDE: used in this test's history, not in run comparisons");
-    expect(cellUse(cell({ run: partial, flags: ['ide', 'partial'] }), 'full')).toBe("Partial run from the IDE (grep, project): used in this test's history, not in run comparisons");
-    expect(cellUse(cell({ run: { ...run, excluded: 'x' }, flags: ['excluded'], runCounts: false }), 'full')).toBe("Excluded run (x): not used in this test's history");
-    expect(cellUse(cell({ run: { ...run, excluded: 'x' }, flags: ['excluded'], runCounts: true }), 'all')).toBe("Excluded run (x): used, because history.include is 'all'");
+    expect(cellUse(cell({ run: partial, flags: ['partial'] }), 'full', N)).toBe("Partial run (grep, project): used in this test's history, not in run comparisons");
+    expect(cellUse(cell({ flags: ['ide'] }), 'full', N)).toBe("Run from the IDE: used in this test's history, not in run comparisons");
+    expect(cellUse(cell({ run: partial, flags: ['ide', 'partial'] }), 'full', N)).toBe("Partial run from the IDE (grep, project): used in this test's history, not in run comparisons");
+    expect(cellUse(cell({ run: { ...run, excluded: 'x' }, flags: ['excluded'], runCounts: false }), 'full', N)).toBe("Excluded run (x): not used in this test's history");
+    expect(cellUse(cell({ run: { ...run, excluded: 'x' }, flags: ['excluded'], runCounts: true }), 'all', N)).toBe("Excluded run (x): used, because history.include is 'all'");
     // With include: 'all', run comparisons use partial and IDE runs too.
-    expect(cellUse(cell({ flags: ['ide'] }), 'all')).toBe("Run from the IDE: used, because history.include is 'all'");
-    for (const flags of [['ide'], ['partial']] as const) expect(cellUse(cell({ run: partial, flags: [...flags] }), 'full')).not.toMatch(/not used/);
+    expect(cellUse(cell({ flags: ['ide'] }), 'all', N)).toBe("Run from the IDE: used, because history.include is 'all'");
+    for (const flags of [['ide'], ['partial']] as const) expect(cellUse(cell({ run: partial, flags: [...flags] }), 'full', N)).not.toMatch(/not used/);
   });
 
   it('an exclusion says where it comes from: the launch wording unchanged, the file named, both with their sources', () => {
-    expect(exclusionReasons({ excluded: 'restore' })).toBe('restore');
-    expect(exclusionReasons({ excluded: null, notesExcluded: 'VPN' })).toBe('VPN, from loupe.notes.json');
-    expect(exclusionReasons({ excluded: 'restore', notesExcluded: 'VPN' })).toBe('restore, at launch; VPN, from loupe.notes.json');
+    expect(exclusionReasons({ excluded: 'restore' }, N)).toBe('restore');
+    expect(exclusionReasons({ excluded: null, notesExcluded: 'VPN' }, N)).toBe('VPN, from loupe.notes.json');
+    expect(exclusionReasons({ excluded: 'restore', notesExcluded: 'VPN' }, N)).toBe('restore, at launch; VPN, from loupe.notes.json');
     const fromFile = { ...run, notesExcluded: 'staging down' };
-    expect(cellUse(cell({ run: fromFile, flags: ['excluded'], runCounts: false }), 'full')).toBe("Excluded run (staging down, from loupe.notes.json): not used in this test's history");
-    expect(cellUse(cell({ run: fromFile, flags: ['excluded'], runCounts: true }), 'all')).toBe("Excluded run (staging down, from loupe.notes.json): used, because history.include is 'all'");
+    expect(cellUse(cell({ run: fromFile, flags: ['excluded'], runCounts: false }), 'full', N)).toBe("Excluded run (staging down, from loupe.notes.json): not used in this test's history");
+    expect(cellUse(cell({ run: fromFile, flags: ['excluded'], runCounts: true }), 'all', N)).toBe("Excluded run (staging down, from loupe.notes.json): used, because history.include is 'all'");
     const both = { ...run, excluded: 'restore', notesExcluded: 'staging down' };
-    expect(cellName(cell({ run: both, flags: ['excluded'], runCounts: false, counts: false }), 'd', 'full')).toBe(
+    expect(cellName(cell({ run: both, flags: ['excluded'], runCounts: false, counts: false }), 'd', 'full', N)).toBe(
       "d, CI, failed, Timeout, excluded run (restore, at launch; staging down, from loupe.notes.json): not used in this test's history",
     );
     // A note alone: an ordinary run, whose name says nothing more.
-    expect(cellUse(cell({ run: { ...run, note: 'after the refactor' } }), 'full')).toBeNull();
+    expect(cellUse(cell({ run: { ...run, note: 'after the refactor' } }), 'full', N)).toBeNull();
   });
 
   it('why a failure shows no error text', () => {
