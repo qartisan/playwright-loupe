@@ -11,6 +11,7 @@ import {
   type HistoryTest,
 } from '../../schema/history-v1.js';
 import { SIGNATURE_VERSION } from '../signature.js';
+import { prefix } from './cut.js';
 
 /** Length of an error extract, in characters. */
 export const EXTRACT_CHARS = 300;
@@ -25,12 +26,10 @@ const MIN_LINE_CUT = 120;
  */
 export function extract(message: string): string {
   if (message.length <= EXTRACT_CHARS) return message;
-  let cut = message.slice(0, EXTRACT_CHARS);
+  const cut = prefix(message, EXTRACT_CHARS);
+  // A line end is never inside a surrogate pair: a cut there needs no check.
   const newline = cut.lastIndexOf('\n');
-  if (newline >= MIN_LINE_CUT) cut = cut.slice(0, newline);
-  // Never end on half of a surrogate pair.
-  const last = cut.charCodeAt(cut.length - 1);
-  return last >= 0xd800 && last <= 0xdbff ? cut.slice(0, -1) : cut;
+  return newline >= MIN_LINE_CUT ? cut.slice(0, newline) : cut;
 }
 
 function at(location: SourceLocation | null): string | null {

@@ -14,6 +14,7 @@ import { GITIGNORE, RUNS_FOLDER, ensureHistoryFolder, writeRunFile } from '../sr
 import type { HistoryRunFile } from '../src/schema/history-v1.js';
 import type { Attempt, AttemptStatus, LoupeReport, Outcome, TestCase } from '../src/schema/v1.js';
 import { REDACTED } from '../src/shared/redaction.js';
+import { DEFAULT_REDACT } from '../src/core/redact.js';
 import { NO_NOTES, readRunFile } from './helpers/history.js';
 
 const CLI = '/project/node_modules/@playwright/test/cli.js';
@@ -388,6 +389,31 @@ describe('LOUPE_EXCLUDE', () => {
           expect(text.startsWith('rrr') && text.length <= 200, `kept ${kept}: ${text.length}`).toBe(true);
           expect(parts(text), `${value}, kept ${kept}: ${text.slice(-24)}`).toEqual([]);
         }
+      }
+    }
+  });
+
+  it('never splits a surrogate pair at the cut, in the run file, for the current run and in the embedded block', () => {
+    // Half of a pair, alone: what a plain slice leaves at the cut.
+    const lone = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?:^|[^\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+    for (const astral of ['😀', '𝔸', '𠀀']) {
+      // The cut keeps 199 units: the character starts at every offset around it, across it at 198.
+      for (let start = 196; start <= 200; start++) {
+        const env = { [EXCLUDE_ENV]: `${'r'.repeat(start)}${astral} end` };
+        // The positive control: a plain slice leaves half of the pair when the character starts at 198.
+        if (start === 198) expect(env[EXCLUDE_ENV].slice(0, 199)).toMatch(lone);
+        const recorded = context({ env });
+        const run = buildRunFile(report(tests), recorded) as HistoryRunFile;
+        const current = maskedExcludeReason(recorded);
+        const read = replayRun(run, createReplay(DEFAULT_REDACT, null));
+        const block = deriveEmbedded(report(tests), { runs: [read], others: [], skipped: 0 }, { include: 'full', stream: {}, current: { origin: 'local', excluded: current, id: 'current' }, currentRunId: 'current', ...NO_NOTES });
+        for (const text of [run.run.excluded?.reason ?? '', current ?? '', block?.runs[0]?.excluded ?? '', block?.current.excluded ?? '']) {
+          expect(text, `${astral} at ${start}`).not.toMatch(lone);
+          expect(text.length, `${astral} at ${start}`).toBeLessThanOrEqual(200);
+          expect(text.endsWith('…'), `${astral} at ${start}`).toBe(true);
+        }
+        // Dropped whole when it runs across the cut, kept whole before it.
+        expect(run.run.excluded?.reason).toBe(start === 198 ? `${'r'.repeat(198)}…` : start < 198 ? `${'r'.repeat(start)}${astral}${' end'.slice(0, 199 - start - 2)}…` : `${'r'.repeat(199)}…`);
       }
     }
   });

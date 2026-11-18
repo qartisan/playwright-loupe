@@ -3,6 +3,7 @@ import path from 'node:path';
 import type { RunNotes } from '../../schema/history-v1.js';
 import { NOTES_VERSION, type NotesFileStatus } from '../../schema/notes-v1.js';
 import { suggestKey } from '../../config/validate.js';
+import { cutText } from './cut.js';
 import type { Replay } from './read.js';
 
 /**
@@ -45,15 +46,6 @@ export interface NotesRead {
 }
 
 const isObject = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
-
-/** `text` cut to `max` characters, ending with `…` when cut, never on half of a surrogate pair. */
-export function cutText(text: string, max: number): string {
-  if (text.length <= max) return text;
-  let end = max - 1;
-  const last = text.charCodeAt(end - 1);
-  if (last >= 0xd800 && last <= 0xdbff) end--;
-  return `${text.slice(0, end)}…`;
-}
 
 const WHITESPACE = new Set([' ', '\t', '\n', '\r']);
 const NUMBER = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/y;

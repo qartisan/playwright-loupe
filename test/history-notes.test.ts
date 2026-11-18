@@ -2,7 +2,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { MAX_NOTE, MAX_NOTES_BYTES, MAX_NOTES_REASON, blankTrailingCommas, cutText, findSyntaxError, lineAndColumn, notesByRun, parseNotes, readNotes } from '../src/core/history/notes.js';
+import { MAX_NOTE, MAX_NOTES_BYTES, MAX_NOTES_REASON, blankTrailingCommas, findSyntaxError, lineAndColumn, notesByRun, parseNotes, readNotes } from '../src/core/history/notes.js';
+import { cutText } from '../src/core/history/cut.js';
 import { createReplay } from '../src/core/history/read.js';
 import { REDACTED } from '../src/core/redact.js';
 

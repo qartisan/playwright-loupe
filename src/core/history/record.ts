@@ -4,6 +4,7 @@ import type { LoupeReport } from '../../schema/v1.js';
 import { DEFAULT_ENVIRONMENT, type HistoryRun, type HistoryRunFile, type Origin } from '../../schema/history-v1.js';
 import { createPathRewriter } from '../paths.js';
 import { createRedactor, type RedactOptions } from '../redact.js';
+import { cutText } from './cut.js';
 import { detectOrigin, historyRunId, streamOf } from './detect.js';
 import { pruneHistory } from './retain.js';
 import { encodeRun, streamHash } from './runFile.js';
@@ -79,7 +80,8 @@ export function recordedExclusion(context: Pick<RecordContext, 'env' | 'redact' 
   // partly there when masking ran, and its first characters would stay in clear.
   const masked = createPathRewriter({ roots: [], home: context.home }).selection(createRedactor(context.redact).strings(reason));
   // Flagged when cut: the replay on read masks a value added to redact.env later and cut short at its end.
-  return masked.length > MAX_REASON ? { reason: `${masked.slice(0, MAX_REASON - 1)}…`, cut: true } : { reason: masked };
+  // Never on half of a surrogate pair: the cut of every history text (cutText).
+  return masked.length > MAX_REASON ? { reason: cutText(masked, MAX_REASON), cut: true } : { reason: masked };
 }
 
 export interface RunIdentity {
