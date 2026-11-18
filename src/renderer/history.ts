@@ -181,14 +181,14 @@ export function notesInvalidText(notes: string | null): string {
 export const EXCLUDE_PLACEHOLDER = '<reason>';
 
 /**
- * The exclusion of the current run, to paste into the notes file, and where it goes; null when it cannot apply:
- * no notes file (`history.notes: false`) or a run that is not recorded (no id). With a file (read, or invalid and
+ * The exclusion of a run (`id`, its history run id), to paste into the notes file, and where it goes; null when it
+ * cannot apply: no notes file (`history.notes: false`) or a run that is not recorded (no id). One source for the
+ * Run details card's button (the current run, exclusionCopy) and the selected run's (any run of the strip). With a file (read, or invalid and
  * to be fixed), one entry ending with a comma, so it pastes after `"runs": [` in front of other entries, or alone
  * (a trailing comma is accepted); without one, a whole minimal file. The path is the block's: relative to the
  * Playwright config's folder, or a bare name (another drive), then "next to the Playwright config".
  */
-export function exclusionCopy(block: Pick<EmbeddedHistory, 'current' | 'notesFile' | 'notesPath'>): { text: string; instruction: string } | null {
-  const { id } = block.current;
+export function exclusionCopyFor(id: string | null, block: Pick<EmbeddedHistory, 'notesFile' | 'notesPath'>): { text: string; instruction: string } | null {
   const file = block.notesPath;
   if (block.notesFile === 'off' || typeof id !== 'string' || typeof file !== 'string' || file === '') return null;
   const entry = `{ "run": ${JSON.stringify(id)}, "exclude": ${JSON.stringify(EXCLUDE_PLACEHOLDER)} }`;
@@ -198,6 +198,11 @@ export function exclusionCopy(block: Pick<EmbeddedHistory, 'current' | 'notesFil
     text: `{\n  "notesVersion": 1,\n  "runs": [\n    ${entry}\n  ]\n}\n`,
     instruction: file.includes('/') ? `Save it as ${file}, relative to the Playwright config's folder, ${commit}` : `Save it as ${file} next to the Playwright config ${commit}`,
   };
+}
+
+/** The exclusion of the current run (`current.id`, null when the run is not recorded), for the Run details card. */
+export function exclusionCopy(block: Pick<EmbeddedHistory, 'current' | 'notesFile' | 'notesPath'>): { text: string; instruction: string } | null {
+  return exclusionCopyFor(block.current.id, block);
 }
 
 export function noDeltaText(reason: NoDeltaReason, current: Exclusion, include: 'full' | 'all', notes: string | null): string {

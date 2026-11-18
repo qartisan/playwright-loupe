@@ -6,7 +6,7 @@ import { chromium, expect as expectLocator, type Browser, type Page } from '@pla
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DEFAULT_RENDERER_SETTINGS, injectData, injectHistory, injectSettings } from '../src/core/inject.js';
 import { parseNotes } from '../src/core/history/notes.js';
-import { EXCLUDE_PLACEHOLDER, NO_RESULT_NOTE, NO_RETRIES_TEXT, ORIGIN_TEXT, STATE_HELP, noStatesText, notesInvalidText, whichRunsText, STATE_LABEL, countersText, loadHistory, stateCount, streamDefinition, streamName } from '../src/renderer/history.js';
+import { EXCLUDE_PLACEHOLDER, NO_RESULT_NOTE, exclusionCopy, exclusionCopyFor, NO_RETRIES_TEXT, ORIGIN_TEXT, STATE_HELP, noStatesText, notesInvalidText, whichRunsText, STATE_LABEL, countersText, loadHistory, stateCount, streamDefinition, streamName } from '../src/renderer/history.js';
 import type { EmbeddedHistory } from '../src/schema/history-v1.js';
 import type { LoupeReport } from '../src/schema/v1.js';
 import { HISTORY_STATES, testCells } from '../src/shared/history.js';
@@ -948,9 +948,9 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
     it.each([
       [1280, 'beside'],
       [320, 'under'],
-    ] as const)('at %ipx, Close is %s the heading', async (width, placement) => {
+    ] as const)('at %ipx, Close is %s the heading (no copy button: history.notes is false)', async (width, placement) => {
       const page = await browser.newPage({ viewport: { width, height: 900 } });
-      await page.goto(`${urls.normal}${testHash(failing)}`);
+      await page.goto(`${urls['notes-off']}${testHash(failing)}`);
       await select(page, 1);
       const heading = await region(page).getByRole('heading', { level: 3 }).boundingBox();
       const close = await region(page).getByRole('button', { name: 'Close the selected run' }).boundingBox();
@@ -967,6 +967,117 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
         expect(close.y).toBeGreaterThanOrEqual(heading.y + heading.height - 0.5);
       }
       await page.close();
+    });
+
+    describe("copy an exclusion for the selected run", () => {
+      const CLIPBOARD_STUB = `
+        window.__copied = [];
+        Object.defineProperty(navigator, 'clipboard', {
+          configurable: true,
+          value: { writeText: (text) => { window.__copied.push(text); return Promise.resolve(); } },
+        });
+      `;
+      const NO_CLIPBOARD = "Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });";
+      const COPY = 'Copy exclusion for this run';
+      const PAST = 2;
+      async function detail(name: Page_, script = CLIPBOARD_STUB, width = 1280): Promise<Page> {
+        const page = await browser.newPage({ viewport: { width, height: 900 } });
+        await page.addInitScript(script);
+        await page.goto(`${urls[name]}${testHash(failing)}`);
+        await cells(page).first().waitFor();
+        return page;
+      }
+      /** The block of a page, as the report embeds it. */
+      const blockOf = (name: 'notes' | 'notes-invalid' | 'normal' | 'unrecorded') => {
+        const block = historyScenario(name === 'unrecorded' ? 'normal' : name, sample).history as EmbeddedHistory;
+        return name === 'unrecorded' ? { ...block, current: { ...block.current, id: null } } : block;
+      };
+      async function copied(page: Page): Promise<{ text: string; note: string }> {
+        await region(page).getByRole('button', { name: COPY }).click();
+        await expect.poll(() => page.evaluate('window.__copied.length')).toBe(1);
+        await expectLocator(page.getByRole('status')).toContainText('Exclusion copied to the clipboard.');
+        return { text: (await page.evaluate('window.__copied[0]')) as string, note: (await region(page).locator('.run-selected-copy-note').textContent()) ?? '' };
+      }
+
+      it.each(['notes', 'notes-invalid', 'normal'] as const)('%s: a past run gives its own id, never the current run\'s, with the text of the Run details card', async (name) => {
+        const block = blockOf(name);
+        const past = block.runs[PAST]?.id as string;
+        const page = await detail(name);
+        await select(page, PAST);
+        const { text, note } = await copied(page);
+        const expected = exclusionCopyFor(past, block);
+        expect([text, note]).toEqual([expected?.text, expected?.instruction]);
+        expect(text).toContain(`"run": "${past}"`);
+        expect(text).not.toContain(block.current.id as string);
+        // The same form as the Run details card: the paste line, or a whole file without one.
+        expect(note).toBe(exclusionCopy(block)?.instruction);
+        if (name === 'normal') expect(JSON.parse(text)).toEqual({ notesVersion: 1, runs: [{ run: past, exclude: EXCLUDE_PLACEHOLDER }] });
+        else expect(text).toBe(`{ "run": "${past}", "exclude": "${EXCLUDE_PLACEHOLDER}" },`);
+        await page.close();
+      });
+
+      it('the current run gives exactly the Run details card\'s fragment (current.id)', async () => {
+        for (const name of ['notes', 'normal'] as const) {
+          const page = await detail(name);
+          await select(page, (await cells(page).count()) - 1);
+          const { text } = await copied(page);
+          expect(text).toBe(exclusionCopy(blockOf(name))?.text);
+          expect(text).toContain(`"run": "${blockOf(name).current.id}"`);
+          await page.close();
+        }
+      });
+
+      it('no button with history.notes: false; none for the current run when it is not recorded, one for a past run', async () => {
+        const off = await detail('notes-off');
+        for (const index of [PAST, (await cells(off).count()) - 1]) {
+          await select(off, index);
+          await expectLocator(region(off).getByRole('button', { name: COPY })).toHaveCount(0);
+          await expectLocator(region(off).locator('.run-selected-copy-note')).toHaveCount(0);
+        }
+        await off.close();
+        const unrecorded = await detail('unrecorded');
+        await select(unrecorded, (await cells(unrecorded).count()) - 1);
+        await expectLocator(region(unrecorded).getByRole('button', { name: COPY })).toHaveCount(0);
+        await select(unrecorded, PAST);
+        const { text } = await copied(unrecorded);
+        expect(text).toContain(`"run": "${blockOf('unrecorded').runs[PAST]?.id}"`);
+        await unrecorded.close();
+      });
+
+      it('no history: no strip, no details, no button', async () => {
+        const page = await open('none', testHash(failing));
+        await page.locator('.test-header').waitFor();
+        await expectLocator(page.getByRole('button', { name: COPY })).toHaveCount(0);
+        await expectLocator(page.locator('.strip, .run-selected')).toHaveCount(0);
+        await page.close();
+      });
+
+      it('without the Clipboard API: the fallback dialog shows the selected run\'s fragment', async () => {
+        const page = await detail('notes', NO_CLIPBOARD);
+        await select(page, PAST);
+        await region(page).getByRole('button', { name: COPY }).click();
+        const dialog = page.locator('dialog.copy-dialog[open]');
+        await expectLocator(dialog).toHaveCount(1);
+        await expectLocator(dialog.getByRole('heading')).toHaveText('Copy exclusion');
+        await expectLocator(dialog.locator('textarea')).toHaveValue(`{ "run": "${blockOf('notes').runs[PAST]?.id}", "exclude": "${EXCLUDE_PLACEHOLDER}" },`);
+        await page.close();
+      });
+
+      it.each([1280, 320])('Tab order at %ipx: the option, Close, then the copy button; the row after the heading, before the facts', async (width) => {
+        const page = await detail('notes', CLIPBOARD_STUB, width);
+        await select(page, PAST);
+        await page.keyboard.press('Tab');
+        await expectLocator(region(page).getByRole('button', { name: 'Close the selected run' })).toBeFocused();
+        await page.keyboard.press('Tab');
+        await expectLocator(region(page).getByRole('button', { name: COPY })).toBeFocused();
+        const heading = await region(page).getByRole('heading', { level: 3 }).boundingBox();
+        const copy = await region(page).getByRole('button', { name: COPY }).boundingBox();
+        const facts = await region(page).locator('.run-selected-facts').boundingBox();
+        if (!heading || !copy || !facts) throw new Error('no box');
+        expect(copy.y).toBeGreaterThanOrEqual(heading.y + heading.height - 0.5);
+        expect(copy.y + copy.height).toBeLessThanOrEqual(facts.y + 0.5);
+        await page.close();
+      });
     });
 
     it('closed by default; once open, the details push what follows down, in the page flow', async () => {

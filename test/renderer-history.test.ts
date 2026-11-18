@@ -9,6 +9,7 @@ import {
   cellUse,
   countersText,
   exclusionCopy,
+  exclusionCopyFor,
   exclusionReasons,
   failureGap,
   formatFailedChange,
@@ -302,6 +303,17 @@ describe('the exclusion copied for the current run', () => {
     expect(copy('absent', '../shared/loupe.notes.json')?.instruction).toBe(
       "Save it as ../shared/loupe.notes.json, relative to the Playwright config's folder, and commit it: it applies from the next run.",
     );
+  });
+
+  it("any run's id, from one source: the current run's is exclusionCopy's", () => {
+    const block = { notesFile: 'read' as const, notesPath: 'e2e/notes.json' };
+    expect(exclusionCopyFor('dev-local-3', block)).toEqual({
+      text: `{ "run": "dev-local-3", "exclude": "${EXCLUDE_PLACEHOLDER}" },`,
+      instruction: 'Paste it after "runs": [ in e2e/notes.json and commit it: it applies from the next run.',
+    });
+    expect(exclusionCopy({ ...block, current })).toEqual(exclusionCopyFor(current.id, block));
+    expect(exclusionCopyFor(null, block)).toBeNull();
+    expect(exclusionCopyFor('dev-local-3', { notesFile: 'off', notesPath: null })).toBeNull();
   });
 
   it('nothing to copy: history.notes: false, a run not recorded, no path', () => {

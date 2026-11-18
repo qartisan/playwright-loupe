@@ -14,6 +14,7 @@ import {
   ORIGIN_TEXT,
   cellName,
   cellUse,
+  exclusionCopyFor,
   countersText,
   failureGap,
   notesName,
@@ -22,6 +23,7 @@ import {
   streamName,
   type ReportHistory,
 } from '../history.js';
+import { CopyButton } from './CopyButton.js';
 import { HistoryStateIcon } from './icons.js';
 
 /** The History section's heading: the target of the state shown in the test detail's header. */
@@ -35,6 +37,9 @@ export function focusTestHistory(): void {
   heading.scrollIntoView({ block: 'start' });
   heading.focus({ preventScroll: true });
 }
+
+/** What a run's copied exclusion needs from the block: the current run's history id and the notes file. */
+type ExclusionSource = Pick<ReportHistory['analysis']['history'], 'current' | 'notesFile' | 'notesPath'>;
 
 /** A cell of the strip: a run of the window, or the current run, set apart at the end. */
 type StripCell = HistoryCell & { current: boolean };
@@ -122,8 +127,10 @@ function runFacts(cell: StripCell): string[] {
  * never HTML. Close, or Escape (Strip), closes it, focus back on its option. Keeps the run id (`data-run-id`) for a
  * later link to that run's report.
  */
-function SelectedRun({ cell, date, include, notes, onClose }: { cell: StripCell; date: string; include: Include; notes: string | null; onClose: () => void }) {
+function SelectedRun({ cell, date, include, notes, source, onClose }: { cell: StripCell; date: string; include: Include; notes: string | null; source: ExclusionSource; onClose: () => void }) {
   const gap = failureGap(cell);
+  // The run's history id: a past run's own; the current run's from the block (its cell holds the report's run id).
+  const copy = exclusionCopyFor(cell.current ? source.current.id : cell.run.id, source);
   const use = cellUse(cell, include, notes);
   const id = `selected-run-${cell.index}`;
   return (
@@ -138,11 +145,19 @@ function SelectedRun({ cell, date, include, notes, onClose }: { cell: StripCell;
           Selected run, {date}
           {cell.current && ' (this run)'}
         </h3>
-        {/* The run's actions: closing it now; later the copy of its exclusion (brief 26, Part 4). */}
+        {/* The run's actions: Close, then the copy of its exclusion and where it goes, as the Run details card's. */}
         <div class="run-selected-actions">
           <button type="button" class="button" onClick={onClose}>
             Close<span class="visually-hidden"> the selected run</span>
           </button>
+          {copy && (
+            <>
+              <CopyButton label="Exclusion" text={() => copy.text}>
+                Copy exclusion for this run
+              </CopyButton>
+              <span class="run-selected-copy-note">{copy.instruction}</span>
+            </>
+          )}
         </div>
       </div>
       <ul class="run-selected-facts">
@@ -175,7 +190,7 @@ function SelectedRun({ cell, date, include, notes, onClose }: { cell: StripCell;
  * or goes to the selected one. Never while the narrow drawer or a dialog is on top, never on a key already
  * handled (defaultPrevented), and never cancelled: the key goes on unchanged.
  */
-function Strip({ cells, include, notes }: { cells: readonly StripCell[]; include: Include; notes: string | null }) {
+function Strip({ cells, include, notes, source }: { cells: readonly StripCell[]; include: Include; notes: string | null; source: ExclusionSource }) {
   const last = cells.length - 1;
   const [active, setActive] = useState(last);
   const [selected, setSelected] = useState<number | null>(null);
@@ -275,7 +290,7 @@ function Strip({ cells, include, notes }: { cells: readonly StripCell[]; include
           </p>
         )}
       </div>
-      {shown && selected !== null && <SelectedRun cell={shown} date={dates[selected] ?? ''} include={include} notes={notes} onClose={close} />}
+      {shown && selected !== null && <SelectedRun cell={shown} date={dates[selected] ?? ''} include={include} notes={notes} source={source} onClose={close} />}
     </div>
   );
 }
@@ -364,7 +379,7 @@ export function TestHistory({ history, report, test }: { history: ReportHistory;
           {stateDetail(facts.state, facts.earlier)}
         </p>
       )}
-      {cells.length > 0 && <Strip key={`${test.id}:${test.repeatEachIndex}`} cells={cells} include={block.include} notes={notesName(block)} />}
+      {cells.length > 0 && <Strip key={`${test.id}:${test.repeatEachIndex}`} cells={cells} include={block.include} notes={notesName(block)} source={block} />}
       <HistoryMore counters={shown && facts.counters.considered > 0 ? countersText(facts.counters, !facts.noRetries) : null} noRetries={Boolean(shown && facts.noRetries)} others={others} stream={block.stream} />
     </section>
   );
