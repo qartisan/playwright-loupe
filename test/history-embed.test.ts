@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { deriveEmbedded } from '../src/core/history/embed.js';
 import { EMBEDDED_EXTRACTS, type HistoryRunFile, type HistoryTest } from '../src/schema/history-v1.js';
 import type { LoupeReport } from '../src/schema/v1.js';
-import { makeRunFile } from './helpers/history.js';
+import { NO_NOTES, makeRunFile } from './helpers/history.js';
 
 const STREAM = { environment: 'staging', origin: 'ci' };
-const OPTIONS = { include: 'full' as const, stream: STREAM, current: { origin: 'ci' as const, excluded: null, id: 'current' }, currentRunId: 'current' };
+const OPTIONS = { include: 'full' as const, stream: STREAM, current: { origin: 'ci' as const, excluded: null, id: 'current' }, currentRunId: 'current', ...NO_NOTES };
 
 /** Only what the derivation reads from the report: its tests, in order. */
 const report = (...tests: Array<[id: string, repeatEachIndex?: number]>) =>
@@ -16,6 +16,50 @@ const failed = (id: string, sig: string, a = 'FF', o: HistoryTest['o'] = 'F'): H
 const run = (id: string, day: number, tests: HistoryTest[], extra: Partial<HistoryRunFile> = {}): HistoryRunFile => ({
   ...makeRunFile({ id, startedAt: `2026-11-${String(day).padStart(2, '0')}T10:00:00.000Z`, stream: STREAM }, tests),
   ...extra,
+});
+
+describe('deriveEmbedded: loupe.notes.json', () => {
+  const window = { runs: [run('r2', 2, [row('a', 'P')]), run('r1', 1, [row('a', 'F')])], others: [], skipped: 0 };
+  const notes = new Map([
+    ['r1', { notesExcluded: 'staging down', note: 'VPN' }],
+    ['r2', { note: 'after the refactor' }],
+    ['purged', { notesExcluded: 'not in the window' }],
+  ]);
+
+  it('adds what the file says to the runs it names, and nothing to the others', () => {
+    const value = deriveEmbedded(report(['a']), window, { ...OPTIONS, notes, notesFile: 'read' });
+    expect(value?.runs.map(({ id, excluded, notesExcluded, note }) => ({ id, excluded, notesExcluded, note }))).toEqual([
+      { id: 'r1', excluded: null, notesExcluded: 'staging down', note: 'VPN' },
+      { id: 'r2', excluded: null, notesExcluded: undefined, note: 'after the refactor' },
+    ]);
+    // Omitted, not undefined or null, when the file has nothing: no byte for a run without notes.
+    expect(Object.keys(value?.runs[1] ?? {})).not.toContain('notesExcluded');
+    expect(value?.notesFile).toBe('read');
+  });
+
+  it('without notes, no key is added', () => {
+    const value = deriveEmbedded(report(['a']), window, OPTIONS);
+    expect(JSON.stringify(value)).not.toMatch(/notesExcluded|"note"/);
+    expect([value?.notesFile, value?.current]).toEqual(['absent', OPTIONS.current]);
+  });
+
+  it('keeps both reasons of a run excluded at launch and in the file', () => {
+    const launch = { runs: [run('r1', 1, [row('a', 'F')], { run: { ...makeRunFile({ id: 'r1', stream: STREAM }).run, excluded: { reason: 'restore' } } })], others: [], skipped: 0 };
+    const value = deriveEmbedded(report(['a']), launch, { ...OPTIONS, notes, notesFile: 'read' });
+    expect([value?.runs[0]?.excluded, value?.runs[0]?.notesExcluded]).toEqual(['restore', 'staging down']);
+  });
+
+  it('gives the current run its notes when the file names its id (a merge or CI job run again), never with a null id', () => {
+    const forCurrent = new Map([['current', { notesExcluded: 'bad merge' }]]);
+    expect(deriveEmbedded(report(['a']), window, { ...OPTIONS, notes: forCurrent, notesFile: 'read' })?.current).toEqual({ ...OPTIONS.current, notesExcluded: 'bad merge' });
+    const unrecorded = { ...OPTIONS.current, id: null };
+    expect(deriveEmbedded(report(['a']), window, { ...OPTIONS, current: unrecorded, notes: forCurrent, notesFile: 'read' })?.current).toEqual(unrecorded);
+  });
+
+  it('embeds the status of the file: invalid and off', () => {
+    expect(deriveEmbedded(report(['a']), window, { ...OPTIONS, notesFile: 'invalid' })?.notesFile).toBe('invalid');
+    expect(deriveEmbedded(report(['a']), window, { ...OPTIONS, notesFile: 'off' })?.notesFile).toBe('off');
+  });
 });
 
 describe('deriveEmbedded', () => {

@@ -2,7 +2,10 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import { runFileName, streamHash } from '../../src/core/history/runFile.js';
-import type { HistoryRun, HistoryRunFile } from '../../src/schema/history-v1.js';
+import type { HistoryRun, HistoryRunFile, RunNotes } from '../../src/schema/history-v1.js';
+
+/** The embed options of a run without a notes file. */
+export const NO_NOTES = { notes: new Map<string, RunNotes>() as ReadonlyMap<string, RunNotes>, notesFile: 'absent' as const };
 
 /** A valid run file of one passed test; `run` overrides the run metadata. */
 export function makeRunFile(run: Partial<HistoryRun> = {}, tests: HistoryRunFile['tests'] = [{ id: 't1', t: ['p', 'a.spec.ts', 'passes'], o: 'P', d: 5 }]): HistoryRunFile {

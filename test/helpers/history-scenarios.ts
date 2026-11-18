@@ -8,7 +8,7 @@
 import { deriveEmbedded } from '../../src/core/history/embed.js';
 import type { EmbeddedHistory, HistoryRun, HistoryRunFile, HistoryTest } from '../../src/schema/history-v1.js';
 import type { LoupeReport, TestCase } from '../../src/schema/v1.js';
-import { makeRunFile } from './history.js';
+import { NO_NOTES, makeRunFile } from './history.js';
 
 export const HISTORY_SCENARIOS = [
   'none',
@@ -226,5 +226,5 @@ export function historyScenario(name: HistoryScenario, sample: LoupeReport): { r
       break;
   }
   const streamOfRuns = name === 'ide' ? { environment: 'default', origin: 'ide' } : STREAM;
-  return { report, history: deriveEmbedded(report, { runs, others, skipped }, { include: 'full', stream: streamOfRuns, current, currentRunId: 'current' }) };
+  return { report, history: deriveEmbedded(report, { runs, others, skipped }, { include: 'full', stream: streamOfRuns, current, currentRunId: 'current', ...NO_NOTES }) };
 }

@@ -47,6 +47,7 @@ describe('resolveConfig: defaults', () => {
         stream: { key: ['environment', 'origin'] },
         retention: { maxRuns: 200, maxAgeDays: 90 },
         include: 'full',
+        notes: path.join(BASE, 'loupe.notes.json'),
       },
     });
   });

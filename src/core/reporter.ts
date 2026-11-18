@@ -11,6 +11,7 @@ import { buildReport } from './build.js';
 import type { EmbeddedHistory } from '../schema/history-v1.js';
 import { historyRunId } from './history/detect.js';
 import { deriveEmbedded } from './history/embed.js';
+import { notesByRun, readNotes, type NotesRead } from './history/notes.js';
 import { createReplay, readHistory, windowOfStream, type HistoryRead } from './history/read.js';
 import { maskedExcludeReason, recordRun, reportIdentity, runIdentity, skipReason, type RecordContext } from './history/record.js';
 import { LOCAL_GIT_TIMEOUT_MS, readLocalGit, type LocalGit } from './git.js';
@@ -51,6 +52,8 @@ export class LoupeReporter implements Reporter {
   private runId = '';
   /** The history read started in onBegin, awaited in onEnd; null when history is off or nothing runs. */
   private historyRead: Promise<HistoryRead> | null = null;
+  /** loupe.notes.json, read in onBegin with the window, awaited in onEnd; null when history is off or nothing runs. Never rejects. */
+  private notesRead: Promise<NotesRead> | null = null;
   /** The Playwright version warning is written once per reporter, even if `onBegin` runs again. */
   private versionChecked = false;
 
@@ -91,7 +94,21 @@ export class LoupeReporter implements Reporter {
       });
     }
     // The window is read while the tests run. Under --list nothing is recorded or shown.
-    this.historyRead = this.loupeConfig.history.enabled && !this.listed ? this.startHistoryRead(config) : null;
+    const readsHistory = this.loupeConfig.history.enabled && !this.listed;
+    this.historyRead = readsHistory ? this.startHistoryRead(config) : null;
+    // Once per run, at the start: an entry pasted during the run applies from the next one.
+    this.notesRead = readsHistory ? this.startNotesRead(config) : null;
+  }
+
+  /** Reads the notes file. Never rejects: an invalid file is a problem of the result, never a stopped run. */
+  private startNotesRead(config: FullConfig): Promise<NotesRead> {
+    const context = this.historyContext(config);
+    const replay = createReplay(context.redact, context.home);
+    return readNotes(context.history.notes, process.cwd(), (text) => replay(text)).catch((error: unknown) => ({
+      status: 'invalid' as const,
+      entries: [],
+      problems: [`the notes file could not be read (${error instanceof Error ? error.name : 'unknown error'})`],
+    }));
   }
 
   /** What every history step needs, from the run's config and process. */
@@ -158,10 +175,11 @@ export class LoupeReporter implements Reporter {
     });
     // The window of the stream the report belongs to; read again if the stream guessed at the start was not it.
     const history = await this.finishHistoryRead(report, this.config);
+    const notes = this.notesRead ? await this.notesRead : null;
     // The history run id, once: the block embeds the id of the file this run writes (random outside CI and merges).
     // A merge run again finds its own earlier file in the window: its id (deterministic for a merge or in CI) leaves it out.
     const historyId = historyRunId({ env: process.env, merged: this.merged, tests: report.tests });
-    const embedded = history ? this.embedHistory(report, this.config, history, historyId) : { value: null, problems: [] };
+    const embedded = history ? this.embedHistory(report, this.config, history, historyId, notes) : { value: null, problems: [] };
     // No copy without a trace. buildReport has removed the viewer of a previous report.
     const hasTrace = report.tests.some((test) => test.attempts.some((attempt) => attempt.attachments.some((attachment) => attachment.kind === 'trace' && attachment.path !== null)));
     const viewer =
@@ -182,7 +200,7 @@ export class LoupeReporter implements Reporter {
     await writeFile(path.join(outputFolder, 'report.json'), `${JSON.stringify(report, null, 2)}\n`);
     await writeFile(path.join(outputFolder, 'index.html'), injectHistory(injectSettings(injectData(template, report), settings), embedded.value));
     // After the report: history never stops a run nor prevents the report.
-    await this.recordHistory(report, this.config, [...(history?.problems ?? []), ...embedded.problems], historyId);
+    await this.recordHistory(report, this.config, [...(history?.problems ?? []), ...(notes?.problems ?? []), ...embedded.problems], historyId);
 
     const errors = report.run.errors.length;
     const suffix = errors > 0 ? ` (${errors} run error${errors > 1 ? 's' : ''} outside tests)` : '';
@@ -190,13 +208,21 @@ export class LoupeReporter implements Reporter {
   }
 
   /** The embedded history, derived from the runs read at the start. A failure is a problem and no block, never a lost report. */
-  private embedHistory(report: LoupeReport, config: FullConfig, read: HistoryRead, currentRunId: string): { value: EmbeddedHistory | null; problems: string[] } {
+  private embedHistory(
+    report: LoupeReport,
+    config: FullConfig,
+    read: HistoryRead,
+    currentRunId: string,
+    notes: NotesRead | null,
+  ): { value: EmbeddedHistory | null; problems: string[] } {
     try {
       const context = this.historyContext(config);
       const { stream, origin } = reportIdentity(report, context);
       // Decided before the write, as recordRun will: no id for a run that is not recorded.
       const current = { origin, excluded: maskedExcludeReason(context), id: skipReason(report, context) === null ? currentRunId : null };
-      return { value: deriveEmbedded(report, read, { include: this.loupeConfig.history.include, stream, current, currentRunId }), problems: [] };
+      const applied = notesByRun(notes?.entries ?? [], createReplay(context.redact, context.home));
+      const options = { include: this.loupeConfig.history.include, stream, current, currentRunId, notes: applied, notesFile: notes?.status ?? 'absent' };
+      return { value: deriveEmbedded(report, read, options), problems: [] };
     } catch (error) {
       return { value: null, problems: [`the history could not be embedded (${error instanceof Error ? error.message : String(error)})`] };
     }

@@ -227,6 +227,13 @@ function streamKey(ctx: Context): Check {
   };
 }
 
+/** A path, or `false` to turn the file off (`history.notes`). */
+function pathOrFalse(ctx: Context): Check {
+  return (value, path, errors) => {
+    if (value !== false && (typeof value !== 'string' || value.trim() === '')) fail(ctx, path, 'a non-empty string or false', value, errors);
+  };
+}
+
 /** `history`: a boolean, or an object of history options. */
 function history(ctx: Context): Check {
   const fields = object(
@@ -236,6 +243,7 @@ function history(ctx: Context): Check {
       stream: object({ key: streamKey(ctx) }, ctx),
       retention: object({ maxRuns: positiveInteger(ctx), maxAgeDays: positiveInteger(ctx) }, ctx),
       include: oneOf(HISTORY_INCLUDES, ctx),
+      notes: pathOrFalse(ctx),
     },
     ctx,
   );

@@ -156,6 +156,13 @@ export interface HistoryConfig {
   };
   /** `full` (default): partial, excluded and IDE runs are left out of run-level statistics. `all`: they count. */
   include?: HistoryInclude;
+  /**
+   * The notes file: exclusions and notes added after the fact to recorded runs, read at the start of each run
+   * (docs/schema/notes-v1.md). Relative to the Playwright config file, like `dir` but independent of it and of
+   * `LOUPE_HISTORY_DIR`: the history may live in a CI cache, the notes file is versioned. `false` ignores it.
+   * Default: `loupe.notes.json`.
+   */
+  notes?: string | false;
 }
 
 /** Inline reporter options: a config, plus the path of the config file. */
@@ -205,4 +212,6 @@ export interface ResolvedHistory {
   stream: { key: StreamKeyPart[] };
   retention: { maxRuns: number; maxAgeDays: number };
   include: HistoryInclude;
+  /** Absolute path of the notes file; null with `notes: false`. */
+  notes: string | null;
 }

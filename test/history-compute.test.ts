@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { deriveEmbedded } from '../src/core/history/embed.js';
-import type { EmbeddedHistory, HistoryRun, HistoryTest } from '../src/schema/history-v1.js';
+import type { EmbeddedHistory, HistoryRun, HistoryTest, RunNotes } from '../src/schema/history-v1.js';
 import type { LoupeReport, Outcome } from '../src/schema/v1.js';
 import {
   HISTORY_STATES,
@@ -8,13 +8,15 @@ import {
   countResults,
   decodeHistory,
   indexHistory,
+  isExcluded,
   otherStreams,
+  runFlags,
   stateOf,
   testCells,
   type CurrentReport,
   type ResultCode,
 } from '../src/shared/history.js';
-import { makeRunFile } from './helpers/history.js';
+import { NO_NOTES, makeRunFile } from './helpers/history.js';
 
 const STREAM = { environment: 'default', origin: 'local' };
 
@@ -42,10 +44,12 @@ interface Setup {
   current?: { scope?: 'full' | 'partial'; excluded?: string | null; origin?: HistoryRun['origin']; retries?: number; stats?: Partial<LoupeReport['run']['stats']> };
   include?: EmbeddedHistory['include'];
   skipped?: number;
+  /** What loupe.notes.json says, by run id: `r0`, `r1`, … for the past runs, `current` for the current run. */
+  notes?: Map<string, RunNotes>;
 }
 
 /** The block the core would embed for these runs, and the report it goes with. */
-function history({ outcomes, past, current = {}, include = 'full', skipped = 0 }: Setup): { block: EmbeddedHistory; report: CurrentReport } {
+function history({ outcomes, past, current = {}, include = 'full', skipped = 0, notes }: Setup): { block: EmbeddedHistory; report: CurrentReport } {
   const ids = outcomes.map((_, index) => `t${index}`);
   const files = past.map(({ codes, run = {}, signatureVersion }, column) => {
     const tests = ids.map((id, index) => row(id, codes[index] ?? '-', column)).filter((test): test is HistoryTest => test !== null);
@@ -63,6 +67,8 @@ function history({ outcomes, past, current = {}, include = 'full', skipped = 0 }
     stream: STREAM,
     current: { origin: current.origin ?? 'local', excluded: current.excluded ?? null, id: 'current' },
     currentRunId: 'current',
+    ...NO_NOTES,
+    ...(notes ? { notes, notesFile: 'read' as const } : {}),
   });
   if (block === null) throw new Error('no block');
   return { block, report };
@@ -185,6 +191,55 @@ describe('test level: every result where the test ran, in a run not excluded', (
     const analysis = analyze({ outcomes: ['failed', 'failed', 'failed', 'failed', 'passed', 'passed'], past: [{ codes: 'PFP-FP' }, { codes: 'PFFS-P' }] });
     expect(analysis.tests.map((test) => test.state)).toEqual(['new-failure', 'still-failing', 'still-failing', 'new-test', 'fixed', null]);
     expect(analysis.counts).toEqual({ 'new-failure': 1, 'failed-again': 0, 'still-failing': 2, 'new-test': 1, fixed: 1 });
+  });
+});
+
+describe('loupe.notes.json: an exclusion from the file has the effect of LOUPE_EXCLUDE', () => {
+  const stats = (passed: number, failed: number) => ({ total: passed + failed, passed, failed, flaky: 0, skipped: 0 });
+  const excludedR1 = new Map([['r1', { notesExcluded: 'staging down' }]]);
+
+  it('isExcluded: either source', () => {
+    expect([isExcluded({ excluded: null }), isExcluded({ excluded: 'x' }), isExcluded({ excluded: null, notesExcluded: 'y' }), isExcluded({ excluded: 'x', notesExcluded: 'y' })]).toEqual([false, true, true, true]);
+    expect(runFlags({ scope: 'full', origin: 'local', excluded: 'x', notesExcluded: 'y' })).toEqual(['excluded']);
+  });
+
+  it('test level: its results are ignored, as for an exclusion at launch', () => {
+    const past = [{ codes: 'P' }, { codes: 'F' }];
+    const fromFile = analyze({ outcomes: ['failed'], past, notes: excludedR1 });
+    const atLaunch = analyze({ outcomes: ['failed'], past: [past[0] as PastRun, { codes: 'F', run: { excluded: { reason: 'staging down' } } }] });
+    expect(fromFile.tests[0]).toMatchObject({ state: 'new-failure', earlier: 1, counters: { considered: 2, failures: 1 } });
+    expect(fromFile.tests).toEqual(atLaunch.tests);
+    const [, cell] = testCells(fromFile.history, indexHistory(fromFile.history), 0);
+    expect([cell?.flags, cell?.runCounts, cell?.counts]).toEqual([['excluded'], false, false]);
+  });
+
+  it('run level: the delta skips it, as for an exclusion at launch', () => {
+    const past = [{ codes: 'P', run: { id: 'r0', stats: stats(8, 2) } }, { codes: 'P', run: { stats: stats(1, 0) } }];
+    expect(analyze({ outcomes: ['passed'], past, notes: excludedR1, current: { stats: stats(9, 1) } }).delta?.previous.id).toBe('r0');
+  });
+
+  it("include: 'all' brings it back at both levels", () => {
+    const analysis = analyze({ outcomes: ['failed'], past: [{ codes: 'P' }, { codes: 'F' }], notes: excludedR1, include: 'all' });
+    expect([analysis.tests[0]?.state, analysis.tests[0]?.counters.considered, analysis.delta?.previous.id]).toEqual(['still-failing', 3, 'r1']);
+    const [, cell] = testCells(analysis.history, indexHistory(analysis.history), 0);
+    expect([cell?.flags, cell?.runCounts, cell?.counts]).toEqual([['excluded'], true, true]);
+  });
+
+  it('every earlier run excluded by the file: no state', () => {
+    const notes = new Map([['r0', { notesExcluded: 'a' }], ['r1', { notesExcluded: 'b' }]]);
+    expect(analyze({ outcomes: ['failed'], past: [{ codes: 'P' }, { codes: 'F' }], notes }).noStates).toBe('all-excluded');
+  });
+
+  it('the current run excluded by the file (a deterministic id): no delta, left out of the counters', () => {
+    const analysis = analyze({ outcomes: ['failed'], past: [{ codes: 'F' }], notes: new Map([['current', { notesExcluded: 'restore' }]]) });
+    expect(analysis.history.current).toEqual({ origin: 'local', excluded: null, id: 'current', notesExcluded: 'restore' });
+    expect(analysis).toMatchObject({ delta: null, noDelta: 'current-excluded' });
+    expect(analysis.tests[0]).toMatchObject({ state: 'still-failing', counters: { considered: 1 } });
+  });
+
+  it('a note alone excludes nothing', () => {
+    const analysis = analyze({ outcomes: ['failed'], past: [{ codes: 'P' }, { codes: 'F' }], notes: new Map([['r1', { note: 'first run after the refactor' }]]) });
+    expect([analysis.tests[0]?.state, analysis.tests[0]?.counters.considered, analysis.delta?.previous.id]).toEqual(['still-failing', 3, 'r1']);
   });
 });
 

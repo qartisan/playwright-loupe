@@ -13,6 +13,8 @@
  * Kept free of Node imports so the renderer can import it too.
  */
 
+import type { NotesFileStatus } from './notes-v1.js';
+
 export const HISTORY_VERSION = 1;
 
 /** Where a run comes from. `ide`: the VS Code extension, UI mode or watch mode. */
@@ -149,7 +151,9 @@ export interface EmbeddedHistory {
      * loupe.notes.json. Null when the run is not recorded (a shard writing a blob, a run where no test ran).
      */
     id: string | null;
-  };
+  } & RunNotes;
+  /** What the run knew of loupe.notes.json: `absent`, `read`, `invalid` (its entries ignored), `off`. */
+  notesFile: NotesFileStatus;
   /**
    * Run files of the stream's window that could not be used: written by a
    * newer Loupe (another `historyVersion`), corrupt, or unreadable. The
@@ -193,7 +197,18 @@ export interface EmbeddedHistory {
 /** Distinct signatures embedded with their extract, at most. */
 export const EMBEDDED_EXTRACTS = 300;
 
-export interface EmbeddedRun {
+/**
+ * What loupe.notes.json says about a run, masked like the report (`redact.env`, home directory), then cut.
+ * Each key is omitted when the file has nothing for the run.
+ */
+export interface RunNotes {
+  /** The exclusion reason from the file (200 characters at most), next to `excluded`, the launch one. */
+  notesExcluded?: string;
+  /** The note (300 characters at most). */
+  note?: string;
+}
+
+export interface EmbeddedRun extends RunNotes {
   id: string;
   reportRunId: string;
   startedAt: string;
@@ -203,7 +218,7 @@ export interface EmbeddedRun {
   scope: 'full' | 'partial';
   /** Why the run is partial (`grep`, `project`, …), as `HistoryRun.scopeReasons`; empty for a full run. */
   scopeReasons: string[];
-  /** The exclusion reason, null when the run is not excluded. */
+  /** The exclusion reason given at launch (`LOUPE_EXCLUDE`), null when there is none. */
   excluded: string | null;
   commit: string | null;
   branch: string | null;

@@ -14,7 +14,7 @@ import { GITIGNORE, RUNS_FOLDER, ensureHistoryFolder, writeRunFile } from '../sr
 import type { HistoryRunFile } from '../src/schema/history-v1.js';
 import type { Attempt, AttemptStatus, LoupeReport, Outcome, TestCase } from '../src/schema/v1.js';
 import { REDACTED } from '../src/shared/redaction.js';
-import { readRunFile } from './helpers/history.js';
+import { NO_NOTES, readRunFile } from './helpers/history.js';
 
 const CLI = '/project/node_modules/@playwright/test/cli.js';
 
@@ -208,7 +208,7 @@ describe('extract', () => {
   });
 });
 
-const HISTORY: ResolvedHistory = { enabled: true, dir: '/unused', ...DEFAULT_HISTORY };
+const HISTORY: ResolvedHistory = { enabled: true, dir: '/unused', ...DEFAULT_HISTORY, notes: null };
 
 function context(overrides: Partial<RecordContext> = {}): RecordContext {
   return {
@@ -383,7 +383,7 @@ describe('LOUPE_EXCLUDE', () => {
         const current = maskedExcludeReason(recorded);
         // Read back as the next run does: the current redaction replayed, then the block derived.
         const read = replayRun(run, createReplay(redact, '/home/someuser'));
-        const block = deriveEmbedded(report(tests), { runs: [read], others: [], skipped: 0 }, { include: 'full', stream: {}, current: { origin: 'local', excluded: current, id: 'current' }, currentRunId: 'current' });
+        const block = deriveEmbedded(report(tests), { runs: [read], others: [], skipped: 0 }, { include: 'full', stream: {}, current: { origin: 'local', excluded: current, id: 'current' }, currentRunId: 'current', ...NO_NOTES });
         for (const text of [run.run.excluded?.reason ?? '', current ?? '', block?.runs[0]?.excluded ?? '', block?.current.excluded ?? '']) {
           expect(text.startsWith('rrr') && text.length <= 200, `kept ${kept}: ${text.length}`).toBe(true);
           expect(parts(text), `${value}, kept ${kept}: ${text.slice(-24)}`).toEqual([]);
@@ -418,7 +418,7 @@ describe('the replay of a cut text', () => {
   function next(message: string, reason: string, replay = createReplay(replayedWith, null)) {
     const tests = failing(message);
     const run = buildRunFile(report(tests), context({ env: { [EXCLUDE_ENV]: reason }, redact: recordedWith })) as HistoryRunFile;
-    const block = deriveEmbedded(report(tests), { runs: [replayRun(run, replay)], others: [], skipped: 0 }, { include: 'full', stream: {}, current: { origin: 'local', excluded: null, id: 'current' }, currentRunId: 'current' });
+    const block = deriveEmbedded(report(tests), { runs: [replayRun(run, replay)], others: [], skipped: 0 }, { include: 'full', stream: {}, current: { origin: 'local', excluded: null, id: 'current' }, currentRunId: 'current', ...NO_NOTES });
     return { run, extract: block?.signatures[0]?.[2] ?? '', reason: block?.runs[0]?.excluded ?? '' };
   }
 

@@ -4,7 +4,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runFileName, streamHash } from '../src/core/history/runFile.js';
-import type { EmbeddedHistory, HistoryRunFile } from '../src/schema/history-v1.js';
+import type { EmbeddedHistory, EmbeddedRun, HistoryRunFile } from '../src/schema/history-v1.js';
+import { analyzeHistory, countsForRun } from '../src/shared/history.js';
 import { daysAgo, makeRunFile, putRunFile, readRunFile } from './helpers/history.js';
 import { ROOT, assertBuilt, playwright, readReport } from './helpers/fixtures.js';
 
@@ -166,6 +167,99 @@ describe('history: the embedded window', () => {
     expect(value?.cells).toBe(second.tests.map((test) => ({ passed: 'P', failed: 'F', flaky: 'K', skipped: 'S' })[test.outcome]).join(''));
     expect(value?.failures.length).toBeGreaterThan(0);
   }, 120_000);
+});
+
+describe('history: loupe.notes.json', () => {
+  /** A run of the fixture suite with this notes file; its report, block and the files of the folder after it. */
+  function notesRun(run: ReturnType<typeof folders>, notes: string, env: Record<string, string> = {}) {
+    const result = playwright(['test', '--config', CONFIG], { ...run.env, LOUPE_FIXTURE_NOTES: notes, ...env });
+    const report = readReport(run.report, result.output);
+    return { output: result.output, report, block: embedded(run.report), files: runFiles(run.history) };
+  }
+  const notesFile = (file: string, runs: unknown[]) => writeFileSync(file, `{\n  "notesVersion": 1,\n  "runs": [\n${runs.map((entry) => `    ${JSON.stringify(entry)},`).join('\n')}\n  ]\n}\n`);
+  const idOf = (history: string, name: string) => readRun(history, name).run.id;
+  const ran = (code: string | undefined) => code === 'P' || code === 'F' || code === 'K';
+
+  it("a run excluded in the file is excluded from the next run on, at both levels; include: 'all' brings it back", () => {
+    const run = folders('notes');
+    const notes = path.join(workDir, 'notes', 'loupe.notes.json');
+    const first = notesRun(run, notes);
+    const second = notesRun(run, notes);
+    // No file: the normal case, no warning.
+    expect(second.block?.notesFile).toBe('absent');
+    expect(second.output).not.toContain('Loupe: history');
+    const [firstFile] = first.files;
+    const secondFile = second.files.find((name) => name !== firstFile) as string;
+    const secondContent = readFileSync(path.join(run.history, 'runs', secondFile));
+
+    // The second run was bad: excluded after the fact, with a note on the first one, the trailing comma of a paste left in.
+    notesFile(notes, [
+      { run: idOf(run.history, secondFile), exclude: 'staging was down' },
+      { run: idOf(run.history, firstFile as string), note: 'first run after the refactor' },
+    ]);
+    const third = notesRun(run, notes);
+    expect(third.output, third.output).not.toContain('Loupe: history');
+    const block = third.block as EmbeddedHistory;
+    expect(block.notesFile).toBe('read');
+    expect(block.runs.map(({ excluded, notesExcluded, note }) => ({ excluded, notesExcluded, note }))).toEqual([
+      { excluded: null, notesExcluded: undefined, note: 'first run after the refactor' },
+      { excluded: null, notesExcluded: 'staging was down', note: undefined },
+    ]);
+    // The run file is never rewritten.
+    expect(readFileSync(path.join(run.history, 'runs', secondFile)).equals(secondContent)).toBe(true);
+
+    // Run level: the delta compares with the first run, not the excluded second one.
+    const analysis = analyzeHistory(block, third.report);
+    expect(analysis.delta?.previous.id).toBe(idOf(run.history, firstFile as string));
+    // Test level: the second run's results are not counted, so each test has its first run and this one at most.
+    const width = block.runs.length;
+    const current = { passed: 'P', failed: 'F', flaky: 'K', skipped: 'S' } as const;
+    const expected = third.report.tests.map((test, index) => [ran(block.cells[index * width]), ran(current[test.outcome])].filter(Boolean).length);
+    expect(analysis.tests.map((test) => test.counters.considered)).toEqual(expected);
+    expect(expected.some((count) => count > 0)).toBe(true);
+
+    // include: 'all' brings it back at both levels.
+    const fourth = notesRun(run, notes, { LOUPE_FIXTURE_INCLUDE: 'all' });
+    const all = fourth.block as EmbeddedHistory;
+    expect(all.include).toBe('all');
+    const excludedRun = all.runs.find((entry) => entry.notesExcluded !== undefined) as EmbeddedRun;
+    expect(excludedRun.id).toBe(idOf(run.history, secondFile));
+    expect([countsForRun(excludedRun, 'all'), countsForRun(excludedRun, 'full')]).toEqual([true, false]);
+    const column = all.runs.indexOf(excludedRun);
+    const withAll = analyzeHistory(all, fourth.report);
+    const allWidth = all.runs.length;
+    const considered = fourth.report.tests.map((test, index) =>
+      [...Array.from({ length: allWidth }, (_, run) => ran(all.cells[index * allWidth + run])), ran(current[test.outcome])].filter(Boolean).length,
+    );
+    expect(withAll.tests.map((test) => test.counters.considered)).toEqual(considered);
+    expect(fourth.report.tests.some((_, index) => ran(all.cells[index * allWidth + column]))).toBe(true);
+  }, 240_000);
+
+  it('an exclusion at launch and one in the file on the same run: excluded, both reasons kept', () => {
+    const run = folders('notes-both');
+    const notes = path.join(workDir, 'notes-both', 'loupe.notes.json');
+    const first = notesRun(run, notes, { LOUPE_EXCLUDE: 'database restored' });
+    notesFile(notes, [{ run: idOf(run.history, first.files[0] as string), exclude: 'staging was down' }]);
+    const second = notesRun(run, notes);
+    expect([second.block?.runs[0]?.excluded, second.block?.runs[0]?.notesExcluded]).toEqual(['database restored', 'staging was down']);
+  }, 120_000);
+
+  it('an invalid file: one warning that locates the error, its entries ignored, the report and the run recorded; off: never read', () => {
+    const run = folders('notes-invalid');
+    const notes = path.join(workDir, 'notes-invalid', 'loupe.notes.json');
+    const first = notesRun(run, notes);
+    // Valid entries, then a stray bracket: the whole file is ignored.
+    writeFileSync(notes, `{\n  "notesVersion": 1,\n  "runs": [\n    { "run": "${idOf(run.history, first.files[0] as string)}", "exclude": "x" } ]\n  ]\n}\n`);
+    const second = notesRun(run, notes);
+    expect(second.output.match(/Loupe: history/g)).toHaveLength(1);
+    expect(second.output).toMatch(/Loupe: history: \S*loupe\.notes\.json is invalid, so its entries are ignored: it is not valid JSON at line 5, column 3 \(expected "," or "}"\)\. The report is not affected\./);
+    expect(second.files).toHaveLength(2);
+    expect([second.block?.notesFile, second.block?.runs[0]?.notesExcluded]).toEqual(['invalid', undefined]);
+
+    const off = notesRun(run, 'off');
+    expect(off.output).not.toContain('Loupe: history');
+    expect([off.block?.notesFile, off.files.length]).toEqual(['off', 3]);
+  }, 180_000);
 });
 
 describe('history: runs that are never written', () => {

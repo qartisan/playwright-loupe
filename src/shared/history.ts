@@ -55,10 +55,21 @@ export function decodeHistory(value: unknown, testCount: number): EmbeddedHistor
 /** Why a run does not count in run-level statistics; empty when it counts (or with `include: 'all'`). */
 export type RunFlag = 'excluded' | 'ide' | 'partial';
 
+/** What an exclusion is read from: the launch reason (`LOUPE_EXCLUDE`) and the one from loupe.notes.json. */
+export type Exclusion = { excluded: string | null; notesExcluded?: string | undefined };
+
+/**
+ * The run is excluded, at launch or by loupe.notes.json: the one test of both levels, so an exclusion from the
+ * file has exactly the effect of `LOUPE_EXCLUDE`, `include: 'all'` included.
+ */
+export function isExcluded(run: Exclusion): boolean {
+  return run.excluded !== null || run.notesExcluded !== undefined;
+}
+
 /** Every reason a run is left out of run-level statistics by default, whatever `include` says. */
-export function runFlags(run: { scope: HistoryRun['scope']; excluded: string | null; origin: HistoryRun['origin'] }): RunFlag[] {
+export function runFlags(run: Exclusion & { scope: HistoryRun['scope']; origin: HistoryRun['origin'] }): RunFlag[] {
   const flags: RunFlag[] = [];
-  if (run.excluded !== null) flags.push('excluded');
+  if (isExcluded(run)) flags.push('excluded');
   if (run.origin === 'ide') flags.push('ide');
   if (run.scope === 'partial') flags.push('partial');
   return flags;
@@ -70,8 +81,8 @@ export function countsForRun(run: Parameters<typeof runFlags>[0], include: Embed
 }
 
 /** Test level: the run's results count for its tests' states and counters. Only an exclusion removes them. */
-export function countsForTests(run: { excluded: string | null }, include: EmbeddedHistory['include']): boolean {
-  return include === 'all' || run.excluded === null;
+export function countsForTests(run: Exclusion, include: EmbeddedHistory['include']): boolean {
+  return include === 'all' || !isExcluded(run);
 }
 
 const OUTCOME_CODE: Record<Outcome, ResultCode> = { passed: 'P', failed: 'F', flaky: 'K', skipped: 'S' };
@@ -220,7 +231,7 @@ export function analyzeHistory(history: EmbeddedHistory, report: CurrentReport):
 
 /** The verdict delta against the previous run counting at run level, or why there is none. */
 export function runDelta(history: EmbeddedHistory, report: Pick<CurrentReport, 'run'>): { delta: RunDelta | null; noDelta: NoDeltaReason | null } {
-  const current = { scope: report.run.scope, excluded: history.current.excluded, origin: history.current.origin };
+  const current = { scope: report.run.scope, excluded: history.current.excluded, notesExcluded: history.current.notesExcluded, origin: history.current.origin };
   if (!countsForRun(current, history.include)) {
     const [flag] = runFlags(current);
     return { delta: null, noDelta: flag === 'excluded' ? 'current-excluded' : flag === 'ide' ? 'current-ide' : 'current-partial' };

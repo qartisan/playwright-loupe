@@ -9,7 +9,9 @@ export const DEFAULT_OUTPUT_FOLDER = 'loupe-report';
 export const DEFAULT_TITLE = 'Loupe report';
 export const DEFAULT_UNCATEGORIZED = 'Uncategorized';
 export const DEFAULT_HISTORY_DIR = 'loupe-history';
-export const DEFAULT_HISTORY: Omit<ResolvedHistory, 'enabled' | 'dir'> = {
+/** The notes file, next to the Playwright config by default (`history.notes`). */
+export const DEFAULT_NOTES_FILE = 'loupe.notes.json';
+export const DEFAULT_HISTORY: Omit<ResolvedHistory, 'enabled' | 'dir' | 'notes'> = {
   stream: { key: ['environment', 'origin'] },
   retention: { maxRuns: 200, maxAgeDays: 90 },
   include: 'full',
@@ -356,5 +358,7 @@ function resolveHistory(
       maxAgeDays: config?.retention?.maxAgeDays ?? DEFAULT_HISTORY.retention.maxAgeDays,
     },
     include: config?.include ?? DEFAULT_HISTORY.include,
+    // From the config dir, never from the history folder: no environment variable moves it.
+    notes: config?.notes === false ? null : path.resolve(layers.baseDir, config?.notes ?? DEFAULT_NOTES_FILE),
   };
 }

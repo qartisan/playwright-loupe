@@ -37,7 +37,17 @@ describe('history config: defaults', () => {
       stream: { key: ['environment', 'origin'] },
       retention: { maxRuns: 200, maxAgeDays: 90 },
       include: 'full',
+      notes: path.join(BASE, 'loupe.notes.json'),
     });
+  });
+
+  it('resolves history.notes from the Playwright config directory, never from the history folder or LOUPE_HISTORY_DIR', () => {
+    expect(resolve({ file: { history: { notes: '../loupe.notes.json', dir: 'elsewhere' } } }).history.notes).toBe(path.resolve(BASE, '../loupe.notes.json'));
+    expect(resolve({ file: { history: { dir: 'elsewhere' } }, env: { LOUPE_HISTORY_DIR: 'h' } }).history.notes).toBe(path.join(BASE, 'loupe.notes.json'));
+  });
+
+  it('history.notes: false turns the file off', () => {
+    expect(resolve({ inline: { history: { notes: false } } }).history.notes).toBeNull();
   });
 
   it('resolves history.dir from the Playwright config directory', () => {
@@ -112,8 +122,15 @@ describe('history config: validation', () => {
     expect(validate(false)).toEqual([]);
     expect(validate(true)).toEqual([]);
     expect(
-      validate({ enabled: true, dir: 'h', stream: { key: ['environment', 'origin', 'branch'] }, retention: { maxRuns: 1, maxAgeDays: 1 }, include: 'all' }),
+      validate({ enabled: true, dir: 'h', stream: { key: ['environment', 'origin', 'branch'] }, retention: { maxRuns: 1, maxAgeDays: 1 }, include: 'all', notes: 'n.json' }),
     ).toEqual([]);
+    expect(validate({ notes: false })).toEqual([]);
+  });
+
+  it('wants history.notes to be a path or false', () => {
+    expect(validate({ notes: true })).toEqual(['loupe.config.ts: history.notes must be a non-empty string or false, got true']);
+    expect(validate({ notes: ' ' })).toEqual(['loupe.config.ts: history.notes must be a non-empty string or false, got " "']);
+    expect(validateConfig({ history: { notes: 1 } }, 'reporter options')).toEqual(['reporter options: history.notes must be a non-empty string or false, got 1']);
   });
 
   it('names each invalid value', () => {

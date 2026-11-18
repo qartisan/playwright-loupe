@@ -244,6 +244,7 @@ describe('the window when the stream changes during the run', () => {
     stream: { key: ['environment', 'origin', 'branch'] },
     retention: { maxRuns: 200, maxAgeDays: 90 },
     include: 'full',
+    notes: null,
   };
   // Hermetic: no CI variable, so the origin is local wherever the test runs.
   const identity = (branch: string | null) => runIdentity({ history, env: {}, argv: ['node', 'playwright', 'test'], environmentName: 'staging', branch });

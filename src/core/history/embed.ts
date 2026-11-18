@@ -8,7 +8,9 @@ import {
   type HistoryRun,
   type HistoryRunFile,
   type HistoryTest,
+  type RunNotes,
 } from '../../schema/history-v1.js';
+import type { NotesFileStatus } from '../../schema/notes-v1.js';
 import { SIGNATURE_VERSION } from '../signature.js';
 import type { HistoryRead } from './read.js';
 
@@ -16,10 +18,13 @@ export interface EmbedOptions {
   include: EmbeddedHistory['include'];
   /** The stream of the current run. */
   stream: HistoryRun['stream'];
-  /** The current run's origin and masked exclusion reason. */
-  current: EmbeddedHistory['current'];
+  /** The current run's origin, masked launch exclusion reason and run id; its notes come from `notes`. */
+  current: Omit<EmbeddedHistory['current'], keyof RunNotes>;
   /** The history run id of the current run: a re-run merge finds its own earlier file in the window, which is not its past. */
   currentRunId: string;
+  /** What loupe.notes.json says, by run id, masked and cut (`notesByRun`). Run files are never rewritten from it. */
+  notes: ReadonlyMap<string, RunNotes>;
+  notesFile: NotesFileStatus;
 }
 
 const key = (id: string, repeatEachIndex: number): string => `${id}\u0000${repeatEachIndex}`;
@@ -29,7 +34,16 @@ function byTest(file: HistoryRunFile): Map<string, HistoryTest> {
   return new Map(file.tests.map((test) => [key(test.id, test.r ?? 0), test]));
 }
 
-function embeddedRun(file: HistoryRunFile): EmbeddedRun {
+/** The notes of a run, each key only when the file has it: nothing is added for a run without notes. */
+function notesOf(notes: ReadonlyMap<string, RunNotes>, id: string | null): RunNotes {
+  const found = id === null ? undefined : notes.get(id);
+  return {
+    ...(found?.notesExcluded !== undefined ? { notesExcluded: found.notesExcluded } : {}),
+    ...(found?.note !== undefined ? { note: found.note } : {}),
+  };
+}
+
+function embeddedRun(file: HistoryRunFile, notes: ReadonlyMap<string, RunNotes>): EmbeddedRun {
   const { run } = file;
   return {
     id: run.id,
@@ -46,6 +60,7 @@ function embeddedRun(file: HistoryRunFile): EmbeddedRun {
     stats: run.stats,
     projects: run.projects.map((project): [string, number] => [project.name, project.retries]),
     sameSignatures: file.signatureVersion === SIGNATURE_VERSION,
+    ...notesOf(notes, run.id),
   };
 }
 
@@ -116,9 +131,11 @@ export function deriveEmbedded(report: LoupeReport, read: Pick<HistoryRead, 'run
     include: options.include,
     signatureVersion: SIGNATURE_VERSION,
     stream: options.stream,
-    current: options.current,
+    // Only a deterministic id (a merge job or a CI job run again) can already be in the file.
+    current: { ...options.current, ...notesOf(options.notes, options.current.id) },
+    notesFile: options.notesFile,
     skipped: read.skipped,
-    runs: window.map(embeddedRun),
+    runs: window.map((file) => embeddedRun(file, options.notes)),
     cells,
     failures,
     failureAttempts: failureAttempts.join(' '),

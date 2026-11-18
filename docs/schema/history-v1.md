@@ -137,7 +137,7 @@ The path rewriting of 0.1.8 and 0.2.1 changed no signature: they are computed fr
 <script id="loupe-history" type="application/json">{"v":1,…}</script>
 ```
 
-It is derived from the run files read when the run starts, **never from the run itself**, and is **not in `report.json`**, whose shape does not change. It is `null` when there is no history: off, empty, or not derived (one warning). When run files exist but none of the window could be used (written by a newer Loupe, corrupt), it is a block with no run and `skipped` above 0, not `null`, so the report can say why. It is written with the same safe serialisation as the other blocks. The renderer reads only this block, never `loupe-history/`; what it shows is described in [In the report](../history.md#in-the-report).
+It is derived from the run files read when the run starts, and from the [notes file](notes-v1.md) read then too, **never from the run itself**; the notes file never rewrites a run file. It is **not in `report.json`**, whose shape does not change. It is `null` when there is no history: off, empty, or not derived (one warning). When run files exist but none of the window could be used (written by a newer Loupe, corrupt), it is a block with no run and `skipped` above 0, not `null`, so the report can say why. It is written with the same safe serialisation as the other blocks. The renderer reads only this block, never `loupe-history/`; what it shows is described in [In the report](../history.md#in-the-report).
 
 Statuses are one character per test and run, aligned with the report's `tests`, so no test id is repeated; signatures are indexes into one dictionary.
 
@@ -149,7 +149,8 @@ Statuses are one character per test and run, aligned with the report's `tests`, 
 | `include` | `'full' \| 'all'` | `history.include`: whether partial, excluded and `ide` runs count in run-level statistics. |
 | `signatureVersion` | `number` | The current run's. |
 | `stream` | `object` | The current run's stream, as `HistoryRun.stream`. |
-| `current` | `{ origin, excluded, id }` | What the report does not say about the current run: its [origin](../history.md#origins) (`stream` holds it only when the key has `origin`), its exclusion reason, masked as in the run file, `null` when it is not excluded, and its run id, the `run.id` of the run file the same run writes, `null` when the run is not recorded (a shard writing a blob, a run where no test ran). Its scope is the report's `run.scope`. |
+| `current` | `{ origin, excluded, id, notesExcluded?, note? }` | What the report does not say about the current run: its [origin](../history.md#origins) (`stream` holds it only when the key has `origin`), its exclusion reason given at launch, masked as in the run file, `null` when there is none, and its run id, the `run.id` of the run file the same run writes, `null` when the run is not recorded (a shard writing a blob, a run where no test ran). `notesExcluded` and `note` as in `EmbeddedRun`: only a deterministic id (a merge job or a CI job run again) can already be in the notes file. Its scope is the report's `run.scope`. |
+| `notesFile` | `'absent' \| 'read' \| 'invalid' \| 'off'` | What the run knew of the [notes file](notes-v1.md), read when the run starts: none (the normal case), read, invalid (its entries are ignored, with one warning), or turned off (`history.notes: false`). A file that could not be read is `invalid`. |
 | `skipped` | `number` | Run files of the window that could not be used: written by a newer Loupe, corrupt, or unreadable. The window is that much shorter. A file removed by another run's retention since the listing is not counted. |
 | `runs` | `EmbeddedRun[]` | The window: the newest runs of the current stream, at most 20, **oldest first**. Run `k` is column `k` of `cells`. A merge job re-run does not find its own earlier file in it. |
 | `cells` | `string` | `cells[test * runs.length + run]`: the outcome code (`P`, `F`, `K`, `S`) of report test `test` in run `run`, or `-` when that run has no result for it. |
@@ -164,7 +165,9 @@ Statuses are one character per test and run, aligned with the report's `tests`, 
 | Field | Type | Notes |
 | --- | --- | --- |
 | `id`, `reportRunId`, `startedAt`, `durationMs`, `status`, `origin`, `scope`, `scopeReasons`, `stats` | | As in `HistoryRun`. |
-| `excluded` | `string \| null` | The exclusion reason. |
+| `excluded` | `string \| null` | The exclusion reason given at launch (`LOUPE_EXCLUDE`), as in the run file. |
+| `notesExcluded` | `string`, optional | The exclusion reason from the [notes file](notes-v1.md): the reasons of every entry for the run, joined with `; `, masked like the report (`redact.env`, home directory), then cut to 200 characters, ending with `…` when cut. Omitted when the file does not exclude the run. A run is excluded when it has `excluded` or `notesExcluded`, or both: either has the same effect at both levels, and `history.include: 'all'` brings it back. |
+| `note` | `string`, optional | The note from the notes file, joined, masked and cut the same way, to 300 characters. Omitted when the file has no note for the run. A note excludes nothing. |
 | `commit`, `branch` | `string \| null` | From `HistoryRun.git`. |
 | `projects` | `[name, retries][]` | The retries of each project of the run, from `HistoryRun.projects`: whether a pass on retry was possible in that run. |
 | `sameSignatures` | `boolean` | False when the run has another `signatureVersion`: its statuses compare, its signatures do not. |
