@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ACROSS_CUT, CANARY, HOMES, OUTPUT_LIMIT_CHARS, LATE, SECRETS, acrossCut } from '../fixtures/leak/homes.js';
+import { ACROSS_CUT, CANARY, EXCLUDE_ACROSS_CUT, EXCLUDE_KEPT_CHARS, HOMES, LATE, OUTPUT_LIMIT_CHARS, SECRETS, acrossCut } from '../fixtures/leak/homes.js';
 import { homePaths } from '../scripts/home-paths.mjs';
 import type { LoupeReport, Step, TestCase } from '../src/schema/v1.js';
 import { REDACTED } from '../src/shared/redaction.js';
@@ -223,9 +223,11 @@ describe('the leak canary with history', () => {
     workDir = mkdtempSync(path.join(tmpdir(), 'loupe-leak-history-'));
     history = path.join(workDir, 'loupe-history');
     outputs = '';
-    first = run('first');
+    // Both runs are excluded with a reason holding a secret across its cut: in the run files, and in the block
+    // of the second (its own reason, and the first run's read back).
+    first = run('first', { LOUPE_EXCLUDE: EXCLUDE_ACROSS_CUT });
     // The late value is now in redact.env: the run of `first`, recorded in clear, is read back masked.
-    second = run('second', { LOUPE_FIXTURE_LATE_REDACT: '1' });
+    second = run('second', { LOUPE_FIXTURE_LATE_REDACT: '1', LOUPE_EXCLUDE: EXCLUDE_ACROSS_CUT });
   }, 240_000);
 
   afterAll(() => {
@@ -261,6 +263,25 @@ describe('the leak canary with history', () => {
         expect(text).not.toContain(JSON.stringify(home).slice(1, -1));
       }
       expect(homePaths(text)).toEqual([]);
+    }
+  });
+
+  it('masks a secret running across the cut of an exclusion reason, before the cut', () => {
+    const secret = SECRETS.LOUPE_LEAK_OTHER;
+    const part = (text: string): string | null => {
+      for (let length = secret.length; length >= 3; length--) if (text.includes(secret.slice(0, length))) return secret.slice(0, length);
+      return null;
+    };
+    // Positive control: cut before masking, all of the secret but its last character stays.
+    expect(part(EXCLUDE_ACROSS_CUT.slice(0, EXCLUDE_KEPT_CHARS))).toBe(secret.slice(0, -1));
+    const files = runFiles().map((text) => JSON.parse(text) as { run: { excluded: { reason: string } | null } });
+    const embedded = JSON.parse(block(second)) as { current: { excluded: string | null }; runs: Array<{ excluded: string | null }> };
+    const reasons = [...files.map((file) => file.run.excluded?.reason), embedded.current.excluded, embedded.runs[0]?.excluded];
+    expect(reasons).toHaveLength(4);
+    for (const reason of reasons) {
+      // Leaks first: what a cut made before masking leaves in clear.
+      expect(part(reason ?? '')).toBeNull();
+      expect(reason?.startsWith('rrr'), String(reason)).toBe(true);
     }
   });
 

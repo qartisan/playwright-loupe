@@ -6,7 +6,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { ResolvedHistory } from '../src/config/types.js';
 import { DEFAULT_HISTORY } from '../src/config/resolve.js';
 import { CI_RUN_ID_VARIABLES, contentHash, detectOrigin, historyRunId, streamOf } from '../src/core/history/detect.js';
-import { EXCLUDE_ENV, buildRunFile, excludeReason, skipReason, type RecordContext } from '../src/core/history/record.js';
+import { deriveEmbedded } from '../src/core/history/embed.js';
+import { createReplay, replayRun } from '../src/core/history/read.js';
+import { EXCLUDE_ENV, buildRunFile, excludeReason, maskedExcludeReason, skipReason, type RecordContext } from '../src/core/history/record.js';
 import { EXTRACT_CHARS, extract, runFileName, streamHash } from '../src/core/history/runFile.js';
 import { GITIGNORE, RUNS_FOLDER, ensureHistoryFolder, writeRunFile } from '../src/core/history/write.js';
 import type { HistoryRunFile } from '../src/schema/history-v1.js';
@@ -357,8 +359,35 @@ describe('LOUPE_EXCLUDE', () => {
     expect(excludeReason({})).toBeNull();
   });
 
-  it('caps a long reason', () => {
-    expect(excludeReason({ [EXCLUDE_ENV]: 'x'.repeat(500) })).toHaveLength(200);
+  it('caps a long reason once masked', () => {
+    expect(excludeReason({ [EXCLUDE_ENV]: 'x'.repeat(500) })).toHaveLength(500);
+    expect(maskedExcludeReason(context({ env: { [EXCLUDE_ENV]: 'x'.repeat(500) } }))).toBe(`${'x'.repeat(199)}…`);
+  });
+
+  it('masks a value or a home running across the cut, in the run file, for the current run and in the embedded block', () => {
+    const secret = 'S3cr3tTokenValue0123456789';
+    // Every start of the value or the user name, 3 characters or more.
+    const parts = (text: string): string[] =>
+      [secret, 'someuser'].flatMap((word) => Array.from({ length: word.length - 2 }, (_, index) => word.slice(0, index + 3))).filter((part) => text.includes(part));
+    const redact = { mode: 'extend' as const, patterns: [], values: [secret] };
+    for (const [value, start] of [[secret, 0], ['-L/home/someuser/lib', 8]] as const) {
+      // The cut keeps 199 characters: the value runs across it at every offset from 3 characters kept to all but one.
+      for (let kept = 3; kept < value.length - start; kept++) {
+        const env = { [EXCLUDE_ENV]: `${'r'.repeat(199 - kept - start - 1)} ${value} end` };
+        const recorded = context({ env, redact, home: '/home/someuser' });
+        // The positive control: cut first, the start of the word is there.
+        expect(parts(env[EXCLUDE_ENV].slice(0, 199)).length, `kept ${kept}`).toBeGreaterThan(0);
+        const run = buildRunFile(report(tests), recorded) as HistoryRunFile;
+        const current = maskedExcludeReason(recorded);
+        // Read back as the next run does: the current redaction replayed, then the block derived.
+        const read = replayRun(run, createReplay(redact, '/home/someuser'));
+        const block = deriveEmbedded(report(tests), { runs: [read], others: [], skipped: 0 }, { include: 'full', stream: {}, current: { origin: 'local', excluded: current }, currentRunId: 'current' });
+        for (const text of [run.run.excluded?.reason ?? '', current ?? '', block?.runs[0]?.excluded ?? '', block?.current.excluded ?? '']) {
+          expect(text.startsWith('rrr') && text.length <= 200, `kept ${kept}: ${text.length}`).toBe(true);
+          expect(parts(text), `${value}, kept ${kept}: ${text.slice(-24)}`).toEqual([]);
+        }
+      }
+    }
   });
 
   it('masks redact.env values and the home directory in the reason', () => {

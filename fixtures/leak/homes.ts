@@ -106,3 +106,12 @@ export function acrossCut(value: string, word: string): string {
  * recorded before, it must be masked in the history of the next report.
  */
 export const LATE = { name: 'LOUPE_FIXTURE_LATE_VALUE', value: 'l4te-added-v4lue' } as const;
+
+/** Characters of an exclusion reason a cut keeps before its `…` (`MAX_REASON` - 1, src/core/history/record.ts). */
+export const EXCLUDE_KEPT_CHARS = 199;
+
+/**
+ * A `LOUPE_EXCLUDE` reason with a `redact.env` value running across the cut of exclusion reasons: cut before
+ * masking, all of the value but its last character would stay.
+ */
+export const EXCLUDE_ACROSS_CUT = `${'r'.repeat(EXCLUDE_KEPT_CHARS - (SECRETS.LOUPE_LEAK_OTHER.length - 1) - 1)} ${SECRETS.LOUPE_LEAK_OTHER} end`;

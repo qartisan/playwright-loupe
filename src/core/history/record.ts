@@ -51,22 +51,24 @@ export function skipReason(report: LoupeReport, context: Pick<RecordContext, 'hi
   return null;
 }
 
-/** The reason in `LOUPE_EXCLUDE`, trimmed, null when unset or blank. */
+/** The reason in `LOUPE_EXCLUDE`, trimmed and whole, null when unset or blank. `maskedExcludeReason` masks it, then cuts it. */
 export function excludeReason(env: Env): string | null {
   const reason = env[EXCLUDE_ENV]?.trim() ?? '';
-  if (reason === '') return null;
-  return reason.length > MAX_REASON ? `${reason.slice(0, MAX_REASON - 1)}…` : reason;
+  return reason === '' ? null : reason;
 }
 
 /**
  * The exclusion reason of the run as it is recorded, masked like the rest of
- * the report (`redact`, home directory): the only text not taken from the
- * report. Null when the run is not excluded.
+ * the report (`redact`, home directory), then cut to MAX_REASON characters:
+ * the only text not taken from the report. Null when the run is not excluded.
  */
 export function maskedExcludeReason(context: Pick<RecordContext, 'env' | 'redact' | 'home'>): string | null {
   const reason = excludeReason(context.env);
   if (reason === null) return null;
-  return createPathRewriter({ roots: [], home: context.home }).selection(createRedactor(context.redact).strings(reason));
+  // Mask, then cut: cut first, a redact.env value or a home directory running across the cut would only be
+  // partly there when masking ran, and its first characters would stay in clear.
+  const masked = createPathRewriter({ roots: [], home: context.home }).selection(createRedactor(context.redact).strings(reason));
+  return masked.length > MAX_REASON ? `${masked.slice(0, MAX_REASON - 1)}…` : masked;
 }
 
 export interface RunIdentity {
