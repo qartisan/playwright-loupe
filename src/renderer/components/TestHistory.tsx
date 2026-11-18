@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { EmbeddedRun } from '../../schema/history-v1.js';
 import type { AttemptStatus, LoupeReport, TestCase } from '../../schema/v1.js';
 import { countsForTests, otherStreams, runFlags, testCells, type HistoryCell, type ResultCode } from '../../shared/history.js';
@@ -89,183 +89,181 @@ function ResultGlyph({ code }: { code: ResultCode }) {
 /** Commit, short: the first 7 characters of a hash. */
 const shortCommit = (commit: string) => commit.slice(0, 7);
 
-/** The facts of a cell, as lines of text: for its description (read on focus) and the visible panel. */
-function cellFacts(cell: StripCell, date: string, include: Include, notes: string | null): string[] {
-  const facts = [cell.current ? `This run, ${date}` : `Run of ${date}`, `Result: ${RESULT_TEXT[cell.code]}`];
+/** The facts of a run, as lines of text, in the selected run's details: result, attempts, where it ran, its category. */
+function runFacts(cell: StripCell): string[] {
+  const facts = [`Result: ${RESULT_TEXT[cell.code]}`];
   const attempts = attemptsText(cell.attempts);
   if (attempts) facts.push(attempts);
   facts.push(`Origin: ${ORIGIN_TEXT[cell.run.origin]}`);
   if (cell.run.branch) facts.push(`Branch: ${cell.run.branch}`);
   if (cell.run.commit) facts.push(`Commit: ${shortCommit(cell.run.commit)}`);
   facts.push(`Run duration: ${formatDuration(cell.run.durationMs)}`);
-  // Nothing for an ordinary run; otherwise how the run is used, in one sentence.
-  const use = cellUse(cell, include, notes);
-  if (use) facts.push(use);
-  // Text people wrote: rendered as text, never as HTML.
-  if (cell.run.note !== undefined) facts.push(`Note: ${cell.run.note}`);
   if (cell.failure?.category) facts.push(`Category: ${cell.failure.category}`);
   return facts;
 }
 
-function CellDetails({ cell, date, include, notes, above }: { cell: StripCell; date: string; include: Include; notes: string | null; above: boolean }) {
+/**
+ * The selected run's details, as page content right after the strip: read in the page's order, never on hover,
+ * never as a description or a live region. A heading, the facts, how the run is used (its reasons with their
+ * sources) and its note, then its error: the extract whole (no inner scroll), why there is none, or, for the current
+ * run, where its errors are. Its actions (Close) come right after the heading, first in the Tab order. Plain text,
+ * never HTML. Close, or Escape (Strip), closes it, focus back on its option. Keeps the run id (`data-run-id`) for a
+ * later link to that run's report.
+ */
+function SelectedRun({ cell, date, include, notes, onClose }: { cell: StripCell; date: string; include: Include; notes: string | null; onClose: () => void }) {
   const gap = failureGap(cell);
+  const use = cellUse(cell, include, notes);
+  const id = `selected-run-${cell.index}`;
   return (
-    <div class={`strip-details${above ? ' strip-details-above' : ''}`} data-run-id={cell.run.id}>
-      <ul class="strip-facts">
-        {cellFacts(cell, date, include, notes).map((fact) => (
+    <section
+      class="run-selected"
+      aria-labelledby={id}
+      data-run-id={cell.run.id}
+    >
+      {/* The heading, then its actions: Tab from the strip reaches them first, and reading goes on from the top. */}
+      <div class="run-selected-head">
+        <h3 id={id}>
+          Selected run, {date}
+          {cell.current && ' (this run)'}
+        </h3>
+        {/* The run's actions: closing it now; later the copy of its exclusion (brief 26, Part 4). */}
+        <div class="run-selected-actions">
+          <button type="button" class="button" onClick={onClose}>
+            Close<span class="visually-hidden"> the selected run</span>
+          </button>
+        </div>
+      </div>
+      <ul class="run-selected-facts">
+        {runFacts(cell).map((fact) => (
           <li key={fact}>{fact}</li>
         ))}
       </ul>
+      {use && <p class="run-selected-use">{use}</p>}
+      {/* Text people wrote: rendered as text, never as HTML. */}
+      {cell.run.note !== undefined && <p class="run-selected-note">Note: {cell.run.note}</p>}
       {cell.current && cell.failure && <p class="history-note">Its errors are in the attempts below.</p>}
-      {!cell.current && cell.failure?.extract && <pre class="strip-extract">{cell.failure.extract}</pre>}
+      {!cell.current && cell.failure?.extract && <pre class="run-selected-extract">{cell.failure.extract}</pre>}
       {!cell.current && gap && <p class="history-note">{gap}</p>}
-    </div>
+    </section>
   );
 }
 
 /**
- * The strip: one cell per run of the window, oldest first, then the current
- * run, set apart. One tab stop (roving tabindex): arrow keys move between
- * cells and stop at the ends, Home and End go to them. Each cell has a full
- * accessible name, and its facts as its description. A cell keeps its run id
- * (`data-run-id`) for a later link to that run's report.
+ * The strip: one option per run of the window, oldest first, then the current run, set apart (by CSS: nothing
+ * but options in the listbox). A listbox, so screen readers pass its keys in focus mode: one tab stop (roving
+ * tabindex), arrows move between options and stop at the ends, Home and End go to them, and moving selects
+ * nothing. Click, tap, Enter or Space selects a run and opens its details (SelectedRun) right after the strip,
+ * focus staying on the option; the selected run again, or Close, closes them, focus back on its option. Names are
+ * short (cellName); nothing opens on hover. A cell keeps its run id (`data-run-id`).
  *
- * The panel shows the hovered or focused cell, only then, and meets WCAG
- * 1.4.13 (content on hover or focus):
- * - it floats over what follows, so nothing moves, and never over the cells:
- *   under the strip, or above it when the visible area has no room below;
- * - hoverable: it stays while the pointer moves to it and over it (a
- *   transparent bridge covers the gap);
- * - persistent: it stays until the pointer and focus leave, or Escape;
- * - dismissible: Escape hides it without moving pointer or focus; another
- *   cell, or leaving and coming back, shows it again;
- * - on touch, a tap focuses the cell, which shows it; only a mouse hovers,
- *   so a tap elsewhere hides it.
+ * Escape closes the details too, from the strip or from inside them, including while a screen reader's browse
+ * mode or caret browsing reads them: focus then rests on an ancestor (`main`) and only the selection's anchor is
+ * in them, so the key is heard on the document. It acts when focus is in the strip or the details, or when the
+ * focused element holds the selection's anchor and the anchor is in them; focus stays on an option of the strip,
+ * or goes to the selected one. Never while the narrow drawer or a dialog is on top, never on a key already
+ * handled (defaultPrevented), and never cancelled: the key goes on unchanged.
  */
 function Strip({ cells, include, notes }: { cells: readonly StripCell[]; include: Include; notes: string | null }) {
   const last = cells.length - 1;
   const [active, setActive] = useState(last);
-  const [hovered, setHovered] = useState<number | null>(null);
-  const [focused, setFocused] = useState<number | null>(null);
-  // The cell whose panel Escape hid: hidden until another cell is shown, or none.
-  const [dismissed, setDismissed] = useState<number | null>(null);
-  const [above, setAbove] = useState(false);
+  const [selected, setSelected] = useState<number | null>(null);
   const list = useRef<HTMLDivElement>(null);
-  const block = useRef<HTMLDivElement>(null);
-  const dates = useMemo(() => cells.map((cell) => formatRunStart(cell.run.startedAt)?.label ?? cell.run.startedAt), [cells]);
+  // The month written out: these dates are in the options' names and the details' heading, spoken by screen readers.
+  const dates = useMemo(() => cells.map((cell) => formatRunStart(cell.run.startedAt)?.long ?? cell.run.startedAt), [cells]);
+  const cellAt = (index: number) => list.current?.querySelector<HTMLElement>(`[data-cell="${index}"]`);
   const focusCell = (index: number): void => {
     const target = Math.min(Math.max(index, 0), last);
     setActive(target);
-    list.current?.querySelector<HTMLElement>(`[data-cell="${target}"]`)?.focus();
+    cellAt(target)?.focus();
   };
-  const current = hovered ?? focused;
-  const shownIndex = current === dismissed ? null : current;
-  const shown = shownIndex === null ? null : cells[shownIndex];
-  // Leaving the strip and its panel ends a dismissal; another cell is not dismissed.
-  useEffect(() => {
-    if (current === null || (dismissed !== null && current !== dismissed)) setDismissed(null);
-  }, [current]);
-  // Escape from anywhere: the pointer may rest on a cell while focus is elsewhere. Neither moves, and the event
-  // goes on unchanged (never stopped nor cancelled). One listener for the strip's life, reading the cell shown
-  // from refs that the focus and pointer handlers set at once: an Escape pressed right after a focus, before the
-  // render, still dismisses it. It acts only while the panel is shown on top: not once dismissed, and not while
-  // a dialog or the narrow drawer covers the page, whose Escape is theirs alone.
-  const live = useRef<{ hovered: number | null; focused: number | null; dismissed: number | null }>({ hovered: null, focused: null, dismissed: null });
-  live.current.dismissed = dismissed;
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape') return;
-      const index = live.current.hovered ?? live.current.focused;
-      if (index === null || index === live.current.dismissed) return;
-      if (overlayOpen.value || document.querySelector('dialog[open]')) return;
-      live.current.dismissed = index;
-      setDismissed(index);
-    };
-    document.addEventListener('keydown', onKeyDown, true);
-    return () => document.removeEventListener('keydown', onKeyDown, true);
-  }, []);
-  const hover = (index: number | null): void => {
-    live.current.hovered = index;
-    setHovered(index);
+  const choose = (index: number): void => setSelected((current) => (current === index ? null : index));
+  const close = (): void => {
+    if (selected !== null) focusCell(selected);
+    setSelected(null);
   };
-  const focus = (index: number | null): void => {
-    live.current.focused = index;
-    setFocused(index);
-  };
-  // Under the strip, or above it when the visible area has no room below and more above. Before paint.
+  const shown = selected === null ? null : cells[selected];
+  const block = useRef<HTMLDivElement>(null);
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
+  // At once after the render that opens the details (a layout effect): an Escape pressed right away still closes them.
   useLayoutEffect(() => {
-    const panel = block.current?.querySelector<HTMLElement>('.strip-details');
-    if (!block.current || !panel) return;
-    const box = block.current.getBoundingClientRect();
-    const scroller = block.current.closest('main')?.getBoundingClientRect();
-    const top = Math.max(0, scroller?.top ?? 0);
-    const bottom = Math.min(window.innerHeight, scroller?.bottom ?? window.innerHeight);
-    const needed = panel.offsetHeight + 8;
-    const room = { below: bottom - box.bottom, above: box.top - top };
-    setAbove(room.below < needed && room.above > room.below);
-  }, [shownIndex]);
+    if (selected === null) return;
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape' || event.defaultPrevented || overlayOpen.value || document.querySelector('dialog[open]')) return;
+      const root = block.current;
+      const index = selectedRef.current;
+      if (!root || index === null) return;
+      const focus = document.activeElement;
+      const anchor = document.getSelection()?.anchorNode ?? null;
+      const reading = anchor !== null && root.contains(anchor) && focus !== null && focus.contains(anchor);
+      if (!(focus !== null && root.contains(focus)) && !reading) return;
+      const onOption = focus instanceof HTMLElement && focus.getAttribute('role') === 'option' && root.contains(focus);
+      setSelected(null);
+      if (!onOption) focusCell(index);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [selected === null]);
   return (
-    <div
-      class="strip-block"
-      ref={block}
-      onPointerLeave={(event) => {
-        if (event.pointerType === 'mouse') hover(null);
-      }}
-    >
-      <div
-        class="strip"
-        role="list"
-        aria-label={`Results in this stream, oldest first, then this run (${cells.length})`}
-        ref={list}
-        onKeyDown={(event) => {
-          const moves: Record<string, number> = { ArrowRight: active + 1, ArrowDown: active + 1, ArrowLeft: active - 1, ArrowUp: active - 1, Home: 0, End: last };
-          const target = moves[event.key];
-          if (target === undefined) return;
-          event.preventDefault();
-          focusCell(target);
-        }}
-      >
-        {cells.map((cell, index) => {
-          const name = cellName(cell, dates[index] ?? '', include, notes);
-          const classes = [
-            'strip-cell',
-            `strip-${cell.code === '-' ? 'none' : cell.code}`,
-            cell.runCounts ? '' : 'strip-excluded',
-            cell.runCounts && (cell.flags.includes('partial') || cell.flags.includes('ide')) ? 'strip-flagged' : '',
-            cell.current ? 'strip-current' : '',
-            index === shownIndex ? 'strip-active' : '',
-          ];
-          return [
-            cell.current && cells.length > 1 ? <span key="gap" class="strip-gap" aria-hidden="true" /> : null,
-            <span
-              key={cell.run.id}
-              role="listitem"
-              class={classes.filter(Boolean).join(' ')}
-              tabIndex={index === active ? 0 : -1}
-              data-cell={index}
-              data-run-id={cell.run.id}
-              aria-label={cell.current ? `This run: ${name}` : name}
-              aria-describedby={`strip-facts-${index}`}
-              onFocus={() => {
-                setActive(index);
-                focus(index);
-              }}
-              onBlur={() => focus(null)}
-              // Hover from a mouse only: on touch, the tap focuses the cell, and a tap elsewhere hides its panel.
-              onPointerEnter={(event) => {
-                if (event.pointerType === 'mouse') hover(index);
-              }}
-              onClick={() => focusCell(index)}
-            >
-              <ResultGlyph code={cell.code} />
-              <span id={`strip-facts-${index}`} hidden>
-                {[...cellFacts(cell, dates[index] ?? '', include, notes).slice(2), ...(cell.current ? [] : [cell.failure?.extract ?? failureGap(cell) ?? ''])].filter(Boolean).join('. ')}
+    <div class="strip-block" ref={block}>
+      <div class="strip-row">
+        <div
+          class="strip"
+          role="listbox"
+          aria-orientation="horizontal"
+          aria-label="Runs of this test: select one to see its details"
+          ref={list}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              choose(active);
+              return;
+            }
+            const moves: Record<string, number> = { ArrowRight: active + 1, ArrowDown: active + 1, ArrowLeft: active - 1, ArrowUp: active - 1, Home: 0, End: last };
+            const target = moves[event.key];
+            if (target === undefined) return;
+            event.preventDefault();
+            focusCell(target);
+          }}
+        >
+          {cells.map((cell, index) => {
+            const name = cellName(cell, dates[index] ?? '');
+            const classes = [
+              'strip-cell',
+              `strip-${cell.code === '-' ? 'none' : cell.code}`,
+              cell.runCounts ? '' : 'strip-excluded',
+              cell.runCounts && (cell.flags.includes('partial') || cell.flags.includes('ide')) ? 'strip-flagged' : '',
+              cell.current ? 'strip-current' : '',
+            ];
+            return (
+              <span
+                key={cell.run.id}
+                role="option"
+                aria-selected={index === selected}
+                class={classes.filter(Boolean).join(' ')}
+                tabIndex={index === active ? 0 : -1}
+                data-cell={index}
+                data-run-id={cell.run.id}
+                aria-label={cell.current ? `This run: ${name}` : name}
+                onFocus={() => setActive(index)}
+                onClick={() => {
+                  focusCell(index);
+                  choose(index);
+                }}
+              >
+                <ResultGlyph code={cell.code} />
               </span>
-            </span>,
-          ];
-        })}
+            );
+          })}
+        </div>
+        {/* Visible only: the listbox's name says it to screen readers. */}
+        {shown === null && (
+          <p class="strip-hint" aria-hidden="true">
+            Select a run to see its details.
+          </p>
+        )}
       </div>
-      {shown && shownIndex !== null && <CellDetails cell={shown} date={dates[shownIndex] ?? ''} include={include} notes={notes} above={above} />}
+      {shown && selected !== null && <SelectedRun cell={shown} date={dates[selected] ?? ''} include={include} notes={notes} onClose={close} />}
     </div>
   );
 }
@@ -353,7 +351,7 @@ export function TestHistory({ history, report, test }: { history: ReportHistory;
           {stateDetail(facts.state, facts.earlier)}
         </p>
       )}
-      {cells.length > 0 && <Strip cells={cells} include={block.include} notes={notesName(block)} />}
+      {cells.length > 0 && <Strip key={`${test.id}:${test.repeatEachIndex}`} cells={cells} include={block.include} notes={notesName(block)} />}
       <HistoryMore counters={shown && facts.counters.considered > 0 ? countersText(facts.counters, !facts.noRetries) : null} noRetries={Boolean(shown && facts.noRetries)} others={others} stream={block.stream} />
     </section>
   );

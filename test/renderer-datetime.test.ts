@@ -26,6 +26,14 @@ describe('formatRunStart', () => {
     expect(formatRunStart('2026-12-01T08:00:00Z', { locale: 'en-GB' })?.label).toBe('1 Dec 2026, 09:00 CET');
   });
 
+  it('a long form with the month written out, for what screen readers speak; the short label unchanged', () => {
+    const fr = formatRunStart('2026-10-15T17:22:00Z', { locale: 'fr-FR' });
+    expect(fr?.long).toMatch(/^15 octobre 2026(?: à|,) 19:22 UTC\+2$/u);
+    expect(fr?.label).toMatch(/^15 oct\. 2026, 19:22 UTC\+2$/u);
+    expect(formatRunStart('2026-10-16T15:04:31.484Z', { locale: 'en-GB' })?.long).toMatch(/^16 October 2026(?: at|,) 17:04 CEST$/);
+    expect(formatRunStart('2026-10-16T15:04:31.484Z', { locale: 'en-US' })?.long).toMatch(/^October 16, 2026(?: at|,) 05:04\s(?:PM|pm) GMT\+2$/u);
+  });
+
   it('uses the locale for the format', () => {
     expect(formatRunStart('2026-10-16T15:04:31.484Z', { locale: 'en-US' })?.label).toMatch(/^Oct 16, 2026, 05:04\s(?:PM|pm) GMT\+2$/u);
   });

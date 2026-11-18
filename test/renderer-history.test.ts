@@ -220,14 +220,20 @@ describe('test detail texts', () => {
   const cell = (fields: Partial<HistoryCell> = {}): HistoryCell =>
     ({ index: 0, run, code: 'F', attempts: 'FT', flags: [], runCounts: true, counts: true, failure: { category: 'Timeout', extract: 'x', compared: true }, ...fields }) as HistoryCell;
 
-  it('the name of a cell: date, origin, result, category, then how a run drawn apart is used', () => {
-    expect(cellName(cell(), '12 Nov 14:03', 'full', N)).toBe('12 Nov 14:03, CI, failed, Timeout');
-    expect(cellName(cell({ code: 'P', failure: null, attempts: 'P' }), 'd', 'full', N)).toBe('d, CI, passed');
-    expect(cellName(cell({ code: '-', failure: null, attempts: null }), 'd', 'full', N)).toBe('d, CI, no result');
-    const excluded = { ...run, excluded: 'restore' };
-    expect(cellName(cell({ run: excluded, flags: ['excluded'], runCounts: false, counts: false }), 'd', 'full', N)).toBe(
-      "d, CI, failed, Timeout, excluded run (restore): not used in this test's history",
-    );
+  it('the name of a cell, short: date, origin, result, category, then one word for a run drawn apart; never a reason or a note', () => {
+    expect(cellName(cell(), '12 Nov 14:03')).toBe('12 Nov 14:03, CI, failed, Timeout');
+    expect(cellName(cell({ code: 'P', failure: null, attempts: 'P' }), 'd')).toBe('d, CI, passed');
+    expect(cellName(cell({ code: '-', failure: null, attempts: null }), 'd')).toBe('d, CI, no result');
+    const excluded = { ...run, excluded: 'restore', notesExcluded: 'staging down', note: 'after the refactor' };
+    expect(cellName(cell({ run: excluded, flags: ['excluded'], runCounts: false, counts: false }), 'd')).toBe('d, CI, failed, Timeout, excluded');
+    // Excluded, at any include: the word is a fact of the run, how it is used is in its details.
+    expect(cellName(cell({ run: excluded, flags: ['excluded'], runCounts: true }), 'd')).toBe('d, CI, failed, Timeout, excluded');
+    const partial = { ...run, scopeReasons: ['grep'] };
+    expect(cellName(cell({ run: partial, flags: ['partial'] }), 'd')).toBe('d, CI, failed, Timeout, partial');
+    // An IDE run says so by its origin, with no more word.
+    expect(cellName(cell({ run: { ...run, origin: 'ide' }, flags: ['ide', 'partial'] }), 'd')).toBe('d, IDE, failed, Timeout, partial');
+    expect(cellName(cell({ run: { ...run, origin: 'ide' }, flags: ['ide'] }), 'd')).toBe('d, IDE, failed, Timeout');
+    expect(cellName(cell({ run: { ...run, note: 'after the refactor' } }), 'd')).toBe('d, CI, failed, Timeout');
   });
 
   it('how a run is used: nothing for an ordinary run, one sentence otherwise', () => {
@@ -252,8 +258,8 @@ describe('test detail texts', () => {
     expect(cellUse(cell({ run: fromFile, flags: ['excluded'], runCounts: false }), 'full', N)).toBe("Excluded run (staging down, from loupe.notes.json): not used in this test's history");
     expect(cellUse(cell({ run: fromFile, flags: ['excluded'], runCounts: true }), 'all', N)).toBe("Excluded run (staging down, from loupe.notes.json): used, because history.include is 'all'");
     const both = { ...run, excluded: 'restore', notesExcluded: 'staging down' };
-    expect(cellName(cell({ run: both, flags: ['excluded'], runCounts: false, counts: false }), 'd', 'full', N)).toBe(
-      "d, CI, failed, Timeout, excluded run (restore, at launch; staging down, from loupe.notes.json): not used in this test's history",
+    expect(cellUse(cell({ run: both, flags: ['excluded'], runCounts: false, counts: false }), 'full', N)).toBe(
+      "Excluded run (restore, at launch; staging down, from loupe.notes.json): not used in this test's history",
     );
     // A note alone: an ordinary run, whose name says nothing more.
     expect(cellUse(cell({ run: { ...run, note: 'after the refactor' } }), 'full', N)).toBeNull();

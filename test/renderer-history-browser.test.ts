@@ -29,7 +29,7 @@ const SAMPLE = path.join(ROOT, 'src/renderer/dev/sample.json');
  * `placeholder`: a page whose history placeholder was never replaced (an older reporter); `include-all`: `normal`
  * with `history.include: 'all'`; `notes-all`: `notes` with it.
  */
-type Page_ = HistoryScenario | 'placeholder' | 'include-all' | 'notes-all' | 'notes-path' | 'absent-path' | 'notes-off' | 'unrecorded' | 'invalid-above' | 'all-excluded-above' | 'current-above';
+type Page_ = HistoryScenario | 'placeholder' | 'include-all' | 'notes-all' | 'notes-path' | 'absent-path' | 'notes-off' | 'unrecorded' | 'invalid-above' | 'all-excluded-above' | 'current-above' | 'tallest';
 const PAGES: Page_[] = [
   'none',
   'placeholder',
@@ -55,6 +55,7 @@ const PAGES: Page_[] = [
   'invalid-above',
   'all-excluded-above',
   'current-above',
+  'tallest',
 ];
 /** A notes file in a folder above the Playwright config's, as the block names it. */
 const ABOVE = '../shared/loupe.notes.json';
@@ -69,6 +70,16 @@ const BASE: Partial<Record<Page_, HistoryScenario>> = {
   'invalid-above': 'notes-invalid',
   'all-excluded-above': 'all-excluded',
   'current-above': 'notes-current',
+  tallest: 'notes-and-launch',
+};
+/** Text of exactly `length` characters, of the line `line` repeated, ending with an ellipsis as a cut text does. */
+const filled = (length: number, line: string) => `${line.repeat(Math.ceil(length / line.length)).slice(0, length - 1)}…`;
+/** The tallest details a run can have: an extract of 300 characters on many lines, both reasons at 200, a note at 300. */
+const TALLEST = {
+  extract: filled(300, 'Error: expect(locator).toHaveText(expected) failed\n'),
+  launch: filled(200, 'staging database restored during the run '),
+  file: filled(200, 'Seed data missing after the restore '),
+  note: filled(300, 'Restore took the whole afternoon '),
 };
 /**
  * How a page's block differs from its scenario's: `history.include: 'all'`; a custom `history.notes` (read, or
@@ -84,6 +95,11 @@ const VARIANT: Partial<Record<Page_, (block: EmbeddedHistory) => EmbeddedHistory
   'invalid-above': (block) => ({ ...block, notesPath: ABOVE }),
   'all-excluded-above': (block) => ({ ...block, notesPath: ABOVE }),
   'current-above': (block) => ({ ...block, notesPath: ABOVE }),
+  tallest: (block) => ({
+    ...block,
+    signatures: block.signatures.map(([signature, category, extract]) => [signature, category, extract === null ? null : TALLEST.extract]),
+    runs: block.runs.map((run) => (run.notesExcluded === undefined ? run : { ...run, excluded: TALLEST.launch, notesExcluded: TALLEST.file, note: TALLEST.note })),
+  }),
 };
 
 describe('history on the Overview and in the filters (file://)', { timeout: 60_000 }, () => {
@@ -155,17 +171,14 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
       await page.close();
     });
 
-    it('a run excluded by the file and "Which runs are used": the name, description and panel of its cell, and the help', async () => {
+    it('a run excluded by the file and "Which runs are used": the selected run\'s details, and the help', async () => {
       const failingIndex = sample.tests.findIndex((test, index) => test.outcome === 'failed' && index % 4 === 0);
       const failing = sample.tests[failingIndex] as LoupeReport['tests'][number];
       const page = await open('notes-path', `#/test/${failing.id}${failing.repeatEachIndex > 0 ? `/repeat/${failing.repeatEachIndex}` : ''}`);
-      const cell = page.locator('.strip-cell').nth(3);
       const source = `(Staging was down (VPN), from ${CUSTOM})`;
-      expect(await cell.getAttribute('aria-label')).toContain(source);
-      await expectLocator(cell).toHaveAccessibleDescription(new RegExp(source.replace(/[()]/g, '\\$&')));
-      await cell.hover();
-      await expectLocator(page.locator('.strip-facts')).toContainText(source);
-      noDefault((await page.locator('.test-history').innerText()) + ((await cell.getAttribute('aria-label')) ?? ''), CUSTOM);
+      await page.locator('.strip-cell').nth(3).click();
+      await expectLocator(page.locator('.run-selected-use')).toContainText(source);
+      noDefault(await page.locator('.test-history').innerText(), CUSTOM);
       await page.close();
       for (const hash of ['#/', '#/tests']) {
         const help = await open('notes-path', hash);
@@ -579,133 +592,274 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
       const ids = await cells(page).evaluateAll((elements) => elements.map((element) => element.getAttribute('data-run-id')));
       expect(ids.slice(0, -1)).toEqual(history?.runs.map((run) => run.id));
       expect(await cells(page).last().getAttribute('class')).toContain('strip-current');
-      expect(await page.locator('.strip-gap').count()).toBe(1);
+      // Set apart by CSS: the separator is no element.
+      expect(await cells(page).last().evaluate((element) => element.ownerDocument.defaultView!.getComputedStyle(element, '::before').borderLeftStyle)).toBe('solid');
       expect(await page.locator('.test-history a').count()).toBe(0);
       await page.close();
     });
 
-    it('an excluded run is drawn hollow, not used; a partial or ide run, used in the test history, gets a flag only; the same words everywhere', async () => {
+    const region = (page: Page) => page.locator('.run-selected');
+    const listbox = (page: Page) => page.getByRole('listbox', { name: 'Runs of this test: select one to see its details' });
+    const focusedCell = (page: Page) => page.evaluate<string | null>("document.activeElement?.getAttribute('data-cell') ?? null");
+    const activeTag = (page: Page) => page.evaluate<string>("document.activeElement?.tagName ?? ''");
+    const regionText = async (page: Page) => (await region(page).innerText()).replace(/\s+/g, ' ');
+    /** Selects a run as a pointer does: a click, focus on its cell. */
+    const select = async (page: Page, index: number) => {
+      await cells(page).nth(index).click();
+      await expectLocator(region(page)).toHaveAttribute('data-run-id', (await cells(page).nth(index).getAttribute('data-run-id')) ?? '');
+    };
+    const ESCAPED = /[()[\]]/g;
+    /** Whether a name holds any of these texts: reasons and notes never are in one. */
+    const names = (page: Page) => cells(page).evaluateAll((elements) => elements.map((element) => element.getAttribute('aria-label') ?? ''));
+
+    it('a listbox of options with short names, nothing else in it; one option selected at most, none at first', async () => {
       const page = await open('normal', testHash(failing));
-      const excluded = cells(page).nth(9);
-      expect(await excluded.getAttribute('class')).toContain('strip-excluded');
-      const excludedUse = "Excluded run (staging database restored during the run): not used in this test's history";
-      for (const [index, use, flagged] of [
-        [9, excludedUse, false],
-        [5, "Partial run (grep): used in this test's history, not in run comparisons", true],
-        [13, "Run from the IDE: used in this test's history, not in run comparisons", true],
+      await expectLocator(listbox(page)).toHaveCount(1);
+      await expectLocator(listbox(page)).toHaveAttribute('aria-orientation', 'horizontal');
+      const children = await listbox(page).evaluate((element) => [...element.children].map((child) => child.getAttribute('role')));
+      expect(new Set(children)).toEqual(new Set(['option']));
+      expect(await page.getByRole('option').count()).toBe(await cells(page).count());
+      expect(await page.locator('[role="option"][aria-selected="true"]').count()).toBe(0);
+      expect(await page.locator('.strip-cell[aria-describedby]').count()).toBe(0);
+      await expectLocator(region(page)).toHaveCount(0);
+      // The last option is the current run, its name saying so.
+      await expectLocator(cells(page).last()).toHaveAccessibleName(/^This run: /);
+      await page.close();
+    });
+
+    it('an excluded run is drawn hollow, a partial or IDE run flagged; names say "excluded" or "partial", the details say how the run is used', async () => {
+      const page = await open('normal', testHash(failing));
+      for (const [index, use, flagged, word] of [
+        [9, "Excluded run (staging database restored during the run): not used in this test's history", false, ', excluded'],
+        [5, "Partial run (grep): used in this test's history, not in run comparisons", true, ', partial'],
+        [13, "Run from the IDE: used in this test's history, not in run comparisons", true, ''],
       ] as const) {
         const cell = cells(page).nth(index);
         const classes = (await cell.getAttribute('class')) ?? '';
         expect(classes.includes('strip-flagged'), String(index)).toBe(flagged);
         expect(classes.includes('strip-excluded'), String(index)).toBe(!flagged);
-        // The name ends with the sentence, the description and the panel give it whole.
-        expect(await cell.getAttribute('aria-label')).toMatch(new RegExp(`, ${(use.charAt(0).toLowerCase() + use.slice(1)).replace(/[()]/g, '\\$&')}$`));
-        await expectLocator(cell).toHaveAccessibleDescription(new RegExp(use.replace(/[()]/g, '\\$&')));
-        await cell.hover();
-        await expectLocator(page.locator('.strip-facts')).toContainText(use);
+        const name = (await cell.getAttribute('aria-label')) ?? '';
+        expect(name.endsWith(word === '' ? name.slice(-1) : word), name).toBe(true);
+        expect(name).not.toMatch(/used|restored|grep|\(/);
+        await select(page, index);
+        await expectLocator(region(page).locator('.run-selected-use')).toHaveText(use);
       }
-      // No "Counting" field, and nothing about use for an ordinary run.
-      const ordinary = cells(page).nth(0);
-      await ordinary.hover();
-      await expectLocator(page.locator('.strip-facts')).not.toContainText(/Counting|used in|not used/);
-      expect(await page.locator('.test-history').innerText()).not.toMatch(/Counting/);
-      // Every other run counts and is full: neither hollow nor flagged.
+      if (!((await cells(page).nth(13).getAttribute('aria-label')) ?? '').includes(', IDE, ')) throw new Error('run 13 is not from the IDE');
+      // Nothing about use for an ordinary run.
+      await select(page, 0);
+      expect(await region(page).locator('.run-selected-use').count()).toBe(0);
       expect(await page.locator('.strip-excluded').count()).toBe(1);
       expect(await page.locator('.strip-flagged').count()).toBe(2);
       await page.close();
     });
 
-    /** The sentence a cell's name ends with, as it ends it: lower case first. */
-    const nameEnd = (use: string) => new RegExp(`, ${(use.charAt(0).toLowerCase() + use.slice(1)).replace(/[()]/g, '\\$&')}$`);
-    const escaped = (text: string) => new RegExp(text.replace(/[()[\]]/g, '\\$&'));
-
-    it('a run excluded by loupe.notes.json: drawn hollow, the reason with its source in its name, description and panel; a note as text', async () => {
+    it('a run excluded by loupe.notes.json: drawn hollow, its name says "excluded" only; the details give the reason with its source and the note, as text', async () => {
       const page = await open('notes', testHash(failing));
       const excluded = cells(page).nth(3);
       expect(await excluded.getAttribute('class')).toContain('strip-excluded');
-      const use = "Excluded run (Staging was down (VPN), from loupe.notes.json): not used in this test's history";
-      expect(await excluded.getAttribute('aria-label')).toMatch(nameEnd(use));
-      const note = 'Note: Ops restarted the gateway at 14:10; rerun is dev-local-4';
-      await expectLocator(excluded).toHaveAccessibleDescription(escaped(`${use}. ${note}`));
-      await excluded.hover();
-      await expectLocator(page.locator('.strip-facts li')).toContainText([use, note]);
-      // A note alone: the run counts, its name says nothing more, its description and panel give the note.
+      expect(await excluded.getAttribute('aria-label')).toMatch(/, excluded$/);
+      await select(page, 3);
+      await expectLocator(region(page).locator('.run-selected-use')).toHaveText("Excluded run (Staging was down (VPN), from loupe.notes.json): not used in this test's history");
+      await expectLocator(region(page).locator('.run-selected-note')).toHaveText('Note: Ops restarted the gateway at 14:10; rerun is dev-local-4');
+      // A note alone: the run counts, its name says nothing more, its details give the note.
       const annotated = cells(page).nth(7);
       expect(await annotated.getAttribute('class')).not.toContain('strip-excluded');
-      expect(await annotated.getAttribute('aria-label')).not.toMatch(/xcluded|Note/);
-      await expectLocator(annotated).toHaveAccessibleDescription(/Note: First run after the auth refactor/);
+      await select(page, 7);
+      await expectLocator(region(page).locator('.run-selected-note')).toHaveText('Note: First run after the auth refactor');
       // Markup in a note is text: shown as written, no element made from it.
-      const markup = cells(page).nth(15);
-      await markup.hover();
-      await expectLocator(page.locator('.strip-facts')).toContainText('Note: <b>Checkout</b> flag on & retries at 2: <script>alert(1)</script> stays text');
-      expect(await page.locator('.strip-details b, .strip-details script, .test-history b').count()).toBe(0);
+      await select(page, 15);
+      await expectLocator(region(page).locator('.run-selected-note')).toHaveText('Note: <b>Checkout</b> flag on & retries at 2: <script>alert(1)</script> stays text');
+      expect(await page.locator('.test-history b, .test-history script').count()).toBe(0);
       // The launch exclusion of run 9 keeps its wording.
-      expect(await cells(page).nth(9).getAttribute('aria-label')).toMatch(nameEnd("Excluded run (staging database restored during the run): not used in this test's history"));
+      await select(page, 9);
+      await expectLocator(region(page).locator('.run-selected-use')).toHaveText("Excluded run (staging database restored during the run): not used in this test's history");
+      // No name holds a reason or a note.
+      for (const name of await names(page)) expect(name).not.toMatch(/VPN|staging|gateway|refactor|Checkout|Note|used|loupe\.notes/);
       expect(await page.locator('.strip-excluded').count()).toBe(2);
       await page.close();
     });
 
-    it("with include: 'all', a run excluded by loupe.notes.json is used, and says so", async () => {
+    it("with include: 'all', a run excluded by loupe.notes.json is used, and its details say so", async () => {
       const page = await open('notes-all', testHash(failing));
-      const excluded = cells(page).nth(3);
-      expect(await excluded.getAttribute('class')).not.toContain('strip-excluded');
-      expect(await excluded.getAttribute('aria-label')).toMatch(nameEnd("Excluded run (Staging was down (VPN), from loupe.notes.json): used, because history.include is 'all'"));
+      expect(await cells(page).nth(3).getAttribute('class')).not.toContain('strip-excluded');
       expect(await page.locator('.strip-excluded').count()).toBe(0);
+      await select(page, 3);
+      await expectLocator(region(page).locator('.run-selected-use')).toHaveText("Excluded run (Staging was down (VPN), from loupe.notes.json): used, because history.include is 'all'");
       await page.close();
     });
 
-    it('a run excluded at launch and by loupe.notes.json: both reasons, each with its source', async () => {
+    it('a run excluded both ways with a note: both reasons, each with its source, and the note', async () => {
       const page = await open('notes-and-launch', testHash(failing));
-      const both = cells(page).nth(9);
-      const use = "Excluded run (staging database restored during the run, at launch; Seed data missing after the restore, from loupe.notes.json): not used in this test's history";
-      expect(await both.getAttribute('aria-label')).toMatch(nameEnd(use));
-      await both.focus();
-      await expectLocator(page.locator('.strip-facts li')).toContainText([use, 'Note: Restore took the whole afternoon']);
+      await select(page, 9);
+      await expectLocator(region(page).locator('.run-selected-use')).toHaveText(
+        "Excluded run (staging database restored during the run, at launch; Seed data missing after the restore, from loupe.notes.json): not used in this test's history",
+      );
+      await expectLocator(region(page).locator('.run-selected-note')).toHaveText('Note: Restore took the whole afternoon');
+      expect(await cells(page).nth(9).getAttribute('aria-label')).toMatch(/, excluded$/);
       await page.close();
     });
 
-    it('the current run excluded by loupe.notes.json: its cell drawn excluded, with the reason and the note', async () => {
+    it('the current run, excluded by loupe.notes.json: drawn excluded; its details are this run, with the reason, the note and where its errors are', async () => {
       const page = await open('notes-current', testHash(failing));
       const current = cells(page).last();
       const classes = (await current.getAttribute('class')) ?? '';
       expect([classes.includes('strip-current'), classes.includes('strip-excluded')]).toEqual([true, true]);
-      expect(await current.getAttribute('aria-label')).toMatch(nameEnd("Excluded run (Merge job run again on stale blobs, from loupe.notes.json): not used in this test's history"));
-      await expectLocator(current).toHaveAccessibleDescription(/Note: See the next run/);
+      expect(await current.getAttribute('aria-label')).toMatch(/^This run: .*, excluded$/);
+      await select(page, (await cells(page).count()) - 1);
+      await expectLocator(region(page).getByRole('heading', { level: 3 })).toHaveText(/^Selected run, .+ \(this run\)$/);
+      await expectLocator(region(page).locator('.run-selected-use')).toHaveText("Excluded run (Merge job run again on stale blobs, from loupe.notes.json): not used in this test's history");
+      await expectLocator(region(page).locator('.run-selected-note')).toHaveText('Note: See the next run');
+      await expectLocator(region(page)).toContainText('Its errors are in the attempts below.');
+      expect(await region(page).locator('.run-selected-extract').count()).toBe(0);
       await page.close();
     });
 
-    it('keyboard: one tab stop, arrows and Home / End between cells, never out of the strip', async () => {
+    it('keyboard: one tab stop, arrows and Home / End between options, never out of the strip; moving selects nothing and changes nothing', async () => {
       const page = await open('normal', testHash(failing));
       const count = await cells(page).count();
       expect(await page.locator('.strip-cell[tabindex="0"]').count()).toBe(1);
       await cells(page).last().focus();
-      const focused = () => page.evaluate<string | null>("document.activeElement?.getAttribute('data-cell') ?? null");
-      // The last cell: Right and End stay on it.
+      const layout = await page.locator('.test-history').boundingBox();
       await page.keyboard.press('ArrowRight');
-      expect(await focused()).toBe(String(count - 1));
+      expect(await focusedCell(page)).toBe(String(count - 1));
       await page.keyboard.press('ArrowLeft');
-      expect(await focused()).toBe(String(count - 2));
+      expect(await focusedCell(page)).toBe(String(count - 2));
       await page.keyboard.press('Home');
-      expect(await focused()).toBe('0');
+      expect(await focusedCell(page)).toBe('0');
       await page.keyboard.press('ArrowLeft');
       await page.keyboard.press('ArrowUp');
-      expect(await focused()).toBe('0');
-      // Still the one tab stop of the strip: Tab comes back to it.
+      expect(await focusedCell(page)).toBe('0');
       expect(await page.locator('.strip-cell[tabindex="0"]').getAttribute('data-cell')).toBe('0');
       await page.keyboard.press('End');
-      expect(await focused()).toBe(String(count - 1));
+      expect(await focusedCell(page)).toBe(String(count - 1));
       await page.keyboard.press('ArrowRight');
       await page.keyboard.press('ArrowDown');
-      expect(await focused()).toBe(String(count - 1));
-      expect(await page.locator('.strip-cell[tabindex="0"]').getAttribute('data-cell')).toBe(String(count - 1));
+      expect(await focusedCell(page)).toBe(String(count - 1));
+      // Nothing was selected, nothing opened, nothing moved.
+      expect(await page.locator('[role="option"][aria-selected="true"]').count()).toBe(0);
+      await expectLocator(region(page)).toHaveCount(0);
+      expect(await page.locator('.test-history').boundingBox()).toEqual(layout);
       // Tab leaves the strip in one press.
       await cells(page).first().focus();
       await page.keyboard.press('Tab');
-      expect(await focused()).toBeNull();
+      expect(await focusedCell(page)).toBeNull();
+      expect(await activeTag(page)).not.toBe('BODY');
       await page.close();
     });
 
-    it('a cell names its date, origin, result and category, and gives its facts on focus; the panel follows focus', async () => {
+    it.each(['Enter', ' '] as const)('%j selects the focused run and opens its details; focus stays on its option; again closes them', async (key) => {
+      const page = await open('normal', testHash(failing));
+      await cells(page).nth(4).focus();
+      await page.keyboard.press(key);
+      await expectLocator(region(page)).toHaveAttribute('data-run-id', (await cells(page).nth(4).getAttribute('data-run-id')) ?? '');
+      await expectLocator(cells(page).nth(4)).toHaveAttribute('aria-selected', 'true');
+      expect(await page.locator('[role="option"][aria-selected="true"]').count()).toBe(1);
+      expect(await focusedCell(page)).toBe('4');
+      // Another run: moving to it changes nothing, choosing it shows it.
+      await page.keyboard.press('ArrowRight');
+      await expectLocator(region(page)).toHaveAttribute('data-run-id', (await cells(page).nth(4).getAttribute('data-run-id')) ?? '');
+      await page.keyboard.press(key);
+      await expectLocator(region(page)).toHaveAttribute('data-run-id', (await cells(page).nth(5).getAttribute('data-run-id')) ?? '');
+      await page.keyboard.press(key);
+      await expectLocator(region(page)).toHaveCount(0);
+      expect(await page.locator('[role="option"][aria-selected="true"]').count()).toBe(0);
+      expect(await focusedCell(page)).toBe('5');
+      await page.close();
+    });
+
+    it('a click or a tap selects; the selected run again, Close or Escape closes, focus back on its option', async () => {
+      const page = await open('normal', testHash(failing));
+      await cells(page).nth(3).click();
+      await expectLocator(region(page)).toBeVisible();
+      expect(await focusedCell(page)).toBe('3');
+      await cells(page).nth(3).click();
+      await expectLocator(region(page)).toHaveCount(0);
+      // Close: focus back on the selected option.
+      await select(page, 6);
+      await region(page).getByRole('button', { name: 'Close the selected run' }).click();
+      await expectLocator(region(page)).toHaveCount(0);
+      expect(await focusedCell(page)).toBe('6');
+      // Escape inside the details.
+      await select(page, 2);
+      await region(page).getByRole('button', { name: 'Close the selected run' }).focus();
+      await page.keyboard.press('Escape');
+      await expectLocator(region(page)).toHaveCount(0);
+      expect(await focusedCell(page)).toBe('2');
+      await page.close();
+      const context = await browser.newContext({ viewport: { width: 400, height: 800 }, hasTouch: true });
+      const touch = await context.newPage();
+      await touch.goto(`${urls.normal}${testHash(failing)}`);
+      await cells(touch).nth(3).tap();
+      await expectLocator(region(touch)).toHaveAttribute('data-run-id', (await cells(touch).nth(3).getAttribute('data-run-id')) ?? '');
+      // A tap elsewhere changes nothing: the details stay until closed.
+      await touch.locator('.test-title').tap();
+      await expectLocator(region(touch)).toBeVisible();
+      await context.close();
+    });
+
+    it('nothing opens on hover; a hint says what to do while no run is selected', async () => {
+      const page = await open('normal', testHash(failing));
+      for (const index of [0, 3, 9]) await cells(page).nth(index).hover();
+      await page.waitForTimeout(300);
+      await expectLocator(region(page)).toHaveCount(0);
+      expect(await page.locator('[role="option"][aria-selected="true"]').count()).toBe(0);
+      expect(await cells(page).first().evaluate((element) => element.ownerDocument.defaultView!.getComputedStyle(element).cursor)).toBe('pointer');
+      const hint = page.locator('.strip-hint');
+      await expectLocator(hint).toHaveText('Select a run to see its details.');
+      await expectLocator(hint).toHaveAttribute('aria-hidden', 'true');
+      // Beside the strip on a wide screen.
+      const strip = await listbox(page).boundingBox();
+      const box = await hint.boundingBox();
+      if (!strip || !box) throw new Error('no box');
+      expect(box.x).toBeGreaterThan(strip.x + strip.width - 0.5);
+      expect(box.y).toBeLessThan(strip.y + strip.height);
+      await select(page, 3);
+      await expectLocator(hint).toHaveCount(0);
+      await page.close();
+      // Under it in a narrow layout.
+      const narrow = await browser.newPage({ viewport: { width: 320, height: 800 } });
+      await narrow.goto(`${urls.normal}${testHash(failing)}`);
+      const s = await listbox(narrow).boundingBox();
+      const h = await narrow.locator('.strip-hint').boundingBox();
+      if (!s || !h) throw new Error('no box');
+      expect(h.y).toBeGreaterThanOrEqual(s.y + s.height - 0.5);
+      await narrow.close();
+    });
+
+    it('the selected option keeps a ring of its own, apart from the focus outline, in both themes and in forced colours', async () => {
+      for (const [scheme, forced] of [
+        ['light', false],
+        ['dark', false],
+        ['light', true],
+      ] as const) {
+        const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, colorScheme: scheme });
+        if (forced) await page.emulateMedia({ forcedColors: 'active' });
+        await page.goto(`${urls.normal}${testHash(failing)}`);
+        await select(page, 3);
+        // Focus elsewhere: the ring stays; another option focused shows its outline, not a ring.
+        await page.keyboard.press('ArrowRight');
+        const style = (index: number) =>
+          cells(page)
+            .nth(index)
+            .evaluate((element) => {
+              const css = element.ownerDocument.defaultView!.getComputedStyle(element);
+              return { width: css.borderTopWidth, color: css.borderTopColor, radius: css.borderTopLeftRadius, outline: css.outlineStyle };
+            });
+        const selectedStyle = await style(3);
+        const focusedStyle = await style(4);
+        const plain = await style(2);
+        expect(selectedStyle.width, scheme).toBe('2px');
+        expect(selectedStyle.radius, scheme).toBe('50%');
+        expect(selectedStyle.color).not.toBe(plain.color);
+        expect(selectedStyle.color).not.toMatch(/rgba\(0, 0, 0, 0\)/);
+        expect(focusedStyle.width).toBe('1px');
+        expect(focusedStyle.outline).toBe('solid');
+        expect(selectedStyle.outline).toBe('none');
+        await page.close();
+      }
+    });
+
+    it('the details of a failed run: a heading, the facts, the extract whole and the run id', async () => {
       const { report, history } = historyScenario('normal', sample);
       const loadedHistory = loadHistory(JSON.stringify(history), report);
       const index = loadedHistory?.index;
@@ -715,11 +869,44 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
       const cell = strip[column] as (typeof strip)[number];
       const page = await open('normal', testHash(failing));
       const element = cells(page).nth(column);
-      await expectLocator(element).toHaveAccessibleName(new RegExp(`, ${ORIGIN_TEXT[cell.run.origin]}, failed, ${cell.failure?.category}`));
-      await element.focus();
-      await expectLocator(element).toHaveAccessibleDescription(/Run duration: .+/);
-      await expectLocator(page.locator('.strip-details')).toHaveAttribute('data-run-id', cell.run.id);
-      await expectLocator(page.locator('.strip-extract')).toHaveText((cell.failure?.extract ?? '').trim());
+      await expectLocator(element).toHaveAccessibleName(new RegExp(`, ${ORIGIN_TEXT[cell.run.origin]}, failed, ${cell.failure?.category}$`));
+      await select(page, column);
+      const date = ((await element.getAttribute('aria-label')) ?? '').split(`, ${ORIGIN_TEXT[cell.run.origin]}, `)[0];
+      await expectLocator(region(page).getByRole('heading', { level: 3 })).toHaveText(`Selected run, ${date}`);
+      await expectLocator(page.getByRole('region', { name: `Selected run, ${date}` })).toHaveCount(1);
+      const facts = await region(page).locator('.run-selected-facts li').allTextContents();
+      expect(facts[0]).toBe('Result: failed');
+      expect(facts).toEqual(expect.arrayContaining([`Origin: ${ORIGIN_TEXT[cell.run.origin]}`, `Category: ${cell.failure?.category}`]));
+      expect(facts.some((fact) => fact.startsWith('Run duration: '))).toBe(true);
+      expect(facts.at(-1)).toBe(`Category: ${cell.failure?.category}`);
+      await expectLocator(region(page).locator('.run-selected-extract')).toHaveText((cell.failure?.extract ?? '').trim());
+      await expectLocator(region(page)).toHaveAttribute('data-run-id', cell.run.id);
+      await page.close();
+    });
+
+    it.each([1280, 320])('the tallest details at %ipx: every text whole, the extract without scroll or maximum height', async (width) => {
+      const page = await browser.newPage({ viewport: { width, height: 900 } });
+      await page.goto(`${urls.tallest}${testHash(failing)}`);
+      await select(page, 9);
+      const text = await regionText(page);
+      for (const part of [TALLEST.launch, TALLEST.file, TALLEST.note]) expect(text).toContain(part.replace(/\s+/g, ' ').trim());
+      const failed = (await cells(page).evaluateAll((elements) => elements.map((element) => element.className))).findIndex((name) => name.includes('strip-F') && !name.includes('strip-current'));
+      await select(page, failed);
+      const extract = region(page).locator('.run-selected-extract');
+      await expectLocator(extract).toHaveText(TALLEST.extract.trim());
+      const box = await extract.evaluate((element) => {
+        const css = element.ownerDocument.defaultView!.getComputedStyle(element);
+        return { scroll: element.scrollHeight, client: element.clientHeight, max: css.maxHeight, overflow: css.overflowY };
+      });
+      expect(box.max).toBe('none');
+      expect(box.overflow).toBe('visible');
+      expect(box.scroll).toBeLessThanOrEqual(box.client + 1);
+      expect(box.client).toBeGreaterThan(96);
+      // Within the page's width: nothing wider than the main area.
+      const main = await page.locator('main').boundingBox();
+      const r = await region(page).boundingBox();
+      if (!main || !r) throw new Error('no box');
+      expect(r.x + r.width).toBeLessThanOrEqual(main.x + main.width + 0.5);
       await page.close();
     });
 
@@ -730,9 +917,228 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
       const column = history.runs.findIndex((run, index) => !run.sameSignatures && history.cells[failingIndex * width + index] === 'F');
       expect(column).toBeGreaterThanOrEqual(0);
       const page = await open('version-break', testHash(failing));
-      await cells(page).nth(column).focus();
-      await expectLocator(page.locator('.strip-details')).toContainText("Error not compared: this run was recorded with another version of Loupe's error signatures.");
-      expect(await page.locator('.strip-extract').count()).toBe(0);
+      await select(page, column);
+      await expectLocator(region(page)).toContainText("Error not compared: this run was recorded with another version of Loupe's error signatures.");
+      expect(await region(page).locator('.run-selected-extract').count()).toBe(0);
+      await page.close();
+    });
+
+    it('Tab from the strip enters the details on Close, which comes after the heading and before the facts, never losing focus to the page', async () => {
+      const page = await open('tallest', testHash(failing));
+      await select(page, 1);
+      await page.keyboard.press('Tab');
+      await expectLocator(region(page).getByRole('button', { name: 'Close the selected run' })).toBeFocused();
+      // In the DOM: the heading, Close, then the facts, the extract.
+      const order = await region(page).evaluate((section) =>
+        ['h3', '.run-selected-actions button', '.run-selected-facts', '.run-selected-extract'].map((selector) => {
+          const element = section.querySelector(selector);
+          return element ? [...section.querySelectorAll('*')].indexOf(element) : -1;
+        }),
+      );
+      expect(order.every((position) => position >= 0)).toBe(true);
+      expect([...order].sort((a, b) => a - b)).toEqual(order);
+      await expectLocator(region(page)).toBeVisible();
+      // And back: Shift+Tab returns to the strip's one tab stop, the details still open.
+      await page.keyboard.press('Shift+Tab');
+      expect(await focusedCell(page)).toBe('1');
+      await expectLocator(region(page)).toBeVisible();
+      await page.close();
+    });
+
+    it.each([
+      [1280, 'beside'],
+      [320, 'under'],
+    ] as const)('at %ipx, Close is %s the heading', async (width, placement) => {
+      const page = await browser.newPage({ viewport: { width, height: 900 } });
+      await page.goto(`${urls.normal}${testHash(failing)}`);
+      await select(page, 1);
+      const heading = await region(page).getByRole('heading', { level: 3 }).boundingBox();
+      const close = await region(page).getByRole('button', { name: 'Close the selected run' }).boundingBox();
+      const facts = await region(page).locator('.run-selected-facts').boundingBox();
+      const box = await region(page).boundingBox();
+      if (!heading || !close || !facts || !box) throw new Error('no box');
+      expect(close.y + close.height).toBeLessThanOrEqual(facts.y + 0.5);
+      if (placement === 'beside') {
+        // At the top right of the details.
+        expect(close.x).toBeGreaterThan(heading.x + heading.width);
+        expect(close.y).toBeLessThan(heading.y + heading.height);
+        expect(box.x + box.width - (close.x + close.width)).toBeLessThan(24);
+      } else {
+        expect(close.y).toBeGreaterThanOrEqual(heading.y + heading.height - 0.5);
+      }
+      await page.close();
+    });
+
+    it('closed by default; once open, the details push what follows down, in the page flow', async () => {
+      const page = await open('normal', testHash(failing));
+      await expectLocator(region(page)).toHaveCount(0);
+      const below = page.locator('.history-counters');
+      const before = await below.boundingBox();
+      await select(page, 3);
+      const after = await below.boundingBox();
+      const details = await region(page).boundingBox();
+      if (!before || !after || !details) throw new Error('no box');
+      expect(after.y).toBeGreaterThan(before.y + details.height - 1);
+      expect(await region(page).evaluate((element) => element.ownerDocument.defaultView!.getComputedStyle(element).position)).toBe('static');
+      await page.close();
+    });
+
+    describe('Escape: the details close only from inside them, never under the drawer or a dialog', () => {
+      const NO_CLIPBOARD = "Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });";
+      async function withDetails(options: { width?: number; init?: string } = {}): Promise<{ page: Page; close: () => Promise<void> }> {
+        const context = await browser.newContext({ viewport: { width: options.width ?? 1280, height: 900 } });
+        if (options.init) await context.addInitScript({ content: options.init });
+        const page = await context.newPage();
+        await page.goto(`${urls.normal}${testHash(failing)}`);
+        await select(page, 3);
+        return { page, close: () => context.close() };
+      }
+
+      it('on an option: Escape closes the details, focus staying on that option; with none open, it does nothing', async () => {
+        const { page, close } = await withDetails();
+        // Focus moved to another option: Escape closes, focus stays there.
+        await page.keyboard.press('ArrowRight');
+        expect(await focusedCell(page)).toBe('4');
+        await page.keyboard.press('Escape');
+        await expectLocator(region(page)).toHaveCount(0);
+        expect(await page.locator('[role="option"][aria-selected="true"]').count()).toBe(0);
+        expect(await focusedCell(page)).toBe('4');
+        // None open: nothing happens, nothing opens.
+        await page.keyboard.press('Escape');
+        await expectLocator(region(page)).toHaveCount(0);
+        expect(await focusedCell(page)).toBe('4');
+        await close();
+      });
+
+      /** Escape as it would reach an option while something covers the page: the strip must leave it alone. */
+      const escapeOnOption = (page: Page) => cells(page).nth(3).dispatchEvent('keydown', { key: 'Escape', bubbles: true });
+      /**
+       * Reading the details in browse mode or with caret browsing (F7): focus rests on `main`, the caret (the
+       * selection's anchor) in the details. Firefox and Chromium both deliver Escape to the page then, its target
+       * `main` (checked with caret browsing on, in both).
+       */
+      const readDetails = (page: Page) =>
+        page.evaluate(`(() => {
+          document.querySelector('main').focus();
+          const text = document.querySelector('.run-selected .run-selected-facts li').firstChild;
+          document.getSelection().collapse(text, 3);
+        })()`);
+
+      it('while reading the details (focus on main, the caret in them): Escape closes them and focuses the selected option', async () => {
+        const { page, close } = await withDetails();
+        await readDetails(page);
+        expect(await activeTag(page)).toBe('MAIN');
+        await page.keyboard.press('Escape');
+        await expectLocator(region(page)).toHaveCount(0);
+        expect(await focusedCell(page)).toBe('3');
+        await close();
+      });
+
+      it('a caret left in the details with focus on a control elsewhere: Escape leaves them open', async () => {
+        const { page, close } = await withDetails();
+        await readDetails(page);
+        await page.getByRole('button', { name: 'Copy rerun command for this test' }).focus();
+        await page.keyboard.press('Escape');
+        await expectLocator(region(page)).toBeVisible();
+        await close();
+      });
+
+      it('never cancels the key: listeners after it see Escape unhandled', async () => {
+        const { page, close } = await withDetails();
+        await page.evaluate("window.__escape = null; window.addEventListener('keydown', (event) => { if (event.key === 'Escape') window.__escape = event.defaultPrevented; })");
+        await readDetails(page);
+        await page.keyboard.press('Escape');
+        await expectLocator(region(page)).toHaveCount(0);
+        expect(await page.evaluate('window.__escape')).toBe(false);
+        await close();
+      });
+
+      it('on an option or with the caret in the details, under the narrow drawer or a dialog: Escape leaves the details open', async () => {
+        const narrow = await withDetails({ width: 400 });
+        await readDetails(narrow.page);
+        await narrow.page.locator('#sidebar-toggle').click();
+        await expectLocator(narrow.page.locator('#sidebar')).toBeVisible();
+        await escapeOnOption(narrow.page);
+        await narrow.page.evaluate("document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))");
+        await expectLocator(region(narrow.page)).toBeVisible();
+        await narrow.close();
+        const dialog = await withDetails({ init: NO_CLIPBOARD });
+        await dialog.page.getByRole('button', { name: 'Copy rerun command for this test' }).click();
+        await expectLocator(dialog.page.locator('dialog.copy-dialog[open]')).toHaveCount(1);
+        await escapeOnOption(dialog.page);
+        await dialog.page.evaluate(`(() => {
+          document.getSelection().collapse(document.querySelector('.run-selected .run-selected-facts li').firstChild, 3);
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        })()`);
+        await expectLocator(region(dialog.page)).toBeVisible();
+        await dialog.close();
+      });
+
+      it('focus outside the details: Escape leaves them open', async () => {
+        const { page, close } = await withDetails();
+        await page.locator('.test-title').click();
+        await page.keyboard.press('Escape');
+        await expectLocator(region(page)).toBeVisible();
+        await close();
+      });
+
+      it('the narrow drawer: Escape closes it, focus back on its toggle; the details under it stay', async () => {
+        const { page, close } = await withDetails({ width: 400 });
+        const toggle = page.locator('#sidebar-toggle');
+        await toggle.focus();
+        await page.keyboard.press('Enter');
+        await expectLocator(page.locator('#sidebar')).toBeVisible();
+        await page.keyboard.press('Escape');
+        await expectLocator(page.locator('#sidebar')).toBeHidden();
+        await expectLocator(toggle).toBeFocused();
+        await expectLocator(region(page)).toBeVisible();
+        await close();
+      });
+
+      it('the copy fallback dialog: Escape closes it; the details under it stay', async () => {
+        const { page, close } = await withDetails({ init: NO_CLIPBOARD });
+        const button = page.getByRole('button', { name: 'Copy rerun command for this test' });
+        await button.focus();
+        await page.keyboard.press('Enter');
+        await expectLocator(page.locator('dialog.copy-dialog[open]')).toHaveCount(1);
+        await page.keyboard.press('Escape');
+        await expectLocator(page.locator('dialog.copy-dialog[open]')).toHaveCount(0);
+        await expectLocator(button).toBeFocused();
+        await expectLocator(region(page)).toBeVisible();
+        await close();
+      });
+    });
+
+    it.each([
+      ['fr-FR', /octobre/, /\boct\./],
+      ['en-US', /October/, /\bOct\b/],
+    ] as const)('%s: the month written out in every option name and in the heading of the details', async (locale, long, short) => {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, locale, timezoneId: 'Europe/Paris' });
+      await page.goto(`${urls.normal}${testHash(failing)}`);
+      await cells(page).first().waitFor();
+      const all = await names(page);
+      // The sample's runs are in October.
+      for (const name of all) {
+        expect(name).toMatch(long);
+        expect(name).not.toMatch(short);
+      }
+      await select(page, 1);
+      const heading = (await region(page).getByRole('heading', { level: 3 }).textContent()) ?? '';
+      expect(heading).toMatch(long);
+      expect(heading).not.toMatch(short);
+      await expectLocator(page.getByRole('region', { name: heading })).toHaveCount(1);
+      // The rest of the report keeps its short dates: the header's run start.
+      await expectLocator(page.locator('.header time').first()).toHaveText(short);
+      await page.close();
+    });
+
+    it('another test: no run selected', async () => {
+      const page = await open('normal', testHash(failing));
+      await select(page, 3);
+      const other = sample.tests.find((test, index) => index !== failingIndex && test.outcome === 'failed') as LoupeReport['tests'][number];
+      await page.evaluate(`location.hash = ${JSON.stringify(testHash(other))}`);
+      await expectLocator(page.locator('.test-title')).toContainText(other.title);
+      await expectLocator(region(page)).toHaveCount(0);
       await page.close();
     });
 
@@ -764,205 +1170,6 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
         await expectLocator(page.getByText(NO_RETRIES_TEXT)).toHaveCount(retries ? 0 : 1);
         await page.close();
       }
-    });
-
-    it('compact: no cell details until a cell is hovered or focused; they float, moving nothing', async () => {
-      const page = await open('normal', testHash(failing));
-      const details = page.locator('.strip-details');
-      expect(await details.count()).toBe(0);
-      const below = page.locator('.history-counters');
-      const before = await below.boundingBox();
-      await cells(page).nth(3).hover();
-      await expectLocator(details).toBeVisible();
-      expect(await below.boundingBox()).toEqual(before);
-      await page.mouse.move(0, 0);
-      await expectLocator(details).toHaveCount(0);
-      // Focus shows them too, also for the current run; leaving the strip hides them.
-      await cells(page).last().focus();
-      await expectLocator(details).toBeVisible();
-      await page.keyboard.press('Tab');
-      await expectLocator(details).toHaveCount(0);
-      await page.close();
-    });
-
-    describe('the cell panel, WCAG 1.4.13 (content on hover or focus)', () => {
-      const panel = (page: Page) => page.locator('.strip-details');
-      const active = (page: Page) => page.evaluate<string | null>("document.activeElement?.getAttribute('data-cell') ?? document.activeElement?.tagName ?? null");
-
-      it('dismissible: Escape hides it without moving pointer or focus; another cell shows it again', async () => {
-        const page = await open('normal', testHash(failing));
-        // Hovered, focus elsewhere.
-        await cells(page).nth(3).hover();
-        await expectLocator(panel(page)).toBeVisible();
-        const before = await active(page);
-        await page.keyboard.press('Escape');
-        await expectLocator(panel(page)).toHaveCount(0);
-        expect(await active(page)).toBe(before);
-        // The pointer has not moved: it stays hidden, until another cell.
-        await page.waitForTimeout(300);
-        await expectLocator(panel(page)).toHaveCount(0);
-        await cells(page).nth(4).hover();
-        await expectLocator(panel(page)).toHaveAttribute('data-run-id', (await cells(page).nth(4).getAttribute('data-run-id')) ?? '');
-        // Focused, pointer away.
-        await page.mouse.move(0, 0);
-        const last = String((await cells(page).count()) - 1);
-        await cells(page).last().focus();
-        await expectLocator(panel(page)).toBeVisible();
-        await page.keyboard.press('Escape');
-        await expectLocator(panel(page)).toHaveCount(0);
-        expect(await active(page)).toBe(last);
-        await page.keyboard.press('ArrowLeft');
-        await expectLocator(panel(page)).toBeVisible();
-        await page.close();
-      });
-
-      describe('Escape: the strip acts only while its panel is shown on top, and never takes the key from the drawer or a dialog', () => {
-        const SCREENSHOT = '2622e3552e16fe29';
-        const NO_CLIPBOARD = "Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });";
-        /** Opens a page whose pointer rests on a strip cell, its panel shown. */
-        async function withPanel(test: LoupeReport['tests'][number], options: { width?: number; init?: string } = {}): Promise<{ page: Page; close: () => Promise<void> }> {
-          const context = await browser.newContext({ viewport: { width: options.width ?? 1280, height: 900 } });
-          if (options.init) await context.addInitScript({ content: options.init });
-          const page = await context.newPage();
-          await page.goto(`${urls.normal}${testHash(test)}`);
-          await cells(page).nth(3).hover();
-          await expectLocator(panel(page)).toBeVisible();
-          return { page, close: () => context.close() };
-        }
-        const pointerCell = (page: Page) => cells(page).nth(3).getAttribute('data-run-id');
-        /**
-         * Chromium moves the hover off the cell when a modal opens; another browser may keep it. As such a
-         * browser would: the pointer back on the cell under the dialog, so its panel counts as shown.
-         */
-        const keepHover = (page: Page) => page.evaluate("document.querySelectorAll('.strip-cell')[3].dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'mouse' }))");
-
-        it('no panel shown: Escape does nothing to the strip, and a later hover shows the panel', async () => {
-          const page = await open('normal', testHash(failing));
-          await cells(page).first().waitFor();
-          await page.keyboard.press('Escape');
-          await cells(page).nth(3).hover();
-          await expectLocator(panel(page)).toHaveAttribute('data-run-id', (await pointerCell(page)) ?? '');
-          await page.close();
-        });
-
-        it('the narrow drawer: Escape closes it, focus back on its toggle; the panel under it is not dismissed', async () => {
-          const { page, close } = await withPanel(failing, { width: 400 });
-          const toggle = page.locator('#sidebar-toggle');
-          await toggle.focus();
-          await page.keyboard.press('Enter');
-          await expectLocator(page.locator('#sidebar')).toBeVisible();
-          await page.keyboard.press('Escape');
-          await expectLocator(page.locator('#sidebar')).toBeHidden();
-          await expectLocator(toggle).toBeFocused();
-          // The pointer never left the cell: its panel is still there.
-          await expectLocator(panel(page)).toHaveAttribute('data-run-id', (await pointerCell(page)) ?? '');
-          await close();
-        });
-
-        it('the screenshot viewer: Escape closes it; the panel under it is not dismissed', async () => {
-          const screenshot = sample.tests.find((test) => test.id === SCREENSHOT);
-          if (!screenshot) throw new Error('no screenshot test');
-          const { page, close } = await withPanel(screenshot);
-          await page.locator('.thumb').first().focus();
-          await page.keyboard.press('Enter');
-          await expectLocator(page.locator('dialog.lightbox[open]')).toHaveCount(1);
-          await keepHover(page);
-          await page.keyboard.press('Escape');
-          await expectLocator(page.locator('dialog.lightbox[open]')).toHaveCount(0);
-          await expectLocator(page.locator('.thumb').first()).toBeFocused();
-          await expectLocator(panel(page)).toHaveAttribute('data-run-id', (await pointerCell(page)) ?? '');
-          await close();
-        });
-
-        it('the copy fallback dialog: Escape closes it; the panel under it is not dismissed', async () => {
-          const { page, close } = await withPanel(failing, { init: NO_CLIPBOARD });
-          const button = page.getByRole('button', { name: 'Copy rerun command for this test' });
-          await button.focus();
-          await page.keyboard.press('Enter');
-          await expectLocator(page.locator('dialog.copy-dialog[open]')).toHaveCount(1);
-          await keepHover(page);
-          await page.keyboard.press('Escape');
-          await expectLocator(page.locator('dialog.copy-dialog[open]')).toHaveCount(0);
-          await expectLocator(button).toBeFocused();
-          await expectLocator(panel(page)).toHaveAttribute('data-run-id', (await pointerCell(page)) ?? '');
-          await close();
-        });
-
-        it('never stops nor cancels the key: listeners after it see Escape unhandled', async () => {
-          const page = await open('normal', testHash(failing));
-          await cells(page).nth(3).hover();
-          await expectLocator(panel(page)).toBeVisible();
-          await page.evaluate("window.__escape = null; window.addEventListener('keydown', (event) => { if (event.key === 'Escape') window.__escape = event.defaultPrevented; })");
-          await page.keyboard.press('Escape');
-          await expectLocator(panel(page)).toHaveCount(0);
-          expect(await page.evaluate('window.__escape')).toBe(false);
-          await page.close();
-        });
-      });
-
-      it('hoverable and persistent: the pointer reaches it across the gap and it stays', async () => {
-        const page = await open('normal', testHash(failing));
-        const cell = cells(page).nth(3);
-        await cell.hover();
-        const from = await cell.boundingBox();
-        const to = await panel(page).boundingBox();
-        if (!from || !to) throw new Error('no box');
-        // Straight down from the cell into the panel, through the gap, in small steps.
-        await page.mouse.move(from.x + from.width / 2, to.y + 12, { steps: 12 });
-        await expectLocator(panel(page)).toBeVisible();
-        await page.waitForTimeout(1500);
-        await expectLocator(panel(page)).toBeVisible();
-        await expectLocator(panel(page)).toHaveAttribute('data-run-id', (await cell.getAttribute('data-run-id')) ?? '');
-        await page.close();
-      });
-
-      it('touch: a tap shows it, a tap elsewhere hides it', async () => {
-        const context = await browser.newContext({ viewport: { width: 400, height: 800 }, hasTouch: true });
-        const page = await context.newPage();
-        await page.goto(`${urls.normal}${testHash(failing)}`);
-        await cells(page).first().waitFor();
-        await cells(page).nth(3).tap();
-        await expectLocator(panel(page)).toHaveAttribute('data-run-id', (await cells(page).nth(3).getAttribute('data-run-id')) ?? '');
-        await page.locator('.test-title').tap();
-        await expectLocator(panel(page)).toHaveCount(0);
-        await context.close();
-      });
-
-      it.each([
-        ['wide, the strip high on the page', 1280, false],
-        ['wide, the strip at the bottom of the visible area', 1280, true],
-        ['narrow, at the bottom', 400, true],
-        ['narrowest, at the bottom', 320, true],
-      ] as const)('%s: readable in the visible area, never over the cells', async (_, width, atBottom) => {
-        const page = await browser.newPage({ viewport: { width, height: 900 } });
-        await page.goto(`${urls.normal}${testHash(failing)}`);
-        await cells(page).first().waitFor();
-        // At the bottom: the visible area ends 20 px under the strip.
-        const strip = await page.locator('.strip-block').boundingBox();
-        if (!strip) throw new Error('no strip');
-        const height = atBottom ? Math.ceil(strip.y + strip.height + 20) : 900;
-        await page.setViewportSize({ width, height });
-        const above = atBottom;
-        await cells(page).nth(2).focus();
-        await expectLocator(panel(page)).toBeVisible();
-        expect(await panel(page).evaluate((element) => element.classList.contains('strip-details-above'))).toBe(above);
-        const box = await panel(page).boundingBox();
-        const main = await page.locator('main').boundingBox();
-        if (!box || !main) throw new Error('no box');
-        const top = Math.max(0, main.y);
-        expect(box.y).toBeGreaterThanOrEqual(top - 0.5);
-        expect(box.y + box.height).toBeLessThanOrEqual(height + 0.5);
-        expect(box.x).toBeGreaterThanOrEqual(0);
-        expect(box.x + box.width).toBeLessThanOrEqual(width + 0.5);
-        // Never over a cell, the focused one included.
-        for (const cell of await cells(page).all()) {
-          const c = await cell.boundingBox();
-          if (!c) continue;
-          const overlaps = c.x < box.x + box.width && box.x < c.x + c.width && c.y < box.y + box.height && box.y < c.y + c.height;
-          expect(overlaps).toBe(false);
-        }
-        await page.close();
-      });
     });
 
     it('compact: the rest in a disclosure, closed, whose summary is the counters line', async () => {

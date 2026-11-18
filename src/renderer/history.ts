@@ -245,14 +245,15 @@ export function cellUse(cell: Pick<HistoryCell, 'run' | 'flags'>, include: 'full
 }
 
 /**
- * The full accessible name of a strip cell: "21 Oct 2026, 18:45, CI,
- * failed, Timeout", then how the run is used when it is drawn apart
- * (cellUse). `date` is the run's start as the report formats it.
+ * The accessible name of a strip cell, short: "21 Oct 2026, 18:45, CI, failed, Timeout", then one word when the
+ * run is drawn apart: "excluded", "partial" (an IDE run already says "IDE" as its origin). Never a reason or a
+ * note: they are in the selected run's details, read as page content. `date` is the run's start as the report
+ * formats it.
  */
-export function cellName(cell: Pick<HistoryCell, 'run' | 'code' | 'attempts' | 'failure' | 'flags'>, date: string, include: 'full' | 'all', notes: string | null): string {
+export function cellName(cell: Pick<HistoryCell, 'run' | 'code' | 'attempts' | 'failure' | 'flags'>, date: string): string {
   const failure = cell.code === 'F' || cell.code === 'K' ? failureWord(cell) : null;
-  const use = cellUse(cell, include, notes);
-  return [date, ORIGIN_TEXT[cell.run.origin], RESULT_TEXT[cell.code], ...(failure ? [failure] : []), ...(use ? [use.charAt(0).toLowerCase() + use.slice(1)] : [])].join(', ');
+  const apart = (['excluded', 'partial'] as const).filter((flag) => cell.flags.includes(flag));
+  return [date, ORIGIN_TEXT[cell.run.origin], RESULT_TEXT[cell.code], ...(failure ? [failure] : []), ...apart].join(', ');
 }
 
 /** Why a failure shows no error text: another signature version, or beyond the extracts kept. Null when it has one, or no failure. */

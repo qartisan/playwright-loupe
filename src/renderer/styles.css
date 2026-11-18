@@ -968,14 +968,21 @@ span.dimension-tile { cursor: default; }
  * The strip of a test's results (TestHistory). Shape and colour per status. A run that does not count
  * at test level (excluded) is hollow and dashed; a result that counts from a partial or IDE run gets
  * a dot under it; an absent result is a dotted empty circle; the current run is set apart, boxed.
+ * A listbox: options only, so the separator before the current run is drawn by CSS. Each option says it can
+ * be chosen (pointer, hover); the selected one has a round ring inside, apart from the square focus outline
+ * outside it.
  */
 .history-test-state { margin: 4px 0 10px; }
 .history-marker-static { margin-right: 4px; vertical-align: 1px; }
+.strip-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; }
 .strip { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
-.strip-cell { position: relative; display: inline-flex; width: 22px; height: 22px; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: 4px; cursor: default; }
-.strip-cell:hover, .strip-active { border-color: var(--border); background: var(--bg-muted); }
+.strip-cell { position: relative; display: inline-flex; box-sizing: border-box; width: 22px; height: 22px; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: 4px; cursor: pointer; }
+.strip-cell:hover { border-color: var(--border); background: var(--bg-muted); }
 .strip-current { border-color: var(--border-control); }
-.strip-gap { width: 1px; height: 18px; margin: 0 6px; background: var(--border-control); }
+.strip-current:not(:first-child) { margin-left: 13px; }
+.strip-current:not(:first-child)::before { content: ''; position: absolute; top: 1px; left: -9px; height: 18px; border-left: 1px solid var(--border-control); }
+.strip-cell[aria-selected='true'] { border: 2px solid var(--fg); border-radius: 50%; }
+.strip-hint { margin: 0; color: var(--fg-secondary); font-size: 13px; }
 .strip-P { color: var(--status-passed); }
 .strip-F { color: var(--status-failed); }
 .strip-K { color: var(--status-flaky); }
@@ -987,16 +994,15 @@ span.dimension-tile { cursor: default; }
 .strip-excluded .strip-mark { stroke: currentColor; }
 .strip-none .strip-disc { fill: none; stroke-dasharray: 0.8 2.2; stroke-linecap: round; }
 .strip-flagged::after { content: ''; position: absolute; bottom: -4px; left: calc(50% - 2px); width: 4px; height: 4px; border-radius: 50%; background: var(--fg-secondary); }
-/* The hovered or focused cell's facts float over what follows: showing them moves nothing. */
-.strip-block { position: relative; }
-.strip-details { position: absolute; z-index: 5; top: 100%; left: 0; right: 0; max-width: 64rem; margin-top: 6px; padding: 8px 12px; border: 1px solid var(--border-control); border-radius: 6px; background: var(--bg-card); box-shadow: 0 4px 16px rgb(0 0 0 / 0.18); font-size: 13px; }
-/* Hoverable (WCAG 1.4.13): a transparent bridge over the gap between the strip and the panel, so the pointer reaches it. */
-.strip-details::before { content: ''; position: absolute; left: 0; right: 0; top: -8px; height: 8px; }
-/* No room below in the visible area: above the strip, never over its cells. */
-.strip-details-above { top: auto; bottom: 100%; margin-top: 0; margin-bottom: 6px; }
-.strip-details-above::before { top: auto; bottom: -8px; }
-.strip-facts { display: flex; flex-wrap: wrap; gap: 2px 16px; margin: 0; padding: 0; list-style: none; }
-.strip-extract { max-height: 8em; margin: 8px 0 0; overflow: auto; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+/* The selected run's details: page content after the strip, pushing what follows down; its error whole, no inner scroll. */
+.run-selected { margin-top: 10px; padding: 8px 12px; border: 1px solid var(--border-control); border-radius: 6px; font-size: 13px; }
+/* The heading and its actions: side by side, the actions at the top right; under the heading when narrow. */
+.run-selected-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; margin-bottom: 6px; }
+.run-selected h3 { flex: 1 1 16rem; margin: 0; font-size: 13px; font-weight: 600; }
+.run-selected-facts { display: flex; flex-wrap: wrap; gap: 2px 16px; margin: 0; padding: 0; list-style: none; }
+.run-selected-use, .run-selected-note { margin: 6px 0 0; overflow-wrap: anywhere; }
+.run-selected-extract { margin: 8px 0 0; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.run-selected-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .history-counters { margin: 10px 0 4px; font-variant-numeric: tabular-nums; }
 /* Counters, no-retries line and other streams: closed by default, the counters as the summary. */
 .history-more { margin-top: 10px; }
@@ -1322,6 +1328,13 @@ pre.step-error { margin: 2px 0 6px 50px; font-weight: 400; }
   /* Their text, icons and links (drawn in their own colours otherwise). */
   :is([aria-pressed='true'], .attempt-tab[aria-selected='true'], .test-chip-active, .nav-link[aria-current='page'], .tree-test[aria-selected='true']) * { color: HighlightText; }
   :focus-visible, .video video:focus-visible, .cmp-range:focus-visible + .cmp-divider { outline-color: Highlight; }
+  /*
+   * A strip's cells: a transparent border would be drawn as a box around every cell, so it is the Canvas; the
+   * current run keeps its box, the selected run its ring in Highlight, apart from the focus outline.
+   */
+  .strip-cell { border-color: Canvas; }
+  .strip-current { border-color: CanvasText; }
+  .strip-cell[aria-selected='true'] { border-color: Highlight; }
 }
 
 /* Reduced motion: no transition or animation anywhere, now or later, and instant scrolling (the JS checks the same query). */

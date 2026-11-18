@@ -9,6 +9,11 @@ export interface RunStart {
   utc: string;
   /** Short form: `Oct 16, 2026, 05:04 PM GMT+2` (depends on the locale). */
   label: string;
+  /**
+   * The short form with the month written out: `October 16, 2026 at 05:04 PM GMT+2`. For what screen readers
+   * speak, which read an abbreviated month badly ("15 oct."): accessible names and the headings that go with them.
+   */
+  long: string;
   /** Full date with seconds: `Friday, October 16, 2026 at 5:04:31 PM GMT+2`. */
   full: string;
   /** IANA time zone of the viewer: `Europe/Paris`. */
@@ -28,19 +33,14 @@ export function formatRunStart(startedAt: unknown, options: DateFormatOptions = 
   const date = new Date(startedAt);
   if (Number.isNaN(date.getTime())) return null;
   const zone = options.timeZone === undefined ? {} : { timeZone: options.timeZone };
-  const short = new Intl.DateTimeFormat(options.locale, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZoneName: 'short',
-    ...zone,
-  });
+  const parts = { year: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short', ...zone } as const;
+  const short = new Intl.DateTimeFormat(options.locale, { ...parts, month: 'short' });
+  const long = new Intl.DateTimeFormat(options.locale, { ...parts, month: 'long' });
   const full = new Intl.DateTimeFormat(options.locale, { dateStyle: 'full', timeStyle: 'long', ...zone });
   return {
     utc: date.toISOString(),
     label: short.format(date),
+    long: long.format(date),
     full: full.format(date),
     timeZone: short.resolvedOptions().timeZone,
   };

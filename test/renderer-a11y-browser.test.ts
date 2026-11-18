@@ -158,7 +158,7 @@ const MATRIX: State[] = [
   ['forced colours: trace with the bundled viewer', 'traceViewer', `#/test/${COMPARISON}`, { http: true, forcedColors: true, reached: '.trace-open' }],
   ['forced colours: comparison slider', 'sample', `#/test/${COMPARISON}`, { ...comparisonMode('Slider'), forcedColors: true, reached: '.cmp-range' }],
   // History (every state above runs without one: no history zone). The overview's verdict zone, the Tests view's
-  // markers and facet, the test detail's strip, cell panel and disclosure; definitions closed and open.
+  // markers and facet, the test detail's strip, a selected run's details and disclosure; definitions closed and open.
   ['history: overview, states and definitions closed', 'history', '#/', { reached: '.verdict-history .history-help:not([open])' }],
   ['history: overview, definitions open', 'history', '#/', { arrange: click('.verdict-history .history-help > summary'), reached: '.verdict-history .history-help[open]' }],
   ['history: overview, signature break note', 'historyVersionBreak', '#/', { reached: '.history-notice' }],
@@ -171,24 +171,15 @@ const MATRIX: State[] = [
   ['history: tests, filtered on a state', 'history', '#/tests?history=still-failing', { reached: '.history-marker' }],
   ['history: tests at 360px', 'history', '#/tests', { width: 360, reached: '.history-marker' }],
   ['history: test, strip', 'history', `#/test/${FAILING}`, { reached: '.strip-cell' }],
-  ['history: test, cell focused with its panel', 'history', `#/test/${FAILING}`, { arrange: (page) => page.locator('.strip-cell').nth(5).focus(), reached: '.strip-details' }],
-  ['history: test, current run focused', 'history', `#/test/${FAILING}`, { arrange: (page) => page.locator('.strip-cell').last().focus(), reached: '.strip-details' }],
+  ['history: test, run selected, its details open', 'history', `#/test/${FAILING}`, { arrange: (page) => page.locator('.strip-cell').nth(5).click(), reached: '.run-selected' }],
+  ['history: test, current run selected', 'history', `#/test/${FAILING}`, { arrange: (page) => page.locator('.strip-cell').last().click(), reached: '.run-selected' }],
   ['history: test, other streams closed', 'historyStreams', `#/test/${FAILING}`, { reached: 'details.history-more:not([open])' }],
   ['history: test, other streams open', 'historyStreams', `#/test/${FAILING}`, { arrange: click('details.history-more > summary'), reached: 'details.history-more[open]' }],
   ['history: test, no retries, disclosure open', 'historyNoRetries', `#/test/${FAILING}`, { arrange: click('details.history-more > summary'), reached: 'details.history-more[open]' }],
   ['history: test, every earlier run excluded', 'historyAllExcluded', `#/test/${FAILING}`, { reached: '.strip-excluded' }],
   ['history: test, first run, other streams open', 'historyFirstRun', `#/test/${FAILING}`, { arrange: click('details.history-more > summary'), reached: 'details.history-more[open]' }],
-  ['history: test at 320px, cell panel above the strip', 'history', `#/test/${FAILING}`, {
-    width: 320,
-    height: 568,
-    arrange: async (page) => {
-      const strip = await page.locator('.strip-block').boundingBox();
-      if (strip) await page.setViewportSize({ width: 320, height: Math.ceil(strip.y + strip.height + 20) });
-      await page.locator('.strip-cell').nth(2).focus();
-    },
-    reached: '.strip-details-above',
-  }],
-  ['forced colours: history, test strip and panel', 'history', `#/test/${FAILING}`, { forcedColors: true, arrange: (page) => page.locator('.strip-cell').nth(5).focus(), reached: '.strip-details' }],
+  ['history: test at 320px, run selected', 'history', `#/test/${FAILING}`, { width: 320, arrange: (page) => page.locator('.strip-cell').nth(2).click(), reached: '.run-selected' }],
+  ['forced colours: history, run selected', 'history', `#/test/${FAILING}`, { forcedColors: true, arrange: (page) => page.locator('.strip-cell').nth(5).click(), reached: '.run-selected' }],
   ['forced colours: history, overview note', 'historyVersionBreak', '#/', { forcedColors: true, reached: '.history-notice' }],
 ];
 
