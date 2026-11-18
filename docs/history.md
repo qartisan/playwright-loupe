@@ -237,7 +237,7 @@ Every recorded run is a data point for its tests. At the level of runs (pass rat
 
 - for each test of the report, its **last 20 results in the current stream**: the status, the outcome of each attempt, and the error signatures of its failures;
 - the metadata of those 20 runs (date, status, duration, origin, scope and its reasons, exclusion, commit, branch, counts, retries of each project);
-- the origin and exclusion reason of the current run, and how many run files of the window could not be used (written by a newer Loupe, corrupt);
+- the origin, exclusion reason and [run id](#run-id) of the current run (no id when the run is not recorded), and how many run files of the window could not be used (written by a newer Loupe, corrupt);
 - the **latest result of each test in every other stream**: the status in the newest run of that stream;
 - the category and extract of the error signatures of the window, the 300 most recently seen.
 

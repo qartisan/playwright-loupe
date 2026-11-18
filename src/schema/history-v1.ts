@@ -141,7 +141,15 @@ export interface EmbeddedHistory {
    * need: its origin (the stream holds it only when the key has `origin`)
    * and its exclusion reason (`LOUPE_EXCLUDE`, masked), null when not excluded.
    */
-  current: { origin: Origin; excluded: string | null };
+  current: {
+    origin: Origin;
+    excluded: string | null;
+    /**
+     * The history run id of the current run, as its run file is named: the key of an entry of
+     * loupe.notes.json. Null when the run is not recorded (a shard writing a blob, a run where no test ran).
+     */
+    id: string | null;
+  };
   /**
    * Run files of the stream's window that could not be used: written by a
    * newer Loupe (another `historyVersion`), corrupt, or unreadable. The

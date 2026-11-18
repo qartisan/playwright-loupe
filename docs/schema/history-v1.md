@@ -31,7 +31,7 @@ The TypeScript types are the source of truth: [`src/schema/history-v1.ts`](../..
 | --- | --- |
 | `startedAt` | `run.startedAt` in compact UTC, without `-` and `:`: `20261110T140211.408Z`. Names sort by time. |
 | `stream hash` | 8 lowercase hex characters: the first 8 of the SHA-256 of `run.stream` as JSON, its entries sorted by key (`[["environment","staging"],["origin","ci"]]`). The order of `stream.key` does not change it. |
-| `run id` | `run.id`: letters, digits, `.`, `_` and `-`, starting with a letter or a digit. |
+| `run id` | `run.id`: letters, digits, `.`, `_` and `-`, starting with a letter or a digit. Run ids are never redacted: an id must match its file. A path cannot appear in one (`/` and `\` become `_`), but under Jenkins, `BUILD_TAG` holds the job name. |
 
 The full name matches `^(\d{8}T\d{6}(\.\d{3})?Z)-([0-9a-f]{8})-([A-Za-z0-9][A-Za-z0-9._-]*)\.json\.gz$`. Anything else in `runs/` is not a run file: readers ignore it. Loupe's temporary files start with `.` and end with `.tmp`.
 
@@ -149,7 +149,7 @@ Statuses are one character per test and run, aligned with the report's `tests`, 
 | `include` | `'full' \| 'all'` | `history.include`: whether partial, excluded and `ide` runs count in run-level statistics. |
 | `signatureVersion` | `number` | The current run's. |
 | `stream` | `object` | The current run's stream, as `HistoryRun.stream`. |
-| `current` | `{ origin, excluded }` | What the report does not say about the current run: its [origin](../history.md#origins) (`stream` holds it only when the key has `origin`) and its exclusion reason, masked as in the run file, `null` when it is not excluded. Its scope is the report's `run.scope`. |
+| `current` | `{ origin, excluded, id }` | What the report does not say about the current run: its [origin](../history.md#origins) (`stream` holds it only when the key has `origin`), its exclusion reason, masked as in the run file, `null` when it is not excluded, and its run id, the `run.id` of the run file the same run writes, `null` when the run is not recorded (a shard writing a blob, a run where no test ran). Its scope is the report's `run.scope`. |
 | `skipped` | `number` | Run files of the window that could not be used: written by a newer Loupe, corrupt, or unreadable. The window is that much shorter. A file removed by another run's retention since the listing is not counted. |
 | `runs` | `EmbeddedRun[]` | The window: the newest runs of the current stream, at most 20, **oldest first**. Run `k` is column `k` of `cells`. A merge job re-run does not find its own earlier file in it. |
 | `cells` | `string` | `cells[test * runs.length + run]`: the outcome code (`P`, `F`, `K`, `S`) of report test `test` in run `run`, or `-` when that run has no result for it. |

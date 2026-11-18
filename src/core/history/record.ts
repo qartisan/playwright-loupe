@@ -33,6 +33,11 @@ export interface RecordContext {
   /** To mask the exclusion reason as the rest of the report is. */
   redact: RedactOptions;
   home: string | null;
+  /**
+   * The history run id, computed once per run (`historyRunId`) so that the report embeds the id of the file
+   * the same run writes: outside CI and merges it is random. Computed when absent.
+   */
+  runId?: string | undefined;
 }
 
 /**
@@ -116,7 +121,7 @@ export function buildRunFile(report: LoupeReport, context: RecordContext): Histo
   if (skipped) return skipped;
   const { origin, environment, stream } = reportIdentity(report, context);
   return encodeRun(report, {
-    id: historyRunId({ env: context.env, merged: context.merged, tests: report.tests }),
+    id: context.runId ?? historyRunId({ env: context.env, merged: context.merged, tests: report.tests }),
     origin,
     environment,
     stream,

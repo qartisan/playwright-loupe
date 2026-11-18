@@ -15,11 +15,13 @@ const REALISTIC_LIMIT = 40_000;
 const PERF_SAMPLE_LIMIT = 90_000;
 
 const STREAM = { environment: 'default', origin: 'local' };
+/** A local run id, the longest common form: a UUID. */
+const CURRENT_ID = '6f1c2b9e-8d3a-4c5b-9e7f-1a2b3c4d5e6f';
 
 function embedded(report: LoupeReport, otherStreams: number): EmbeddedHistory {
   const runs = simulateWindow(report, 20, STREAM);
   const others = Array.from({ length: otherStreams }, (_, index) => simulateWindow(report, 1, { environment: `other-${index}`, origin: 'ci' }, random(100 + index))[0]!);
-  const value = deriveEmbedded(report, { runs, others, skipped: 0 }, { include: 'full', stream: STREAM, current: { origin: 'local', excluded: null }, currentRunId: 'current' });
+  const value = deriveEmbedded(report, { runs, others, skipped: 0 }, { include: 'full', stream: STREAM, current: { origin: 'local', excluded: null, id: CURRENT_ID }, currentRunId: 'current' });
   if (value === null) throw new Error('no embedded history');
   return value;
 }

@@ -153,7 +153,7 @@ const full = (report: LoupeReport): LoupeReport => ({ ...report, run: { ...repor
  */
 export function historyScenario(name: HistoryScenario, sample: LoupeReport): { report: LoupeReport; history: EmbeddedHistory | null } {
   let report = full(sample);
-  let current: EmbeddedHistory['current'] = { origin: 'local', excluded: null };
+  let current: EmbeddedHistory['current'] = { origin: 'local', excluded: null, id: 'current' };
   let runs: HistoryRunFile[] = [];
   let others: HistoryRunFile[] = [];
   let skipped = 0;
@@ -209,7 +209,7 @@ export function historyScenario(name: HistoryScenario, sample: LoupeReport): { r
     }
     case 'ide': {
       const ide = { environment: 'default', origin: 'ide' };
-      current = { origin: 'ide', excluded: null };
+      current = { origin: 'ide', excluded: null, id: 'current' };
       runs = pastRuns(report, { pattern: normal, stream: ide });
       break;
     }

@@ -12,7 +12,7 @@ import type { EmbeddedHistory } from '../schema/history-v1.js';
 import { historyRunId } from './history/detect.js';
 import { deriveEmbedded } from './history/embed.js';
 import { createReplay, readHistory, windowOfStream, type HistoryRead } from './history/read.js';
-import { maskedExcludeReason, recordRun, reportIdentity, runIdentity, type RecordContext } from './history/record.js';
+import { maskedExcludeReason, recordRun, reportIdentity, runIdentity, skipReason, type RecordContext } from './history/record.js';
 import { LOCAL_GIT_TIMEOUT_MS, readLocalGit, type LocalGit } from './git.js';
 import { injectData, injectHistory, injectSettings, type RendererSettings } from './inject.js';
 import { detectGit } from './metadata.js';
@@ -158,10 +158,10 @@ export class LoupeReporter implements Reporter {
     });
     // The window of the stream the report belongs to; read again if the stream guessed at the start was not it.
     const history = await this.finishHistoryRead(report, this.config);
+    // The history run id, once: the block embeds the id of the file this run writes (random outside CI and merges).
     // A merge run again finds its own earlier file in the window: its id (deterministic for a merge or in CI) leaves it out.
-    const embedded = history
-      ? this.embedHistory(report, this.config, history, historyRunId({ env: process.env, merged: this.merged, tests: report.tests }))
-      : { value: null, problems: [] };
+    const historyId = historyRunId({ env: process.env, merged: this.merged, tests: report.tests });
+    const embedded = history ? this.embedHistory(report, this.config, history, historyId) : { value: null, problems: [] };
     // No copy without a trace. buildReport has removed the viewer of a previous report.
     const hasTrace = report.tests.some((test) => test.attempts.some((attempt) => attempt.attachments.some((attachment) => attachment.kind === 'trace' && attachment.path !== null)));
     const viewer =
@@ -182,7 +182,7 @@ export class LoupeReporter implements Reporter {
     await writeFile(path.join(outputFolder, 'report.json'), `${JSON.stringify(report, null, 2)}\n`);
     await writeFile(path.join(outputFolder, 'index.html'), injectHistory(injectSettings(injectData(template, report), settings), embedded.value));
     // After the report: history never stops a run nor prevents the report.
-    await this.recordHistory(report, this.config, [...(history?.problems ?? []), ...embedded.problems]);
+    await this.recordHistory(report, this.config, [...(history?.problems ?? []), ...embedded.problems], historyId);
 
     const errors = report.run.errors.length;
     const suffix = errors > 0 ? ` (${errors} run error${errors > 1 ? 's' : ''} outside tests)` : '';
@@ -194,7 +194,8 @@ export class LoupeReporter implements Reporter {
     try {
       const context = this.historyContext(config);
       const { stream, origin } = reportIdentity(report, context);
-      const current = { origin, excluded: maskedExcludeReason(context) };
+      // Decided before the write, as recordRun will: no id for a run that is not recorded.
+      const current = { origin, excluded: maskedExcludeReason(context), id: skipReason(report, context) === null ? currentRunId : null };
       return { value: deriveEmbedded(report, read, { include: this.loupeConfig.history.include, stream, current, currentRunId }), problems: [] };
     } catch (error) {
       return { value: null, problems: [`the history could not be embedded (${error instanceof Error ? error.message : String(error)})`] };
@@ -216,12 +217,12 @@ export class LoupeReporter implements Reporter {
    * Writes the run file and applies the retention. Every history problem of
    * the run, read included, becomes one warning: the report is already written.
    */
-  private async recordHistory(report: LoupeReport, config: FullConfig, readProblems: readonly string[]): Promise<void> {
+  private async recordHistory(report: LoupeReport, config: FullConfig, readProblems: readonly string[], runId: string): Promise<void> {
     if (!this.loupeConfig.history.enabled) return;
     const problems = [...readProblems];
     const text = (error: unknown) => (error instanceof Error ? error.message : String(error));
     try {
-      const result = await recordRun(report, this.historyContext(config));
+      const result = await recordRun(report, { ...this.historyContext(config), runId });
       if ('file' in result && result.pruneError !== null) problems.push(`old runs were not removed (${text(result.pruneError)})`);
     } catch (error) {
       problems.push(`this run was not recorded (${text(error)})`);

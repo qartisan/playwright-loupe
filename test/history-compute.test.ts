@@ -61,7 +61,7 @@ function history({ outcomes, past, current = {}, include = 'full', skipped = 0 }
   const block = deriveEmbedded(report as unknown as LoupeReport, { runs: [...files].reverse(), others: [], skipped }, {
     include,
     stream: STREAM,
-    current: { origin: current.origin ?? 'local', excluded: current.excluded ?? null },
+    current: { origin: current.origin ?? 'local', excluded: current.excluded ?? null, id: 'current' },
     currentRunId: 'current',
   });
   if (block === null) throw new Error('no block');

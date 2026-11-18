@@ -152,9 +152,12 @@ describe('history: the embedded window', () => {
     const past = readRun(run.history, firstFile as string);
     expect(value?.runs.map((entry) => [entry.id, entry.reportRunId])).toEqual([[past.run.id, first.run.id]]);
     expect(value?.stream).toEqual(fixtureStream());
-    expect([value?.current, value?.skipped]).toEqual([{ origin: 'local', excluded: 'staging restored' }, 0]);
     const secondFile = runFiles(run.history).find((name) => name !== firstFile) as string;
-    expect(readRun(run.history, secondFile).run.excluded).toEqual({ reason: 'staging restored' });
+    // The id of the file this run wrote: random outside CI and merges, so computed once per run.
+    const secondRun = readRun(run.history, secondFile).run;
+    expect(secondRun.id).toMatch(/^[0-9a-f-]{36}$/);
+    expect([value?.current, value?.skipped]).toEqual([{ origin: 'local', excluded: 'staging restored', id: secondRun.id }, 0]);
+    expect(secondRun.excluded).toEqual({ reason: 'staging restored' });
     // Retries per project, as the run file of that run has them.
     expect(value?.runs[0]?.projects).toEqual(past.run.projects.map((project) => [project.name, project.retries]));
     expect(value?.runs[0]?.projects.length).toBeGreaterThan(0);
@@ -181,13 +184,21 @@ describe('history: runs that are never written', () => {
     expect(existsSync(run.history)).toBe(false);
   }, 120_000);
 
-  it('a run where no test ran (an empty shard) writes nothing', () => {
+  it('a run where no test ran (an empty shard) writes nothing, and embeds no id for itself', () => {
     const run = folders('empty');
     // One file, not fully parallel: shard 2/2 gets no test.
     const result = playwright(['test', '--config', CONFIG, '--shard', '2/2'], run.env);
     const report = readReport(run.report, result.output);
     expect(report.tests.some((test) => test.attempts.length > 0)).toBe(false);
     expect(existsSync(run.history)).toBe(false);
+    // After a recorded run, the empty shard has a block, whose current.id is null: no file of its own.
+    readReport(run.report, playwright(['test', '--config', CONFIG], run.env).output);
+    expect(runFiles(run.history)).toHaveLength(1);
+    readReport(run.report, playwright(['test', '--config', CONFIG, '--shard', '2/2'], run.env).output);
+    expect(runFiles(run.history)).toHaveLength(1);
+    const value = embedded(run.report);
+    expect(value?.runs).toHaveLength(1);
+    expect(value?.current.id).toBeNull();
   }, 120_000);
 });
 
@@ -253,11 +264,21 @@ describe('history: blobs and merge-reports', () => {
     merge();
     const before = runFiles(history);
     shardRun('blobs-2');
+    // The shard writes a blob, not history: its own report has a block (the merged run before it, another stream
+    // since merge-reports runs without the config's environment), and no id for itself.
+    const shard = embedded(path.join(workDir, 'merge-blobs-2', 'report'));
+    expect(shard).not.toBeNull();
+    expect(shard?.current.id).toBeNull();
     merge();
     const after = runFiles(history);
     expect(after).toHaveLength(2);
     expect(after).toEqual(expect.arrayContaining(before));
-    expect(embedded(path.join(workDir, 'merge', 'merged'))?.runs.map((entry) => entry.id)).toEqual([readRun(history, before[0] as string).run.id]);
+    const merged = embedded(path.join(workDir, 'merge', 'merged'));
+    expect(merged?.runs.map((entry) => entry.id)).toEqual([readRun(history, before[0] as string).run.id]);
+    // The merged run's own id, merge-<hash>, as its file is named.
+    const written = after.find((name) => !before.includes(name)) as string;
+    expect(merged?.current.id).toBe(readRun(history, written).run.id);
+    expect(merged?.current.id).toMatch(/^merge-[0-9a-f]{8}$/);
   }, 240_000);
 });
 
@@ -374,6 +395,21 @@ describe('history: a run in CI', () => {
     expect(recorded.run.id).toMatch(new RegExp(`^${provider}-4242-[0-9a-f]{8}$`));
     expect([recorded.run.origin, recorded.run.ciProvider, recorded.run.git.commit]).toEqual(['ci', provider, head]);
     expect(files[0]).toMatch(new RegExp(`-${provider}-4242-[0-9a-f]{8}\\.json\\.gz$`));
+  }, 120_000);
+});
+
+describe('history: the id of the current run in CI', () => {
+  it('the block of the second CI run embeds the id of the file it wrote', () => {
+    const run = folders('ci-id');
+    const ci = { GITHUB_ACTIONS: 'true', GITHUB_RUN_ATTEMPT: '1' };
+    readReport(run.report, playwright(['test', '--config', CONFIG], { ...run.env, ...ci, GITHUB_RUN_ID: '5001' }).output);
+    const result = playwright(['test', '--config', CONFIG], { ...run.env, ...ci, GITHUB_RUN_ID: '5002' });
+    readReport(run.report, result.output);
+    const written = runFiles(run.history).find((name) => name.includes('-github-actions-5002-')) as string;
+    expect(written, result.output).toBeDefined();
+    const value = embedded(run.report);
+    expect(value?.current.id).toBe(readRun(run.history, written).run.id);
+    expect(value?.current.id).toMatch(/^github-actions-5002-[0-9a-f]{8}$/);
   }, 120_000);
 });
 

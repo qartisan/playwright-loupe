@@ -5,7 +5,7 @@ import type { LoupeReport } from '../src/schema/v1.js';
 import { makeRunFile } from './helpers/history.js';
 
 const STREAM = { environment: 'staging', origin: 'ci' };
-const OPTIONS = { include: 'full' as const, stream: STREAM, current: { origin: 'ci' as const, excluded: null }, currentRunId: 'current' };
+const OPTIONS = { include: 'full' as const, stream: STREAM, current: { origin: 'ci' as const, excluded: null, id: 'current' }, currentRunId: 'current' };
 
 /** Only what the derivation reads from the report: its tests, in order. */
 const report = (...tests: Array<[id: string, repeatEachIndex?: number]>) =>
@@ -29,7 +29,7 @@ describe('deriveEmbedded', () => {
   });
 
   it("gives the current run's origin and masked exclusion reason as the caller computed them", () => {
-    const current = { origin: 'ide' as const, excluded: 'database restored' };
+    const current = { origin: 'ide' as const, excluded: 'database restored', id: 'current' };
     const value = deriveEmbedded(report(['a']), { runs: [run('r1', 1, [row('a', 'P')])], others: [], skipped: 1 }, { ...OPTIONS, current });
     expect([value?.current, value?.skipped]).toEqual([current, 1]);
   });
