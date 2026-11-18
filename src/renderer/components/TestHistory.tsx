@@ -24,6 +24,18 @@ import {
 } from '../history.js';
 import { HistoryStateIcon } from './icons.js';
 
+/** The History section's heading: the target of the state shown in the test detail's header. */
+const HEADING_ID = 'detail-history';
+
+/** Scrolls to the History section and focuses its heading (the header's state link). */
+export function focusTestHistory(): void {
+  const heading = document.getElementById(HEADING_ID);
+  if (!heading) return;
+  heading.tabIndex = -1;
+  heading.scrollIntoView({ block: 'start' });
+  heading.focus({ preventScroll: true });
+}
+
 /** A cell of the strip: a run of the window, or the current run, set apart at the end. */
 type StripCell = HistoryCell & { current: boolean };
 type Include = ReportHistory['analysis']['history']['include'];
@@ -337,16 +349,17 @@ export function TestHistory({ history, report, test }: { history: ReportHistory;
   const facts = history.byTest.get(test);
   const shown = analysis.statesShown && facts;
   return (
-    <section class="detail-section test-history" aria-labelledby="detail-history" data-history>
-      <h2 id="detail-history">
+    <section class="detail-section test-history" aria-labelledby={HEADING_ID} data-history>
+      <h2 id={HEADING_ID}>
         History <span class="verdict-history-stream">{streamName(block.stream)}</span>
       </h2>
       {shown && facts.state && (
+        // The lead line: the state larger and bold, no colour (sage and red are statuses, hues are categories).
         <p class="history-test-state">
-          <span class="test-chip history-marker-static">
+          <strong class="history-test-state-label">
             <HistoryStateIcon state={facts.state} />
             {STATE_LABEL[facts.state]}
-          </span>
+          </strong>
           <span class="visually-hidden">:</span>{' '}
           {stateDetail(facts.state, facts.earlier)}
         </p>

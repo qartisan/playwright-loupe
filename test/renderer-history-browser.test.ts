@@ -1132,6 +1132,133 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
       await page.close();
     });
 
+    describe("the test's history state in the header", () => {
+      const { report: normalReport, history: normalHistory } = historyScenario('normal', sample);
+      const loaded = loadHistory(JSON.stringify(normalHistory), normalReport);
+      /** The first test of the sample with this outcome and state in the normal scenario. */
+      const withState = (outcome: string, state: string | null) => {
+        const index = normalReport.tests.findIndex((test) => test.outcome === outcome && (loaded?.byTest.get(test)?.state ?? null) === state);
+        if (index < 0) throw new Error(`no ${outcome} test with state ${state}`);
+        return sample.tests[index] as LoupeReport['tests'][number];
+      };
+      const link = (page: Page) => page.locator('.test-header .test-state-link');
+
+      it.each(['new-test', 'new-failure', 'still-failing', 'failed-again'] as const)('%s: right after the status, the Tests view marker\'s chip, a link named and described as the marker', async (state) => {
+        const test = withState('failed', state);
+        const page = await open('normal', testHash(test));
+        await expectLocator(link(page)).toHaveCount(1);
+        await expectLocator(link(page)).toHaveAccessibleName(STATE_LABEL[state]);
+        await expectLocator(link(page)).toHaveAccessibleDescription(STATE_HELP[state]);
+        await expectLocator(link(page)).toHaveAttribute('title', STATE_HELP[state]);
+        await expectLocator(page.getByRole('link', { name: STATE_LABEL[state], exact: true })).toHaveCount(1);
+        // Right after the status, no separator. As shown (innerText: the hidden definition is not part of it).
+        expect(await page.locator('.test-header .test-outcome').innerText()).toMatch(new RegExp(`^Failed\\s*${STATE_LABEL[state]}$`));
+        await expectLocator(link(page)).toHaveClass(new RegExp(`\\btest-chip\\b.*\\bstate-${state}\\b`));
+        // The same state leads the History section.
+        await expectLocator(page.locator('.history-test-state-label')).toHaveText(STATE_LABEL[state]);
+        await page.close();
+      });
+
+      it('activating it, by click or by keyboard, moves focus to the History heading; the route does not change', async () => {
+        const test = withState('failed', 'still-failing');
+        const page = await open('normal', testHash(test));
+        const url = page.url();
+        await link(page).click();
+        await expectLocator(page.getByRole('heading', { level: 2, name: /^History/ })).toBeFocused();
+        expect(page.url()).toBe(url);
+        await page.locator('.test-title').click();
+        await link(page).focus();
+        await page.keyboard.press('Enter');
+        await expectLocator(page.getByRole('heading', { level: 2, name: /^History/ })).toBeFocused();
+        expect(page.url()).toBe(url);
+        await page.close();
+      });
+
+      it.each([
+        ['a passing test (Fixed)', 'normal', () => withState('passed', 'fixed')],
+        ['a passing test without a state', 'normal', () => withState('passed', null)],
+        ['no states shown (every earlier run excluded)', 'all-excluded', () => failing],
+        ['no states shown (first run)', 'first-run', () => failing],
+        ['without history', 'none', () => failing],
+      ] as const)('nothing for %s', async (_, name, test) => {
+        const page = await open(name, testHash(test()));
+        await page.locator('.test-summary').waitFor();
+        await expectLocator(link(page)).toHaveCount(0);
+        await expectLocator(page.locator('#test-state-help')).toHaveCount(0);
+        await page.close();
+      });
+
+      /** What the chip looks like, as computed: compared with the Tests view's marker of the same state. */
+      const chipStyle = (locator: ReturnType<Page['locator']>) =>
+        locator.evaluate((element) => {
+          const css = element.ownerDocument.defaultView!.getComputedStyle(element);
+          return {
+            border: `${css.borderTopWidth} ${css.borderTopStyle} ${css.borderTopColor}`,
+            radius: css.borderTopLeftRadius,
+            background: css.backgroundColor,
+            color: css.color,
+            font: `${css.fontSize}/${css.lineHeight} ${css.fontWeight}`,
+            padding: `${css.paddingLeft} ${css.paddingRight}`,
+            decoration: css.textDecorationLine,
+            icon: element.querySelector('svg')?.outerHTML ?? '',
+          };
+        });
+
+      it.each([
+        ['light', false],
+        ['dark', false],
+        ['light', true],
+      ] as const)('%s theme (forced colours: %s): the same chip as the Tests view marker, underlined and outlined only on hover or focus', async (scheme, forced) => {
+        const test = withState('failed', 'still-failing');
+        const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, colorScheme: scheme });
+        if (forced) await page.emulateMedia({ forcedColors: 'active' });
+        await page.goto(`${urls.normal}#/tests`);
+        const marker = page.locator('.history-marker.state-still-failing:not(.test-chip-active)').first();
+        await marker.waitFor();
+        const expected = await chipStyle(marker);
+        await page.goto(`${urls.normal}${testHash(test)}`);
+        await link(page).waitFor();
+        const header = await chipStyle(link(page));
+        expect(header).toEqual(expected);
+        expect(header.decoration).toBe('none');
+        // Not the category badge's blue: the chip's own colours (forced colours make both system colours).
+        const badge = await page.locator('.test-summary .category-badge').evaluate((element) => {
+          const css = element.ownerDocument.defaultView!.getComputedStyle(element);
+          return { color: css.color, background: css.backgroundColor };
+        });
+        if (!forced) expect([header.color, header.background]).not.toEqual([badge.color, badge.background]);
+        // Focus by keyboard: an outline and the underline.
+        await page.locator('.test-title').click();
+        await page.keyboard.press('Tab');
+        for (let step = 0; step < 10 && !(await link(page).evaluate((element) => element === element.ownerDocument.activeElement)); step += 1) await page.keyboard.press('Tab');
+        const focused = await link(page).evaluate((element) => {
+          const css = element.ownerDocument.defaultView!.getComputedStyle(element);
+          return { outline: css.outlineStyle, width: parseFloat(css.outlineWidth), decoration: css.textDecorationLine };
+        });
+        expect(focused).toEqual({ outline: 'solid', width: 2, decoration: 'underline' });
+        // Hover: the underline.
+        await page.locator('.test-title').click();
+        await link(page).hover();
+        expect(await link(page).evaluate((element) => element.ownerDocument.defaultView!.getComputedStyle(element).textDecorationLine)).toBe('underline');
+        await page.close();
+      });
+
+      it('in the History section, the state is the lead line: larger and bold, in the text colour, the explanation after it', async () => {
+        const page = await open('normal', testHash(withState('failed', 'still-failing')));
+        const style = await page.locator('.history-test-state-label').evaluate((element) => {
+          const view = element.ownerDocument.defaultView!;
+          const label = view.getComputedStyle(element);
+          const line = view.getComputedStyle(element.parentElement!);
+          return { size: parseFloat(label.fontSize), weight: Number(label.fontWeight), color: label.color, text: line.color, lineSize: parseFloat(line.fontSize) };
+        });
+        expect(style.size).toBeGreaterThan(style.lineSize);
+        expect(style.weight).toBeGreaterThanOrEqual(700);
+        expect(style.color).toBe(style.text);
+        await expectLocator(page.locator('.history-test-state')).toContainText('it failed in its last earlier result too');
+        await page.close();
+      });
+    });
+
     it('another test: no run selected', async () => {
       const page = await open('normal', testHash(failing));
       await select(page, 3);

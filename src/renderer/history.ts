@@ -78,6 +78,16 @@ export function stateHelpId(state: HistoryState): string {
   return `history-help-${state}`;
 }
 
+/**
+ * A failing test's state, as the Tests view marks it and the test detail's header shows it: never Fixed, a passing
+ * test's; null without history, without states shown, or without a state.
+ */
+export function failingState(history: ReportHistory | null, test: TestCase): Exclude<HistoryState, 'fixed'> | null {
+  if (history === null || test.outcome !== 'failed') return null;
+  const state = history.byTest.get(test)?.state ?? null;
+  return state === null || state === 'fixed' ? null : state;
+}
+
 /** "+3 pts", "−1.5 pts", "no change": the pass rate change, in percentage points. */
 export function formatPoints(points: number): string {
   const rounded = Math.round(points * 10) / 10;

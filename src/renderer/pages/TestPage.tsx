@@ -5,8 +5,8 @@ import { mergeAnnotations } from '../../shared/annotations.js';
 import { categoryColorMap } from '../categoryColors.js';
 import { CategoryBadge } from '../components/CategoryBadge.js';
 import { CopyButton } from '../components/CopyButton.js';
-import { OutcomeIcon } from '../components/icons.js';
-import { TestHistory } from '../components/TestHistory.js';
+import { HistoryStateIcon, OutcomeIcon } from '../components/icons.js';
+import { TestHistory, focusTestHistory } from '../components/TestHistory.js';
 import { Pager } from '../components/Pager.js';
 import { Attachments } from '../components/Media.js';
 import { ErrorCard, OutputBlock, StepTree } from '../components/TestDetail.js';
@@ -22,8 +22,8 @@ import { setDetailQuery } from '../filters/store.js';
 import { isSecondaryError } from '../secondary.js';
 import { NOT_RUN_EXPLANATION, skipLabel, skipReason } from '../skip.js';
 import { formatDuration, plural } from '../format.js';
-import { currentLocation, navigate } from '../navigation.js';
-import type { ReportHistory } from '../history.js';
+import { currentLocation, hrefTo, navigate } from '../navigation.js';
+import { STATE_HELP, STATE_LABEL, failingState, type ReportHistory } from '../history.js';
 import { useShortcuts } from '../shortcuts.js';
 import { NotFoundPage } from './NotFoundPage.js';
 
@@ -212,6 +212,37 @@ function AttemptContent({ test, attempt, params, groups, colors, playwrightVersi
 }
 
 /**
+ * A failing test's history state in the header, right after its status: the Tests view marker's neutral chip
+ * (icon, label, style), a link to the History section, whose heading it focuses. Named and described as the
+ * marker: the state's name, and its definition as description (here, with no HistoryHelp list on the page, its
+ * own hidden text) and tooltip. No colour of its own, so it never competes with the status. Its href is the test
+ * itself, for a new tab.
+ */
+function TestStateLink({ state, href }: { state: NonNullable<ReturnType<typeof failingState>>; href: string }) {
+  return (
+    <>
+      <a
+        class={`test-chip test-state-link state-${state}`}
+        href={href}
+        title={STATE_HELP[state]}
+        aria-describedby="test-state-help"
+        onClick={(event) => {
+          // The route lives in the hash: focus the section instead of following the link.
+          event.preventDefault();
+          focusTestHistory();
+        }}
+      >
+        <HistoryStateIcon state={state} />
+        {STATE_LABEL[state]}
+      </a>
+      <span id="test-state-help" hidden>
+        {STATE_HELP[state]}
+      </span>
+    </>
+  );
+}
+
+/**
  * Test detail (`#/test/<id>`): header, copy actions, then one attempt at a
  * time (`?attempt=<index>`, the last failing attempt by default): errors,
  * steps, attachments and output. Previous / next walk the Tests view's list.
@@ -255,6 +286,8 @@ export function TestPage({
   const inFile = fileRerun(report.tests, test);
   const select = (target: Attempt): void => setDetailQuery(serializeDetailParams({ ...params, attempt: target.index }));
 
+  const state = failingState(history, test);
+
   return (
     <div class="page test-page">
       <Pager
@@ -280,7 +313,10 @@ export function TestPage({
           {test.repeatEachIndex > 0 && <span class="row-note"> repeat {test.repeatEachIndex}</span>}
         </h1>
         <div class="test-summary">
-          <OutcomeIcon outcome={test.outcome} labelled />
+          <span class="test-outcome">
+            <OutcomeIcon outcome={test.outcome} labelled />
+            {state && <TestStateLink state={state} href={hrefTo({ page: 'test', id: test.id, repeatEachIndex: test.repeatEachIndex })} />}
+          </span>
           {skip && <span class="skip-reason detail-skip">{skipLabel(skip)}</span>}
           <span>{projectLabel(test.project)}</span>
           <code>

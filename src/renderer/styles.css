@@ -972,8 +972,10 @@ span.dimension-tile { cursor: default; }
  * be chosen (pointer, hover); the selected one has a round ring inside, apart from the square focus outline
  * outside it.
  */
+/* The state leads the section: larger and bold, in the text colour (no hue: sage and red are statuses, hues are categories). */
 .history-test-state { margin: 4px 0 10px; }
-.history-marker-static { margin-right: 4px; vertical-align: 1px; }
+.history-test-state-label { display: inline-flex; align-items: center; gap: 6px; margin-right: 4px; color: var(--fg); font-size: 17px; font-weight: 700; vertical-align: -2px; }
+.history-test-state-label .icon { flex: none; width: 18px; height: 18px; }
 .strip-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; }
 .strip { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
 .strip-cell { position: relative; display: inline-flex; box-sizing: border-box; width: 22px; height: 22px; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: 4px; cursor: pointer; }
@@ -1061,6 +1063,9 @@ span.dimension-tile { cursor: default; }
 .test-header h1 { margin: 0; }
 .title-suite { color: var(--fg-secondary); font-weight: 400; }
 .test-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; }
+/* The status, then a failing test's history state: kept together, the state as the Tests view marker's chip, underlined on hover and focus. */
+.test-outcome { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.test-state-link:hover, .test-state-link:focus-visible { text-decoration: underline; }
 .test-summary code { overflow-wrap: anywhere; }
 .detail-skip { overflow-wrap: anywhere; }
 .skip-explanation { margin: 0; color: var(--fg-secondary); font-size: 13px; }

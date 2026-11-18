@@ -171,9 +171,11 @@ Each marker, count and filter value is described by its state's definition for a
 
 A History section, after the test's header and before its attempts, keeps to a few lines:
 
-- the stream, and the test's state with its explanation;
+- the stream, and the test's state as the lead line, larger and bold, with its explanation;
 - **the strip** of its results: one cell per run of the window, oldest on the left, then the current run set apart at the end;
 - **the counters**, one line, which opens on the rest: the no-retries line and the other streams.
+
+A failing test's state also shows in its header, right after its status, as the Tests view's marker shows it: a neutral chip with its icon and name, a link to the History section, which moves focus to its heading. Like the marker, it never shows Fixed, and nothing shows when no state is shown. States have no colour of their own (sage is passed, red is failures, the other hues are categories): the state stands out by its place, and in the History section by its size and weight.
 
 **The strip** shows each result by its colour and its shape: a tick for passed, a cross for failed, curved arrows for flaky (passed on retry), a dash for skipped, an empty dotted circle for no result (the test was not in that run). A run whose results the test's history does not use (an excluded run) is drawn hollow, with a dashed outline; a partial or IDE run, which it uses, has a dot under its cell.
 

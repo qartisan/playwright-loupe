@@ -171,6 +171,7 @@ const MATRIX: State[] = [
   ['history: tests, filtered on a state', 'history', '#/tests?history=still-failing', { reached: '.history-marker' }],
   ['history: tests at 360px', 'history', '#/tests', { width: 360, reached: '.history-marker' }],
   ['history: test, strip', 'history', `#/test/${FAILING}`, { reached: '.strip-cell' }],
+  ['history: test, state in the header, link focused', 'history', `#/test/${FAILING}`, { arrange: (page) => page.locator('.test-state-link').focus(), reached: '.test-state-link' }],
   ['history: test, run selected, its details open', 'history', `#/test/${FAILING}`, { arrange: (page) => page.locator('.strip-cell').nth(5).click(), reached: '.run-selected' }],
   ['history: test, current run selected', 'history', `#/test/${FAILING}`, { arrange: (page) => page.locator('.strip-cell').last().click(), reached: '.run-selected' }],
   ['history: test, other streams closed', 'historyStreams', `#/test/${FAILING}`, { reached: 'details.history-more:not([open])' }],
@@ -179,6 +180,7 @@ const MATRIX: State[] = [
   ['history: test, every earlier run excluded', 'historyAllExcluded', `#/test/${FAILING}`, { reached: '.strip-excluded' }],
   ['history: test, first run, other streams open', 'historyFirstRun', `#/test/${FAILING}`, { arrange: click('details.history-more > summary'), reached: 'details.history-more[open]' }],
   ['history: test at 320px, run selected', 'history', `#/test/${FAILING}`, { width: 320, arrange: (page) => page.locator('.strip-cell').nth(2).click(), reached: '.run-selected' }],
+  ['forced colours: history, state in the header and the section', 'history', `#/test/${FAILING}`, { forcedColors: true, reached: '.test-state-link' }],
   ['forced colours: history, run selected', 'history', `#/test/${FAILING}`, { forcedColors: true, arrange: (page) => page.locator('.strip-cell').nth(5).click(), reached: '.run-selected' }],
   ['forced colours: history, overview note', 'historyVersionBreak', '#/', { forcedColors: true, reached: '.history-notice' }],
 ];
