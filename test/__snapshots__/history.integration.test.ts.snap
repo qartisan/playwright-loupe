@@ -66,6 +66,7 @@ exports[`history: a plain run > records the expected content 1`] = `
 line 1 of a long failure message, kept in the extract up to a line end
 line 2 of a long failure message, kept in the extract up to a line end
 line 3 of a long failure message, kept in the extract up to a line end",
+          "xc": true,
         },
         {
           "at": "outcomes.spec.ts:10:9",
@@ -78,6 +79,7 @@ line 3 of a long failure message, kept in the extract up to a line end",
 line 1 of a long failure message, kept in the extract up to a line end
 line 2 of a long failure message, kept in the extract up to a line end
 line 3 of a long failure message, kept in the extract up to a line end",
+          "xc": true,
         },
       ],
       "id": "f0f93a7a903c2299",

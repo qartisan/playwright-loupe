@@ -4,6 +4,7 @@ import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ACROSS_CUT, CANARY, EXCLUDE_ACROSS_CUT, EXCLUDE_KEPT_CHARS, HOMES, LATE, OUTPUT_LIMIT_CHARS, SECRETS, acrossCut } from '../fixtures/leak/homes.js';
+import { MIN_CUT_START } from '../src/core/history/read.js';
 import { homePaths } from '../scripts/home-paths.mjs';
 import type { LoupeReport, Step, TestCase } from '../src/schema/v1.js';
 import { REDACTED } from '../src/shared/redaction.js';
@@ -283,6 +284,24 @@ describe('the leak canary with history', () => {
       expect(part(reason ?? '')).toBeNull();
       expect(reason?.startsWith('rrr'), String(reason)).toBe(true);
     }
+  });
+
+  it('masks in the next report a value added to redact.env later and cut short at the end of a stored extract', () => {
+    const title = 'fails with a value redacted only later, across the cut of its extract';
+    type File = { tests: Array<{ t: string[]; f?: Array<{ x?: string; xc?: boolean }> }> };
+    const failure = (text: string) => (JSON.parse(text) as File).tests.find((test) => test.t.at(-1) === title)?.f?.[0];
+    // Positive control: the run recorded before the value joined redact.env keeps its start, flagged as cut.
+    const stored = runFiles().map(failure).filter((entry) => entry?.x?.includes(LATE.value.slice(0, 3)));
+    expect(stored).toHaveLength(1);
+    expect(stored[0]?.xc).toBe(true);
+    const kept = [...LATE.value].findIndex((_, index) => stored[0]?.x?.endsWith(LATE.value.slice(0, LATE.value.length - index)));
+    expect(LATE.value.length - kept).toBeGreaterThanOrEqual(8);
+    expect(LATE.value.length - kept).toBeLessThan(LATE.value.length);
+    // In the next report, the extract of that failure ends masked: no start of the value, of MIN_CUT_START characters or more.
+    const signatures = (JSON.parse(block(second)) as { signatures: Array<[string, string | null, string | null]> }).signatures;
+    const extract = signatures.map(([, , text]) => text ?? '').find((text) => text.includes('x'.repeat(100)));
+    expect(extract?.endsWith(REDACTED)).toBe(true);
+    expect(extract?.includes(LATE.value.slice(0, MIN_CUT_START))).toBe(false);
   });
 
   it('masks in the next report a value added to redact.env after a run was recorded', () => {

@@ -115,3 +115,13 @@ export const EXCLUDE_KEPT_CHARS = 199;
  * masking, all of the value but its last character would stay.
  */
 export const EXCLUDE_ACROSS_CUT = `${'r'.repeat(EXCLUDE_KEPT_CHARS - (SECRETS.LOUPE_LEAK_OTHER.length - 1) - 1)} ${SECRETS.LOUPE_LEAK_OTHER} end`;
+
+/** Characters of an error message an extract keeps when it cuts a single line (`EXTRACT_CHARS`, src/core/history/runFile.ts). */
+export const EXTRACT_KEPT_CHARS = 300;
+
+/**
+ * A message with the late value running across the cut of the extract (leak/late.spec.ts): the run recorded
+ * before the value joins redact.env keeps its first characters, which the replay of the next run must mask.
+ * Playwright puts `Error: ` before it, so the cut keeps 8 to 15 of the value's 16 characters.
+ */
+export const LATE_ACROSS_CUT = `${'x'.repeat(EXTRACT_KEPT_CHARS - (LATE.value.length - 1))}${LATE.value} end`;

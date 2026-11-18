@@ -4,7 +4,7 @@ import { promisify } from 'node:util';
 import { gunzip as gunzipCallback } from 'node:zlib';
 import { HISTORY_VERSION, type HistoryRunFile } from '../../schema/history-v1.js';
 import { createPathRewriter } from '../paths.js';
-import { createRedactor, type RedactOptions } from '../redact.js';
+import { REDACTED, createRedactor, type RedactOptions } from '../redact.js';
 import { parseRunFileName, type RunFileName } from './runFile.js';
 import { RUNS_FOLDER } from './write.js';
 
@@ -68,6 +68,7 @@ const isNumber = (value: unknown): value is number => typeof value === 'number' 
 const isOptional = (value: unknown, check: (value: unknown) => boolean): boolean => value === undefined || check(value);
 const isNullable = (value: unknown, check: (value: unknown) => boolean): boolean => value === null || check(value);
 const isStrings = (value: unknown): value is string[] => Array.isArray(value) && value.every(isString);
+const isBoolean = (value: unknown): value is boolean => typeof value === 'boolean';
 
 function isFailure(value: unknown): boolean {
   return (
@@ -76,6 +77,7 @@ function isFailure(value: unknown): boolean {
     isStrings(value['sig']) &&
     isOptional(value['cat'], (cat) => isNullable(cat, isString)) &&
     isOptional(value['x'], isString) &&
+    isOptional(value['xc'], isBoolean) &&
     isOptional(value['at'], (at) => isNullable(at, isString))
   );
 }
@@ -94,7 +96,7 @@ function isTest(value: unknown): boolean {
 }
 
 function isRunError(value: unknown): boolean {
-  return isObject(value) && isString(value['sig']) && isNullable(value['cat'], isString) && isString(value['x']) && isNullable(value['at'], isString);
+  return isObject(value) && isString(value['sig']) && isNullable(value['cat'], isString) && isString(value['x']) && isOptional(value['xc'], isBoolean) && isNullable(value['at'], isString);
 }
 
 function isProject(value: unknown): boolean {
@@ -121,7 +123,7 @@ function isRun(value: unknown): boolean {
     isObject(value['stream']) &&
     isString(value['scope']) &&
     isStrings(value['scopeReasons']) &&
-    (excluded === null || (isObject(excluded) && isString(excluded['reason']))) &&
+    (excluded === null || (isObject(excluded) && isString(excluded['reason']) && isOptional(excluded['cut'], isBoolean))) &&
     Array.isArray(value['errors']) &&
     value['errors'].every(isRunError)
   );
@@ -165,27 +167,74 @@ export async function decodeRunFile(content: Buffer, maxBytes: number = MAX_RUN_
 }
 
 /**
- * The redaction of the current run, replayed on text read from disk: a value
- * added to `redact.env` after a run was recorded, or another home directory,
- * is masked before the text is used.
+ * The redaction of the current run, replayed on a text read from disk. `cut`: the text was cut when it was
+ * written (`xc`, `excluded.cut`).
  */
-export function createReplay(redact: RedactOptions, home: string | null): (text: string) => string {
+export type Replay = (text: string, cut?: boolean) => string;
+
+/**
+ * The shortest start of a `redact.env` value masked at the end of a cut text: 1 character, so that no
+ * character of a value is ever left. The end of a cut text is arbitrary and nothing is compared on it
+ * (signatures are stored apart), so a false positive costs a character or two of that text, shown as
+ * `[redacted]`: at 1 character, about one cut text in 30 to 60 per value (one character in a text's
+ * alphabet); at 2, about one in a thousand or more. A minimum of 3 would leave up to 2 characters of a value
+ * in clear, a third of the shortest one used (MIN_SECRET_LENGTH, 6).
+ */
+export const MIN_CUT_START = 1;
+
+/**
+ * `text`, a cut text already replayed, with its longest end that is the start of one of `values` (of
+ * MIN_CUT_START characters or more) replaced by `[redacted]`: a value added to redact.env after the run was
+ * written, and running across the cut, is only partly in the text, where the replay cannot match it.
+ */
+export function maskCutStart(text: string, values: readonly string[]): string {
+  let longest = 0;
+  for (const value of values) {
+    for (let length = Math.min(value.length, text.length); length > longest && length >= MIN_CUT_START; length--) {
+      if (text.endsWith(value.slice(0, length))) {
+        longest = length;
+        break;
+      }
+    }
+  }
+  return longest === 0 ? text : `${text.slice(0, text.length - longest)}${REDACTED}`;
+}
+
+/**
+ * The redaction of the current run, replayed on text read from disk: a value added to `redact.env` after a
+ * run was recorded, or another home directory, is masked before the text is used. A text cut when it was
+ * written also has a value cut short at its end masked (`maskCutStart`); the home directory needs no such
+ * rule, since it was masked on the writing machine before the cut. Text read whole on every run (the notes of
+ * loupe.notes.json) is never cut, and needs only the first part.
+ */
+export function createReplay(redact: RedactOptions, home: string | null): Replay {
   const redactor = createRedactor(redact);
   const paths = createPathRewriter({ roots: [], home });
-  return (text) => paths.selection(redactor.strings(text));
+  const values = [...new Set(redact.values)].filter((value) => value !== '');
+  return (text, cut = false) => {
+    const replayed = paths.selection(redactor.strings(text));
+    return cut ? maskCutStart(replayed, values) : replayed;
+  };
+}
+
+/** A cut exclusion reason, replayed: its `…` stays at the end, after the start of a value it may end with. */
+function replayReason(excluded: NonNullable<HistoryRunFile['run']['excluded']>, replay: Replay): NonNullable<HistoryRunFile['run']['excluded']> {
+  if (!excluded.cut) return { ...excluded, reason: replay(excluded.reason) };
+  const ellipsis = excluded.reason.endsWith('…') ? '…' : '';
+  return { ...excluded, reason: `${replay(excluded.reason.slice(0, excluded.reason.length - ellipsis.length), true)}${ellipsis}` };
 }
 
 /** The text of a run file that does not come from Loupe's own codes and ids, replayed. */
-export function replayRun(file: HistoryRunFile, replay: (text: string) => string): HistoryRunFile {
+export function replayRun(file: HistoryRunFile, replay: Replay): HistoryRunFile {
   return {
     ...file,
     run: {
       ...file.run,
-      excluded: file.run.excluded === null ? null : { reason: replay(file.run.excluded.reason) },
-      errors: file.run.errors.map((error) => ({ ...error, x: replay(error.x) })),
+      excluded: file.run.excluded === null ? null : replayReason(file.run.excluded, replay),
+      errors: file.run.errors.map((error) => ({ ...error, x: replay(error.x, error.xc === true) })),
     },
     tests: file.tests.map((test) =>
-      test.f === undefined ? test : { ...test, f: test.f.map((failure) => (failure.x === undefined ? failure : { ...failure, x: replay(failure.x) })) },
+      test.f === undefined ? test : { ...test, f: test.f.map((failure) => (failure.x === undefined ? failure : { ...failure, x: replay(failure.x, failure.xc === true) })) },
     ),
   };
 }
@@ -221,7 +270,7 @@ function named(names: readonly string[]): string {
  * rewritten or removed, and named in one problem. A file with another
  * `signatureVersion` is kept: its statuses compare, its signatures do not.
  */
-export async function readHistory(dir: string, stream: string, replay: (text: string) => string, size: number = WINDOW_RUNS): Promise<HistoryRead> {
+export async function readHistory(dir: string, stream: string, replay: Replay, size: number = WINDOW_RUNS): Promise<HistoryRead> {
   const empty: HistoryRead = { stream, runs: [], others: [], skipped: 0, problems: [] };
   let files: RunFileName[];
   try {

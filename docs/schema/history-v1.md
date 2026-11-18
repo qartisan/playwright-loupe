@@ -70,7 +70,7 @@ node -e "const f=require('fs'),z=require('zlib');console.log(JSON.stringify(JSON
 | `scope` | `'full' \| 'partial'` | As the report's `run.scope`. |
 | `scopeReasons` | `string[]` | As the report's `run.scopeReasons`. |
 | `merged` | `boolean` | Written by `merge-reports`. |
-| `excluded` | `{ reason: string } \| null` | Set at launch with `LOUPE_EXCLUDE`; the reason is trimmed, masked like the report, at most 200 characters. |
+| `excluded` | `{ reason: string, cut?: true } \| null` | Set at launch with `LOUPE_EXCLUDE`; the reason is trimmed, masked like the report, then cut to 200 characters, ending with `…` when cut. `cut` is written, `true`, only when it was cut. |
 | `ciProvider` | `string \| null` | As the report's `run.environment.ciProvider`. |
 | `git` | `{ commit: string \| null, branch: string \| null }` | As the report's `run.git`, without the remote. |
 | `stats` | `{ total, passed, failed, flaky, skipped }` | As the report's `run.stats`. |
@@ -84,6 +84,7 @@ node -e "const f=require('fs'),z=require('zlib');console.log(JSON.stringify(JSON
 | `sig` | `string` | Error signature. |
 | `cat` | `string \| null` | Error category. |
 | `x` | `string` | Extract of the message ([below](#extracts)). |
+| `xc` | `true` | Written only when the extract is shorter than the message. |
 | `at` | `string \| null` | `file:line:column`, null when unknown. |
 
 ## HistoryTest
@@ -106,11 +107,12 @@ node -e "const f=require('fs'),z=require('zlib');console.log(JSON.stringify(JSON
 | `sig` | `string[]` | Signatures of the attempt's errors; empty when it failed without an error (an unexpected pass of `test.fail()`). |
 | `cat` | `string \| null` | Category of the first error. Omitted when there is no error. |
 | `x` | `string` | Extract of the first error. Omitted when there is no error. |
+| `xc` | `true` | Written only when the extract is shorter than the message. |
 | `at` | `string \| null` | Location of the first error. Omitted when there is no error. |
 
 ### Extracts
 
-An extract is the start of the error message as it is in `report.json`: whole when it has 300 characters or fewer; otherwise cut at the last line end before the 300th character when that keeps at least 120, else at 300 (never in the middle of a surrogate pair). Since the message is already redacted and path-rewritten, an extract can only drop characters, never reveal one. Readers replay the current redaction on extracts and exclusion reasons before using them ([Privacy](../history.md#privacy)).
+An extract is the start of the error message as it is in `report.json`: whole when it has 300 characters or fewer; otherwise cut at the last line end before the 300th character when that keeps at least 120, else at 300 (never in the middle of a surrogate pair). Since the message is already redacted and path-rewritten, an extract can only drop characters, never reveal one. Readers replay the current redaction on extracts and exclusion reasons before using them; on a cut one (`xc`, `excluded.cut`), they also mask the start of a `redact.env` value at its end ([Privacy](../history.md#privacy)).
 
 ## Signature version
 

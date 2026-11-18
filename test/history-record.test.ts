@@ -7,12 +7,13 @@ import type { ResolvedHistory } from '../src/config/types.js';
 import { DEFAULT_HISTORY } from '../src/config/resolve.js';
 import { CI_RUN_ID_VARIABLES, contentHash, detectOrigin, historyRunId, streamOf } from '../src/core/history/detect.js';
 import { deriveEmbedded } from '../src/core/history/embed.js';
-import { createReplay, replayRun } from '../src/core/history/read.js';
+import { MIN_CUT_START, createReplay, maskCutStart, replayRun } from '../src/core/history/read.js';
 import { EXCLUDE_ENV, buildRunFile, excludeReason, maskedExcludeReason, skipReason, type RecordContext } from '../src/core/history/record.js';
 import { EXTRACT_CHARS, extract, runFileName, streamHash } from '../src/core/history/runFile.js';
 import { GITIGNORE, RUNS_FOLDER, ensureHistoryFolder, writeRunFile } from '../src/core/history/write.js';
 import type { HistoryRunFile } from '../src/schema/history-v1.js';
 import type { Attempt, AttemptStatus, LoupeReport, Outcome, TestCase } from '../src/schema/v1.js';
+import { REDACTED } from '../src/shared/redaction.js';
 import { readRunFile } from './helpers/history.js';
 
 const CLI = '/project/node_modules/@playwright/test/cli.js';
@@ -304,7 +305,8 @@ describe('the run file', () => {
         d: 20,
         a: 'FT',
         f: [
-          { i: 0, sig: [`sig-${long.length}`], cat: 'Assertion', x: extract(long), at: 'a.spec.ts:3:9' },
+          // Cut, so flagged: the replay on read masks a value cut short at its end.
+          { i: 0, sig: [`sig-${long.length}`], cat: 'Assertion', x: extract(long), xc: true, at: 'a.spec.ts:3:9' },
           { i: 1, sig: ['sig-33'], cat: 'Assertion', x: 'Test timeout of 30000ms exceeded.', at: 'a.spec.ts:3:9' },
         ],
       },
@@ -322,7 +324,7 @@ describe('the run file', () => {
     const withErrors = report(tests, {
       errors: [{ message: long, stack: null, location: null, snippet: null, signature: 'e1', category: null, project: null }],
     });
-    expect((buildRunFile(withErrors, context()) as HistoryRunFile).run.errors).toEqual([{ sig: 'e1', cat: null, x: extract(long), at: null }]);
+    expect((buildRunFile(withErrors, context()) as HistoryRunFile).run.errors).toEqual([{ sig: 'e1', cat: null, x: extract(long), at: null, xc: true }]);
   });
 
   it('is named by start time, stream hash and run id, so names sort by time', () => {
@@ -400,6 +402,57 @@ describe('LOUPE_EXCLUDE', () => {
       }),
     ) as HistoryRunFile;
     expect(run.run.excluded?.reason).toBe('token [redacted] leaked from ~/project');
+  });
+});
+
+describe('the replay of a cut text', () => {
+  // Added to redact.env after the run was written: in clear in the run file. Its first character is in neither
+  // the filler nor `[redacted]`, so "no start of it" can be checked down to MIN_CUT_START (1) character.
+  const LATER = 'Q9vLate0Value';
+  const recordedWith = { mode: 'extend' as const, patterns: [], values: [] };
+  const replayedWith = { mode: 'extend' as const, patterns: [], values: [LATER] };
+  const starts = (text: string): string[] =>
+    Array.from({ length: LATER.length }, (_, index) => LATER.slice(0, index + 1)).filter((start) => start.length >= MIN_CUT_START && text.includes(start));
+  const failing = (message: string) => [testCase('f', 'failed', [attempt(0, 'failed', undefined, message)])];
+  /** The next run's block, from a run recorded before LATER joined redact.env. */
+  function next(message: string, reason: string, replay = createReplay(replayedWith, null)) {
+    const tests = failing(message);
+    const run = buildRunFile(report(tests), context({ env: { [EXCLUDE_ENV]: reason }, redact: recordedWith })) as HistoryRunFile;
+    const block = deriveEmbedded(report(tests), { runs: [replayRun(run, replay)], others: [], skipped: 0 }, { include: 'full', stream: {}, current: { origin: 'local', excluded: null }, currentRunId: 'current' });
+    return { run, extract: block?.signatures[0]?.[2] ?? '', reason: block?.runs[0]?.excluded ?? '' };
+  }
+
+  it('masks a value added later across the cut of an extract or a reason, at every offset', () => {
+    for (let kept = 1; kept < LATER.length; kept++) {
+      const message = `${'x'.repeat(EXTRACT_CHARS - kept)}${LATER} end`;
+      const reason = `${'r'.repeat(199 - kept)}${LATER} end`;
+      const { run, extract: x, reason: excluded } = next(message, reason);
+      expect([run.tests[0]?.f?.[0]?.xc, run.run.excluded?.cut]).toEqual([true, true]);
+      // Positive control: in the run file, the start of the value is there.
+      expect(run.tests[0]?.f?.[0]?.x?.endsWith(LATER.slice(0, kept))).toBe(true);
+      expect(run.run.excluded?.reason.endsWith(`${LATER.slice(0, kept)}…`)).toBe(true);
+      expect(x, `kept ${kept}`).toBe(`${'x'.repeat(EXTRACT_CHARS - kept)}${REDACTED}`);
+      expect(excluded, `kept ${kept}`).toBe(`${'r'.repeat(199 - kept)}${REDACTED}…`);
+      expect([...starts(x), ...starts(excluded)]).toEqual([]);
+      // Replayed without the rule, as a text read whole: the start stays.
+      const whole = next(message, reason, (text) => createReplay(replayedWith, null)(text));
+      expect(starts(whole.extract).length, `kept ${kept}`).toBeGreaterThan(0);
+      expect(starts(whole.reason).length, `kept ${kept}`).toBeGreaterThan(0);
+    }
+  });
+
+  it('leaves an uncut text that ends with the first characters of a value as it is', () => {
+    const { run, extract: x, reason } = next(`short message ending with ${LATER.slice(0, 3)}`, `restored, see ${LATER.slice(0, 3)}`);
+    expect([run.tests[0]?.f?.[0]?.xc, run.run.excluded?.cut]).toEqual([undefined, undefined]);
+    expect(x).toBe(`short message ending with ${LATER.slice(0, 3)}`);
+    expect(reason).toBe(`restored, see ${LATER.slice(0, 3)}`);
+  });
+
+  it('masks the longest start of any value, and nothing when none ends the text', () => {
+    expect(maskCutStart('abc Q9vLa', ['Q9vLate0Value', 'aZZZZZZ'])).toBe(`abc ${REDACTED}`);
+    expect(maskCutStart('abc a', ['Q9vLate0Value', 'aZZZZZZ'])).toBe(`abc ${REDACTED}`);
+    expect(maskCutStart('abc Z', ['Q9vLate0Value', 'aZZZZZZ'])).toBe('abc Z');
+    expect(maskCutStart('abc', [])).toBe('abc');
   });
 });
 

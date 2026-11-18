@@ -62,8 +62,8 @@ export interface HistoryRun {
   scopeReasons: string[];
   /** Written by `merge-reports`. */
   merged: boolean;
-  /** Set at launch with `LOUPE_EXCLUDE`. */
-  excluded: { reason: string } | null;
+  /** Set at launch with `LOUPE_EXCLUDE`. `cut`: the reason was cut (and ends with `…`), written only then. */
+  excluded: { reason: string; cut?: true } | null;
   ciProvider: string | null;
   git: { commit: string | null; branch: string | null };
   stats: { total: number; passed: number; failed: number; flaky: number; skipped: number };
@@ -77,6 +77,8 @@ export interface HistoryError {
   cat: string | null;
   /** Extract of the message: its first lines, about 300 characters. */
   x: string;
+  /** The extract is shorter than the message: written only then. */
+  xc?: true;
   /** `file:line:column`, null when unknown. */
   at: string | null;
 }
@@ -106,6 +108,8 @@ export interface HistoryFailure {
   /** Category, extract and location of the attempt's first error, when it has one. */
   cat?: string | null;
   x?: string;
+  /** The extract is shorter than the message: written only then. */
+  xc?: true;
   at?: string | null;
 }
 

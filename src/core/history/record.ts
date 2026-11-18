@@ -63,12 +63,18 @@ export function excludeReason(env: Env): string | null {
  * the only text not taken from the report. Null when the run is not excluded.
  */
 export function maskedExcludeReason(context: Pick<RecordContext, 'env' | 'redact' | 'home'>): string | null {
+  return recordedExclusion(context)?.reason ?? null;
+}
+
+/** The exclusion as the run file records it: the masked reason, and `cut` when it was cut. Null when not excluded. */
+export function recordedExclusion(context: Pick<RecordContext, 'env' | 'redact' | 'home'>): HistoryRun['excluded'] {
   const reason = excludeReason(context.env);
   if (reason === null) return null;
   // Mask, then cut: cut first, a redact.env value or a home directory running across the cut would only be
   // partly there when masking ran, and its first characters would stay in clear.
   const masked = createPathRewriter({ roots: [], home: context.home }).selection(createRedactor(context.redact).strings(reason));
-  return masked.length > MAX_REASON ? `${masked.slice(0, MAX_REASON - 1)}…` : masked;
+  // Flagged when cut: the replay on read masks a value added to redact.env later and cut short at its end.
+  return masked.length > MAX_REASON ? { reason: `${masked.slice(0, MAX_REASON - 1)}…`, cut: true } : { reason: masked };
 }
 
 export interface RunIdentity {
@@ -109,14 +115,13 @@ export function buildRunFile(report: LoupeReport, context: RecordContext): Histo
   const skipped = skipReason(report, context);
   if (skipped) return skipped;
   const { origin, environment, stream } = reportIdentity(report, context);
-  const masked = maskedExcludeReason(context);
   return encodeRun(report, {
     id: historyRunId({ env: context.env, merged: context.merged, tests: report.tests }),
     origin,
     environment,
     stream,
     merged: context.merged,
-    excluded: masked === null ? null : { reason: masked },
+    excluded: recordedExclusion(context),
   });
 }
 

@@ -43,6 +43,8 @@ function failure(index: number, errors: readonly LoupeError[]): HistoryFailure {
   if (first) {
     entry.cat = first.category;
     entry.x = extract(first.message);
+    // A cut extract is flagged: the replay on read masks a value cut short at its end (createReplay).
+    if (entry.x !== first.message) entry.xc = true;
     entry.at = at(first.location);
   }
   return entry;
@@ -102,7 +104,10 @@ export function encodeRun(report: LoupeReport, meta: RunMeta): HistoryRunFile {
       git: { commit: run.git.commit, branch: run.git.branch },
       stats: { ...run.stats },
       projects: report.projects.map((project) => ({ name: project.name, retries: project.retries })),
-      errors: run.errors.map((error): HistoryError => ({ sig: error.signature, cat: error.category, x: extract(error.message), at: at(error.location) })),
+      errors: run.errors.map((error): HistoryError => {
+        const x = extract(error.message);
+        return { sig: error.signature, cat: error.category, x, at: at(error.location), ...(x === error.message ? {} : { xc: true as const }) };
+      }),
     },
     tests: report.tests.map(encodeTest),
   };
