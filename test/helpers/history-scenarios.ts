@@ -261,5 +261,5 @@ export function historyScenario(name: HistoryScenario, sample: LoupeReport): { r
       break;
   }
   const streamOfRuns = name === 'ide' ? { environment: 'default', origin: 'ide' } : STREAM;
-  return { report, history: deriveEmbedded(report, { runs, others, skipped }, { include: 'full', stream: streamOfRuns, current, currentRunId: 'current', notes, notesFile }) };
+  return { report, history: deriveEmbedded(report, { runs, others, skipped }, { include: 'full', stream: streamOfRuns, current, currentRunId: 'current', notes, notesFile, notesPath: 'loupe.notes.json' }) };
 }

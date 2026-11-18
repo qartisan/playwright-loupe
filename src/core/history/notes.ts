@@ -312,6 +312,22 @@ export async function readNotes(file: string | null, cwd: string, mask: (text: s
 }
 
 /**
+ * The notes file as the report names it (`EmbeddedHistory.notesPath`), so the copied exclusion can say where it
+ * goes: relative to the Playwright config's folder (`baseDir`, where `history.notes` is resolved from), with `/`
+ * separators on every platform; null with `history.notes: false`. Never an absolute path: with no relative form
+ * (another drive on Windows) or none to show (the folder itself), the bare file name. A relative path climbing out
+ * of the folder (`..`) can spell a home directory or a `redact.env` value that the absolute path holds
+ * (`../../home/runner/loupe.notes.json`): the bare file name too. Then masked like the file's own texts.
+ */
+export function notesPath(file: string | null, baseDir: string, mask: (text: string) => string, paths: path.PlatformPath = path): string | null {
+  if (file === null) return null;
+  const relative = paths.relative(baseDir, file);
+  const climbs = relative === '..' || relative.startsWith(`..${paths.sep}`);
+  const bare = relative === '' || paths.isAbsolute(relative) || (climbs && mask(file) !== file);
+  return mask((bare ? paths.basename(file) : relative).split(paths.sep).join('/'));
+}
+
+/**
  * What the file says about each run, by run id: the reasons and notes of its entries joined (several people may
  * each add one; the same text once), masked with the redaction of the run (`redact.env`, home directory), then cut.
  * Mask, then cut: cut first, a value running across the cut would only be partly there when masking ran.

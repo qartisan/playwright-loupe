@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { MAX_NOTE, MAX_NOTES_BYTES, MAX_NOTES_REASON, blankTrailingCommas, findSyntaxError, lineAndColumn, notesByRun, parseNotes, readNotes } from '../src/core/history/notes.js';
+import { MAX_NOTE, MAX_NOTES_BYTES, MAX_NOTES_REASON, blankTrailingCommas, findSyntaxError, lineAndColumn, notesByRun, notesPath, parseNotes, readNotes } from '../src/core/history/notes.js';
 import { cutText } from '../src/core/history/cut.js';
 import { createReplay } from '../src/core/history/read.js';
 import { REDACTED } from '../src/core/redact.js';
@@ -300,5 +300,47 @@ describe('notes file: reading', () => {
     const shell = '{ "notesVersion": 1, "runs": [], "pad": "" }';
     writeFileSync(file, shell.replace('""', `"${'x'.repeat(MAX_NOTES_BYTES - shell.length)}"`));
     expect((await readNotes(file, dir, mask)).status).toBe('read');
+  });
+});
+
+describe('notes file: where the report says it is', () => {
+  const base = '/work/project/e2e';
+  const at = (file: string | null, folder = base) => notesPath(file, folder, mask);
+
+  it('relative to the Playwright config folder: the default, a subfolder, a folder above it', () => {
+    expect(at(path.join(base, NAME))).toBe(NAME);
+    expect(at(path.join(base, 'config/notes.json'))).toBe('config/notes.json');
+    expect(at('/work/project/shared/loupe.notes.json')).toBe('../shared/loupe.notes.json');
+    expect(at('/work/project/loupe.notes.json')).toBe('../loupe.notes.json');
+  });
+
+  it('null with history.notes: false', () => {
+    expect(at(null)).toBeNull();
+  });
+
+  it('never absolute: the bare name for another Windows drive or the folder itself; / separators on Windows', () => {
+    const win = (file: string) => notesPath(file, 'C:\\work\\project', mask, path.win32);
+    expect(win('D:\\notes\\loupe.notes.json')).toBe(NAME);
+    expect(win('C:\\work\\project\\config\\notes.json')).toBe('config/notes.json');
+    expect(win('C:\\work\\shared\\loupe.notes.json')).toBe('../shared/loupe.notes.json');
+    expect(at(base)).toBe('e2e');
+  });
+
+  it('a path climbing out through a home directory or a redact.env value: the bare name, never the home or the value', () => {
+    // A home of this machine, of another machine (CI runner), and a secret in a folder name.
+    for (const file of [`${HOME}/notes/loupe.notes.json`, '/home/runner/loupe.notes.json', `/srv/${SECRET}/loupe.notes.json`]) {
+      const shown = at(file, '/builds/project');
+      expect(shown, file).toBe(NAME);
+    }
+    const win = notesPath('C:\\Users\\someone\\loupe.notes.json', 'C:\\builds\\project', mask, path.win32);
+    expect(win).toBe(NAME);
+  });
+
+  it('a path inside the folder is shown, masked: a redact.env value never appears', () => {
+    const shown = at(path.join(base, `notes-${SECRET}`, NAME));
+    expect(shown).not.toContain(SECRET);
+    expect(shown).toMatch(/^notes-.+\/loupe\.notes\.json$/);
+    // A climbing path with nothing to hide stays as written.
+    expect(at('/work/elsewhere/loupe.notes.json')).toBe('../../elsewhere/loupe.notes.json');
   });
 });

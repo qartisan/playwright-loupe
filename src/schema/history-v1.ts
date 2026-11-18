@@ -155,6 +155,12 @@ export interface EmbeddedHistory {
   /** What the run knew of loupe.notes.json: `absent`, `read`, `invalid` (its entries ignored), `off`. */
   notesFile: NotesFileStatus;
   /**
+   * The notes file, relative to the Playwright config's folder with `/` separators, masked; the bare file name when
+   * it has no relative form to show (another drive) or one climbing out of that folder through a home directory or
+   * a `redact.env` value. Never absolute. Null with `history.notes: false` (`notesFile: 'off'`).
+   */
+  notesPath: string | null;
+  /**
    * Run files of the stream's window that could not be used: written by a
    * newer Loupe (another `historyVersion`), corrupt, or unreadable. The
    * window is that much shorter. When every file is skipped, the block is

@@ -1,6 +1,6 @@
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runFileName, streamHash } from '../src/core/history/runFile.js';
@@ -178,6 +178,15 @@ describe('history: loupe.notes.json', () => {
   }
   const notesFile = (file: string, runs: unknown[]) => writeFileSync(file, `{\n  "notesVersion": 1,\n  "runs": [\n${runs.map((entry) => `    ${JSON.stringify(entry)},`).join('\n')}\n  ]\n}\n`);
   const idOf = (history: string, name: string) => readRun(history, name).run.id;
+  /**
+   * The notes file as the block names it: relative to the Playwright config's folder, with / separators; the bare
+   * name when that path climbs out through the home directory (the temporary folder is under it on Windows).
+   */
+  const shownPath = (file: string) => {
+    const relative = path.relative(path.join(ROOT, 'fixtures'), file);
+    const underHome = path.relative(homedir(), file).split(path.sep)[0] !== '..';
+    return relative.startsWith('..') && underHome ? path.basename(file) : relative.split(path.sep).join('/');
+  };
   const ran = (code: string | undefined) => code === 'P' || code === 'F' || code === 'K';
 
   it("a run excluded in the file is excluded from the next run on, at both levels; include: 'all' brings it back", () => {
@@ -187,6 +196,9 @@ describe('history: loupe.notes.json', () => {
     const second = notesRun(run, notes);
     // No file: the normal case, no warning.
     expect(second.block?.notesFile).toBe('absent');
+    // A custom history.notes: named from the config's folder, never as an absolute path.
+    expect(second.block?.notesPath).toBe(shownPath(notes));
+    expect(path.isAbsolute(second.block?.notesPath ?? '')).toBe(false);
     expect(second.output).not.toContain('Loupe: history');
     const [firstFile] = first.files;
     const secondFile = second.files.find((name) => name !== firstFile) as string;
@@ -258,7 +270,7 @@ describe('history: loupe.notes.json', () => {
 
     const off = notesRun(run, 'off');
     expect(off.output).not.toContain('Loupe: history');
-    expect([off.block?.notesFile, off.files.length]).toEqual(['off', 3]);
+    expect([off.block?.notesFile, off.block?.notesPath, off.files.length]).toEqual(['off', null, 3]);
   }, 180_000);
 });
 

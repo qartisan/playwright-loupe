@@ -60,6 +60,11 @@ describe('deriveEmbedded: loupe.notes.json', () => {
     expect(deriveEmbedded(report(['a']), window, { ...OPTIONS, notesFile: 'invalid' })?.notesFile).toBe('invalid');
     expect(deriveEmbedded(report(['a']), window, { ...OPTIONS, notesFile: 'off' })?.notesFile).toBe('off');
   });
+
+  it('embeds where the notes file is, as given, and null when it is off', () => {
+    expect(deriveEmbedded(report(['a']), window, { ...OPTIONS, notesPath: 'config/team-notes.json' })?.notesPath).toBe('config/team-notes.json');
+    expect(deriveEmbedded(report(['a']), window, { ...OPTIONS, notesFile: 'off', notesPath: null })?.notesPath).toBeNull();
+  });
 });
 
 describe('deriveEmbedded', () => {

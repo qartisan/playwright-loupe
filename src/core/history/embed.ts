@@ -25,6 +25,8 @@ export interface EmbedOptions {
   /** What loupe.notes.json says, by run id, masked and cut (`notesByRun`). Run files are never rewritten from it. */
   notes: ReadonlyMap<string, RunNotes>;
   notesFile: NotesFileStatus;
+  /** Where the notes file is, as the report names it (`notesPath`); null with `history.notes: false`. */
+  notesPath: string | null;
 }
 
 const key = (id: string, repeatEachIndex: number): string => `${id}\u0000${repeatEachIndex}`;
@@ -134,6 +136,7 @@ export function deriveEmbedded(report: LoupeReport, read: Pick<HistoryRead, 'run
     // Only a deterministic id (a merge job or a CI job run again) can already be in the file.
     current: { ...options.current, ...notesOf(options.notes, options.current.id) },
     notesFile: options.notesFile,
+    notesPath: options.notesPath,
     skipped: read.skipped,
     runs: window.map((file) => embeddedRun(file, options.notes)),
     cells,

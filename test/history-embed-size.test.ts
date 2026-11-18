@@ -55,7 +55,7 @@ function realisticNotes(runs: readonly HistoryRunFile[]): Map<string, RunNotes> 
 function embedded(report: LoupeReport, otherStreams: number, notes: 'none' | 'realistic' = 'realistic'): EmbeddedHistory {
   const runs = simulateWindow(report, 20, STREAM);
   const others = Array.from({ length: otherStreams }, (_, index) => simulateWindow(report, 1, { environment: `other-${index}`, origin: 'ci' }, random(100 + index))[0]!);
-  const withNotes = notes === 'realistic' ? { notes: realisticNotes(runs), notesFile: 'read' as const } : NO_NOTES;
+  const withNotes = notes === 'realistic' ? { notes: realisticNotes(runs), notesFile: 'read' as const, notesPath: 'loupe.notes.json' } : NO_NOTES;
   const value = deriveEmbedded(report, { runs, others, skipped: 0 }, { include: 'full', stream: STREAM, current: { origin: 'local', excluded: null, id: CURRENT_ID }, currentRunId: 'current', ...withNotes });
   if (value === null) throw new Error('no embedded history');
   return value;

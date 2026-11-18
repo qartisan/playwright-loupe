@@ -37,7 +37,7 @@ Several entries may name the same run (two branches each adding one): their reas
 
 - **The file**: `loupe.notes.json` next to the Playwright config, or `history.notes`, a path relative to the Playwright config. It never depends on `history.dir` or `LOUPE_HISTORY_DIR`: the history may live in a CI cache, the notes file is versioned. `history.notes: false` turns it off. There is no environment variable. Several Playwright configs in one repository each read their own by default, or share one through `history.notes`. Under `merge-reports`, the file is the merge config's, so the merge job needs the repository checked out.
 - **When**: once, when the run starts, with the window of the history. An entry added during a run applies from the next one; the report is static.
-- **What it changes**: the history embedded in the report ([`notesExcluded` and `note`](history-v1.md#embeddedrun), the file's status in [`notesFile`](history-v1.md#embeddedhistory)). Run files are never rewritten: the notes file is the only source of these facts, so removing an entry undoes it from the next run.
+- **What it changes**: the history embedded in the report ([`notesExcluded` and `note`](history-v1.md#embeddedrun), the file's status in [`notesFile`](history-v1.md#embeddedhistory), where it is in [`notesPath`](history-v1.md#embeddedhistory), relative to the Playwright config's folder and never absolute). Run files are never rewritten: the notes file is the only source of these facts, so removing an entry undoes it from the next run.
 
 ## Leniency
 

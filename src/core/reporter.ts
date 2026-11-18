@@ -11,7 +11,7 @@ import { buildReport } from './build.js';
 import type { EmbeddedHistory } from '../schema/history-v1.js';
 import { historyRunId } from './history/detect.js';
 import { deriveEmbedded } from './history/embed.js';
-import { notesByRun, readNotes, type NotesRead } from './history/notes.js';
+import { notesByRun, notesPath, readNotes, type NotesRead } from './history/notes.js';
 import { createReplay, readHistory, windowOfStream, type HistoryRead } from './history/read.js';
 import { maskedExcludeReason, recordRun, reportIdentity, runIdentity, skipReason, type RecordContext } from './history/record.js';
 import { LOCAL_GIT_TIMEOUT_MS, readLocalGit, type LocalGit } from './git.js';
@@ -220,8 +220,18 @@ export class LoupeReporter implements Reporter {
       const { stream, origin } = reportIdentity(report, context);
       // Decided before the write, as recordRun will: no id for a run that is not recorded.
       const current = { origin, excluded: maskedExcludeReason(context), id: skipReason(report, context) === null ? currentRunId : null };
-      const applied = notesByRun(notes?.entries ?? [], createReplay(context.redact, context.home));
-      const options = { include: this.loupeConfig.history.include, stream, current, currentRunId, notes: applied, notesFile: notes?.status ?? 'absent' };
+      const replay = createReplay(context.redact, context.home);
+      // The folder history.notes was resolved from, as loadConfig() chose it.
+      const notesFolder = this.configDir ?? process.cwd();
+      const options = {
+        include: this.loupeConfig.history.include,
+        stream,
+        current,
+        currentRunId,
+        notes: notesByRun(notes?.entries ?? [], replay),
+        notesFile: notes?.status ?? 'absent',
+        notesPath: notesPath(context.history.notes, notesFolder, (text) => replay(text)),
+      };
       return { value: deriveEmbedded(report, read, options), problems: [] };
     } catch (error) {
       return { value: null, problems: [`the history could not be embedded (${error instanceof Error ? error.message : String(error)})`] };
