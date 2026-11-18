@@ -1,4 +1,5 @@
 import type { LoupeReport } from '../../schema/v1.js';
+import { exclusionCopy, type ReportHistory } from '../history.js';
 import { runDetails } from '../runDetails.js';
 import { CopyButton } from './CopyButton.js';
 import { Widget } from './widgets.js';
@@ -21,7 +22,24 @@ export function focusRunDetails(): void {
   heading.focus({ preventScroll: true });
 }
 
-export function RunDetails({ report }: { report: Pick<LoupeReport, 'run' | 'generator'> }) {
+/**
+ * The exclusion of this run, to paste into the notes file: with history, a notes file and a recorded run only.
+ * Where it goes is visible next to the button, plain text, read in the page's order.
+ */
+function CopyExclusion({ history }: { history: ReportHistory }) {
+  const copy = exclusionCopy(history.analysis.history);
+  if (copy === null) return null;
+  return (
+    <p class="run-details-exclude">
+      <CopyButton label="Exclusion" text={() => copy.text}>
+        Copy exclusion for this run
+      </CopyButton>
+      <span>{copy.instruction}</span>
+    </p>
+  );
+}
+
+export function RunDetails({ report, history = null }: { report: Pick<LoupeReport, 'run' | 'generator'>; history?: ReportHistory | null }) {
   return (
     <Widget id={HEADING_ID} class="widget-run-details" title="Run details">
       <div class="run-details">
@@ -50,6 +68,7 @@ export function RunDetails({ report }: { report: Pick<LoupeReport, 'run' | 'gene
           </div>
         ))}
       </div>
+      {history && <CopyExclusion history={history} />}
     </Widget>
   );
 }

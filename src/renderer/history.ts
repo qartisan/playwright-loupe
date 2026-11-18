@@ -1,4 +1,4 @@
-import type { HistoryRun } from '../schema/history-v1.js';
+import type { EmbeddedHistory, HistoryRun } from '../schema/history-v1.js';
 import type { LoupeReport, TestCase } from '../schema/v1.js';
 import {
   analyzeHistory,
@@ -141,6 +141,29 @@ export const NO_STATES_TEXT: Record<NoStatesReason, string> = {
 
 /** The invalid notes file, as one run-level note of the verdict. */
 export const NOTES_INVALID_TEXT = 'loupe.notes.json could not be read: its entries are ignored (see the run output).';
+
+/** The reason of a copied exclusion, for whoever pastes it to replace. */
+export const EXCLUDE_PLACEHOLDER = '<reason>';
+
+/**
+ * The exclusion of the current run, to paste into the notes file, and where it goes; null when it cannot apply:
+ * no notes file (`history.notes: false`) or a run that is not recorded (no id). With a file (read, or invalid and
+ * to be fixed), one entry ending with a comma, so it pastes after `"runs": [` in front of other entries, or alone
+ * (a trailing comma is accepted); without one, a whole minimal file. The path is the block's: relative to the
+ * Playwright config's folder, or a bare name (another drive), then "next to the Playwright config".
+ */
+export function exclusionCopy(block: Pick<EmbeddedHistory, 'current' | 'notesFile' | 'notesPath'>): { text: string; instruction: string } | null {
+  const { id } = block.current;
+  const file = block.notesPath;
+  if (block.notesFile === 'off' || typeof id !== 'string' || typeof file !== 'string' || file === '') return null;
+  const entry = `{ "run": ${JSON.stringify(id)}, "exclude": ${JSON.stringify(EXCLUDE_PLACEHOLDER)} }`;
+  const commit = 'and commit it: it applies from the next run.';
+  if (block.notesFile !== 'absent') return { text: `${entry},`, instruction: `Paste it after "runs": [ in ${file} ${commit}` };
+  return {
+    text: `{\n  "notesVersion": 1,\n  "runs": [\n    ${entry}\n  ]\n}\n`,
+    instruction: file.includes('/') ? `Save it as ${file}, relative to the Playwright config's folder, ${commit}` : `Save it as ${file} next to the Playwright config ${commit}`,
+  };
+}
 
 export function noDeltaText(reason: NoDeltaReason, current: Exclusion, include: 'full' | 'all'): string {
   switch (reason) {

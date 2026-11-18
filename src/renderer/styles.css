@@ -566,6 +566,8 @@ pre.message {
 .run-details dt { color: var(--fg-secondary); }
 .run-details dd { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .run-details .copy-button { min-height: 0; padding: 1px 6px; font-size: 12px; line-height: 16px; }
+/* The copied exclusion and where it goes, under the three columns. */
+.run-details-exclude { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 16px 0 0; color: var(--fg-secondary); font-size: 13px; }
 
 /* Two columns at most; an odd last widget takes the full row, so no row is half empty. */
 .widget-grid {

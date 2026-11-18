@@ -71,7 +71,7 @@ export function OverviewPage({
           <ProjectCards projects={data.projects} />
         </Widget>
       )}
-      <RunDetails report={report} />
+      <RunDetails report={report} history={history} />
     </div>
   );
 }

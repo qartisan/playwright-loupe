@@ -3,12 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { facetCounts, filterContext, filterDomain, filterTests } from '../src/renderer/filters/match.js';
 import { EMPTY_FILTERS, parseFilters, serializeFilters } from '../src/renderer/filters/url.js';
 import {
+  EXCLUDE_PLACEHOLDER,
   NOTES_INVALID_TEXT,
   NO_STATES_TEXT,
   attemptsText,
   cellName,
   cellUse,
   countersText,
+  exclusionCopy,
   exclusionReasons,
   failureGap,
   formatFailedChange,
@@ -233,5 +235,35 @@ describe('test detail texts', () => {
     expect(countersText({ failures: 5, statusChanges: 9, passedOnRetry: 0, considered: 20 }, false)).toBe('Failed 5 of the last 20 runs · changed status 9 times');
     expect(stateDetail('new-failure', 7)).toBe('no failure in its last 7 runs in this stream');
     for (const state of HISTORY_STATES) expect(stateDetail(state, 3)).not.toMatch(/root cause|because/i);
+  });
+});
+
+describe('the exclusion copied for the current run', () => {
+  const current = { origin: 'local' as const, excluded: null, id: 'github-actions-1234567890-3f9a2c1d' };
+  const copy = (notesFile: 'absent' | 'read' | 'invalid' | 'off', notesPath: string | null = 'loupe.notes.json', id: string | null = current.id) =>
+    exclusionCopy({ current: { ...current, id }, notesFile, notesPath });
+
+  it("the current run's id, escaped as JSON, and a reason to replace", () => {
+    const entry = `{ "run": "${current.id}", "exclude": "${EXCLUDE_PLACEHOLDER}" }`;
+    expect(copy('read')?.text).toBe(`${entry},`);
+    expect(copy('invalid')?.text).toBe(`${entry},`);
+    expect(JSON.parse(copy('absent')?.text ?? '')).toEqual({ notesVersion: 1, runs: [{ run: current.id, exclude: EXCLUDE_PLACEHOLDER }] });
+    expect(exclusionCopy({ current: { ...current, id: 'a"b\\c' }, notesFile: 'read', notesPath: 'loupe.notes.json' })?.text).toContain('"run": "a\\"b\\\\c"');
+  });
+
+  it('where it goes: pasted into the file, or saved next to the config or at a path relative to its folder', () => {
+    expect(copy('read', 'e2e/notes.json')?.instruction).toBe('Paste it after "runs": [ in e2e/notes.json and commit it: it applies from the next run.');
+    expect(copy('absent')?.instruction).toBe('Save it as loupe.notes.json next to the Playwright config and commit it: it applies from the next run.');
+    expect(copy('absent', '../shared/loupe.notes.json')?.instruction).toBe(
+      "Save it as ../shared/loupe.notes.json, relative to the Playwright config's folder, and commit it: it applies from the next run.",
+    );
+  });
+
+  it('nothing to copy: history.notes: false, a run not recorded, no path', () => {
+    expect(copy('off', null)).toBeNull();
+    expect(copy('off')).toBeNull();
+    expect(copy('read', 'loupe.notes.json', null)).toBeNull();
+    expect(copy('read', null)).toBeNull();
+    expect(copy('absent', '')).toBeNull();
   });
 });

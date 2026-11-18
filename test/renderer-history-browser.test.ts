@@ -5,7 +5,9 @@ import { pathToFileURL } from 'node:url';
 import { chromium, expect as expectLocator, type Browser, type Page } from '@playwright/test';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DEFAULT_RENDERER_SETTINGS, injectData, injectHistory, injectSettings } from '../src/core/inject.js';
-import { NOTES_INVALID_TEXT, NO_RESULT_NOTE, NO_RETRIES_TEXT, NO_STATES_TEXT, ORIGIN_TEXT, WHICH_RUNS_TEXT, STATE_HELP, STATE_LABEL, countersText, loadHistory, stateCount, streamDefinition, streamName } from '../src/renderer/history.js';
+import { parseNotes } from '../src/core/history/notes.js';
+import { EXCLUDE_PLACEHOLDER, NOTES_INVALID_TEXT, NO_RESULT_NOTE, NO_RETRIES_TEXT, NO_STATES_TEXT, ORIGIN_TEXT, WHICH_RUNS_TEXT, STATE_HELP, STATE_LABEL, countersText, loadHistory, stateCount, streamDefinition, streamName } from '../src/renderer/history.js';
+import type { EmbeddedHistory } from '../src/schema/history-v1.js';
 import type { LoupeReport } from '../src/schema/v1.js';
 import { HISTORY_STATES, testCells } from '../src/shared/history.js';
 import { ROOT, assertBuilt } from './helpers/fixtures.js';
@@ -27,7 +29,7 @@ const SAMPLE = path.join(ROOT, 'src/renderer/dev/sample.json');
  * `placeholder`: a page whose history placeholder was never replaced (an older reporter); `include-all`: `normal`
  * with `history.include: 'all'`; `notes-all`: `notes` with it.
  */
-type Page_ = HistoryScenario | 'placeholder' | 'include-all' | 'notes-all';
+type Page_ = HistoryScenario | 'placeholder' | 'include-all' | 'notes-all' | 'notes-path' | 'absent-path' | 'notes-off' | 'unrecorded';
 const PAGES: Page_[] = [
   'none',
   'placeholder',
@@ -46,8 +48,32 @@ const PAGES: Page_[] = [
   'notes-invalid',
   'notes-and-launch',
   'notes-current',
+  'notes-path',
+  'absent-path',
+  'notes-off',
+  'unrecorded',
 ];
-const BASE: Partial<Record<Page_, HistoryScenario>> = { placeholder: 'none', 'include-all': 'normal', 'notes-all': 'notes' };
+const BASE: Partial<Record<Page_, HistoryScenario>> = {
+  placeholder: 'none',
+  'include-all': 'normal',
+  'notes-all': 'notes',
+  'notes-path': 'notes',
+  'absent-path': 'normal',
+  'notes-off': 'normal',
+  unrecorded: 'normal',
+};
+/**
+ * How a page's block differs from its scenario's: `history.include: 'all'`; a custom `history.notes` (read, or
+ * absent); `history.notes: false`; a run that is not recorded (no id).
+ */
+const VARIANT: Partial<Record<Page_, (block: EmbeddedHistory) => EmbeddedHistory>> = {
+  'include-all': (block) => ({ ...block, include: 'all' }),
+  'notes-all': (block) => ({ ...block, include: 'all' }),
+  'notes-path': (block) => ({ ...block, notesPath: 'e2e/team-notes.json' }),
+  'absent-path': (block) => ({ ...block, notesPath: 'e2e/loupe.notes.json' }),
+  'notes-off': (block) => ({ ...block, notesFile: 'off', notesPath: null }),
+  unrecorded: (block) => ({ ...block, current: { ...block.current, id: null } }),
+};
 
 describe('history on the Overview and in the filters (file://)', { timeout: 60_000 }, () => {
   let browser: Browser;
@@ -62,7 +88,8 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
     for (const name of PAGES) {
       const scenario = historyScenario(BASE[name] ?? (name as HistoryScenario), sample);
       const { report } = scenario;
-      const history = (name === 'include-all' || name === 'notes-all') && scenario.history ? { ...scenario.history, include: 'all' as const } : scenario.history;
+      const variant = VARIANT[name];
+      const history = variant && scenario.history ? variant(scenario.history) : scenario.history;
       const page = injectSettings(injectData(template, report), DEFAULT_RENDERER_SETTINGS);
       const file = path.join(workDir, `${name}.html`);
       writeFileSync(file, name === 'placeholder' ? page : injectHistory(page, history));
@@ -87,6 +114,93 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
   }
 
   const zone = (page: Page) => page.locator('[data-history]');
+
+  describe('Run details: copy an exclusion for this run', () => {
+    /** Records copied texts instead of the real clipboard; or no Clipboard API at all, for the fallback dialog. */
+    const CLIPBOARD_STUB = `
+      window.__copied = [];
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: { writeText: (text) => { window.__copied.push(text); return Promise.resolve(); } },
+      });
+    `;
+    const NO_CLIPBOARD = "Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });";
+    const NAME = 'Copy exclusion for this run';
+
+    async function overview(name: Page_, script = CLIPBOARD_STUB): Promise<Page> {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+      await page.addInitScript(script);
+      await page.goto(`${urls[name]}#/`);
+      await page.locator('.main h1').first().waitFor();
+      return page;
+    }
+    async function copied(name: Page_): Promise<{ text: string; instruction: string }> {
+      const page = await overview(name);
+      await page.getByRole('button', { name: NAME }).click();
+      await expect.poll(() => page.evaluate("window.__copied.length")).toBe(1);
+      const text = await (page.evaluate("window.__copied[0]") as Promise<string>);
+      const instruction = (await page.locator('.run-details-exclude span').last().textContent()) ?? '';
+      await expectLocator(page.getByRole('status')).toContainText('Exclusion copied to the clipboard.');
+      await page.close();
+      return { text, instruction };
+    }
+    const mask = (text: string) => text;
+    /** The current run's id, as the block says: never a run of the window. */
+    const currentId = historyScenario('normal', sample).history?.current.id as string;
+
+    it("no notes file: a whole minimal file, valid for Loupe's reader, with this run's id; saved next to the config", async () => {
+      const { text, instruction } = await copied('normal');
+      expect(text).toBe(`{\n  "notesVersion": 1,\n  "runs": [\n    { "run": "${currentId}", "exclude": "${EXCLUDE_PLACEHOLDER}" }\n  ]\n}\n`);
+      expect(JSON.parse(text)).toEqual({ notesVersion: 1, runs: [{ run: currentId, exclude: EXCLUDE_PLACEHOLDER }] });
+      const read = parseNotes(text, 'loupe.notes.json', mask);
+      expect([read.status, read.problems, read.entries.map((entry) => entry.run)]).toEqual(['read', [], [currentId]]);
+      expect(historyScenario('normal', sample).history?.runs.some((run) => run.id === currentId)).toBe(false);
+      expect(instruction).toBe('Save it as loupe.notes.json next to the Playwright config and commit it: it applies from the next run.');
+    });
+
+    it('no notes file at a custom path with a folder: named relative to the config folder', async () => {
+      const { instruction } = await copied('absent-path');
+      expect(instruction).toBe("Save it as e2e/loupe.notes.json, relative to the Playwright config's folder, and commit it: it applies from the next run.");
+    });
+
+    it.each(['notes', 'notes-invalid'] as const)("a notes file (%s): one entry that pastes after \"runs\": [ into an empty or a non-empty array", async (name) => {
+      const { text, instruction } = await copied(name);
+      expect(text).toBe(`{ "run": "${currentId}", "exclude": "${EXCLUDE_PLACEHOLDER}" },`);
+      expect(instruction).toBe('Paste it after "runs": [ in loupe.notes.json and commit it: it applies from the next run.');
+      const paste = (file: string) => file.replace('"runs": [', `"runs": [${text}`);
+      const empty = paste('{\n  "notesVersion": 1,\n  "runs": [\n  ]\n}\n');
+      const filled = paste('{\n  "notesVersion": 1,\n  "runs": [\n    { "run": "dev-local-2", "note": "kept" }\n  ]\n}\n');
+      for (const file of [empty, filled]) {
+        const read = parseNotes(file, 'loupe.notes.json', mask);
+        expect([read.status, read.problems], file).toEqual(['read', []]);
+        expect(read.entries.find((entry) => entry.run === currentId)?.exclude, file).toBe(EXCLUDE_PLACEHOLDER);
+      }
+      expect(parseNotes(filled, 'loupe.notes.json', mask).entries.map((entry) => entry.run)).toEqual([currentId, 'dev-local-2']);
+    });
+
+    it('a custom history.notes path is the one named', async () => {
+      const { instruction } = await copied('notes-path');
+      expect(instruction).toBe('Paste it after "runs": [ in e2e/team-notes.json and commit it: it applies from the next run.');
+    });
+
+    it.each(['none', 'placeholder', 'notes-off', 'unrecorded'] as const)('no button (%s): no history, history.notes: false, or a run not recorded', async (name) => {
+      const page = await overview(name);
+      await page.getByRole('heading', { name: 'Run details' }).waitFor();
+      expect(await page.getByRole('button', { name: NAME }).count()).toBe(0);
+      expect(await page.locator('.run-details-exclude').count()).toBe(0);
+      await page.close();
+    });
+
+    it('without the Clipboard API: the fallback dialog shows the text to copy by hand', async () => {
+      const page = await overview('notes', NO_CLIPBOARD);
+      await page.getByRole('button', { name: NAME }).click();
+      const dialog = page.locator('dialog.copy-dialog[open]');
+      await expectLocator(dialog).toHaveCount(1);
+      await expectLocator(dialog.getByRole('heading')).toHaveText('Copy exclusion');
+      await expectLocator(dialog.locator('textarea')).toHaveValue(`{ "run": "${currentId}", "exclude": "${EXCLUDE_PLACEHOLDER}" },`);
+      await page.close();
+    });
+  });
 
   it.each(['none', 'placeholder'] as const)('without history (%s): no history zone, no facet, a history= parameter dropped', async (name) => {
     const overview = await open(name, '#/');

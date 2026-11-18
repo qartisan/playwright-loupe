@@ -39,6 +39,10 @@ Several entries may name the same run (two branches each adding one): their reas
 - **When**: once, when the run starts, with the window of the history. An entry added during a run applies from the next one; the report is static.
 - **What it changes**: the history embedded in the report ([`notesExcluded` and `note`](history-v1.md#embeddedrun), the file's status in [`notesFile`](history-v1.md#embeddedhistory), where it is in [`notesPath`](history-v1.md#embeddedhistory), relative to the Playwright config's folder and never absolute). Run files are never rewritten: the notes file is the only source of these facts, so removing an entry undoes it from the next run.
 
+## From the report
+
+The report's Run details can copy an exclusion for the current run, when the run is recorded and `history.notes` is not `false`. With a file (read or invalid), it copies one entry ending with a comma, to paste after `"runs": [`. Without one, it copies a whole minimal file. The reason is `<reason>`, to replace. The text next to the button names the file by [`notesPath`](history-v1.md#embeddedhistory): a path with a folder reads "relative to the Playwright config's folder", a bare name "next to the Playwright config". A notes file on another Windows drive than the config has no relative form, so it shows only its name, and then "next to the Playwright config" is inexact: accepted, as the report never shows an absolute path.
+
 ## Leniency
 
 The file is JSON, read leniently where people and their tools are:
