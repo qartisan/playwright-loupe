@@ -327,6 +327,9 @@ describe('homePaths, the check of the scripts that publish a report', () => {
     '/c/Users/bob/x',
     'C:\\Users\\bob\\x',
     'C:/Users/bob/x',
+    // A Windows 8.3 short home (GitHub's runners: C:\Users\RUNNER~1 for C:\Users\runneradmin).
+    'C:\\Users\\RUNNER~1\\AppData\\x',
+    'C:/Users/RUNNER~1/AppData/x',
     '\\\\wsl$\\Ubuntu\\home\\bob\\x',
     '\\\\wsl.localhost\\Ubuntu\\home\\bob\\x',
     // Converted by Playwright on Windows (src/core/paths.ts).

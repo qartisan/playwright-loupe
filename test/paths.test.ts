@@ -265,6 +265,31 @@ describe('createPathRewriter, Windows', () => {
   });
 });
 
+describe('createPathRewriter, a Windows 8.3 short home', () => {
+  // GitHub's Windows runners: the profile is C:\Users\runneradmin, the temporary folder it gives is under its
+  // 8.3 short name, C:\Users\RUNNER~1, which is not the home as written. Masked by the generic rule all the same.
+  const SHORT = 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\loupe-it-1\\a.spec.ts';
+  const rewriter = createPathRewriter({ roots: ['D:\\a\\loupe\\loupe\\fixtures'], home: 'C:\\Users\\runneradmin' });
+
+  it('masks it in a stack, with either separator, escaped as JSON, and as a file URL', () => {
+    for (const [text, masked] of [
+      [`    at ${SHORT}:3:5`, '    at ~/AppData/Local/Temp/loupe-it-1/a.spec.ts:3:5'],
+      [`    at f (${SHORT.replaceAll('\\', '/')}:3:5)`, '    at f (~/AppData/Local/Temp/loupe-it-1/a.spec.ts:3:5)'],
+      ['    at file:///C:/Users/RUNNER~1/AppData/Local/Temp/a.spec.ts:1:1', '    at ~/AppData/Local/Temp/a.spec.ts:1:1'],
+    ] as const) {
+      expect(rewriter.file(text), text).toBe(masked);
+    }
+    const escaped = rewriter.text(JSON.stringify(`at ${SHORT}:3:5`));
+    expect(escaped).not.toMatch(/RUNNER|runneradmin/i);
+  });
+
+  it('masks it in a field that selects a test, like the home as written', () => {
+    expect(rewriter.selection(`reads ${SHORT}`)).toBe('reads ~\\AppData\\Local\\Temp\\loupe-it-1\\a.spec.ts');
+    expect(rewriter.selection('reads C:\\Users\\runneradmin\\AppData\\x.json')).toBe('reads ~\\AppData\\x.json');
+    expect(rewriter.selection('reads C:/Users/RUNNER~1/AppData/x.json')).toBe('reads ~/AppData/x.json');
+  });
+});
+
 describe('createPathRewriter, fields that select a test', () => {
   const selection = (home: string | null, text: string, roots: readonly string[] = ['/srv/app/tests']): string => createPathRewriter({ roots, home }).selection(text);
 
