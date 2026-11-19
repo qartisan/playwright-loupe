@@ -156,8 +156,9 @@ export interface EmbeddedHistory {
   notesFile: NotesFileStatus;
   /**
    * The notes file, relative to the Playwright config's folder with `/` separators, masked; the bare file name when
-   * it has no relative form to show (another drive) or one climbing out of that folder through a home directory or
-   * a `redact.env` value. Never absolute. Null with `history.notes: false` (`notesFile: 'off'`).
+   * it has no relative form to show (another drive), or when the segments the relative path reveals enter a home
+   * directory from above it or hold a `redact.env` value. A repository under the home keeps its relative paths.
+   * Never absolute. Null with `history.notes: false` (`notesFile: 'off'`).
    */
   notesPath: string | null;
   /**

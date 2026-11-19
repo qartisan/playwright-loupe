@@ -336,11 +336,59 @@ describe('notes file: where the report says it is', () => {
     expect(win).toBe(NAME);
   });
 
-  it('a path inside the folder is shown, masked: a redact.env value never appears', () => {
-    const shown = at(path.join(base, `notes-${SECRET}`, NAME));
-    expect(shown).not.toContain(SECRET);
-    expect(shown).toMatch(/^notes-.+\/loupe\.notes\.json$/);
+  it('a redact.env value in a revealed segment: the bare name, inside the folder or out of it, under a home or not', () => {
+    expect(at(path.join(base, `notes-${SECRET}`, NAME))).toBe(NAME);
+    expect(at(`/srv/repo/${SECRET}/${NAME}`, '/srv/repo/e2e')).toBe(NAME);
+    expect(at(`${HOME}/repo/${SECRET}/${NAME}`, `${HOME}/repo/e2e`)).toBe(NAME);
     // A climbing path with nothing to hide stays as written.
     expect(at('/work/elsewhere/loupe.notes.json')).toBe('../../elsewhere/loupe.notes.json');
+  });
+
+  it('a repository under the home: the relative path is kept, it names no home (POSIX)', () => {
+    // This machine's home, and a generic one.
+    for (const home of [HOME, '/home/someone', '/Users/someone']) {
+      expect(at(`${home}/repo/loupe.notes.json`, `${home}/repo/fixtures`), home).toBe('../loupe.notes.json');
+      expect(at(`${home}/repo/shared/loupe.notes.json`, `${home}/repo/e2e`), home).toBe('../shared/loupe.notes.json');
+      // The home itself as the common ancestor.
+      expect(at(`${home}/team-notes.json`, `${home}/repo/e2e`), home).toBe('../../team-notes.json');
+    }
+    expect(at('/srv/repo/loupe.notes.json', '/srv/repo/fixtures')).toBe('../loupe.notes.json');
+  });
+
+  it("segments entering a home from above it: the bare name, never another user's name (POSIX)", () => {
+    // From a repository under one home into another: the common ancestor is /home.
+    expect(at('/home/bob/loupe.notes.json', `${HOME}/repo/e2e`)).toBe(NAME);
+    expect(at('/Users/bob/loupe.notes.json', '/Users/someone/repo/e2e')).toBe(NAME);
+    // From outside every home into one: the common ancestor is /.
+    expect(at('/home/bob/loupe.notes.json', '/srv/repo')).toBe(NAME);
+    expect(at(`${HOME}/loupe.notes.json`, '/srv/repo')).toBe(NAME);
+  });
+
+  describe('Windows', () => {
+    const winMask = (home: string) => {
+      const replayed = createReplay({ mode: 'extend', patterns: [], values: [SECRET] }, home);
+      return (text: string) => replayed(text);
+    };
+    const win = (file: string, folder: string, home = 'C:\\Users\\gilles') => notesPath(file, folder, winMask(home), path.win32);
+
+    it('a repository under the home: kept; entering another home from C:\\Users: the bare name', () => {
+      expect(win('C:\\Users\\gilles\\repo\\loupe.notes.json', 'C:\\Users\\gilles\\repo\\fixtures')).toBe('../loupe.notes.json');
+      expect(win('C:\\Users\\gilles\\repo\\shared\\loupe.notes.json', 'C:\\Users\\gilles\\repo\\e2e')).toBe('../shared/loupe.notes.json');
+      // ..\..\..\bob\loupe.notes.json: the common ancestor is C:\Users.
+      expect(win('C:\\Users\\bob\\loupe.notes.json', 'C:\\Users\\gilles\\repo\\e2e')).toBe(NAME);
+      // From a drive root, or outside every home, into one.
+      expect(win('C:\\Users\\bob\\loupe.notes.json', 'C:\\builds\\repo')).toBe(NAME);
+      expect(win('C:\\srv\\loupe.notes.json', 'C:\\builds\\repo')).toBe('../../srv/loupe.notes.json');
+      expect(win(`C:\\builds\\${SECRET}\\loupe.notes.json`, 'C:\\builds\\repo')).toBe(NAME);
+    });
+
+    it('the 8.3 short home is treated like the full one', () => {
+      const home = 'C:\\Users\\runneradmin';
+      for (const user of ['runneradmin', 'RUNNER~1']) {
+        expect(win(`C:\\Users\\${user}\\repo\\loupe.notes.json`, `C:\\Users\\${user}\\repo\\fixtures`, home), user).toBe('../loupe.notes.json');
+        expect(win(`C:\\Users\\${user}\\AppData\\notes.json`, `C:\\Users\\${user}\\repo\\e2e`, home), user).toBe('../../AppData/notes.json');
+        expect(win('C:\\Users\\bob\\loupe.notes.json', `C:\\Users\\${user}\\repo\\e2e`, home), user).toBe(NAME);
+      }
+    });
   });
 });

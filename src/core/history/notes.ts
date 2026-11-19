@@ -315,15 +315,24 @@ export async function readNotes(file: string | null, cwd: string, mask: (text: s
  * The notes file as the report names it (`EmbeddedHistory.notesPath`), so the copied exclusion can say where it
  * goes: relative to the Playwright config's folder (`baseDir`, where `history.notes` is resolved from), with `/`
  * separators on every platform; null with `history.notes: false`. Never an absolute path: with no relative form
- * (another drive on Windows) or none to show (the folder itself), the bare file name. A relative path climbing out
- * of the folder (`..`) can spell a home directory or a `redact.env` value that the absolute path holds
- * (`../../home/runner/loupe.notes.json`): the bare file name too. Then masked like the file's own texts.
+ * (another drive on Windows) or none to show (the folder itself), the bare file name.
+ *
+ * A relative path reveals only the segments after the common ancestor of the folder and the file. It is kept when
+ * that ancestor is inside a home directory, or is one (the mask changes it): the segments below it name no home,
+ * so `../loupe.notes.json` in a repository under the home stays. Otherwise the segments may enter a home from above
+ * it (`/home`, `/`, `C:\Users`, a drive root: `../../../bob/x`), which the mask finds in the absolute path, from
+ * them alone since the ancestor holds nothing to mask: the bare file name. The bare name too when the relative path
+ * itself holds something to mask (a `redact.env` value). Then masked like the file's own texts.
  */
 export function notesPath(file: string | null, baseDir: string, mask: (text: string) => string, paths: path.PlatformPath = path): string | null {
   if (file === null) return null;
   const relative = paths.relative(baseDir, file);
-  const climbs = relative === '..' || relative.startsWith(`..${paths.sep}`);
-  const bare = relative === '' || paths.isAbsolute(relative) || (climbs && mask(file) !== file);
+  if (relative === '' || paths.isAbsolute(relative)) return mask(paths.basename(file));
+  const segments = relative.split(paths.sep);
+  const up = segments.findIndex((segment) => segment !== '..');
+  const ancestor = paths.resolve(baseDir, ...segments.slice(0, up === -1 ? segments.length : up));
+  const insideHome = mask(ancestor) !== ancestor;
+  const bare = mask(relative) !== relative || (!insideHome && mask(file) !== file);
   return mask((bare ? paths.basename(file) : relative).split(paths.sep).join('/'));
 }
 
