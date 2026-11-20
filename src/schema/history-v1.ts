@@ -194,9 +194,11 @@ export interface EmbeddedHistory {
   attempts: Array<[test: number, run: number, attempts: string]>;
   /**
    * `[signature, category, extract]`, most recently seen first. Only the first
-   * `EMBEDDED_EXTRACTS` have their extract; the others have `null`.
+   * `EMBEDDED_EXTRACTS` have their extract; the others have `null`. A fourth
+   * element, `true`, when the extract is shorter than the message (`xc` of the
+   * run file it comes from); omitted otherwise, and for a run file without `xc`.
    */
-  signatures: Array<[signature: string, category: string | null, extract: string | null]>;
+  signatures: Array<[signature: string, category: string | null, extract: string | null, cut?: true]>;
   /** The newest run of every other stream, newest first. */
   others: EmbeddedOtherRun[];
 }

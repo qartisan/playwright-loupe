@@ -158,7 +158,7 @@ Statuses are one character per test and run, aligned with the report's `tests`, 
 | `failures` | `number[][]` | For each test with an `F` or `K` cell: `[test, sig, sig, …]`, one index into `signatures` per `F` or `K` cell, in run order. The signature of a cell is the first error of its first failed attempt; `-1` when there is none to compare (no error, or a run of another signature version). |
 | `failureAttempts` | `string` | The attempts (as `HistoryTest.a`) of every `F` or `K` cell, in the order of `failures`, separated by spaces: `FF FP TF`. |
 | `attempts` | `[test, run, attempts][]` | The attempts of the other cells, only when the code does not imply them (a single `P` for `P`, a single `S` for `S`): an expected failure, a pass after a retry of another kind. |
-| `signatures` | `[signature, category, extract][]` | The signatures of the window's failures, most recently seen first. Only the first 300 have their extract; the others have `null`. |
+| `signatures` | `[signature, category, extract, cut?][]` | The signatures of the window's failures, most recently seen first. Only the first 300 have their extract; the others have `null`. `cut`, `true`, only when the extract is shorter than the message (the failure's `xc`), so the report can say so; omitted otherwise, and for a run file written without `xc`. |
 | `others` | `EmbeddedOtherRun[]` | The newest run of every other stream, newest first. |
 
 ### EmbeddedRun

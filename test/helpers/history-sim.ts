@@ -12,6 +12,12 @@ export function random(seed = 42): () => number {
   return () => (state = (state * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
 }
 
+/** An extract as the run file writes it: flagged `xc` when it is shorter than the message. */
+const extractOf = (message: string): { x: string; xc?: true } => {
+  const x = extract(message);
+  return x === message ? { x } : { x, xc: true };
+};
+
 const hex = (rnd: () => number, length: number) => Array.from({ length }, () => '0123456789abcdef'[Math.floor(rnd() * 16)]).join('');
 
 const sample = (): LoupeReport => JSON.parse(readFileSync(path.join(ROOT, 'src/renderer/dev/sample.json'), 'utf8')) as LoupeReport;
@@ -77,7 +83,7 @@ export function simulateWindow(report: LoupeReport, runs = 20, stream: HistoryRu
             i: 0,
             sig: [own ? (test.errorSignature as string) : hex(rnd, 12)],
             cat: own ? (ownError?.category ?? null) : picked.category,
-            x: extract(own ? (ownError?.message ?? picked.message) : `${picked.message} ${hex(rnd, 10)}`),
+            ...extractOf(own ? (ownError?.message ?? picked.message) : `${picked.message} ${hex(rnd, 10)}`),
             at: null,
           },
         ];

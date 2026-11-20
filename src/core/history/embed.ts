@@ -67,10 +67,10 @@ function embeddedRun(file: HistoryRunFile, notes: ReadonlyMap<string, RunNotes>)
 }
 
 /** The signature a cell is compared on: the first error of its first failed attempt. */
-function cellFailure(test: HistoryTest | undefined): { sig: string; cat: string | null; x: string | null } | null {
+function cellFailure(test: HistoryTest | undefined): { sig: string; cat: string | null; x: string | null; xc: boolean } | null {
   const failure = test?.f?.[0];
   const sig = failure?.sig[0];
-  return failure && sig !== undefined ? { sig, cat: failure.cat ?? null, x: failure.x ?? null } : null;
+  return failure && sig !== undefined ? { sig, cat: failure.cat ?? null, x: failure.x ?? null, xc: failure.xc === true } : null;
 }
 
 const failing = (code: string | undefined): boolean => code === 'F' || code === 'K';
@@ -104,7 +104,9 @@ export function deriveEmbedded(report: LoupeReport, read: Pick<HistoryRead, 'run
       const failure = cellFailure(test);
       if (failure === null || index.has(failure.sig)) continue;
       index.set(failure.sig, signatures.length);
-      signatures.push([failure.sig, failure.cat, signatures.length < EMBEDDED_EXTRACTS ? failure.x : null]);
+      const extract = signatures.length < EMBEDDED_EXTRACTS ? failure.x : null;
+      // A cut extract says so, for the report to mark its end; only with its text.
+      signatures.push(extract !== null && failure.xc ? [failure.sig, failure.cat, extract, true] : [failure.sig, failure.cat, extract]);
     }
   }
 
