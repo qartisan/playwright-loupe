@@ -181,6 +181,8 @@ const MATRIX: State[] = [
   ['history: test, first run, other streams open', 'historyFirstRun', `#/test/${FAILING}`, { arrange: click('details.history-more > summary'), reached: 'details.history-more[open]' }],
   ['history: test at 320px, run selected', 'history', `#/test/${FAILING}`, { width: 320, arrange: (page) => page.locator('.strip-cell').nth(2).click(), reached: '.run-selected' }],
   ['forced colours: history, state in the header and the section', 'history', `#/test/${FAILING}`, { forcedColors: true, reached: '.test-state-link' }],
+  ['forced colours: test detail, the source frame focused', 'sample', `#/test/${FAILING}`, { forcedColors: true, width: 360, arrange: (page) => page.locator('.code-scroll').first().focus(), reached: '.code-scroll[role="region"]:focus' }],
+  ['test detail at 360px, the source frame focused', 'sample', `#/test/${FAILING}`, { width: 360, arrange: (page) => page.locator('.code-scroll').first().focus(), reached: '.code-scroll[role="region"]:focus' }],
   ['forced colours: history, run selected', 'history', `#/test/${FAILING}`, { forcedColors: true, arrange: (page) => page.locator('.strip-cell').nth(5).click(), reached: '.run-selected' }],
   ['forced colours: history, overview note', 'historyVersionBreak', '#/', { forcedColors: true, reached: '.history-notice' }],
 ];
@@ -579,9 +581,9 @@ describe('accessibility matrix (axe-core, file://)', { timeout: 60_000 }, () => 
 
     it('reaches a code snippet with Tab, shows the focus ring and scrolls it with the arrow keys', async () => {
       const page = await open(`${urls.sample}#/test/${FAILING}`, 360);
-      const snippet = page.locator('.code-snippet').first();
+      const snippet = page.locator('.code-scroll').first();
       expect(await snippet.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
-      expect(await tabTo(page, '.code-snippet')).toBe(true);
+      expect(await tabTo(page, '.code-scroll')).toBe(true);
       expect(await outlineOf(page)).toBe('solid');
       for (let index = 0; index < 5; index++) await page.keyboard.press('ArrowRight');
       await expect.poll(() => snippet.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);

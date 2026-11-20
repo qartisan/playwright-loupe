@@ -33,6 +33,7 @@ No change to the JSON shape: `schemaVersion` stays 1. Run history is a second co
 
 - **The test detail showed a prefixed tag twice**, in its Tags row (`@layer:api`) and as its dimension (Layer `api`). A tag a dimension takes now shows only as that dimension's value, as in the filters and the Tests view chips. The search still matches the raw tag.
 - **The test detail's two rerun buttons read almost the same**, and the second one's label grew with the projects ("Copy rerun command · 2 failed tests in this file, in chromium-a, chromium-b"). They are now a group, "Copy rerun command:", whose buttons show only their scope ("This test", "2 failed tests in this file"), with complete accessible names; the projects are in the second button's description and tooltip.
+- **The test detail's source frame had no name**: Tab reached it, as it scrolls sideways, and a screen reader announced only "start of code". It is now a region named after its file and line ("Source, basics.spec.ts, line 38"), with one tab stop and a focus ring, and only while it actually scrolls. The message, the stack and the output wrap and never scroll: they stay as they were.
 
 ## [0.3.3] - 2026-11-17
 

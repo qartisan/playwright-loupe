@@ -65,8 +65,8 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     return pathToFileURL(file).href;
   }
 
-  async function open(hash: string, options: { init?: string; colorScheme?: 'light' | 'dark'; reportUrl?: string } = {}): Promise<{ page: Page; errors: string[] }> {
-    const context = await browser.newContext({ colorScheme: options.colorScheme ?? 'light', viewport: { width: 1400, height: 900 } });
+  async function open(hash: string, options: { init?: string; colorScheme?: 'light' | 'dark'; reportUrl?: string; width?: number } = {}): Promise<{ page: Page; errors: string[] }> {
+    const context = await browser.newContext({ colorScheme: options.colorScheme ?? 'light', viewport: { width: options.width ?? 1400, height: 900 } });
     if (options.init) await context.addInitScript({ content: options.init });
     const page = await context.newPage();
     const errors: string[] = [];
@@ -129,6 +129,76 @@ describe('test detail in a browser (file://)', { timeout: 30_000 }, () => {
     expect(await page.getByRole('tab', { selected: true }).textContent()).toMatch(/^Attempt 1/);
     expect(errors).toEqual([]);
     await page.close();
+  });
+
+  describe('scrollable blocks: the source frame is a named region, focusable only while it scrolls', () => {
+    const failing = () => find('fails on a wrong heading (intentional)');
+    const frame = (page: Page) => page.locator('.error-card').first().locator('.code-scroll');
+    /** What a block is to assistive technologies and the keyboard, and whether it scrolls. */
+    const facts = (locator: ReturnType<Page['locator']>) =>
+      locator.evaluate((element) => ({
+        role: element.getAttribute('role'),
+        label: element.getAttribute('aria-label'),
+        tabIndex: element.getAttribute('tabindex'),
+        scrolls: element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 1,
+      }));
+
+    it.each([1280, 320])('at %ipx, the frame scrolls: a region named "Source, <file>, line <n>", one tab stop; its <pre> unchanged', async (width) => {
+      const test = failing();
+      const error = test.attempts.flatMap((attempt) => attempt.errors).find((candidate) => candidate.snippet && candidate.location);
+      if (!error?.location) throw new Error('no snippet with a location');
+      const { page, errors } = await open(testHash(test), { width });
+      await frame(page).waitFor();
+      await expect.poll(() => facts(frame(page))).toEqual({ role: 'region', label: `Source, ${error.location.file}, line ${error.location.line}`, tabIndex: '0', scrolls: true });
+      expect(await page.getByRole('region', { name: `Source, ${error.location.file}, line ${error.location.line}` }).count()).toBe(1);
+      // The <pre> keeps its text and is neither focusable nor a scroller itself.
+      const pre = frame(page).locator('pre.code-snippet');
+      expect(await pre.getAttribute('tabindex')).toBeNull();
+      expect(await pre.evaluate((element) => element.scrollWidth > element.clientWidth + 1)).toBe(false);
+      expect(await pre.locator('.tone-marker').allTextContents()).toEqual(['>', '^']);
+      expect(errors).toEqual([]);
+      await page.close();
+    });
+
+    it('a frame that fits: no region, no name, no tab stop; it becomes one when the page narrows', async () => {
+      const { page } = await open(testHash(failing()), { width: 2400 });
+      await frame(page).waitFor();
+      await expect.poll(() => facts(frame(page))).toEqual({ role: null, label: null, tabIndex: null, scrolls: false });
+      await page.setViewportSize({ width: 360, height: 900 });
+      await expect.poll(() => facts(frame(page))).toMatchObject({ role: 'region', tabIndex: '0', scrolls: true });
+      await page.close();
+    });
+
+    it.each([1400, 320])('at %ipx, the message, the stack once shown, a step error and the output never scroll: no region, no tab stop', async (width) => {
+      const { page } = await open(testHash(failing()), { width });
+      await page.locator('.error-card').first().waitFor();
+      await page.evaluate("document.querySelectorAll('details').forEach((details) => { details.open = true; })");
+      const blocks = page.locator('pre.error-message, pre.stack, pre.step-error, .output-block pre, .attachment-body pre');
+      expect(await blocks.count()).toBeGreaterThan(1);
+      for (const block of await blocks.all()) {
+        expect(await facts(block)).toEqual({ role: null, label: null, tabIndex: null, scrolls: false });
+      }
+      // The only region of the attempt, when there is one, is the source frame.
+      expect(await page.locator('.attempt-panel [role="region"]:not(.code-scroll)').count()).toBe(0);
+      await page.close();
+    });
+
+    it.each([
+      ['light', false],
+      ['dark', false],
+      ['light', true],
+    ] as const)('%s theme (forced colours: %s): a visible focus ring on the frame', async (colorScheme, forced) => {
+      const { page } = await open(testHash(failing()), { colorScheme, width: 360 });
+      if (forced) await page.emulateMedia({ forcedColors: 'active' });
+      await frame(page).focus();
+      const outline = await frame(page).evaluate((element) => {
+        const css = element.ownerDocument.defaultView!.getComputedStyle(element);
+        return { style: css.outlineStyle, width: parseFloat(css.outlineWidth), color: css.outlineColor, background: element.ownerDocument.defaultView!.getComputedStyle(element.ownerDocument.body).backgroundColor };
+      });
+      expect([outline.style, outline.width]).toEqual(['solid', 2]);
+      expect(outline.color).not.toBe(outline.background);
+      await page.close();
+    });
   });
 
   it.each(['light', 'dark'] as const)('shows errors with Expected / Received, the snippet arrow, the stack collapsed, in the %s theme', async (colorScheme) => {

@@ -1,4 +1,5 @@
-import { useState } from 'preact/hooks';
+import type { ComponentChildren } from 'preact';
+import { useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { Attachment, LoupeError, Output, Step } from '../../schema/v1.js';
 import type { ErrorGroup } from '../dashboard.js';
 import { NO_CATEGORY } from '../dashboard.js';
@@ -17,6 +18,38 @@ import { groupHref } from './widgets.js';
 function locationText(location: { file: string; line: number; column?: number } | null): string | null {
   if (!location) return null;
   return location.column === undefined ? `${location.file}:${location.line}` : `${location.file}:${location.line}:${location.column}`;
+}
+
+/**
+ * A block that scrolls when its content is wider than the page: the WAI pattern for a scrollable region, applied
+ * only while it actually scrolls (a role, a name, one tab stop so the keyboard can scroll it). The content inside
+ * (a `<pre>`) stays as it is, so reading it line by line does not change. Measured again when its size changes.
+ * Of the detail's blocks, only the source frame keeps its columns; the others wrap and never scroll.
+ */
+function ScrollableCode({ label, children }: { label: string; children: ComponentChildren }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [scrolls, setScrolls] = useState(false);
+  useLayoutEffect(() => {
+    const element = box.current;
+    if (!element) return;
+    const measure = (): void => setScrolls(element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 1);
+    measure();
+    if (typeof ResizeObserver !== 'function') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    if (element.firstElementChild) observer.observe(element.firstElementChild);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <div ref={box} class="code-scroll" {...(scrolls ? { role: 'region', 'aria-label': label, tabIndex: 0 } : {})}>
+      {children}
+    </div>
+  );
+}
+
+/** "Source, basics.spec.ts, line 38": the name of an error's source frame, from its location when it has one. */
+function sourceLabel(location: LoupeError['location']): string {
+  return location ? `Source, ${location.file}, line ${location.line}` : 'Source';
 }
 
 /** An error of an attempt. `secondary`: raised after the test timeout (secondary.ts), labelled as such. */
@@ -39,10 +72,12 @@ export function ErrorCard({ error, group, color, secondary = false }: { error: L
         <Highlighted lines={highlightMessage(error.message)} />
       </pre>
       {error.snippet && (
-        // Focusable: the snippet keeps its columns (the caret points at one), so it scrolls sideways, also with the keyboard.
-        <pre class="code-snippet" tabIndex={0}>
-          <Highlighted lines={highlightSnippet(error.snippet)} />
-        </pre>
+        // The snippet keeps its columns (the caret points at one), so it may scroll sideways, also with the keyboard.
+        <ScrollableCode label={sourceLabel(error.location)}>
+          <pre class="code-snippet">
+            <Highlighted lines={highlightSnippet(error.snippet)} />
+          </pre>
+        </ScrollableCode>
       )}
       {error.stack && error.stack !== error.message && (
         <details class="stack-details">

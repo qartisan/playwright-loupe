@@ -1119,6 +1119,9 @@ pre.code-snippet, pre.stack, .output-block pre, .attachment-body pre {
   background: var(--bg-muted);
 }
 pre.stack, .output-block pre, .attachment-body pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* The source frame scrolls in its box, the frame as wide as its longest line; a region with a focus ring when it scrolls. */
+.code-scroll { overflow-x: auto; border-radius: 6px; }
+.code-scroll > pre.code-snippet { box-sizing: border-box; width: max-content; min-width: 100%; overflow: visible; }
 .tone-expected { color: var(--diff-expected); }
 .tone-received { color: var(--diff-received); }
 .tone-marker { color: var(--status-failed); font-weight: 600; }
