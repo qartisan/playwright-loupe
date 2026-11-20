@@ -11,6 +11,7 @@ import { A11Y_ALLOWLIST } from './a11y-allowlist.js';
 import { audit, describeFinding, type AllowEntry, type Finding } from './helpers/axe.js';
 import { cascadeReport } from './helpers/cascade.js';
 import { historyScenario, type HistoryScenario } from './helpers/history-scenarios.js';
+import type { EmbeddedHistory } from '../src/schema/history-v1.js';
 import { ROOT, assertBuilt, isMissingAttachmentFile } from './helpers/fixtures.js';
 import { solidPng } from './helpers/png.js';
 
@@ -60,7 +61,18 @@ const HISTORY_DATASETS = {
   historyFirstRun: 'first-run',
   historyAllExcluded: 'all-excluded',
   historyNoRetries: 'no-retries',
+  historyNotes: 'notes',
+  historyNotesInvalid: 'notes-invalid',
+  historyNotesAndLaunch: 'notes-and-launch',
+  historyNotesAbove: 'normal',
 } as const satisfies Record<string, HistoryScenario>;
+
+/** How a dataset's block differs from its scenario's: no notes file yet, configured in a folder above the config's. */
+const HISTORY_BLOCKS: Partial<Record<keyof typeof HISTORY_DATASETS, (block: EmbeddedHistory) => EmbeddedHistory>> = {
+  historyNotesAbove: (block) => ({ ...block, notesFile: 'absent', notesPath: '../shared/loupe.notes.json' }),
+};
+/** A strip cell by its run (the dev scenarios' run ids): run 9 is excluded at launch and in the file, with a note. */
+const runCell = (id: string) => (page: Page) => page.locator(`.strip-cell[data-run-id="${id}"]`).click();
 
 type Dataset = PlainDataset | keyof typeof HISTORY_DATASETS;
 
@@ -189,6 +201,22 @@ const MATRIX: State[] = [
   ['test detail at 360px, the source frame focused', 'sample', `#/test/${FAILING}`, { width: 360, arrange: (page) => page.locator('.code-scroll').first().focus(), reached: '.code-scroll[role="region"]:focus' }],
   ['forced colours: history, run selected', 'history', `#/test/${FAILING}`, { forcedColors: true, arrange: (page) => page.locator('.strip-cell').nth(5).click(), reached: '.run-selected' }],
   ['forced colours: history, run selected, its error extract cut', 'history', `#/test/${CUT_EXTRACT}`, { forcedColors: true, arrange: (page) => page.locator('.strip-cell').nth(1).click(), reached: '.run-selected-cut' }],
+  // Notes and exclusions (loupe.notes.json): the verdict note of an invalid file, the copy buttons and the text
+  // next to them (file read, absent at a path with a folder), a run's reasons and note, the fallback dialog.
+  ['notes: overview, the invalid notes file note', 'historyNotesInvalid', '#/', { reached: '.verdict-history .history-notice' }],
+  ['notes: run details, copy exclusion, file read', 'historyNotes', '#/run-details', { reached: '.run-details-exclude .copy-button' }],
+  ['notes: run details, copy exclusion, no file yet at ../shared/', 'historyNotesAbove', '#/run-details', { reached: '.run-details-exclude .copy-button' }],
+  ['notes: test, run selected, both reasons, a note and the copy button', 'historyNotesAndLaunch', `#/test/${FAILING}`, { arrange: runCell('dev-local-9'), reached: '.run-selected .copy-button' }],
+  ['notes: test, run selected, its error extract cut and the copy button', 'historyNotes', `#/test/${CUT_EXTRACT}`, { arrange: (page) => page.locator('.strip-cell').nth(1).click(), reached: '.run-selected-cut' }],
+  ['notes: test, current run selected, copy exclusion', 'historyNotes', `#/test/${FAILING}`, { arrange: (page) => page.locator('.strip-cell').last().click(), reached: '.run-selected .copy-button' }],
+  ['notes: test, run selected, no file yet at ../shared/', 'historyNotesAbove', `#/test/${FAILING}`, { arrange: (page) => page.locator('.strip-cell').nth(5).click(), reached: '.run-selected-copy-note' }],
+  ['notes: test at 320px, run selected, both reasons, a note and the copy button', 'historyNotesAndLaunch', `#/test/${FAILING}`, { width: 320, arrange: runCell('dev-local-9'), reached: '.run-selected .copy-button' }],
+  ['notes: test, header state chip focused, run selected', 'historyNotes', `#/test/${CUT_EXTRACT}`, { arrange: async (page) => { await page.locator('.strip-cell').nth(1).click(); await page.locator('.test-state-link').focus(); }, reached: '.test-state-link:focus' }],
+  ['notes: copy exclusion fallback dialog', 'historyNotes', `#/test/${FAILING}`, { init: NO_CLIPBOARD, arrange: async (page) => { await page.locator('.strip-cell').nth(5).click(); await page.locator('.run-selected .copy-button').click(); }, reached: 'dialog.copy-dialog[open]' }],
+  ['forced colours: notes, the invalid notes file note', 'historyNotesInvalid', '#/', { forcedColors: true, reached: '.verdict-history .history-notice' }],
+  ['forced colours: notes, run details, copy exclusion', 'historyNotes', '#/run-details', { forcedColors: true, reached: '.run-details-exclude .copy-button' }],
+  ['forced colours: notes, run selected, both reasons, a note and the copy button', 'historyNotesAndLaunch', `#/test/${FAILING}`, { forcedColors: true, arrange: runCell('dev-local-9'), reached: '.run-selected .copy-button' }],
+  ['forced colours: notes, run selected, no file yet at ../shared/', 'historyNotesAbove', `#/test/${FAILING}`, { forcedColors: true, arrange: (page) => page.locator('.strip-cell').nth(5).click(), reached: '.run-selected-copy-note' }],
   ['forced colours: history, overview note', 'historyVersionBreak', '#/', { forcedColors: true, reached: '.history-notice' }],
 ];
 
@@ -346,7 +374,10 @@ describe('accessibility matrix (axe-core, file://)', { timeout: 60_000 }, () => 
       urls[name] = pathToFileURL(file).href;
     }
     for (const [name, scenario] of Object.entries(HISTORY_DATASETS) as Array<[keyof typeof HISTORY_DATASETS, HistoryScenario]>) {
-      const { report, history } = historyScenario(scenario, sample);
+      const derived = historyScenario(scenario, sample);
+      const { report } = derived;
+      const variant = HISTORY_BLOCKS[name];
+      const history = variant && derived.history ? variant(derived.history) : derived.history;
       const file = path.join(workDir, `${name}.html`);
       writeFileSync(file, injectHistory(injectSettings(injectData(template, report), { ...DEFAULT_RENDERER_SETTINGS, title: 'Storefront' }), history));
       urls[name] = pathToFileURL(file).href;
