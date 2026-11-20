@@ -1004,8 +1004,10 @@ span.dimension-tile { cursor: default; }
 .run-selected-facts { display: flex; flex-wrap: wrap; gap: 2px 16px; margin: 0; padding: 0; list-style: none; }
 .run-selected-use, .run-selected-note { margin: 6px 0 0; overflow-wrap: anywhere; }
 .run-selected-extract { margin: 8px 0 0; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
-.run-selected-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.run-selected-actions { flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .run-selected-copy-note { color: var(--fg-secondary); }
+/* Close last, at the end of its line: the row grows to fill its line, beside the heading or under it, so Close reaches the right edge. */
+.run-selected-close { margin-left: auto; }
 .history-counters { margin: 10px 0 4px; font-variant-numeric: tabular-nums; }
 /* Counters, no-retries line and other streams: closed by default, the counters as the summary. */
 .history-more { margin-top: 10px; }

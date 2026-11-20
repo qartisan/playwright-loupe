@@ -923,14 +923,17 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
       await page.close();
     });
 
-    it('Tab from the strip enters the details on Close, which comes after the heading and before the facts, never losing focus to the page', async () => {
+    it('Tab from the strip enters the details on the copy button, then Close, both after the heading and before the facts, never losing focus to the page', async () => {
       const page = await open('tallest', testHash(failing));
       await select(page, 1);
       await page.keyboard.press('Tab');
+      await expectLocator(region(page).getByRole('button', { name: 'Copy exclusion for this run' })).toBeFocused();
+      await page.keyboard.press('Tab');
       await expectLocator(region(page).getByRole('button', { name: 'Close the selected run' })).toBeFocused();
-      // In the DOM: the heading, Close, then the facts, the extract.
+      await page.keyboard.press('Shift+Tab');
+      // In the DOM: the heading, the copy button, Close, then the facts, the extract.
       const order = await region(page).evaluate((section) =>
-        ['h3', '.run-selected-actions button', '.run-selected-facts', '.run-selected-extract'].map((selector) => {
+        ['h3', '.run-selected-actions .copy-button', '.run-selected-close', '.run-selected-facts', '.run-selected-extract'].map((selector) => {
           const element = section.querySelector(selector);
           return element ? [...section.querySelectorAll('*')].indexOf(element) : -1;
         }),
@@ -1063,19 +1066,29 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
         await page.close();
       });
 
-      it.each([1280, 320])('Tab order at %ipx: the option, Close, then the copy button; the row after the heading, before the facts', async (width) => {
+      it.each([1280, 320])('Tab order at %ipx: the option, the copy button, then Close; the row after the heading, before the facts, Close at its end', async (width) => {
         const page = await detail('notes', CLIPBOARD_STUB, width);
         await select(page, PAST);
         await page.keyboard.press('Tab');
-        await expectLocator(region(page).getByRole('button', { name: 'Close the selected run' })).toBeFocused();
-        await page.keyboard.press('Tab');
         await expectLocator(region(page).getByRole('button', { name: COPY })).toBeFocused();
+        await page.keyboard.press('Tab');
+        await expectLocator(region(page).getByRole('button', { name: 'Close the selected run' })).toBeFocused();
+        // And back: the copy button, then the strip's one tab stop.
+        await page.keyboard.press('Shift+Tab');
+        await expectLocator(region(page).getByRole('button', { name: COPY })).toBeFocused();
+        await page.keyboard.press('Shift+Tab');
+        expect(await focusedCell(page)).toBe(String(PAST));
         const heading = await region(page).getByRole('heading', { level: 3 }).boundingBox();
         const copy = await region(page).getByRole('button', { name: COPY }).boundingBox();
+        const close = await region(page).getByRole('button', { name: 'Close the selected run' }).boundingBox();
         const facts = await region(page).locator('.run-selected-facts').boundingBox();
-        if (!heading || !copy || !facts) throw new Error('no box');
+        const box = await region(page).boundingBox();
+        if (!heading || !copy || !close || !facts || !box) throw new Error('no box');
         expect(copy.y).toBeGreaterThanOrEqual(heading.y + heading.height - 0.5);
-        expect(copy.y + copy.height).toBeLessThanOrEqual(facts.y + 0.5);
+        expect(close.y + close.height).toBeLessThanOrEqual(facts.y + 0.5);
+        // Close ends the row: after the copy button (beside it, or on a line of its own below), at the right edge.
+        expect(close.x > copy.x + copy.width || close.y >= copy.y + copy.height - 0.5).toBe(true);
+        expect(box.x + box.width - (close.x + close.width)).toBeLessThan(24);
         await page.close();
       });
     });

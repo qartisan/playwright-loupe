@@ -145,11 +145,9 @@ function SelectedRun({ cell, date, include, notes, source, onClose }: { cell: St
           Selected run, {date}
           {cell.current && ' (this run)'}
         </h3>
-        {/* The run's actions: Close, then the copy of its exclusion and where it goes, as the Run details card's. */}
+        {/* The run's actions: the useful one first, the copy of its exclusion and where it goes (as the Run details
+            card's), and the dismissal last, at the end of the row. */}
         <div class="run-selected-actions">
-          <button type="button" class="button" onClick={onClose}>
-            Close<span class="visually-hidden"> the selected run</span>
-          </button>
           {copy && (
             <>
               <CopyButton label="Exclusion" text={() => copy.text}>
@@ -158,6 +156,9 @@ function SelectedRun({ cell, date, include, notes, source, onClose }: { cell: St
               <span class="run-selected-copy-note">{copy.instruction}</span>
             </>
           )}
+          <button type="button" class="button run-selected-close" onClick={onClose}>
+            Close<span class="visually-hidden"> the selected run</span>
+          </button>
         </div>
       </div>
       <ul class="run-selected-facts">
