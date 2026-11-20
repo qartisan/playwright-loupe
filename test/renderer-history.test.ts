@@ -219,7 +219,7 @@ describe('the notes file named as configured', () => {
 describe('test detail texts', () => {
   const run = { origin: 'ci', excluded: null, scopeReasons: [] } as unknown as HistoryCell['run'];
   const cell = (fields: Partial<HistoryCell> = {}): HistoryCell =>
-    ({ index: 0, run, code: 'F', attempts: 'FT', flags: [], runCounts: true, counts: true, failure: { category: 'Timeout', extract: 'x', compared: true }, ...fields }) as HistoryCell;
+    ({ index: 0, run, code: 'F', attempts: 'FT', flags: [], runCounts: true, counts: true, failure: { category: 'Timeout', extract: 'x', cut: false, compared: true }, ...fields }) as HistoryCell;
 
   it('the name of a cell, short: date, origin, result, category, then one word for a run drawn apart; never a reason or a note', () => {
     expect(cellName(cell(), '12 Nov 14:03')).toBe('12 Nov 14:03, CI, failed, Timeout');
@@ -267,8 +267,8 @@ describe('test detail texts', () => {
   });
 
   it('why a failure shows no error text', () => {
-    expect(failureGap(cell({ failure: { category: null, extract: null, compared: false } }))).toMatch(/^Error not compared: /);
-    expect(failureGap(cell({ failure: { category: 'Timeout', extract: null, compared: true } }))).toMatch(/^Error text not kept: .*300/);
+    expect(failureGap(cell({ failure: { category: null, extract: null, cut: false, compared: false } }))).toMatch(/^Error not compared: /);
+    expect(failureGap(cell({ failure: { category: 'Timeout', extract: null, cut: false, compared: true } }))).toMatch(/^Error text not kept: .*300/);
     expect(failureGap(cell())).toBeNull();
     expect(failureGap(cell({ failure: null }))).toBeNull();
   });

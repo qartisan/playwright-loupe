@@ -81,7 +81,7 @@ function currentCell(report: LoupeReport, test: TestCase, history: ReportHistory
     runCounts,
     counts: runCounts && code !== 'S',
     // Its errors are in the attempts below: no extract here.
-    failure: code === 'F' || code === 'K' ? { category: test.category, extract: null, compared: true } : null,
+    failure: code === 'F' || code === 'K' ? { category: test.category, extract: null, cut: false, compared: true } : null,
     current: true,
   };
 }
@@ -170,7 +170,17 @@ function SelectedRun({ cell, date, include, notes, source, onClose }: { cell: St
       {/* Text people wrote: rendered as text, never as HTML. */}
       {cell.run.note !== undefined && <p class="run-selected-note">Note: {cell.run.note}</p>}
       {cell.current && cell.failure && <p class="history-note">Its errors are in the attempts below.</p>}
-      {!cell.current && cell.failure?.extract && <pre class="run-selected-extract">{cell.failure.extract}</pre>}
+      {!cell.current && cell.failure?.extract && (
+        <>
+          {/* A cut extract: the ellipsis on a line of its own, never read as part of the error, and hidden from
+              assistive technologies, as the line under it says it. */}
+          <pre class="run-selected-extract">
+            {cell.failure.extract}
+            {cell.failure.cut && <span aria-hidden="true">{'\n…'}</span>}
+          </pre>
+          {cell.failure.cut && <p class="history-note run-selected-cut">Only the start of the error is kept.</p>}
+        </>
+      )}
       {!cell.current && gap && <p class="history-note">{gap}</p>}
     </section>
   );

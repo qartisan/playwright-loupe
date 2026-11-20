@@ -29,7 +29,7 @@ const SAMPLE = path.join(ROOT, 'src/renderer/dev/sample.json');
  * `placeholder`: a page whose history placeholder was never replaced (an older reporter); `include-all`: `normal`
  * with `history.include: 'all'`; `notes-all`: `notes` with it.
  */
-type Page_ = HistoryScenario | 'placeholder' | 'include-all' | 'notes-all' | 'notes-path' | 'absent-path' | 'notes-off' | 'unrecorded' | 'invalid-above' | 'all-excluded-above' | 'current-above' | 'tallest';
+type Page_ = HistoryScenario | 'placeholder' | 'include-all' | 'notes-all' | 'notes-path' | 'absent-path' | 'notes-off' | 'unrecorded' | 'invalid-above' | 'all-excluded-above' | 'current-above' | 'tallest' | 'cut-mid' | 'whole' | 'unflagged';
 const PAGES: Page_[] = [
   'none',
   'placeholder',
@@ -56,6 +56,9 @@ const PAGES: Page_[] = [
   'all-excluded-above',
   'current-above',
   'tallest',
+  'cut-mid',
+  'whole',
+  'unflagged',
 ];
 /** A notes file in a folder above the Playwright config's, as the block names it. */
 const ABOVE = '../shared/loupe.notes.json';
@@ -71,16 +74,23 @@ const BASE: Partial<Record<Page_, HistoryScenario>> = {
   'all-excluded-above': 'all-excluded',
   'current-above': 'notes-current',
   tallest: 'notes-and-launch',
+  'cut-mid': 'normal',
+  whole: 'normal',
+  unflagged: 'normal',
 };
 /** Text of exactly `length` characters, of the line `line` repeated, ending with an ellipsis as a cut text does. */
 const filled = (length: number, line: string) => `${line.repeat(Math.ceil(length / line.length)).slice(0, length - 1)}…`;
-/** The tallest details a run can have: an extract of 300 characters on many lines, both reasons at 200, a note at 300. */
+/** The tallest details a run can have: an extract cut at 300 characters on many lines, both reasons at 200, a note at 300. */
 const TALLEST = {
-  extract: filled(300, 'Error: expect(locator).toHaveText(expected) failed\n'),
+  extract: 'Error: expect(locator).toHaveText(expected) failed\n'.repeat(6).slice(0, 300),
   launch: filled(200, 'staging database restored during the run '),
   file: filled(200, 'Seed data missing after the restore '),
   note: filled(300, 'Restore took the whole afternoon '),
 };
+/** A mid-line cut extract, and a whole one. */
+const CUT_MID = 'Error: expect(received).toEqual(expected) // deep equality\n\n- Expected  - 1\n+ Received  + 1\n\n  Object {\n    "user": Object {\n      "settings": { level:';
+const CUT_LINE = 'Only the start of the error is kept.';
+const WHOLE = 'Error: expect(received).toBe(expected)\n\nExpected: 3\nReceived: 4';
 /**
  * How a page's block differs from its scenario's: `history.include: 'all'`; a custom `history.notes` (read, or
  * absent); `history.notes: false`; a run that is not recorded (no id).
@@ -97,9 +107,15 @@ const VARIANT: Partial<Record<Page_, (block: EmbeddedHistory) => EmbeddedHistory
   'current-above': (block) => ({ ...block, notesPath: ABOVE }),
   tallest: (block) => ({
     ...block,
-    signatures: block.signatures.map(([signature, category, extract]) => [signature, category, extract === null ? null : TALLEST.extract]),
+    signatures: block.signatures.map(([signature, category, extract]) => (extract === null ? [signature, category, null] : [signature, category, TALLEST.extract, true])),
     runs: block.runs.map((run) => (run.notesExcluded === undefined ? run : { ...run, excluded: TALLEST.launch, notesExcluded: TALLEST.file, note: TALLEST.note })),
   }),
+  // A cut mid-line, as an object diff stopped inside a key.
+  'cut-mid': (block) => ({ ...block, signatures: block.signatures.map(([signature, category, extract]) => (extract === null ? [signature, category, null] : [signature, category, CUT_MID, true])) }),
+  // A whole extract: no flag.
+  whole: (block) => ({ ...block, signatures: block.signatures.map(([signature, category, extract]) => [signature, category, extract === null ? null : WHOLE]) }),
+  // A run file written before the flag: its cut extracts, unflagged.
+  unflagged: (block) => ({ ...block, signatures: block.signatures.map(([signature, category, extract]) => [signature, category, extract]) }),
 };
 
 describe('history on the Overview and in the filters (file://)', { timeout: 60_000 }, () => {
@@ -859,7 +875,7 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
       }
     });
 
-    it('the details of a failed run: a heading, the facts, the extract whole and the run id', async () => {
+    it('the details of a failed run: a heading, the facts, the extract as kept and the run id', async () => {
       const { report, history } = historyScenario('normal', sample);
       const loadedHistory = loadHistory(JSON.stringify(history), report);
       const index = loadedHistory?.index;
@@ -879,7 +895,7 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
       expect(facts).toEqual(expect.arrayContaining([`Origin: ${ORIGIN_TEXT[cell.run.origin]}`, `Category: ${cell.failure?.category}`]));
       expect(facts.some((fact) => fact.startsWith('Run duration: '))).toBe(true);
       expect(facts.at(-1)).toBe(`Category: ${cell.failure?.category}`);
-      await expectLocator(region(page).locator('.run-selected-extract')).toHaveText((cell.failure?.extract ?? '').trim());
+      await expectLocator(region(page).locator('.run-selected-extract')).toHaveText(`${cell.failure?.extract ?? ''}${cell.failure?.cut ? '\n…' : ''}`);
       await expectLocator(region(page)).toHaveAttribute('data-run-id', cell.run.id);
       await page.close();
     });
@@ -893,7 +909,8 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
       const failed = (await cells(page).evaluateAll((elements) => elements.map((element) => element.className))).findIndex((name) => name.includes('strip-F') && !name.includes('strip-current'));
       await select(page, failed);
       const extract = region(page).locator('.run-selected-extract');
-      await expectLocator(extract).toHaveText(TALLEST.extract.trim());
+      await expectLocator(extract).toHaveText(`${TALLEST.extract}\n…`);
+      await expectLocator(region(page).locator('.run-selected-cut')).toHaveText(CUT_LINE);
       const box = await extract.evaluate((element) => {
         const css = element.ownerDocument.defaultView!.getComputedStyle(element);
         return { scroll: element.scrollHeight, client: element.clientHeight, max: css.maxHeight, overflow: css.overflowY };
@@ -908,6 +925,68 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
       if (!main || !r) throw new Error('no box');
       expect(r.x + r.width).toBeLessThanOrEqual(main.x + main.width + 0.5);
       await page.close();
+    });
+
+    describe('a cut extract: an ellipsis on a line of its own, hidden from assistive technologies, and one muted line', () => {
+      /** The first failing past run of the strip, its extract and how the details show it. */
+      async function shown(name: Page_) {
+        const page = await open(name, testHash(failing));
+        const failed = (await cells(page).evaluateAll((elements) => elements.map((element) => element.className))).findIndex((name) => name.includes('strip-F') && !name.includes('strip-current'));
+        await select(page, failed);
+        const extract = region(page).locator('.run-selected-extract');
+        const view = await extract.evaluate((pre) => {
+          const ellipsis = pre.querySelector('[aria-hidden="true"]');
+          const text = pre.firstChild;
+          // The ellipsis on a line of its own: below the extract's last character, at the start of a line.
+          let ownLine = null;
+          if (ellipsis && text && text.nodeType === 3 && (text.textContent ?? '').length > 0) {
+            const range = pre.ownerDocument.createRange();
+            const length = (text.textContent ?? '').length;
+            range.setStart(text, length - 1);
+            range.setEnd(text, length);
+            const last = range.getBoundingClientRect();
+            const mark = [...ellipsis.getClientRects()].at(-1);
+            const left = pre.getBoundingClientRect().left + parseFloat(pre.ownerDocument.defaultView!.getComputedStyle(pre).paddingLeft);
+            ownLine = mark !== undefined && mark.top >= last.bottom - 0.5 && Math.abs(mark.left - left) < 1;
+          }
+          return { text: pre.textContent, ellipsis: ellipsis?.textContent ?? null, ownLine };
+        });
+        const note = region(page).locator('.run-selected-cut');
+        return { page, view, note, color: await note.count() ? await note.evaluate((element) => element.ownerDocument.defaultView!.getComputedStyle(element).color) : null };
+      }
+
+      it.each([
+        ['at a line end (the extract ends a line)', 'normal'],
+        ['mid-line ("{ level:")', 'cut-mid'],
+      ] as const)('cut %s: the ellipsis below its last line and "Only the start of the error is kept."', async (_label, name) => {
+        const { page, view, note, color } = await shown(name);
+        expect(view.ellipsis).toBe('\n…');
+        expect(view.text?.endsWith('\n…')).toBe(true);
+        if (name === 'cut-mid') expect(view.text).toBe(`${CUT_MID}\n…`);
+        expect(view.ownLine).toBe(true);
+        await expectLocator(note).toHaveText(CUT_LINE);
+        // Muted, right under the extract.
+        expect(color).toBe(await page.locator('.history-note').first().evaluate((element) => element.ownerDocument.defaultView!.getComputedStyle(element).color));
+        expect(await note.evaluate((element) => element.previousElementSibling?.className)).toBe('run-selected-extract');
+        // Read once: the ellipsis is hidden, the line says it.
+        const snapshot = await region(page).ariaSnapshot();
+        expect(snapshot).not.toContain('…');
+        expect(snapshot).toContain(CUT_LINE);
+        await page.close();
+      });
+
+      it.each([
+        ['a whole extract', 'whole'],
+        ['a cut extract without the flag (a run file written before it)', 'unflagged'],
+      ] as const)('%s: neither the ellipsis nor the line', async (_label, name) => {
+        const { page, view, note } = await shown(name);
+        expect(view.ellipsis).toBeNull();
+        expect(view.text?.endsWith('…')).toBe(false);
+        if (name === 'whole') expect(view.text).toBe(WHOLE);
+        await expectLocator(note).toHaveCount(0);
+        expect(await region(page).innerText()).not.toContain(CUT_LINE);
+        await page.close();
+      });
     });
 
     it('a failure of another signature version says why its error is not shown', async () => {

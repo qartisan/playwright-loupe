@@ -6,6 +6,7 @@
  * imported by the renderer.
  */
 import { deriveEmbedded } from '../../src/core/history/embed.js';
+import { extract } from '../../src/core/history/runFile.js';
 import type { EmbeddedHistory, HistoryRun, HistoryRunFile, HistoryTest, RunNotes } from '../../src/schema/history-v1.js';
 import type { NotesFileStatus } from '../../src/schema/notes-v1.js';
 import type { LoupeReport, TestCase } from '../../src/schema/v1.js';
@@ -95,10 +96,13 @@ function row(test: TestCase, code: HistoryTest['o'], run: number): HistoryTest {
   const error = test.attempts.flatMap((attempt) => attempt.errors)[0];
   // Its own error most of the time, another one every fourth run.
   const own = test.errorSignature !== null && run % 4 !== 0;
+  // Its extract as the run file writes it: the first lines, flagged xc when shorter than the message.
+  const message = own ? (error?.message ?? 'Error') : `Error: connect ECONNREFUSED (run ${run})`;
+  const x = extract(message);
   return {
     ...base,
     a: code === 'F' ? 'FF' : 'FP',
-    f: [{ i: 0, sig: [own ? (test.errorSignature as string) : `other-${test.id}-${run}`], cat: own ? (error?.category ?? null) : 'Network', x: own ? (error?.message.slice(0, 300) ?? 'Error') : `Error: connect ECONNREFUSED (run ${run})`, at: null }],
+    f: [{ i: 0, sig: [own ? (test.errorSignature as string) : `other-${test.id}-${run}`], cat: own ? (error?.category ?? null) : 'Network', x, ...(x === message ? {} : { xc: true as const }), at: null }],
   };
 }
 

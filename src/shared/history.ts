@@ -270,7 +270,8 @@ export interface HistoryCell {
   /** The result decides the test's state and counters: the run counts and the test ran in it. */
   counts: boolean;
   /** The first error of the first failed attempt: null when the result has none to show. `compared` is false for another signature version. */
-  failure: { category: string | null; extract: string | null; compared: boolean } | null;
+  /** `cut`: the extract is only the start of the error (the dictionary's fourth element). */
+  failure: { category: string | null; extract: string | null; cut: boolean; compared: boolean } | null;
 }
 
 /**
@@ -311,7 +312,11 @@ export function testCells(history: EmbeddedHistory, index: HistoryIndex, test: n
       return {
         ...base,
         attempts: row?.attempts[ordinal] || null,
-        failure: signature ? { category: signature[1], extract: signature[2], compared: true } : run.sameSignatures ? null : { category: null, extract: null, compared: false },
+        failure: signature
+          ? { category: signature[1], extract: signature[2], cut: signature[2] !== null && signature[3] === true, compared: true }
+          : run.sameSignatures
+            ? null
+            : { category: null, extract: null, cut: false, compared: false },
       };
     }
     const attempts = index.attempts.get(test * width + column) ?? (code === 'P' || code === 'S' ? code : null);

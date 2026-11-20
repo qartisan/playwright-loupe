@@ -357,6 +357,21 @@ describe('decodeHistory', () => {
 });
 
 describe('the strip of a test', () => {
+  it("a cut extract: the dictionary's fourth element; none, or no text, is not cut", () => {
+    const { block } = history({ outcomes: ['failed', 'failed'], past: [{ codes: 'FF' }] });
+    const [first, second] = block.signatures;
+    if (!first || !second) throw new Error('two signatures expected');
+    const flagged = { ...block, signatures: [[first[0], first[1], first[2], true], [second[0], second[1], second[2]]] as typeof block.signatures };
+    const index = indexHistory(flagged);
+    const cut = (test: number) => testCells(flagged, index, test)[0]?.failure?.cut;
+    const firstTest = testCells(flagged, index, 0)[0]?.failure?.extract === first[2] ? 0 : 1;
+    expect([cut(firstTest), cut(1 - firstTest)]).toEqual([true, false]);
+    // The flag without the text (beyond the extracts kept): nothing to mark.
+    const textless = { ...block, signatures: [[first[0], first[1], null, true], [second[0], second[1], second[2]]] as typeof block.signatures };
+    const textlessIndex = indexHistory(textless);
+    expect([0, 1].map((test) => testCells(textless, textlessIndex, test)[0]?.failure?.cut)).toEqual([false, false]);
+  });
+
   it('one cell per run, oldest first, with its attempts, flags, whether it counts, and the error of a failure', () => {
     const { block } = history({
       outcomes: ['failed', 'passed'],
@@ -370,9 +385,9 @@ describe('the strip of a test', () => {
     const index = indexHistory(block);
     const cells = testCells(block, index, 0);
     expect(cells.map(({ index: column, code, attempts, flags, runCounts, counts, failure }) => ({ column, code, attempts, flags, runCounts, counts, failure }))).toEqual([
-      { column: 0, code: 'F', attempts: 'FT', flags: [], runCounts: true, counts: true, failure: { category: null, extract: null, compared: false } },
-      { column: 1, code: 'K', attempts: 'FP', flags: ['partial'], runCounts: true, counts: true, failure: { category: 'Timeout', extract: 'extract t0 1', compared: true } },
-      { column: 2, code: 'F', attempts: 'FT', flags: ['excluded'], runCounts: false, counts: false, failure: { category: 'Assertion', extract: 'extract t0 2', compared: true } },
+      { column: 0, code: 'F', attempts: 'FT', flags: [], runCounts: true, counts: true, failure: { category: null, extract: null, cut: false, compared: false } },
+      { column: 1, code: 'K', attempts: 'FP', flags: ['partial'], runCounts: true, counts: true, failure: { category: 'Timeout', extract: 'extract t0 1', cut: false, compared: true } },
+      { column: 2, code: 'F', attempts: 'FT', flags: ['excluded'], runCounts: false, counts: false, failure: { category: 'Assertion', extract: 'extract t0 2', cut: false, compared: true } },
       // A skipped result in a run that counts: the run counts, the result does not decide anything.
       { column: 3, code: 'S', attempts: 'S', flags: ['ide'], runCounts: true, counts: false, failure: null },
     ]);

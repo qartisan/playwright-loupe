@@ -44,6 +44,8 @@ const OUTPUT = 'ceaacab5661164dc';
 const SKIP_REASON = '5e43fd66e4c629e0';
 const NOT_RUN = '710bcc0fe7c6b583';
 const FAILING = 'e6c8105b02e8ef4c';
+// Failing in the history's runs 1, 7, 13 and 17 to 19, its error extract cut (longer than 300 characters).
+const CUT_EXTRACT = 'f67dffbfbe9d1c0b';
 // Of the cascade: a test stopped by its timeout, with an error raised after it.
 const AFTER_TIMEOUT = 'ccccccccccccccc4';
 
@@ -179,11 +181,14 @@ const MATRIX: State[] = [
   ['history: test, no retries, disclosure open', 'historyNoRetries', `#/test/${FAILING}`, { arrange: click('details.history-more > summary'), reached: 'details.history-more[open]' }],
   ['history: test, every earlier run excluded', 'historyAllExcluded', `#/test/${FAILING}`, { reached: '.strip-excluded' }],
   ['history: test, first run, other streams open', 'historyFirstRun', `#/test/${FAILING}`, { arrange: click('details.history-more > summary'), reached: 'details.history-more[open]' }],
+  ['history: test, run selected, its error extract cut', 'history', `#/test/${CUT_EXTRACT}`, { arrange: (page) => page.locator('.strip-cell').nth(1).click(), reached: '.run-selected-cut' }],
+  ['history: test at 320px, run selected, its error extract cut', 'history', `#/test/${CUT_EXTRACT}`, { width: 320, arrange: (page) => page.locator('.strip-cell').nth(1).click(), reached: '.run-selected-cut' }],
   ['history: test at 320px, run selected', 'history', `#/test/${FAILING}`, { width: 320, arrange: (page) => page.locator('.strip-cell').nth(2).click(), reached: '.run-selected' }],
   ['forced colours: history, state in the header and the section', 'history', `#/test/${FAILING}`, { forcedColors: true, reached: '.test-state-link' }],
   ['forced colours: test detail, the source frame focused', 'sample', `#/test/${FAILING}`, { forcedColors: true, width: 360, arrange: (page) => page.locator('.code-scroll').first().focus(), reached: '.code-scroll[role="region"]:focus' }],
   ['test detail at 360px, the source frame focused', 'sample', `#/test/${FAILING}`, { width: 360, arrange: (page) => page.locator('.code-scroll').first().focus(), reached: '.code-scroll[role="region"]:focus' }],
   ['forced colours: history, run selected', 'history', `#/test/${FAILING}`, { forcedColors: true, arrange: (page) => page.locator('.strip-cell').nth(5).click(), reached: '.run-selected' }],
+  ['forced colours: history, run selected, its error extract cut', 'history', `#/test/${CUT_EXTRACT}`, { forcedColors: true, arrange: (page) => page.locator('.strip-cell').nth(1).click(), reached: '.run-selected-cut' }],
   ['forced colours: history, overview note', 'historyVersionBreak', '#/', { forcedColors: true, reached: '.history-notice' }],
 ];
 
