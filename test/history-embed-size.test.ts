@@ -79,6 +79,7 @@ describe('size of the embedded history at 5,000 tests (N = 20)', () => {
     const report = realisticReport();
     const value = embedded(report, 2);
     expect(value.runs.filter((run) => run.notesExcluded !== undefined)).toHaveLength(5);
+    expect(new Set(value.runs.map((run) => run.note)).size).toBe(20);
     const size = measure(template, report, value);
     if (process.env['LOUPE_MEASURE']) console.log('realistic', size, 'without notes', measure(template, report, embedded(report, 2, 'none')));
     expect(size.alone).toBeLessThan(REALISTIC_LIMIT);
@@ -87,6 +88,8 @@ describe('size of the embedded history at 5,000 tests (N = 20)', () => {
   it(`the perf:sample dataset (56% failing, two other streams, realistic notes): under ${PERF_SAMPLE_LIMIT / 1000} kB gzip`, () => {
     const report = perfSampleReport();
     const value = embedded(report, 2);
+    expect(value.runs.filter((run) => run.notesExcluded !== undefined)).toHaveLength(5);
+    expect(new Set(value.runs.map((run) => run.note)).size).toBe(20);
     const size = measure(template, report, value);
     if (process.env['LOUPE_MEASURE']) {
       console.log('perf:sample', size, 'without notes', measure(template, report, embedded(report, 2, 'none')), { signatures: value.signatures.length, withExtract: value.signatures.filter(([, , x]) => x !== null).length });

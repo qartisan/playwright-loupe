@@ -90,6 +90,21 @@ export function simulateWindow(report: LoupeReport, runs = 20, stream: HistoryRu
       }
       tests.push(row);
     }
-    return makeRunFile({ id: `${hex(rnd, 8)}-${hex(rnd, 4)}-4${hex(rnd, 3)}-8${hex(rnd, 3)}-${hex(rnd, 12)}`, startedAt: new Date(start - k * day).toISOString(), stream }, tests);
+    return makeRunFile({ id: runId(rnd, k), startedAt: new Date(start - k * day).toISOString(), stream }, tests);
   });
+}
+
+/** Runs a window can hold: the run index fills the last three hex digits of its id. */
+export const MAX_SIMULATED_RUNS = 0x1000;
+
+/**
+ * A local run id (a UUID, the longest common form) unique within its window by construction: random digits, then
+ * the run index in the last three. `random` repeats itself after some ten thousand draws, so random digits alone
+ * gave two runs of one window the same id. The draws are those of a fully random id, so the rest of the window is
+ * unchanged.
+ */
+function runId(rnd: () => number, run: number): string {
+  if (run >= MAX_SIMULATED_RUNS) throw new Error(`simulateWindow: at most ${MAX_SIMULATED_RUNS} runs`);
+  const random = `${hex(rnd, 8)}-${hex(rnd, 4)}-4${hex(rnd, 3)}-8${hex(rnd, 3)}-${hex(rnd, 12)}`;
+  return random.slice(0, -3) + run.toString(16).padStart(3, '0');
 }
