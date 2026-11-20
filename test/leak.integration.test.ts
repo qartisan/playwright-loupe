@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
@@ -311,6 +311,146 @@ describe('the leak canary with history', () => {
     const embedded = block(second);
     expect(embedded).not.toContain(LATE.value);
     expect(embedded).toContain(`late value ${REDACTED} in the message`);
+  });
+});
+
+/**
+ * The canary with a notes file (loupe.notes.json): what people write about a run is masked on read before it
+ * is embedded, and a file that cannot be read is reported without its text. The file sits in the test's work
+ * folder, named by LOUPE_FIXTURE_NOTES (fixtures/leak.config.ts). What Loupe writes is searched whole, apart from
+ * Playwright's output: fixtures/helpers/loupe-capture.ts copies it to LOUPE_FIXTURE_CAPTURE, every line of a
+ * multi-line message included.
+ */
+describe('the leak canary with notes', () => {
+  const home = homedir();
+  // A real home of one segment (`/root`) is no name to find, as above.
+  const realHome = home.split(/[\\/]/).filter(Boolean).length >= 2;
+  /** Every value the notes file holds that the report must not: a canary home, the real home, a secret, the late value. */
+  const VALUES = [`/home/${CANARY}/notes`, `C:\\Users\\${CANARY}\\notes`, ...(realHome ? [path.join(home, 'notes')] : []), SECRETS.LOUPE_LEAK_SECRET, LATE.value];
+  const TEXT = `see ${VALUES.join(' and ')}`;
+  let workDir: string;
+  let history: string;
+  let notesFile: string;
+  let second: string;
+  let invalid: string;
+  let outputs: string;
+  let invalidOutput: string;
+  /** What Loupe itself wrote in each run, from the capture. */
+  const written: Record<string, string> = {};
+
+  const run = (name: string, env: Record<string, string> = {}): { folder: string; output: string } => {
+    const folder = path.join(workDir, name);
+    const result = playwright(['test', '--config', 'fixtures/leak.config.ts', '--output', path.join(workDir, `results-${name}`)], {
+      LOUPE_FIXTURE_OUTPUT: folder,
+      LOUPE_HISTORY: 'on',
+      LOUPE_HISTORY_DIR: history,
+      // The late value is in redact.env from the start: the notes file is read whole on every run, with its redaction.
+      LOUPE_FIXTURE_LATE_REDACT: '1',
+      LOUPE_FIXTURE_NOTES: notesFile,
+      LOUPE_FIXTURE_CAPTURE: path.join(workDir, `loupe-output-${name}.txt`),
+      ...env,
+    });
+    readReport(folder, `Exit code ${result.status}.\n${result.output}`);
+    written[name] = readFileSync(path.join(workDir, `loupe-output-${name}.txt`), 'utf8');
+    return { folder, output: result.output };
+  };
+  const block = (folder: string): string => /<script id="loupe-history" type="application\/json">(.*?)<\/script>/s.exec(readFileSync(path.join(folder, 'index.html'), 'utf8'))?.[1] ?? '';
+  /** The values found in `text`, raw or JSON-escaped (a Windows home in a JSON string doubles its backslashes). */
+  const found = (text: string): string[] => VALUES.filter((value) => text.includes(value) || text.includes(JSON.stringify(value).slice(1, -1)));
+  /** Everything that must not be in what Loupe writes: the values, the canary name, a home path. */
+  const leaks = (text: string): string[] => [...found(text), ...(text.toLowerCase().includes(CANARY) ? [CANARY] : []), ...homePaths(text)];
+
+  beforeAll(() => {
+    assertBuilt();
+    workDir = mkdtempSync(path.join(tmpdir(), 'loupe-leak-notes-'));
+    history = path.join(workDir, 'loupe-history');
+    mkdirSync(path.join(workDir, 'notes'));
+    notesFile = path.join(workDir, 'notes', 'loupe.notes.json');
+    outputs = '';
+    // The first run: no notes file yet.
+    outputs += run('first').output;
+    const [file] = readdirSync(path.join(history, 'runs')).map((name) => JSON.parse(readRunFile(path.join(history, 'runs', name))) as { run: { id: string } });
+    // Between the runs, an entry for the first run, as a person would write it.
+    writeFileSync(notesFile, `{\n  "notesVersion": 1,\n  "runs": [\n    ${JSON.stringify({ run: file?.run.id, exclude: TEXT, note: TEXT })}\n  ]\n}\n`);
+    const next = run('second');
+    second = next.folder;
+    outputs += next.output;
+    // A file that cannot be read, the syntax error next to the values: a missing comma before "note".
+    writeFileSync(notesFile, `{ "notesVersion": 1, "runs": [ { "run": "x", "exclude": ${JSON.stringify(TEXT)} "note": ${JSON.stringify(TEXT)} } ] }\n`);
+    const broken = run('invalid');
+    invalid = broken.folder;
+    invalidOutput = broken.output;
+  }, 360_000);
+
+  afterAll(() => {
+    rmSync(workDir, { recursive: true, force: true });
+  });
+
+  it("matches the entry and embeds the first run's note and reason, masked: ~ and the redaction marker (positive control)", () => {
+    expect(outputs).not.toContain('Loupe: history');
+    const embedded = JSON.parse(block(second)) as { notesFile: string; runs: Array<{ note?: string; notesExcluded?: string }> };
+    expect(embedded.notesFile).toBe('read');
+    expect(embedded.runs).toHaveLength(1);
+    const [entry] = embedded.runs;
+    for (const text of [entry?.note, entry?.notesExcluded]) {
+      expect(text, String(text)).toMatch(/^see /);
+      expect(text).toContain('~');
+      expect(text).toContain(REDACTED);
+    }
+  });
+
+  it('finds the raw values in a notes file holding them (positive control of the search)', () => {
+    const probe = path.join(workDir, 'probe.json');
+    writeFileSync(probe, `{ "note": ${JSON.stringify(TEXT)} }`);
+    expect(found(readFileSync(probe, 'utf8'))).toEqual(VALUES);
+    expect(readFileSync(probe, 'utf8').toLowerCase()).toContain(CANARY);
+  });
+
+  it('the report and its embedded history hold none of them', () => {
+    for (const file of ['index.html', 'report.json']) {
+      const text = readFileSync(path.join(second, file), 'utf8');
+      expect(found(text), file).toEqual([]);
+      expect(text.toLowerCase(), file).not.toContain(CANARY);
+      expect(homePaths(text), file).toEqual([]);
+    }
+  });
+
+  it("captures what Loupe writes, and only that: its messages whole, none of Playwright's lines (positive control)", () => {
+    const capture = written['invalid'] ?? '';
+    // Loupe's own writes: the history warning, and the end message, written with a line break before it.
+    expect(capture).toMatch(/^Loupe: history: .*loupe\.notes\.json/m);
+    expect(capture).toContain('\nLoupe report written to ');
+    // Playwright's: its progress lines, which print the canary's titles in clear, in the run's output only.
+    expect(invalidOutput).toContain('Running ');
+    expect(invalidOutput.toLowerCase()).toContain(CANARY);
+    expect(capture).not.toContain('Running ');
+  });
+
+  it('would find a value on a continuation line of a warning (positive control of the search)', () => {
+    const capture = written['invalid'] ?? '';
+    for (const value of VALUES) {
+      // As a multi-line message would print it: a problem listed under its first line.
+      const continued = capture.replace(/^(Loupe: history: .*)$/m, `$1\n  - entry runs[0]: ${value}`);
+      expect(continued).not.toBe(capture);
+      expect(leaks(continued), value).toEqual(expect.arrayContaining([value]));
+    }
+    expect(leaks(capture.replace(/^(Loupe: history: .*)$/m, `$1\n  - /home/${CANARY}`))).toContain(CANARY);
+  });
+
+  it('what Loupe writes holds none of them, in any run: every line, the warning of the first two runs absent', () => {
+    expect(Object.keys(written)).toEqual(['first', 'second', 'invalid']);
+    for (const [name, capture] of Object.entries(written)) expect(leaks(capture), name).toEqual([]);
+    expect(`${written['first']}${written['second']}`).not.toContain('Loupe: history');
+  });
+
+  it('an invalid file: one warning, with a line and column; its entries ignored', () => {
+    const warnings = (written['invalid'] ?? '').split(/\r?\n/).filter((line) => line.includes('Loupe: history'));
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatch(/^Loupe: history: .*loupe\.notes\.json.*line \d+, column \d+/);
+    expect((JSON.parse(block(invalid)) as { notesFile: string }).notesFile).toBe('invalid');
+    expect(found(readFileSync(path.join(invalid, 'index.html'), 'utf8'))).toEqual([]);
+    // Positive control: the file next to that error holds them all.
+    expect(found(readFileSync(notesFile, 'utf8'))).toEqual(VALUES);
   });
 });
 
