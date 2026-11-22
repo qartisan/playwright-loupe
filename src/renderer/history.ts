@@ -15,6 +15,7 @@ import {
   type ResultCode,
   type TestHistory,
 } from '../shared/history.js';
+import { formatRunStart, type DateFormatOptions } from './datetime.js';
 import { plural } from './format.js';
 
 /**
@@ -271,13 +272,73 @@ export function cellName(cell: Pick<HistoryCell, 'run' | 'code' | 'attempts' | '
   return [date, ORIGIN_TEXT[cell.run.origin], RESULT_TEXT[cell.code], ...(failure ? [failure] : []), ...apart].join(', ');
 }
 
-/** Why a failure shows no error text: another signature version, or beyond the extracts kept. Null when it has one, or no failure. */
-export function failureGap(cell: Pick<HistoryCell, 'failure'>): string | null {
+/**
+ * Why a failure shows no error text: another signature version, its run's errors left out by the byte budget, or
+ * beyond the extracts kept, with the number actually kept (`trimmed.extracts`, else 300). Null when it has one, or
+ * no failure.
+ */
+export function failureGap(cell: Pick<HistoryCell, 'failure'>, trimmed: EmbeddedHistory['trimmed'] = undefined): string | null {
   const { failure } = cell;
   if (failure === null) return null;
   if (!failure.compared) return "Error not compared: this run was recorded with another version of Loupe's error signatures.";
-  if (failure.extract === null) return 'Error text not kept: the report keeps the text of the 300 most recently seen errors.';
-  return null;
+  if (failure.leftOut) return 'Error details of this run were left out to keep the report small.';
+  if (failure.extract !== null) return null;
+  const kept = trimmed?.extracts;
+  if (kept === undefined) return 'Error text not kept: the report keeps the text of the 300 most recently seen errors.';
+  if (kept === 0) return 'Error text not kept: to keep the report small, the report keeps no error text.';
+  return `Error text not kept: to keep the report small, the report keeps the text of the ${kept === 1 ? 'most recently seen error' : `${kept} most recently seen errors`}.`;
+}
+
+/**
+ * "a and b", "a, b, and c"; a serial comma too after a date with its time (`dated`, the index of that item), which
+ * some locales write with a comma of their own, so the list reads the same in every locale.
+ */
+function listText(items: readonly string[], dated: number): string {
+  if (items.length <= 1) return items[0] ?? '';
+  const last = items[items.length - 1] as string;
+  const head = items.slice(0, -1);
+  return items.length > 2 || (dated >= 0 && dated < head.length) ? `${head.join(', ')}, and ${last}` : `${head[0]} and ${last}`;
+}
+
+/**
+ * What the byte budget left out, in one sentence for the top of the history, in the order it left them out; null
+ * when nothing was. The boundary of the error details is exact: the date with its time, the month written out.
+ */
+export function trimmedText(block: Pick<EmbeddedHistory, 'trimmed' | 'runs'>, dates: DateFormatOptions = {}): string | null {
+  const { trimmed } = block;
+  if (trimmed === undefined) return null;
+  const items: string[] = [];
+  let dated = -1;
+  if (trimmed.extracts !== undefined) {
+    items.push(trimmed.extracts === 0 ? 'the text of every error' : `the text of all errors but the ${trimmed.extracts === 1 ? 'most recently seen' : `${trimmed.extracts} most recently seen`}`);
+  }
+  if (trimmed.signaturesBefore !== undefined) {
+    const before = Date.parse(trimmed.signaturesBefore);
+    const every = block.runs.every((run) => Date.parse(run.startedAt) < before);
+    const date = formatRunStart(trimmed.signaturesBefore, dates);
+    if (every || date === null) items.push('the error details of every earlier run');
+    else dated = items.push(`the error details of runs started before ${date.long}`) - 1;
+  }
+  if (trimmed.streams !== undefined) items.push(plural(trimmed.streams, 'other stream'));
+  if (trimmed.runs !== undefined) items.push(trimmed.runs === 1 ? 'the oldest run' : `the ${trimmed.runs} oldest runs`);
+  return items.length === 0 ? null : `To keep the report small, this history leaves out ${listText(items, dated)}.`;
+}
+
+/** Under the other streams, when some were left out: the oldest. Null when none was. */
+export function streamsLeftOutText(trimmed: EmbeddedHistory['trimmed']): string | null {
+  const count = trimmed?.streams;
+  if (count === undefined) return null;
+  return count === 1
+    ? '1 other stream was left out to keep the report small: the one with the oldest latest run.'
+    : `${count} other streams were left out to keep the report small: those with the oldest latest runs.`;
+}
+
+/** On the Overview, when the oldest runs were left out: states use only the runs kept. Null when none was. */
+export function runsLeftOutText(trimmed: EmbeddedHistory['trimmed']): string | null {
+  const count = trimmed?.runs;
+  if (count === undefined) return null;
+  const runs = count === 1 ? 'the oldest run' : `the ${count} oldest runs`;
+  return `States use only the runs kept: a test whose earlier failures were all in ${runs} reads as "New failure".`;
 }
 
 /**

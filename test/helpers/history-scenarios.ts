@@ -5,12 +5,13 @@
  * same report gives the same block. Node only (the dev server's config), never
  * imported by the renderer.
  */
-import { deriveEmbedded } from '../../src/core/history/embed.js';
+import { deriveEmbedded, deriveWithinBudget } from '../../src/core/history/embed.js';
 import { extract } from '../../src/core/history/runFile.js';
 import type { EmbeddedHistory, HistoryRun, HistoryRunFile, HistoryTest, RunNotes } from '../../src/schema/history-v1.js';
 import type { NotesFileStatus } from '../../src/schema/notes-v1.js';
 import type { LoupeReport, TestCase } from '../../src/schema/v1.js';
 import { makeRunFile } from './history.js';
+import { random, repeatedReport, simulateWindow } from './history-sim.js';
 
 export const HISTORY_SCENARIOS = [
   'none',
@@ -32,6 +33,7 @@ export const HISTORY_SCENARIOS = [
   'notes-invalid',
   'notes-and-launch',
   'notes-current',
+  'trimmed',
 ] as const;
 export type HistoryScenario = (typeof HISTORY_SCENARIOS)[number];
 
@@ -56,6 +58,8 @@ export const SCENARIO_HELP: Record<HistoryScenario, string> = {
   'notes-invalid': 'normal, loupe.notes.json invalid: the verdict notes it, no entry applied',
   'notes-and-launch': 'normal, run 9 excluded at launch and in loupe.notes.json: both reasons, with a note',
   'notes-current': 'normal, loupe.notes.json excludes the current run (a merge job run again): no delta, the current cell excluded',
+  trimmed:
+    "the sample repeated to 5,000 tests under brief 23's model, two other streams, over the byte budget: the extracts and every run's errors but the newest's left out (the real budget)",
 };
 
 const STREAM: HistoryRun['stream'] = { environment: 'default', origin: 'local' };
@@ -178,6 +182,14 @@ export function historyScenario(name: HistoryScenario, sample: LoupeReport): { r
   switch (name) {
     case 'none':
       return { report: sample, history: null };
+    case 'trimmed': {
+      // Brief 23's model gives almost every failure its own error: at 5,000 tests the block is twice the budget.
+      const big = full(repeatedReport(sample, 5000));
+      const window = simulateWindow(big, RUNS, STREAM);
+      const streams = [0, 1].map((index) => simulateWindow(big, 1, { environment: `staging-${index}`, origin: 'ci' }, random(100 + index))[0] as HistoryRunFile);
+      const options = { include: 'full' as const, stream: STREAM, current, currentRunId: 'current', notes, notesFile, notesPath: 'loupe.notes.json' };
+      return { report: big, history: deriveWithinBudget(big, { runs: window, others: streams, skipped: 0 }, options).value };
+    }
     case 'first-run':
       // The stream is new; only the other streams have runs (otherwise the block would be null).
       others = [

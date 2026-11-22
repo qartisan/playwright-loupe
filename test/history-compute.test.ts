@@ -385,9 +385,9 @@ describe('the strip of a test', () => {
     const index = indexHistory(block);
     const cells = testCells(block, index, 0);
     expect(cells.map(({ index: column, code, attempts, flags, runCounts, counts, failure }) => ({ column, code, attempts, flags, runCounts, counts, failure }))).toEqual([
-      { column: 0, code: 'F', attempts: 'FT', flags: [], runCounts: true, counts: true, failure: { category: null, extract: null, cut: false, compared: false } },
-      { column: 1, code: 'K', attempts: 'FP', flags: ['partial'], runCounts: true, counts: true, failure: { category: 'Timeout', extract: 'extract t0 1', cut: false, compared: true } },
-      { column: 2, code: 'F', attempts: 'FT', flags: ['excluded'], runCounts: false, counts: false, failure: { category: 'Assertion', extract: 'extract t0 2', cut: false, compared: true } },
+      { column: 0, code: 'F', attempts: 'FT', flags: [], runCounts: true, counts: true, failure: { category: null, extract: null, cut: false, compared: false, leftOut: false } },
+      { column: 1, code: 'K', attempts: 'FP', flags: ['partial'], runCounts: true, counts: true, failure: { category: 'Timeout', extract: 'extract t0 1', cut: false, compared: true, leftOut: false } },
+      { column: 2, code: 'F', attempts: 'FT', flags: ['excluded'], runCounts: false, counts: false, failure: { category: 'Assertion', extract: 'extract t0 2', cut: false, compared: true, leftOut: false } },
       // A skipped result in a run that counts: the run counts, the result does not decide anything.
       { column: 3, code: 'S', attempts: 'S', flags: ['ide'], runCounts: true, counts: false, failure: null },
     ]);

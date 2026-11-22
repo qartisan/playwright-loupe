@@ -28,7 +28,11 @@ const sample = (): LoupeReport => JSON.parse(readFileSync(path.join(ROOT, 'src/r
 
 /** The `sample` dataset of `npm run perf:sample` (scripts/perf-sample.mjs): the fixture sample repeated to 5,000 tests, 56% failing. */
 export function perfSampleReport(count = 5000): LoupeReport {
-  const base = sample();
+  return repeatedReport(sample(), count);
+}
+
+/** `base` with its tests repeated to `count`, each with its own id and title. */
+export function repeatedReport(base: LoupeReport, count: number): LoupeReport {
   const tests = Array.from({ length: count }, (_, index) => {
     const test = base.tests[index % base.tests.length] as TestCase;
     return { ...test, id: index.toString(16).padStart(16, '0'), title: `${test.title} #${index}` };

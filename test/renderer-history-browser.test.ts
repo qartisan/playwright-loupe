@@ -6,7 +6,7 @@ import { chromium, expect as expectLocator, type Browser, type Page } from '@pla
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DEFAULT_RENDERER_SETTINGS, injectData, injectHistory, injectSettings } from '../src/core/inject.js';
 import { parseNotes } from '../src/core/history/notes.js';
-import { EXCLUDE_PLACEHOLDER, NO_RESULT_NOTE, exclusionCopy, exclusionCopyFor, NO_RETRIES_TEXT, ORIGIN_TEXT, STATE_HELP, noStatesText, notesInvalidText, whichRunsText, STATE_LABEL, countersText, loadHistory, stateCount, streamDefinition, streamName } from '../src/renderer/history.js';
+import { EXCLUDE_PLACEHOLDER, NO_RESULT_NOTE, runsLeftOutText, streamsLeftOutText, trimmedText, exclusionCopy, exclusionCopyFor, NO_RETRIES_TEXT, ORIGIN_TEXT, STATE_HELP, noStatesText, notesInvalidText, whichRunsText, STATE_LABEL, countersText, loadHistory, stateCount, streamDefinition, streamName } from '../src/renderer/history.js';
 import type { EmbeddedHistory } from '../src/schema/history-v1.js';
 import type { LoupeReport } from '../src/schema/v1.js';
 import { HISTORY_STATES, testCells } from '../src/shared/history.js';
@@ -29,7 +29,7 @@ const SAMPLE = path.join(ROOT, 'src/renderer/dev/sample.json');
  * `placeholder`: a page whose history placeholder was never replaced (an older reporter); `include-all`: `normal`
  * with `history.include: 'all'`; `notes-all`: `notes` with it.
  */
-type Page_ = HistoryScenario | 'placeholder' | 'include-all' | 'notes-all' | 'notes-path' | 'absent-path' | 'notes-off' | 'unrecorded' | 'invalid-above' | 'all-excluded-above' | 'current-above' | 'tallest' | 'cut-mid' | 'whole' | 'unflagged';
+type Page_ = HistoryScenario | 'placeholder' | 'include-all' | 'notes-all' | 'notes-path' | 'absent-path' | 'notes-off' | 'unrecorded' | 'invalid-above' | 'all-excluded-above' | 'current-above' | 'tallest' | 'cut-mid' | 'whole' | 'unflagged' | 'trimmed' | 'trimmed-parts';
 const PAGES: Page_[] = [
   'none',
   'placeholder',
@@ -59,6 +59,8 @@ const PAGES: Page_[] = [
   'cut-mid',
   'whole',
   'unflagged',
+  'trimmed',
+  'trimmed-parts',
 ];
 /** A notes file in a folder above the Playwright config's, as the block names it. */
 const ABOVE = '../shared/loupe.notes.json';
@@ -77,6 +79,7 @@ const BASE: Partial<Record<Page_, HistoryScenario>> = {
   'cut-mid': 'normal',
   whole: 'normal',
   unflagged: 'normal',
+  'trimmed-parts': 'several-streams',
 };
 /** Text of exactly `length` characters, of the line `line` repeated, ending with an ellipsis as a cut text does. */
 const filled = (length: number, line: string) => `${line.repeat(Math.ceil(length / line.length)).slice(0, length - 1)}…`;
@@ -116,6 +119,9 @@ const VARIANT: Partial<Record<Page_, (block: EmbeddedHistory) => EmbeddedHistory
   whole: (block) => ({ ...block, signatures: block.signatures.map(([category, extract]) => [category, extract === null ? null : WHOLE]) }),
   // A run file written before the flag: its cut extracts, unflagged.
   unflagged: (block) => ({ ...block, signatures: block.signatures.map(([category, extract]) => [category, extract]) }),
+  // The streams line and the Overview's runs note: a record that cut other streams and the oldest runs (a rendering
+  // state: its other parts are those of several-streams).
+  'trimmed-parts': (block) => ({ ...block, trimmed: { streams: 2, runs: 3 } }),
 };
 
 describe('history on the Overview and in the filters (file://)', { timeout: 60_000 }, () => {
@@ -1574,6 +1580,86 @@ describe('history on the Overview and in the filters (file://)', { timeout: 60_0
         }
       });
       await page.close();
+    });
+  });
+
+  describe('what the report left out to stay small', () => {
+    const dates = { locale: 'en-GB', timeZone: 'Europe/Paris' };
+    const LEFT_OUT = 'Error details of this run were left out to keep the report small.';
+    const trimmed = historyScenario('trimmed', sample);
+    const block = trimmed.history as EmbeddedHistory;
+    const width = block.runs.length;
+    const before = Date.parse(block.trimmed?.signaturesBefore ?? '');
+    const failingIn = (column: number) => trimmed.report.tests.findIndex((_, test) => 'FK'.includes(block.cells[test * width + column] ?? '-'));
+
+    /** The page in a fixed locale and time zone, so the boundary date reads as trimmedText formats it. */
+    async function openIn(name: Page_, hash: string): Promise<Page> {
+      const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: dates.locale, timezoneId: dates.timeZone });
+      const page = await context.newPage();
+      await page.goto(`${urls[name]}${hash}`);
+      await page.locator('.main h1').first().waitFor();
+      return page;
+    }
+    const selectRun = async (page: Page, column: number) => {
+      await page.locator('.strip-cell').nth(column).click();
+      await page.locator('.run-selected').waitFor();
+    };
+
+    it('the Overview: one note at the top of the history, the boundary date with its time', async () => {
+      const text = trimmedText(block, dates);
+      expect(text).toMatch(/^To keep the report small, this history leaves out the text of every error and the error details of runs started before \d+ [A-Z][a-z]+ 2026 at \d\d:\d\d CES?T\.$/);
+      const page = await openIn('trimmed', '#/');
+      // First after the heading: it reads before any figure it changes.
+      expect(await page.locator('.verdict-history > h3 + .history-notice').allTextContents()).toEqual([`Note: ${text}`]);
+      expect(await zone(page).locator('.history-notice').allTextContents()).toEqual([`Note: ${text}`]);
+      await page.context().close();
+    });
+
+    it('a test: the note at the top of its History section; a run whose errors were left out says so, never as no error', async () => {
+      const column = block.runs.findIndex((run) => Date.parse(run.startedAt) < before);
+      const test = failingIn(column);
+      const kept = block.runs.findIndex((run) => Date.parse(run.startedAt) >= before);
+      expect([column, test, kept]).toEqual([0, expect.any(Number), expect.any(Number)]);
+      const page = await openIn('trimmed', `#/test/${trimmed.report.tests[test]?.id}`);
+      expect(await page.locator('.test-history > h2 + .history-notice').allTextContents()).toEqual([`Note: ${trimmedText(block, dates)}`]);
+      await selectRun(page, column);
+      const details = page.locator('.run-selected');
+      await expectLocator(details).toContainText(LEFT_OUT);
+      expect(await details.locator('.run-selected-extract').count()).toBe(0);
+      // Its option's name is a failed run's, as before.
+      expect(await page.locator('.strip-cell').nth(column).getAttribute('aria-label')).toMatch(/, (failed|flaky \(passed on retry\))(, timed out)?$/);
+      // A run that kept its errors, beyond the extracts kept: the extracts line, with the number kept.
+      const keptTest = failingIn(kept);
+      await page.goto(`${urls.trimmed}#/test/${trimmed.report.tests[keptTest]?.id}`);
+      await selectRun(page, kept);
+      await expectLocator(details).toContainText('Error text not kept: to keep the report small, the report keeps no error text.');
+      expect(await details.innerText()).not.toContain(LEFT_OUT);
+      await page.context().close();
+    });
+
+    it('other streams and the oldest runs left out: a line under the other streams, a note on the Overview', async () => {
+      const parts = { streams: 2, runs: 3 };
+      const overview = await openIn('trimmed-parts', '#/');
+      expect(await zone(overview).locator('.history-notice').allTextContents()).toEqual([
+        'Note: To keep the report small, this history leaves out 2 other streams and the 3 oldest runs.',
+        `Note: ${runsLeftOutText(parts)}`,
+      ]);
+      await overview.goto(`${urls['trimmed-parts']}#/test/${sample.tests.find((test) => test.outcome === 'failed')?.id}`);
+      await overview.locator('details.history-more > summary').click();
+      expect(await overview.locator('details.history-more > p.history-note').allTextContents()).toContain(streamsLeftOutText(parts));
+      // The runs note is the Overview's: the test's History section gives the sentence only.
+      expect(await overview.locator('.test-history .history-notice').allTextContents()).toEqual(['Note: To keep the report small, this history leaves out 2 other streams and the 3 oldest runs.']);
+      await overview.context().close();
+    });
+
+    it('nothing without a trimmed record', async () => {
+      const page = await openIn('several-streams', '#/');
+      expect(await page.locator('body').innerText()).not.toContain('keep the report small');
+      await page.goto(`${urls['several-streams']}#/test/${sample.tests.find((test) => test.outcome === 'failed')?.id}`);
+      await page.locator('details.history-more > summary').click();
+      await selectRun(page, 0);
+      expect(await page.locator('body').innerText()).not.toContain('keep the report small');
+      await page.context().close();
     });
   });
 });

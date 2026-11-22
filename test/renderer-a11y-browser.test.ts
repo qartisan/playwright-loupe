@@ -49,6 +49,10 @@ const FAILING = 'e6c8105b02e8ef4c';
 const CUT_EXTRACT = 'f67dffbfbe9d1c0b';
 // Of the cascade: a test stopped by its timeout, with an error raised after it.
 const AFTER_TIMEOUT = 'ccccccccccccccc4';
+// The failing test above in the trimmed scenario, the sample repeated to 5,000 tests: its id is its index, in hex.
+const TRIMMED_FAILING = (JSON.parse(readFileSync(SAMPLE, 'utf8')) as LoupeReport).tests.findIndex((test) => test.id === FAILING).toString(16).padStart(16, '0');
+/** The oldest failed run of a strip: in the trimmed scenario, a run whose errors were left out. */
+const oldestFailed = (page: Page) => page.locator('.strip-cell[aria-label*=", failed"]').first().click();
 
 type PlainDataset = 'sample' | 'cascade' | 'noPoints' | 'tiles' | 'many' | 'missingMedia' | 'longCommand' | 'tooLongCommand' | 'traceViewer';
 
@@ -65,11 +69,15 @@ const HISTORY_DATASETS = {
   historyNotesInvalid: 'notes-invalid',
   historyNotesAndLaunch: 'notes-and-launch',
   historyNotesAbove: 'normal',
+  historyTrimmed: 'trimmed',
+  historyTrimmedParts: 'several-streams',
 } as const satisfies Record<string, HistoryScenario>;
 
 /** How a dataset's block differs from its scenario's: no notes file yet, configured in a folder above the config's. */
 const HISTORY_BLOCKS: Partial<Record<keyof typeof HISTORY_DATASETS, (block: EmbeddedHistory) => EmbeddedHistory>> = {
   historyNotesAbove: (block) => ({ ...block, notesFile: 'absent', notesPath: '../shared/loupe.notes.json' }),
+  // The streams line and the Overview's runs note (a rendering state: the other parts are those of several-streams).
+  historyTrimmedParts: (block) => ({ ...block, trimmed: { streams: 2, runs: 3 } }),
 };
 /** A strip cell by its run (the dev scenarios' run ids): run 9 is excluded at launch and in the file, with a note. */
 const runCell = (id: string) => (page: Page) => page.locator(`.strip-cell[data-run-id="${id}"]`).click();
@@ -218,6 +226,12 @@ const MATRIX: State[] = [
   ['forced colours: notes, run selected, both reasons, a note and the copy button', 'historyNotesAndLaunch', `#/test/${FAILING}`, { forcedColors: true, arrange: runCell('dev-local-9'), reached: '.run-selected .copy-button' }],
   ['forced colours: notes, run selected, no file yet at ../shared/', 'historyNotesAbove', `#/test/${FAILING}`, { forcedColors: true, arrange: (page) => page.locator('.strip-cell').nth(5).click(), reached: '.run-selected-copy-note' }],
   ['forced colours: history, overview note', 'historyVersionBreak', '#/', { forcedColors: true, reached: '.history-notice' }],
+  ['trimmed: overview, what the report left out', 'historyTrimmed', '#/', { reached: '.verdict-history > h3 + .history-notice' }],
+  ['trimmed: overview, other streams and the oldest runs left out', 'historyTrimmedParts', '#/', { reached: '.verdict-history .history-notice ~ .history-notice' }],
+  ['trimmed: test, a run whose errors were left out selected', 'historyTrimmed', `#/test/${TRIMMED_FAILING}`, { arrange: oldestFailed, reached: '.run-selected .history-note' }],
+  ['trimmed: test, other streams open, some left out', 'historyTrimmedParts', `#/test/${FAILING}`, { arrange: click('details.history-more > summary'), reached: 'details.history-more[open]' }],
+  ['forced colours: trimmed, overview, what the report left out', 'historyTrimmed', '#/', { forcedColors: true, reached: '.verdict-history > h3 + .history-notice' }],
+  ['forced colours: trimmed, a run whose errors were left out selected', 'historyTrimmed', `#/test/${TRIMMED_FAILING}`, { forcedColors: true, arrange: oldestFailed, reached: '.run-selected .history-note' }],
 ];
 
 /** A file at each attachment path of `report` that a viewer shows: PNGs and a recorded video. */

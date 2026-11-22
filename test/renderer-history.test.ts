@@ -19,18 +19,22 @@ import {
   noStatesText,
   notesInvalidText,
   notesName,
+  runsLeftOutText,
   stateCount,
   stateDetail,
   streamDefinition,
   streamName,
+  streamsLeftOutText,
+  trimmedText,
   whichRunsText,
   type ReportHistory,
 } from '../src/renderer/history.js';
+import type { EmbeddedRun, Trimmed } from '../src/schema/history-v1.js';
 import type { LoupeReport } from '../src/schema/v1.js';
 
 /** The default notes file, as the block names it. */
 const N = 'loupe.notes.json';
-import { HISTORY_STATES, type HistoryCell, type HistoryState } from '../src/shared/history.js';
+import { HISTORY_STATES, indexHistory, testCells, type HistoryCell, type HistoryState } from '../src/shared/history.js';
 import { historyScenario, type HistoryScenario } from './helpers/history-scenarios.js';
 
 const sample = JSON.parse(readFileSync(new URL('../src/renderer/dev/sample.json', import.meta.url), 'utf8')) as LoupeReport;
@@ -219,7 +223,7 @@ describe('the notes file named as configured', () => {
 describe('test detail texts', () => {
   const run = { origin: 'ci', excluded: null, scopeReasons: [] } as unknown as HistoryCell['run'];
   const cell = (fields: Partial<HistoryCell> = {}): HistoryCell =>
-    ({ index: 0, run, code: 'F', attempts: 'FT', flags: [], runCounts: true, counts: true, failure: { category: 'Timeout', extract: 'x', cut: false, compared: true }, ...fields }) as HistoryCell;
+    ({ index: 0, run, code: 'F', attempts: 'FT', flags: [], runCounts: true, counts: true, failure: { category: 'Timeout', extract: 'x', cut: false, compared: true, leftOut: false }, ...fields }) as HistoryCell;
 
   it('the name of a cell, short: date, origin, result, category, then one word for a run drawn apart; never a reason or a note', () => {
     expect(cellName(cell(), '12 Nov 14:03')).toBe('12 Nov 14:03, CI, failed, Timeout');
@@ -267,10 +271,25 @@ describe('test detail texts', () => {
   });
 
   it('why a failure shows no error text', () => {
-    expect(failureGap(cell({ failure: { category: null, extract: null, cut: false, compared: false } }))).toMatch(/^Error not compared: /);
-    expect(failureGap(cell({ failure: { category: 'Timeout', extract: null, cut: false, compared: true } }))).toMatch(/^Error text not kept: .*300/);
+    expect(failureGap(cell({ failure: { category: null, extract: null, cut: false, compared: false, leftOut: false } }))).toMatch(/^Error not compared: /);
+    expect(failureGap(cell({ failure: { category: 'Timeout', extract: null, cut: false, compared: true, leftOut: false } }))).toMatch(/^Error text not kept: .*300/);
     expect(failureGap(cell())).toBeNull();
     expect(failureGap(cell({ failure: null }))).toBeNull();
+  });
+
+  it("a failure whose run's errors were left out: its own line, never read as no error; the extracts kept, counted", () => {
+    const leftOut = cell({ failure: { category: null, extract: null, cut: false, compared: true, leftOut: true } });
+    expect(failureGap(leftOut)).toBe('Error details of this run were left out to keep the report small.');
+    // Its name is a failed run's, as before: nothing is added to it.
+    expect(cellName(leftOut, '12 Nov 14:03')).toBe('12 Nov 14:03, CI, failed, timed out');
+    const textless = cell({ failure: { category: 'Timeout', extract: null, cut: false, compared: true, leftOut: false } });
+    expect([0, 1, 120].map((extracts) => failureGap(textless, { extracts }))).toEqual([
+      'Error text not kept: to keep the report small, the report keeps no error text.',
+      'Error text not kept: to keep the report small, the report keeps the text of the most recently seen error.',
+      'Error text not kept: to keep the report small, the report keeps the text of the 120 most recently seen errors.',
+    ]);
+    // Without the extracts cut (no trimmed record, or another part only): the 300 of every report.
+    for (const trimmed of [undefined, { streams: 2 }]) expect(failureGap(textless, trimmed)).toBe('Error text not kept: the report keeps the text of the 300 most recently seen errors.');
   });
 
   it('attempts, counters, the state with its N', () => {
@@ -322,5 +341,65 @@ describe('the exclusion copied for the current run', () => {
     expect(copy('read', 'loupe.notes.json', null)).toBeNull();
     expect(copy('read', null)).toBeNull();
     expect(copy('absent', '')).toBeNull();
+  });
+});
+
+describe('what the report left out to stay small', () => {
+  const dates = { locale: 'en-GB', timeZone: 'Europe/Paris' };
+  const runs = [{ startedAt: '2026-11-01T09:00:00.000Z' }, { startedAt: '2026-11-03T13:03:00.000Z' }, { startedAt: '2026-11-04T08:00:00.000Z' }] as EmbeddedRun[];
+  const text = (trimmed: Trimmed | undefined) => trimmedText(trimmed === undefined ? { runs } : { trimmed, runs }, dates);
+
+  it('nothing without a trimmed record', () => {
+    expect([text(undefined), streamsLeftOutText(undefined), runsLeftOutText(undefined)]).toEqual([null, null, null]);
+    expect([streamsLeftOutText({ extracts: 3 }), runsLeftOutText({ streams: 1 })]).toEqual([null, null]);
+  });
+
+  it('the boundary of the error details, exact: the date with its time, the month written out', () => {
+    const sentence = text({ signaturesBefore: '2026-11-03T13:03:00.000Z' });
+    expect(sentence).toBe('To keep the report small, this history leaves out the error details of runs started before 3 November 2026 at 14:03 CET.');
+    // Every run of the window before it (the date is then the current run's): no date to give.
+    expect(text({ signaturesBefore: '2026-11-05T00:00:00.000Z' })).toBe('To keep the report small, this history leaves out the error details of every earlier run.');
+  });
+
+  it('each part, in the order the budget leaves them out, joined in plain words', () => {
+    expect(text({ extracts: 0 })).toBe('To keep the report small, this history leaves out the text of every error.');
+    expect(text({ extracts: 1 })).toBe('To keep the report small, this history leaves out the text of all errors but the most recently seen.');
+    expect(text({ extracts: 40, streams: 1 })).toBe('To keep the report small, this history leaves out the text of all errors but the 40 most recently seen and 1 other stream.');
+    expect(text({ signaturesBefore: '2026-11-03T13:03:00.000Z', streams: 2 })).toBe(
+      'To keep the report small, this history leaves out the error details of runs started before 3 November 2026 at 14:03 CET, and 2 other streams.',
+    );
+    expect(text({ extracts: 0, signaturesBefore: '2026-11-03T13:03:00.000Z', streams: 2, runs: 1 })).toBe(
+      'To keep the report small, this history leaves out the text of every error, the error details of runs started before 3 November 2026 at 14:03 CET, 2 other streams, and the oldest run.',
+    );
+    expect(text({ runs: 3 })).toBe('To keep the report small, this history leaves out the 3 oldest runs.');
+  });
+
+  it('under the other streams, and on the Overview for the oldest runs', () => {
+    expect(streamsLeftOutText({ streams: 1 })).toBe('1 other stream was left out to keep the report small: the one with the oldest latest run.');
+    expect(streamsLeftOutText({ streams: 2 })).toBe('2 other streams were left out to keep the report small: those with the oldest latest runs.');
+    expect(runsLeftOutText({ runs: 1 })).toBe('States use only the runs kept: a test whose earlier failures were all in the oldest run reads as "New failure".');
+    expect(runsLeftOutText({ runs: 4 })).toBe('States use only the runs kept: a test whose earlier failures were all in the 4 oldest runs reads as "New failure".');
+  });
+
+  it("a past cell whose run's errors were left out is a failure the report does not keep, never no error", () => {
+    const { history } = loaded('trimmed');
+    if (!history) throw new Error('no history');
+    const block = history.analysis.history;
+    const before = block.trimmed?.signaturesBefore;
+    // The extracts, then the errors of every run but the newest few: the boundary is the start of a run of the window.
+    expect(block.trimmed).toEqual({ extracts: 0, signaturesBefore: expect.any(String) });
+    expect(block.runs.slice(1).map((run) => run.startedAt)).toContain(before);
+    const index = indexHistory(block);
+    let leftOut = 0;
+    for (let test = 0; test < 200; test++) {
+      for (const cell of testCells(block, index, test)) {
+        if (cell.code !== 'F' && cell.code !== 'K') continue;
+        const cut = Date.parse(cell.run.startedAt) < Date.parse(before ?? '');
+        expect(cell.failure, `test ${test}, run ${cell.index}`).not.toBeNull();
+        expect(cell.failure?.leftOut).toBe(cut);
+        if (cut) leftOut++;
+      }
+    }
+    expect(leftOut).toBeGreaterThan(100);
   });
 });

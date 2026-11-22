@@ -21,9 +21,12 @@ import {
   stateDetail,
   streamDefinition,
   streamName,
+  streamsLeftOutText,
+  trimmedText,
   type ReportHistory,
 } from '../history.js';
 import { CopyButton } from './CopyButton.js';
+import { HistoryNotice } from './HistoryNotice.js';
 import { HistoryStateIcon } from './icons.js';
 
 /** The History section's heading: the target of the state shown in the test detail's header. */
@@ -39,7 +42,7 @@ export function focusTestHistory(): void {
 }
 
 /** What a run's copied exclusion needs from the block: the current run's history id and the notes file. */
-type ExclusionSource = Pick<ReportHistory['analysis']['history'], 'current' | 'notesFile' | 'notesPath'>;
+type ExclusionSource = Pick<ReportHistory['analysis']['history'], 'current' | 'notesFile' | 'notesPath' | 'trimmed'>;
 
 /** A cell of the strip: a run of the window, or the current run, set apart at the end. */
 type StripCell = HistoryCell & { current: boolean };
@@ -81,7 +84,7 @@ function currentCell(report: LoupeReport, test: TestCase, history: ReportHistory
     runCounts,
     counts: runCounts && code !== 'S',
     // Its errors are in the attempts below: no extract here.
-    failure: code === 'F' || code === 'K' ? { category: test.category, extract: null, cut: false, compared: true } : null,
+    failure: code === 'F' || code === 'K' ? { category: test.category, extract: null, cut: false, compared: true, leftOut: false } : null,
     current: true,
   };
 }
@@ -128,7 +131,7 @@ function runFacts(cell: StripCell): string[] {
  * later link to that run's report.
  */
 function SelectedRun({ cell, date, include, notes, source, onClose }: { cell: StripCell; date: string; include: Include; notes: string | null; source: ExclusionSource; onClose: () => void }) {
-  const gap = failureGap(cell);
+  const gap = failureGap(cell, source.trimmed);
   // The run's history id: a past run's own; the current run's from the block (its cell holds the report's run id).
   const copy = exclusionCopyFor(cell.current ? source.current.id : cell.run.id, source);
   const use = cellUse(cell, include, notes);
@@ -314,7 +317,7 @@ function Strip({ cells, include, notes, source }: { cells: readonly StripCell[];
  * summary names the other streams. With nothing inside, no disclosure: the
  * counters alone are a plain line, and nothing at all without them.
  */
-function HistoryMore({ counters, noRetries, others, stream }: { counters: string | null; noRetries: boolean; others: ReturnType<typeof otherStreams>; stream: ReportHistory['analysis']['history']['stream'] }) {
+function HistoryMore({ counters, noRetries, others, stream, streamsLeftOut }: { counters: string | null; noRetries: boolean; others: ReturnType<typeof otherStreams>; stream: ReportHistory['analysis']['history']['stream']; streamsLeftOut: string | null }) {
   const inside = noRetries || others.length > 0;
   if (!inside) return counters ? <p class="history-counters">{counters}</p> : null;
   return (
@@ -347,6 +350,7 @@ function HistoryMore({ counters, noRetries, others, stream }: { counters: string
             })}
           </ul>
           {others.some((other) => other.code === '-') && <p class="history-note">* {NO_RESULT_NOTE}</p>}
+          {streamsLeftOut && <p class="history-note">{streamsLeftOut}</p>}
         </>
       )}
     </details>
@@ -374,11 +378,13 @@ export function TestHistory({ history, report, test }: { history: ReportHistory;
   if (cells.length === 0 && others.length === 0) return null;
   const facts = history.byTest.get(test);
   const shown = analysis.statesShown && facts;
+  const trimmed = trimmedText(block);
   return (
     <section class="detail-section test-history" aria-labelledby={HEADING_ID} data-history>
       <h2 id={HEADING_ID}>
         History <span class="verdict-history-stream">{streamName(block.stream)}</span>
       </h2>
+      {trimmed && <HistoryNotice>{trimmed}</HistoryNotice>}
       {shown && facts.state && (
         // The lead line: the state larger and bold, no colour (sage and red are statuses, hues are categories).
         <p class="history-test-state">
@@ -391,7 +397,7 @@ export function TestHistory({ history, report, test }: { history: ReportHistory;
         </p>
       )}
       {cells.length > 0 && <Strip key={`${test.id}:${test.repeatEachIndex}`} cells={cells} include={block.include} notes={notesName(block)} source={block} />}
-      <HistoryMore counters={shown && facts.counters.considered > 0 ? countersText(facts.counters, !facts.noRetries) : null} noRetries={Boolean(shown && facts.noRetries)} others={others} stream={block.stream} />
+      <HistoryMore counters={shown && facts.counters.considered > 0 ? countersText(facts.counters, !facts.noRetries) : null} noRetries={Boolean(shown && facts.noRetries)} others={others} stream={block.stream} streamsLeftOut={streamsLeftOutText(block.trimmed)} />
     </section>
   );
 }

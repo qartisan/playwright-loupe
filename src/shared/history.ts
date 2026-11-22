@@ -269,9 +269,13 @@ export interface HistoryCell {
   runCounts: boolean;
   /** The result decides the test's state and counters: the run counts and the test ran in it. */
   counts: boolean;
-  /** The first error of the first failed attempt: null when the result has none to show. `compared` is false for another signature version. */
-  /** `cut`: the extract is only the start of the error (the dictionary's fourth element). */
-  failure: { category: string | null; extract: string | null; cut: boolean; compared: boolean } | null;
+  /**
+   * The first error of the first failed attempt: null when the result has none to show. `compared` is false for
+   * another signature version; `leftOut`, true when the byte budget left out the run's signatures (it started before
+   * `trimmed.signaturesBefore`): the failure had an error, the report does not keep it. `cut`: the extract is only
+   * the start of the error (the dictionary's third element).
+   */
+  failure: { category: string | null; extract: string | null; cut: boolean; compared: boolean; leftOut: boolean } | null;
 }
 
 /**
@@ -301,6 +305,7 @@ export function testCells(history: EmbeddedHistory, index: HistoryIndex, test: n
   const width = history.runs.length;
   const row = index.failureRows.get(test);
   let failing = 0;
+  const before = history.trimmed?.signaturesBefore === undefined ? null : Date.parse(history.trimmed.signaturesBefore);
   return history.runs.map((run, column): HistoryCell => {
     const code = history.cells[test * width + column] as ResultCode;
     const runCounts = countsForTests(run, history.include);
@@ -313,10 +318,12 @@ export function testCells(history: EmbeddedHistory, index: HistoryIndex, test: n
         ...base,
         attempts: row?.attempts[ordinal] || null,
         failure: signature
-          ? { category: signature[0], extract: signature[1], cut: signature[1] !== null && signature[2] === true, compared: true }
-          : run.sameSignatures
-            ? null
-            : { category: null, extract: null, cut: false, compared: false },
+          ? { category: signature[0], extract: signature[1], cut: signature[1] !== null && signature[2] === true, compared: true, leftOut: false }
+          : !run.sameSignatures
+            ? { category: null, extract: null, cut: false, compared: false, leftOut: false }
+            : before !== null && Date.parse(run.startedAt) < before
+              ? { category: null, extract: null, cut: false, compared: true, leftOut: true }
+              : null,
       };
     }
     const attempts = index.attempts.get(test * width + column) ?? (code === 'P' || code === 'S' ? code : null);

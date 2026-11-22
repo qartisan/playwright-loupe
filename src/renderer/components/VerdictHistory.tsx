@@ -1,28 +1,24 @@
-import type { ComponentChildren } from 'preact';
 import { HISTORY_STATES } from '../../shared/history.js';
 import { formatRunStart } from '../datetime.js';
 import { plural } from '../format.js';
-import { STATE_HELP, formatFailedChange, formatPoints, noDeltaText, noStatesText, notesInvalidText, notesName, stateCount, stateHelpId, streamName, type ReportHistory } from '../history.js';
+import {
+  STATE_HELP,
+  formatFailedChange,
+  formatPoints,
+  noDeltaText,
+  noStatesText,
+  notesInvalidText,
+  notesName,
+  runsLeftOutText,
+  stateCount,
+  stateHelpId,
+  streamName,
+  trimmedText,
+  type ReportHistory,
+} from '../history.js';
 import { facetHref } from '../filters/store.js';
 import { HistoryHelp } from './HistoryHelp.js';
-import { InfoIcon } from './icons.js';
-
-/**
- * A run-level notice, set apart so that it is not missed inside the verdict:
- * a note, not an error (a neutral background, an information icon). The icon
- * is hidden; "Note:" is its text alternative.
- */
-function HistoryNotice({ children }: { children: ComponentChildren }) {
-  return (
-    <p class="history-notice">
-      <InfoIcon />
-      <span>
-        <span class="visually-hidden">Note: </span>
-        {children}
-      </span>
-    </p>
-  );
-}
+import { HistoryNotice } from './HistoryNotice.js';
 
 /**
  * The history part of the verdict: the change since the previous run that
@@ -39,11 +35,15 @@ export function VerdictHistory({ history }: { history: ReportHistory }) {
   const { delta, noDelta, history: block } = analysis;
   const previous = delta ? formatRunStart(delta.previous.startedAt) : null;
   const signatures = analysis.signatureBreak ? formatRunStart(analysis.signatureBreak.before) : null;
+  const trimmed = trimmedText(block);
+  const runsLeftOut = runsLeftOutText(block.trimmed);
   return (
     <div class="verdict-history" data-history>
       <h3 class="verdict-history-title">
         History <span class="verdict-history-stream">{streamName(block.stream)}</span>
       </h3>
+      {/* At the top: what the report left out to stay small reads before any figure it changes. */}
+      {trimmed && <HistoryNotice>{trimmed}</HistoryNotice>}
       {delta ? (
         <p class="history-delta">
           Since the previous {block.include === 'all' ? '' : 'full '}run
@@ -92,6 +92,7 @@ export function VerdictHistory({ history }: { history: ReportHistory }) {
         </HistoryNotice>
       )}
       {block.notesFile === 'invalid' && <HistoryNotice>{notesInvalidText(notesName(block))}</HistoryNotice>}
+      {analysis.statesShown && runsLeftOut && <HistoryNotice>{runsLeftOut}</HistoryNotice>}
       {analysis.statesShown && <HistoryHelp headingLevel={4} include={block.include} notes={notesName(block)} />}
     </div>
   );
