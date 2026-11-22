@@ -8,11 +8,11 @@ import type { EmbeddedHistory, HistoryRunFile, RunNotes } from '../src/schema/hi
 import type { LoupeReport } from '../src/schema/v1.js';
 import { ROOT, assertBuilt } from './helpers/fixtures.js';
 import { NO_NOTES } from './helpers/history.js';
-import { perfSampleReport, random, realisticReport, simulateWindow } from './helpers/history-sim.js';
+import { type SimulatedWindow, WINDOWS, perfSampleReport, random, realisticReport } from './helpers/history-sim.js';
 
 /** Brief 24, decision 8: the embedded history of a realistic 5,000-test run stays under 40 kB gzip. */
 const REALISTIC_LIMIT = 40_000;
-/** The perf:sample dataset, 56% failing: a looser regression bound. */
+/** The perf:sample dataset, 56% failing, under brief 23's model: a looser regression bound, until the budget (brief 26, H3). */
 const PERF_SAMPLE_LIMIT = 90_000;
 
 const STREAM = { environment: 'default', origin: 'local' };
@@ -52,9 +52,9 @@ function realisticNotes(runs: readonly HistoryRunFile[]): Map<string, RunNotes> 
   return new Map(runs.map((file, index) => [file.run.id, { note: NOTES[index % NOTES.length] as string, ...(index % 4 === 0 ? { notesExcluded: REASONS[index / 4 % REASONS.length] as string } : {}) }]));
 }
 
-function embedded(report: LoupeReport, otherStreams: number, notes: 'none' | 'realistic' = 'realistic'): EmbeddedHistory {
-  const runs = simulateWindow(report, 20, STREAM);
-  const others = Array.from({ length: otherStreams }, (_, index) => simulateWindow(report, 1, { environment: `other-${index}`, origin: 'ci' }, random(100 + index))[0]!);
+function embedded(report: LoupeReport, window: SimulatedWindow, otherStreams: number, notes: 'none' | 'realistic' = 'realistic'): EmbeddedHistory {
+  const runs = window(report, 20, STREAM);
+  const others = Array.from({ length: otherStreams }, (_, index) => window(report, 1, { environment: `other-${index}`, origin: 'ci' }, random(100 + index))[0]!);
   const withNotes = notes === 'realistic' ? { notes: realisticNotes(runs), notesFile: 'read' as const, notesPath: 'loupe.notes.json' } : NO_NOTES;
   const value = deriveEmbedded(report, { runs, others, skipped: 0 }, { include: 'full', stream: STREAM, current: { origin: 'local', excluded: null, id: CURRENT_ID }, currentRunId: 'current', ...withNotes });
   if (value === null) throw new Error('no embedded history');
@@ -75,24 +75,30 @@ describe('size of the embedded history at 5,000 tests (N = 20)', () => {
     template = readFileSync(path.join(ROOT, 'dist/renderer/index.html'), 'utf8');
   });
 
-  it(`a realistic run (2% failing, two other streams, realistic notes): under ${REALISTIC_LIMIT / 1000} kB gzip`, () => {
+  it.each([
+    ['an ordinary window', 'normal'],
+    ['a window of incident days', 'incidentDays'],
+  ] as const)(`a realistic run, calibrated, %s (two other streams, realistic notes): under ${REALISTIC_LIMIT / 1000} kB gzip`, (_, name) => {
     const report = realisticReport();
-    const value = embedded(report, 2);
-    expect(value.runs.filter((run) => run.notesExcluded !== undefined)).toHaveLength(5);
-    expect(new Set(value.runs.map((run) => run.note)).size).toBe(20);
-    const size = measure(template, report, value);
-    if (process.env['LOUPE_MEASURE']) console.log('realistic', size, 'without notes', measure(template, report, embedded(report, 2, 'none')));
-    expect(size.alone).toBeLessThan(REALISTIC_LIMIT);
-  });
-
-  it(`the perf:sample dataset (56% failing, two other streams, realistic notes): under ${PERF_SAMPLE_LIMIT / 1000} kB gzip`, () => {
-    const report = perfSampleReport();
-    const value = embedded(report, 2);
+    const value = embedded(report, WINDOWS[name], 2);
     expect(value.runs.filter((run) => run.notesExcluded !== undefined)).toHaveLength(5);
     expect(new Set(value.runs.map((run) => run.note)).size).toBe(20);
     const size = measure(template, report, value);
     if (process.env['LOUPE_MEASURE']) {
-      console.log('perf:sample', size, 'without notes', measure(template, report, embedded(report, 2, 'none')), { signatures: value.signatures.length, withExtract: value.signatures.filter(([, x]) => x !== null).length });
+      console.log(`realistic, ${name}`, size, 'without notes', measure(template, report, embedded(report, WINDOWS[name], 2, 'none')), { signatures: value.signatures.length });
+      if (name === 'normal') console.log('realistic, brief23 (no limit)', measure(template, report, embedded(report, WINDOWS.brief23, 2)));
+    }
+    expect(size.alone).toBeLessThan(REALISTIC_LIMIT);
+  });
+
+  it(`the perf:sample dataset (56% failing, brief 23's model, two other streams, realistic notes): under ${PERF_SAMPLE_LIMIT / 1000} kB gzip`, () => {
+    const report = perfSampleReport();
+    const value = embedded(report, WINDOWS.brief23, 2);
+    expect(value.runs.filter((run) => run.notesExcluded !== undefined)).toHaveLength(5);
+    expect(new Set(value.runs.map((run) => run.note)).size).toBe(20);
+    const size = measure(template, report, value);
+    if (process.env['LOUPE_MEASURE']) {
+      console.log('perf:sample', size, 'without notes', measure(template, report, embedded(report, WINDOWS.brief23, 2, 'none')), { signatures: value.signatures.length, withExtract: value.signatures.filter(([, x]) => x !== null).length });
     }
     expect(size.alone).toBeLessThan(PERF_SAMPLE_LIMIT);
   });
