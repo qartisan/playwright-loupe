@@ -10,7 +10,7 @@ import type { LoupeReport } from '../schema/v1.js';
 import { buildReport } from './build.js';
 import type { EmbeddedHistory } from '../schema/history-v1.js';
 import { historyRunId } from './history/detect.js';
-import { deriveEmbedded } from './history/embed.js';
+import { deriveWithinBudget } from './history/embed.js';
 import { notesByRun, notesPath, readNotes, type NotesRead } from './history/notes.js';
 import { createReplay, readHistory, windowOfStream, type HistoryRead } from './history/read.js';
 import { maskedExcludeReason, recordRun, reportIdentity, runIdentity, skipReason, type RecordContext } from './history/record.js';
@@ -232,7 +232,7 @@ export class LoupeReporter implements Reporter {
         notesFile: notes?.status ?? 'absent',
         notesPath: notesPath(context.history.notes, notesFolder, (text) => replay(text)),
       };
-      return { value: deriveEmbedded(report, read, options), problems: [] };
+      return deriveWithinBudget(report, read, options);
     } catch (error) {
       return { value: null, problems: [`the history could not be embedded (${error instanceof Error ? error.message : String(error)})`] };
     }

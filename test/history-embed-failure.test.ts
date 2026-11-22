@@ -10,7 +10,7 @@ import { daysAgo, makeRunFile, putRunFile } from './helpers/history.js';
 // src/, the reporter reads the renderer's source page (src/renderer/index.html),
 // which has the same placeholders as the built one: the blocks are injected alike.
 vi.mock('../src/core/history/embed.js', () => ({
-  deriveEmbedded: () => {
+  deriveWithinBudget: () => {
     throw new Error('derivation broke');
   },
 }));

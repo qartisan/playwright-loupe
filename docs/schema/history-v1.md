@@ -160,6 +160,7 @@ Statuses are one character per test and run, aligned with the report's `tests`, 
 | `attempts` | `[test, run, attempts][]` | The attempts of the other cells, only when the code does not imply them (a single `P` for `P`, a single `S` for `S`): an expected failure, a pass after a retry of another kind. |
 | `signatures` | `[category, extract, cut?][]` | One entry per distinct signature of the window's failures, most recently seen first. The signature itself is not embedded: the report never shows it, and the index into this list already tells identical errors apart within the block. Only the first 300 have their extract; the others have `null`. `cut`, `true`, only when the extract is shorter than the message (the failure's `xc`), so the report can say so; omitted otherwise, and for a run file written without `xc`. |
 | `others` | `EmbeddedOtherRun[]` | The newest run of every other stream, newest first. |
+| `trimmed` | `Trimmed`, optional | What the [byte budget](#byte-budget) left out; omitted when nothing was. |
 
 ### EmbeddedRun
 
@@ -180,3 +181,27 @@ Statuses are one character per test and run, aligned with the report's `tests`, 
 | `stream` | `object` | That stream. |
 | `id`, `startedAt` | `string` | Of its newest run. |
 | `cells` | `string` | One outcome code per report test, or `-`, as a column of `cells`. A test missing from that run is `-`, even when an older run of that stream has it. |
+
+### Byte budget
+
+The block has a budget: the larger of 40,000 bytes and 8 bytes per test of the report, gzip at the default level, as `index.html` is served. It is not configurable. A realistic window stays well under it: at 5,000 tests and 20 runs, about 8 kB for an ordinary window and under 30 kB for a window of incident days (`test/history-embed-size.test.ts`).
+
+Under the budget, the block is whole. Over it, the core leaves parts out in this order, each by the smallest cut that brings the block under the budget, and goes on to the next part only when leaving all of one out is not enough:
+
+1. the extracts, the oldest seen first;
+2. the signatures of past runs, the oldest runs first: their failures become `-1` and give no entry to `signatures`;
+3. the other streams, the oldest first;
+4. the oldest runs of the window, down to the newest one.
+
+Nothing left out is anywhere else in the block, and `trimmed` says what was left out. When the block is still over the budget with only the newest run, the report embeds `null` and the run gives one warning, `Loupe: history: the history was too large to embed (…)`. One run without errors or other streams is about one byte per test, so only a pathological run can reach it (thousands of projects, for example).
+
+### Trimmed
+
+Each key only when that part was cut.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `extracts` | `number` | Extracts kept: the first entries of `signatures` (the most recently seen) have theirs, the later ones none. Omitted when no entry lost its extract to the budget, as when every signature was left out. |
+| `signaturesBefore` | `string` | The runs of the window that started before this date have no signature: every one of their failures is `-1`. The start of the current run when no run of the window keeps its signatures. Runs that started at the same time are kept or cut together. |
+| `streams` | `number` | Other streams left out, the oldest: `others` holds the newest ones. |
+| `runs` | `number` | The oldest runs of the window left out: `runs` holds the newest ones. |

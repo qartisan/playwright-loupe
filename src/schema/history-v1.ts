@@ -203,6 +203,30 @@ export interface EmbeddedHistory {
   signatures: Array<[category: string | null, extract: string | null, cut?: true]>;
   /** The newest run of every other stream, newest first. */
   others: EmbeddedOtherRun[];
+  /** What the byte budget left out of the block; omitted when nothing was. */
+  trimmed?: Trimmed;
+}
+
+/**
+ * What the byte budget of the block (the larger of 40,000 bytes and 8 per test of the report, gzip) left out,
+ * in this order: extracts, then the signatures of past runs, then other streams, then the oldest runs. Each key
+ * only when that part was cut. Nothing left out is anywhere else in the block.
+ */
+export interface Trimmed {
+  /**
+   * Extracts kept, the first entries of `signatures` (the most recently seen); the later ones have none. Omitted
+   * when no entry lost its extract to the budget, as when every signature was left out.
+   */
+  extracts?: number;
+  /**
+   * The runs of the window that started before this date have no signature (every failure is -1) and give no
+   * entry to `signatures`; the start of the current run when no run of the window keeps its signatures.
+   */
+  signaturesBefore?: string;
+  /** Other streams left out, the oldest: `others` holds the newest ones. */
+  streams?: number;
+  /** The oldest runs of the window left out: `runs` holds the newest ones. */
+  runs?: number;
 }
 
 /** Distinct signatures embedded with their extract, at most. */
