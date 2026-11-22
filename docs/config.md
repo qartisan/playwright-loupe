@@ -81,6 +81,7 @@ Merging is done key by key for nested objects (`categories`, `dimensions`, `scre
 | `history.retention.maxRuns` | positive integer | `200` | Runs kept per stream. |
 | `history.retention.maxAgeDays` | positive integer | `90` | Age in days after which a run is removed, in every stream. |
 | `history.include` | `'full' \| 'all'` | `'full'` | `full`: partial, excluded and IDE runs are left out of run-level statistics. `all`: they count. |
+| `history.notes` | `string \| false` | `'loupe.notes.json'` | The [notes file](history.md#notes-and-exclusions), relative to the Playwright config file's directory. `false` ignores it. No environment variable. |
 | `configFile` | `string` | none | **Inline options only.** Config file to load instead of the default lookup, relative to the Playwright config file's directory. |
 
 ### Error categories
@@ -244,6 +245,7 @@ history: {
   stream: { key: ['environment', 'origin'] },
   retention: { maxRuns: 200, maxAgeDays: 90 }, // the first limit reached wins
   include: 'full',
+  notes: 'loupe.notes.json', // or false
 },
 // or
 history: false,
@@ -253,6 +255,7 @@ history: false,
 - `stream.key` is a non-empty list, each part at most once. Its order does not matter; adding or removing a part starts new streams ([Streams](history.md#streams)). Arrays replace, as for the other options.
 - `retention.maxRuns` applies to the run's own stream, `retention.maxAgeDays` to every stream ([Retention](history.md#retention)).
 - `include: 'all'` counts partial, excluded and `ide` runs in run comparisons, and excluded runs in each test's history ([Which runs are used](history.md#which-runs-are-used)). It changes nothing in what is recorded.
+- `notes` is the file that excludes runs, or attaches notes to them, after the fact ([Notes and exclusions](history.md#notes-and-exclusions)): a non-empty path relative to the Playwright config file's directory, or `false` to ignore it. It is independent of `dir` and `LOUPE_HISTORY_DIR`, since the history may live in a CI cache while the notes file is committed. Several Playwright configs each read their own by default, or share one through this option. Under `merge-reports`, it is the merge config's. The report names the file as this option sets it.
 
 **The history folder and `outputFolder` must not overlap** (neither inside the other): the report folder is published and replaced, the history must survive it.
 
@@ -279,7 +282,7 @@ History never stops a run once it has started: any problem reading or writing th
 | `LOUPE_TRACE_VIEWER` | Overrides `traceViewer`: `off` or `bundled`. | |
 | `LOUPE_HISTORY` | Overrides `history.enabled`: `on`, `true` or `1` records, `off`, `false` or `0` does not. The other history options are kept. | |
 | `LOUPE_HISTORY_DIR` | Overrides `history.dir`. | Working directory, like `LOUPE_OUTPUT_FOLDER` |
-| `LOUPE_EXCLUDE` | Records the run as excluded from run-level statistics, with this text as the reason (trimmed, at most 200 characters). See [Excluding a run](history.md#excluding-a-run). | |
+| `LOUPE_EXCLUDE` | Records the run as excluded from run-level statistics, with this text as the reason (trimmed, at most 200 characters). See [Excluding a run at launch](history.md#excluding-a-run-at-launch); after the fact, in the [notes file](history.md#notes-and-exclusions). | |
 
 Empty values are ignored, as if the variable were unset. An invalid `LOUPE_RUN_SCOPE`, `LOUPE_GIT_LOCAL`, `LOUPE_TRACE_VIEWER` or `LOUPE_HISTORY` stops the run, and so does a `LOUPE_HISTORY_DIR` that overlaps `outputFolder` while history is on. `LOUPE_EXCLUDE` takes any text.
 

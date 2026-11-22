@@ -33,7 +33,7 @@ loupe-history/
 Each file holds:
 
 - the versions: `historyVersion` (the format of the file), `signatureVersion` (the [error signature](schema/v1.md#error-signature) algorithm), the Loupe and Playwright versions;
-- the run: its id, start time, duration and status, [origin](#origins), environment and stream, [scope](schema/v1.md#run-scope) and its reasons, whether it was [excluded](#excluding-a-run) and why, whether `merge-reports` wrote it, the CI provider, the git commit and branch, the counts, the projects and their retries, the errors outside tests, and the `run.id` of the report written by the same run;
+- the run: its id, start time, duration and status, [origin](#origins), environment and stream, [scope](schema/v1.md#run-scope) and its reasons, whether it was [excluded at launch](#excluding-a-run-at-launch) and why, whether `merge-reports` wrote it, the CI provider, the git commit and branch, the counts, the projects and their retries, the errors outside tests, and the `run.id` of the report written by the same run;
 - per test: its id, project, file and title, final status, duration, the status of each attempt, and for each failed attempt (the failed attempts of a flaky test included): its error signatures, and the category, location and an **extract** of its first error: the first lines of the message, about 300 characters, as they appear in the report.
 
 Screenshots, videos, traces, stacks, steps and full messages stay in the report; the history keeps none of them. The format is described field by field in [`schema/history-v1.md`](schema/history-v1.md).
@@ -135,7 +135,7 @@ The verdict gains a History zone, titled with the stream:
 
 - **The change since the previous run** that counts at run level: "Since the previous full run (12 Nov, 14:03): pass rate +3 pts · 2 fewer failed tests" (the pass rate is the one of the [report](schema/v1.md#stats): passed / (total − skipped)). There is no delta when the current run does not count at run level, or when no earlier run does, and one line says why: "This run is partial: it is not compared with earlier runs", "This run comes from the IDE …", "This run is excluded (reason) …", "No earlier full run in this stream to compare with".
 - **The number of tests in each state** below, each linking to the Tests view filtered on it (`#/tests?history=new-failure`). A count of 0 stays plain text.
-- **Notes**, set apart from the rest, when the past is not complete (see [Notes](#notes)).
+- **Notes**, set apart from the rest, when the past is not complete or the report left something out (see [Run-level notes](#run-level-notes)).
 
 ### Failure states
 
@@ -157,7 +157,7 @@ A failed attempt is a failed or flaky result. An expected failure (`test.fail()`
 **When no state is shown**, one line in the verdict says why, and the Tests view has no History filter:
 
 - "First run of this stream: nothing to compare yet." The stream has no earlier run (other streams may have some). Calling every failing test "New test" would say nothing.
-- "Every earlier run of this stream is excluded (with LOUPE_EXCLUDE or in loupe.notes.json); history.include: 'all' counts them."
+- "Every earlier run of this stream is excluded (with LOUPE_EXCLUDE or in loupe.notes.json); history.include: 'all' counts them." The [notes file](#notes-and-exclusions) is named as `history.notes` sets it, and left out with `history.notes: false`.
 - "The earlier runs of this stream could not be read (a newer history format, or unreadable files): nothing to compare." The past exists but is unreadable, so the tests are not called new.
 
 ### In the Tests view
@@ -179,7 +179,18 @@ A failing test's state also shows in its header, right after its status, as the 
 
 **The strip** shows each result by its colour and its shape: a tick for passed, a cross for failed, curved arrows for flaky (passed on retry), a dash for skipped, an empty dotted circle for no result (the test was not in that run). A run whose results the test's history does not use (an excluded run) is drawn hollow, with a dashed outline; a partial or IDE run, which it uses, has a dot under its cell.
 
-Choosing a run (a click, a tap, Enter or Space) shows its details right after the strip, in the page, pushing what follows down: the date, the result and attempts, the origin, the branch and commit when known, the run's duration (a test's own duration in a past run is not kept), the category, how the run is used with its reasons and their sources, its note, and for a failure the extract of its first error, shown whole: its first lines, about 300 characters. An extract shorter than its message ends with an ellipsis on a line of its own and the line "Only the start of the error is kept." (not for a run recorded before Loupe flagged cut extracts). Its actions follow the heading: "Copy exclusion for this run", the run's entry for the [notes file](schema/notes-v1.md#from-the-report) (not when `history.notes` is `false`, or for the current run when it is not recorded), then Close, last. Choosing it again, Close, or Escape on the strip or in the details (also while a screen reader reads them) closes them; nothing opens on hover. The strip is a list of runs to choose from, one tab stop: the arrow keys move between runs without choosing one, Home and End go to the ends, and each run has a short name, such as "12 November 2026 at 14:03 GMT+1, CI, failed, Timeout", plus "excluded" or "partial" when it is (dates in the browser's locale, the month written out so screen readers speak it well). There is no link to older reports yet.
+**Choosing a run.** The strip is a list of runs to choose from, "Runs of this test: select one to see its details", one tab stop: the arrow keys move between runs without choosing one, Home and End go to the ends. Each run has a short name, such as "12 November 2026 at 14:03 GMT+1, CI, failed, Timeout", plus "excluded" or "partial" when it is (dates in the browser's locale, the month written out so screen readers speak it well); never a reason or a note, which are in its details. A click, a tap, Enter or Space chooses a run, focus staying on it. Nothing opens on hover; while no run is chosen, a muted line says "Select a run to see its details." The chosen run has a ring of its own, apart from the focus outline, in both themes and in forced colours.
+
+**Reading its details.** They come right after the strip, as part of the page, pushing what follows down, so they read in the page's order like any text:
+
+- a heading, "Selected run, {date}", with "(this run)" for the current run;
+- its actions, right after the heading: "Copy exclusion for this run" ([below](#copying-an-exclusion-from-the-report)), then Close, last;
+- the facts: the date, the result and attempts, the origin, the branch and commit when known, the run's duration (a test's own duration in a past run is not kept), the category;
+- how the run is used, with its reasons and their sources: "Excluded run (staging restored, from loupe.notes.json): not used in this test's history";
+- its note, "Note: …", as plain text;
+- for a failure, the extract of its first error, shown whole, with no inner scroll: its first lines, about 300 characters. An extract shorter than its message ends with an ellipsis on a line of its own and the line "Only the start of the error is kept." (not for a run recorded before Loupe flagged cut extracts). Without an extract, one line says why: another signature version, an error beyond the extracts the report keeps, or a run whose errors the report left out to stay small ([Size](#size)). For the current run, the line says its errors are in the attempts below.
+
+**Closing them.** Choosing the run again, Close, or Escape closes them, focus back on the run's option. Escape works on the strip, in the details, and while a screen reader's browse mode or caret browsing reads them; it never acts under the narrow sidebar or a dialog. There is no link to older reports yet.
 
 **The counters** are facts side by side, with no score and no threshold: "Failed 5 of the last 20 runs · changed status 9 times · passed on retry 3 times".
 
@@ -194,12 +205,14 @@ Both of the first two are needed. A test that passed 15 times then failed 5 time
 
 **Other streams.** The latest result of the test in each other stream, with its date and status: "staging, CI", then the date, then "failed". A stream is an environment and an origin by default ([Streams](#streams)), so the same environment run from the IDE is another stream. "No result" means the test is not in that stream's latest run; only the latest run of each other stream is embedded ([Limits](#what-the-report-embeds)).
 
-### Notes
+### Run-level notes
 
-Two notes in the verdict say when the past the report reads is incomplete. They are notes, not errors:
+Notes in the verdict say when the past the report reads is incomplete, or when the report left part of it out. They are notes, not errors:
 
 - **"Loupe's error signatures changed: errors before {date} are not compared."** Runs recorded with another [signature version](schema/history-v1.md#signature-version) stay in the window: their statuses count for the states and counters, only their errors are not compared with the current ones. Their cells in the strip say so.
 - **"N earlier run files of this stream could not be read (a newer history format, or unreadable files): the window is shorter."** Files written by a newer Loupe (after a downgrade), corrupt or unreadable files of the stream. The states are still shown, on the runs that are left. When no run is left, the verdict says it instead of showing states ([above](#failure-states)).
+- **"loupe.notes.json could not be read: its entries are ignored (see the run output)."** The [notes file](#notes-and-exclusions) is invalid; the run's warning says why. Nothing for a file that is absent, read, or turned off.
+- **"To keep the report small, this history leaves out …"**, at the top of the history, on the Overview and in a test's History section, when the history was too large to embed whole ([Size](#size)).
 
 ## Run id
 
@@ -213,22 +226,67 @@ The content hash is 8 hex characters over the test ids and their attempts' start
 
 The run file also keeps the report's own `run.id` (a random UUID, as in `report.json`), the link from a run to its report.
 
-## Excluding a run
+## Notes and exclusions
+
+A run can be set apart in two ways: **at launch**, with `LOUPE_EXCLUDE`, or **after the fact**, in `loupe.notes.json`, which can also attach a note to a run. Both name the run by its [run id](#run-id). An excluded run stays in the history and in the report, drawn hollow in the strip, but no longer counts ([What counts in statistics](#what-counts-in-statistics)).
+
+### Excluding a run at launch
 
 ```sh
 LOUPE_EXCLUDE="staging database restored during the run" npx playwright test
 ```
 
-The run is recorded as excluded, with that reason (trimmed; an empty value is ignored). It stays in the history and in the report, but no longer counts in run-level statistics. The reason is masked like the rest of the report: a [`redact.env`](config.md#secret-redaction) value or your home directory in it does not reach the file.
+The run is recorded as excluded, with that reason (trimmed, at most 200 characters; an empty value is ignored). The reason is masked like the rest of the report: a [`redact.env`](config.md#secret-redaction) value or your home directory in it does not reach the file.
 
-Excluding a run after the fact, and comments on runs, come in a later release; they will use the run id as their key.
+**Undoing it.** The reason is in the run file, which Loupe never rewrites, and the notes file can exclude a run but not bring one back. `history.include: 'all'` counts every excluded run again. To undo one exclusion, delete that run's file, `loupe-history/runs/*-<run id>.json.gz`: the run then leaves the history entirely.
+
+### The notes file
+
+`loupe.notes.json` excludes runs, or attaches notes to them, after the run. You write it, and you commit it: unlike `loupe-history/`, it belongs in the repository.
+
+```json
+{
+  "notesVersion": 1,
+  "runs": [
+    { "run": "github-actions-11893456-9c0e1f2a", "exclude": "Staging was down (VPN)" },
+    { "run": "6f1c2b9e-8d3a-4c5b-9e7f-1a2b3c4d5e6f", "note": "First run after the auth refactor: login timeouts expected" }
+  ]
+}
+```
+
+- **Where**: next to the Playwright config, or wherever [`history.notes`](config.md#history) says, relative to the config. It does not follow `history.dir` or `LOUPE_HISTORY_DIR`: the history may live in a CI cache, the notes file is versioned. `history.notes: false` turns it off.
+- **When**: Loupe reads it once, when a run starts. An entry applies **from the next run**: the report is static, and a run already reported does not change. Run files are never rewritten, so removing an entry undoes it from the next run.
+- **What an entry does**: `exclude` has the effect of `LOUPE_EXCLUDE`, with its reason; `note` is free text, shown in the run's details as "Note: …", as plain text, and excludes nothing. An entry can have both. Several entries for one run are joined.
+- **Lenient where people and their tools are**: a UTF-8 byte order mark (Notepad writes one), CRLF line ends, and a trailing comma before `]` or `}` (what pasting an entry last leaves) are accepted. Anything else that is not JSON (comments, single quotes) makes the file invalid.
+- **Never stops a run**: an invalid file is ignored whole, with one `Loupe: history: …` warning giving the line and column of a syntax error, and one note in the verdict. An invalid entry is ignored, the others used.
+- **Masked like the report**: reasons and notes go through the redaction (`redact.env` values, home directories), then are cut to 200 and 300 characters.
+
+In the report, a run excluded by the file says where its reason comes from: "Excluded run (Staging was down (VPN), from loupe.notes.json)". A run excluded both ways gives both reasons, each with its source. Every text names the file as `history.notes` sets it. The format, field by field, is in [`schema/notes-v1.md`](schema/notes-v1.md).
+
+### Copying an exclusion from the report
+
+Two buttons, "Copy exclusion for this run", copy what to add to the file, with the run's id and a `<reason>` to replace:
+
+- in the **Run details** card on the Overview, for the current run;
+- in a test's history, in the **selected run's details**, for that run (any run of the window, or the current one).
+
+The text next to each button says where it goes, from what the run knew of the file:
+
+- a file exists: one entry, ending with a comma, and "Paste it after "runs": [ in loupe.notes.json and commit it: it applies from the next run.";
+- no file yet: a whole file, and "Save it as loupe.notes.json next to the Playwright config and commit it: it applies from the next run.", or, when `history.notes` names a path with a folder, "Save it as e2e/team-notes.json, relative to the Playwright config's folder, and commit it: it applies from the next run."
+
+There is no button with `history.notes: false`, nor for the current run when it is not recorded (a shard writing a blob, a run where no test ran). Without clipboard access, a dialog shows the text to copy by hand.
+
+### Cleaning up the file
+
+An entry whose run is not in the window is ignored without a word: runs of other streams and machines are normal, and so are runs the [retention](#retention) removed. Those do no harm, but they never come back: remove their entries when you tidy the file. A run is still kept while a file under `loupe-history/runs/` ends with `-<run id>.json.gz`.
 
 ## What counts in statistics
 
 Every recorded run is a data point for its tests. At the level of runs (pass rate of the stream, run trends), three kinds of runs are left out by default, and flagged:
 
 - partial runs (`scope: 'partial'`);
-- excluded runs;
+- excluded runs, at launch or in the [notes file](#notes-and-exclusions);
 - `ide` runs.
 
 `history.include: 'all'` counts them too. A test's own history uses more runs than that: see [Which runs are used](#which-runs-are-used).
@@ -238,12 +296,12 @@ Every recorded run is a data point for its tests. At the level of runs (pass rat
 `index.html` embeds data derived from the history, never the run files themselves, in its own block, separate from `report.json` (which does not change):
 
 - for each test of the report, its **last 20 results in the current stream**: the status, the outcome of each attempt, and which error each failure had (an index that tells identical errors apart, not the signature itself);
-- the metadata of those 20 runs (date, status, duration, origin, scope and its reasons, exclusion, commit, branch, counts, retries of each project);
-- the origin, exclusion reason and [run id](#run-id) of the current run (no id when the run is not recorded), and how many run files of the window could not be used (written by a newer Loupe, corrupt);
+- the metadata of those 20 runs (date, status, duration, origin, scope and its reasons, exclusion, commit, branch, counts, retries of each project), and what the [notes file](#notes-and-exclusions) says about each: its exclusion reason and its note;
+- the origin, exclusion reason and [run id](#run-id) of the current run (no id when the run is not recorded), how many run files of the window could not be used (written by a newer Loupe, corrupt), and whether the notes file was read, and where it is, relative to the Playwright config's folder;
 - the **latest result of each test in every other stream**: the status in the newest run of that stream;
 - the category of each distinct error of the window, and the extract of the 300 most recently seen.
 
-The data comes from the runs read when the run starts, never from the run itself. About 32 kB gzipped for a realistic 5,000-test suite. The format is in [`schema/history-v1.md`](schema/history-v1.md#embedded-history).
+The data comes from the runs and the notes file read when the run starts, never from the run itself. Its size has a budget ([Size](#size)). The format is in [`schema/history-v1.md`](schema/history-v1.md#embedded-history).
 
 Limits:
 
@@ -251,11 +309,34 @@ Limits:
 - **Signatures are compared within one algorithm version.** When a Loupe release changes how signatures are computed, the runs recorded before it keep their statuses in the window, but their errors are not compared with new ones. The current version is in [`schema/history-v1.md`](schema/history-v1.md#signature-version).
 - **Signatures also depend on your redaction.** Adding a variable to `redact.env` changes the signature of the messages that contain its value: those failures look new once.
 
+## Size
+
+The history `index.html` embeds has a **byte budget**: the larger of 40,000 bytes and 8 bytes per test of the report, measured gzipped: 40 kB up to 5,000 tests, 160 kB at 20,000. It is not configurable.
+
+Most histories stay well under it. At 5,000 tests and 20 runs, a window of ordinary runs (a few broken and flaky tests, an incident now and then) takes about 8 kB, and one with an incident in every run, hundreds of tests failing in cascades, under 30 kB. These sizes come from a model shaped on real incident days; how many tests break and how often are estimates until Loupe has real history data to check them on.
+
+**When the history would be larger**, Loupe leaves parts out, in this order, each only as far as needed, and the next only when leaving all of one out is not enough:
+
+1. the text of the oldest errors (the extracts);
+2. the errors of the oldest runs: their statuses stay, their errors are not shown or compared;
+3. the other streams with the oldest latest run;
+4. the oldest runs.
+
+Nothing left out shows anywhere else in the report, and the report says what is missing:
+
+- one note at the top of the history, on the Overview and in a test's History section: "To keep the report small, this history leaves out the error details of runs started before 3 November 2026 at 14:03 CET, and 2 other streams." The date is exact, with its time;
+- in a selected run whose errors were left out: "Error details of this run were left out to keep the report small." Never "no error": the run failed, the report just does not keep why;
+- for a missing extract: "Error text not kept: to keep the report small, the report keeps the text of the 40 most recently seen errors.";
+- under the other streams: "2 other streams were left out to keep the report small: those with the oldest latest runs.";
+- on the Overview, when runs were left out, since a test's state can change: "States use only the runs kept: a test whose earlier failures were all in the 3 oldest runs reads as "New failure"."
+
+If even the newest run alone is over the budget, the report embeds no history and the run prints one `Loupe: history: the history was too large to embed (…)` warning. One run without errors takes about a byte per test, so only an unusual run reaches it (thousands of projects, for example).
+
 ## Privacy
 
 The guarantee of the report extends to the history: **your home directory and the values of `redact.env` never appear in clear in the run files Loupe writes**, as in `report.json` and `index.html` ([Security](../README.md#security)). The run file is built from the report after it is redacted and its paths rewritten: an extract is a prefix of a message that is already masked.
 
-**The redaction is replayed on read.** Before a report embeds anything read from the history, the extracts and exclusion reasons go through the current redaction again, `redact.env` values and home directory included. A value you add to `redact.env` after a run was recorded is masked in the next report: wherever it is whole in an extract or a reason, and, when it runs across the cut of an extract (300 characters) or of a reason (200), the start of it that the cut kept. At the end of a cut text, any end that is the start of a `redact.env` value, even a single character, becomes `[redacted]`: no character of the value stays. The cost is an occasional `[redacted]` at the end of a cut extract whose last characters happen to start a value. The home directory needs no such rule: it was masked on the machine that recorded the run, before the cut.
+**The redaction is replayed on read.** Before a report embeds anything read from the history, the extracts and exclusion reasons go through the current redaction again (the notes file is read whole on every run, and masked the same way), `redact.env` values and home directory included. A value you add to `redact.env` after a run was recorded is masked in the next report: wherever it is whole in an extract or a reason, and, when it runs across the cut of an extract (300 characters) or of a reason (200), the start of it that the cut kept. At the end of a cut text, any end that is the start of a `redact.env` value, even a single character, becomes `[redacted]`: no character of the value stays. The cost is an occasional `[redacted]` at the end of a cut extract whose last characters happen to start a value. The home directory needs no such rule: it was masked on the machine that recorded the run, before the cut.
 
 **The run files keep what they were written with.** Files written before you added a variable to `redact.env` still hold its value in clear in `loupe-history/`: Loupe never rewrites a recorded run. The report is safe, the folder is not. **When in doubt, delete the history folder**: a later run starts a new one, and nothing else depends on it.
 
