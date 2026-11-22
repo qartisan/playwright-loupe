@@ -261,6 +261,8 @@ The guarantee of the report extends to the history: **your home directory and th
 
 The history folder is meant to stay on the machine or in your CI's cache, not to be published: it is outside the report folder, and its `.gitignore` keeps it out of git.
 
+**The guarantee covers the files Loupe writes**: `report.json`, `index.html` with the history it embeds, and the run files. Not the terminal: a `Loupe: history: …` warning names folders as you need them to find them, relative to the working directory, and absolute when the folder is on another Windows drive or quoted from a file system error. It never prints a `redact.env` value or the content of the [notes file](schema/notes-v1.md#privacy).
+
 ## Test identity after a restructure
 
 A test is followed across runs by its [id](schema/v1.md#test-id): its project, file, `describe()` titles and title. **Renaming or moving any of them makes a new test**, with no past: the old id stays in the history until retention removes it. There is no rename detection.

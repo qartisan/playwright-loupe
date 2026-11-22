@@ -357,8 +357,15 @@ describe('the leak canary with notes', () => {
   const block = (folder: string): string => /<script id="loupe-history" type="application\/json">(.*?)<\/script>/s.exec(readFileSync(path.join(folder, 'index.html'), 'utf8'))?.[1] ?? '';
   /** The values found in `text`, raw or JSON-escaped (a Windows home in a JSON string doubles its backslashes). */
   const found = (text: string): string[] => VALUES.filter((value) => text.includes(value) || text.includes(JSON.stringify(value).slice(1, -1)));
-  /** Everything that must not be in what Loupe writes: the values, the canary name, a home path. */
-  const leaks = (text: string): string[] => [...found(text), ...(text.toLowerCase().includes(CANARY) ? [CANARY] : []), ...homePaths(text)];
+  /**
+   * Everything that must not be in what Loupe writes to the terminal: the values (the secret, the late value, both
+   * canary homes, the real home's notes folder), and so the notes text, and the canary name. Not any home path, as
+   * the report and run-file checks look for: in the terminal, Loupe names folders as the person needs them to find
+   * them, absolute across Windows drives (`path.relative` has no other form: the report folder of a run on D:\ with
+   * a temporary folder under C:\Users\RUNNER~1). The terminal is not published, and Playwright prints absolute paths
+   * in the same log. What must never reach it is a `redact.env` value or the content of the notes file.
+   */
+  const leaks = (text: string): string[] => [...found(text), ...(text.toLowerCase().includes(CANARY) ? [CANARY] : [])];
 
   beforeAll(() => {
     assertBuilt();
@@ -435,6 +442,25 @@ describe('the leak canary with notes', () => {
       expect(leaks(continued), value).toEqual(expect.arrayContaining([value]));
     }
     expect(leaks(capture.replace(/^(Loupe: history: .*)$/m, `$1\n  - /home/${CANARY}`))).toContain(CANARY);
+  });
+
+  it('would find a redact.env value and the notes text in a Loupe line, and only a home path is let through (positive control of the narrowing)', () => {
+    const capture = written['invalid'] ?? '';
+    const end = /^Loupe report written to .*$/m;
+    const warning = /^Loupe: history: .*$/m;
+    expect(capture).toMatch(end);
+    expect(capture).toMatch(warning);
+    // A redact.env value in the end message, the notes text in the warning: each line still found.
+    const secret = capture.replace(end, (line) => `${line} ${SECRETS.LOUPE_LEAK_SECRET}`);
+    expect(leaks(secret)).toEqual(expect.arrayContaining([SECRETS.LOUPE_LEAK_SECRET]));
+    const late = capture.replace(end, (line) => `${line} ${LATE.value}`);
+    expect(leaks(late)).toEqual(expect.arrayContaining([LATE.value]));
+    const notes = capture.replace(warning, (line) => `${line} ${TEXT}`);
+    expect(leaks(notes)).toEqual(expect.arrayContaining(VALUES));
+    // The end message as the Windows runner prints it, across drives: a home path, and the only thing let through.
+    const across = capture.replace(end, 'Loupe report written to C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\loupe-leak-notes-x\\invalid');
+    expect(homePaths(across)).not.toEqual([]);
+    expect(leaks(across)).toEqual([]);
   });
 
   it('what Loupe writes holds none of them, in any run: every line, the warning of the first two runs absent', () => {

@@ -65,6 +65,8 @@ A notes file never stops a run and never fails the report. Every problem joins t
 
 The file is written by people and may hold a path or a secret. Before they reach the report, its reasons and notes are masked like the report (`redact.env` values, the home directory of this machine and the homes of other machines), then cut: reasons to 200 characters, notes to 300, ending with `…` when cut. Masking always runs on the whole text before the cut, so no part of a value running across the cut stays. The file is read whole on every run, with the redaction of that run: a value added to `redact.env` later is masked from the next run on.
 
+The terminal is outside this guarantee, which covers the files Loupe writes (`report.json`, `index.html` with its embedded history, the history files; [Security](../../README.md#security)): a warning names the notes file as the person needs it to find it, relative to the working directory, its bare name on another Windows drive. It never repeats the file's text ([Problems](#problems)), so no `redact.env` value or note reaches it.
+
 ## Versioning
 
 - Adding an optional key to an entry, or a new top-level key, keeps `notesVersion` 1: a reader that does not know it warns about the key and uses the rest. Two extensions are planned this way:
