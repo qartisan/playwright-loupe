@@ -445,7 +445,7 @@ describe('the replay of a cut text', () => {
     const tests = failing(message);
     const run = buildRunFile(report(tests), context({ env: { [EXCLUDE_ENV]: reason }, redact: recordedWith })) as HistoryRunFile;
     const block = deriveEmbedded(report(tests), { runs: [replayRun(run, replay)], others: [], skipped: 0 }, { include: 'full', stream: {}, current: { origin: 'local', excluded: null, id: 'current' }, currentRunId: 'current', ...NO_NOTES });
-    return { run, extract: block?.signatures[0]?.[2] ?? '', reason: block?.runs[0]?.excluded ?? '' };
+    return { run, extract: block?.signatures[0]?.[1] ?? '', reason: block?.runs[0]?.excluded ?? '' };
   }
 
   it('masks a value added later across the cut of an extract or a reason, at every offset', () => {

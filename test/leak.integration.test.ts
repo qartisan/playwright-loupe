@@ -298,8 +298,8 @@ describe('the leak canary with history', () => {
     expect(LATE.value.length - kept).toBeGreaterThanOrEqual(8);
     expect(LATE.value.length - kept).toBeLessThan(LATE.value.length);
     // In the next report, the extract of that failure ends masked: no start of the value, of MIN_CUT_START characters or more.
-    const signatures = (JSON.parse(block(second)) as { signatures: Array<[string, string | null, string | null]> }).signatures;
-    const extract = signatures.map(([, , text]) => text ?? '').find((text) => text.includes('x'.repeat(100)));
+    const signatures = (JSON.parse(block(second)) as { signatures: Array<[string | null, string | null]> }).signatures;
+    const extract = signatures.map(([, text]) => text ?? '').find((text) => text.includes('x'.repeat(100)));
     expect(extract?.endsWith(REDACTED)).toBe(true);
     expect(extract?.includes(LATE.value.slice(0, MIN_CUT_START))).toBe(false);
   });

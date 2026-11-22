@@ -313,7 +313,7 @@ export function testCells(history: EmbeddedHistory, index: HistoryIndex, test: n
         ...base,
         attempts: row?.attempts[ordinal] || null,
         failure: signature
-          ? { category: signature[1], extract: signature[2], cut: signature[2] !== null && signature[3] === true, compared: true }
+          ? { category: signature[0], extract: signature[1], cut: signature[1] !== null && signature[2] === true, compared: true }
           : run.sameSignatures
             ? null
             : { category: null, extract: null, cut: false, compared: false },

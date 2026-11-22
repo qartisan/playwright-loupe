@@ -139,7 +139,7 @@ The path rewriting of 0.1.8 and 0.2.1 changed no signature: they are computed fr
 
 It is derived from the run files read when the run starts, and from the [notes file](notes-v1.md) read then too, **never from the run itself**; the notes file never rewrites a run file. It is **not in `report.json`**, whose shape does not change. It is `null` when there is no history: off, empty, or not derived (one warning). When run files exist but none of the window could be used (written by a newer Loupe, corrupt), it is a block with no run and `skipped` above 0, not `null`, so the report can say why. It is written with the same safe serialisation as the other blocks. The renderer reads only this block, never `loupe-history/`; what it shows is described in [In the report](../history.md#in-the-report).
 
-Statuses are one character per test and run, aligned with the report's `tests`, so no test id is repeated; signatures are indexes into one dictionary.
+Statuses are one character per test and run, aligned with the report's `tests`, so no test id is repeated; errors are indexes into one dictionary of the window's distinct signatures, which holds their category and extract, not the signatures.
 
 ### EmbeddedHistory
 
@@ -158,7 +158,7 @@ Statuses are one character per test and run, aligned with the report's `tests`, 
 | `failures` | `number[][]` | For each test with an `F` or `K` cell: `[test, sig, sig, …]`, one index into `signatures` per `F` or `K` cell, in run order. The signature of a cell is the first error of its first failed attempt; `-1` when there is none to compare (no error, or a run of another signature version). |
 | `failureAttempts` | `string` | The attempts (as `HistoryTest.a`) of every `F` or `K` cell, in the order of `failures`, separated by spaces: `FF FP TF`. |
 | `attempts` | `[test, run, attempts][]` | The attempts of the other cells, only when the code does not imply them (a single `P` for `P`, a single `S` for `S`): an expected failure, a pass after a retry of another kind. |
-| `signatures` | `[signature, category, extract, cut?][]` | The signatures of the window's failures, most recently seen first. Only the first 300 have their extract; the others have `null`. `cut`, `true`, only when the extract is shorter than the message (the failure's `xc`), so the report can say so; omitted otherwise, and for a run file written without `xc`. |
+| `signatures` | `[category, extract, cut?][]` | One entry per distinct signature of the window's failures, most recently seen first. The signature itself is not embedded: the report never shows it, and the index into this list already tells identical errors apart within the block. Only the first 300 have their extract; the others have `null`. `cut`, `true`, only when the extract is shorter than the message (the failure's `xc`), so the report can say so; omitted otherwise, and for a run file written without `xc`. |
 | `others` | `EmbeddedOtherRun[]` | The newest run of every other stream, newest first. |
 
 ### EmbeddedRun

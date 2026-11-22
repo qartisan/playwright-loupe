@@ -193,12 +193,14 @@ export interface EmbeddedHistory {
    */
   attempts: Array<[test: number, run: number, attempts: string]>;
   /**
-   * `[signature, category, extract]`, most recently seen first. Only the first
-   * `EMBEDDED_EXTRACTS` have their extract; the others have `null`. A fourth
+   * One entry per distinct signature of the window's failures, `[category,
+   * extract]`, most recently seen first; the signature itself is not embedded
+   * (the index into this list tells identical errors apart). Only the first
+   * `EMBEDDED_EXTRACTS` have their extract; the others have `null`. A third
    * element, `true`, when the extract is shorter than the message (`xc` of the
    * run file it comes from); omitted otherwise, and for a run file without `xc`.
    */
-  signatures: Array<[signature: string, category: string | null, extract: string | null, cut?: true]>;
+  signatures: Array<[category: string | null, extract: string | null, cut?: true]>;
   /** The newest run of every other stream, newest first. */
   others: EmbeddedOtherRun[];
 }

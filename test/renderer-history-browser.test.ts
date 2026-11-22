@@ -107,15 +107,15 @@ const VARIANT: Partial<Record<Page_, (block: EmbeddedHistory) => EmbeddedHistory
   'current-above': (block) => ({ ...block, notesPath: ABOVE }),
   tallest: (block) => ({
     ...block,
-    signatures: block.signatures.map(([signature, category, extract]) => (extract === null ? [signature, category, null] : [signature, category, TALLEST.extract, true])),
+    signatures: block.signatures.map(([category, extract]) => (extract === null ? [category, null] : [category, TALLEST.extract, true])),
     runs: block.runs.map((run) => (run.notesExcluded === undefined ? run : { ...run, excluded: TALLEST.launch, notesExcluded: TALLEST.file, note: TALLEST.note })),
   }),
   // A cut mid-line, as an object diff stopped inside a key.
-  'cut-mid': (block) => ({ ...block, signatures: block.signatures.map(([signature, category, extract]) => (extract === null ? [signature, category, null] : [signature, category, CUT_MID, true])) }),
+  'cut-mid': (block) => ({ ...block, signatures: block.signatures.map(([category, extract]) => (extract === null ? [category, null] : [category, CUT_MID, true])) }),
   // A whole extract: no flag.
-  whole: (block) => ({ ...block, signatures: block.signatures.map(([signature, category, extract]) => [signature, category, extract === null ? null : WHOLE]) }),
+  whole: (block) => ({ ...block, signatures: block.signatures.map(([category, extract]) => [category, extract === null ? null : WHOLE]) }),
   // A run file written before the flag: its cut extracts, unflagged.
-  unflagged: (block) => ({ ...block, signatures: block.signatures.map(([signature, category, extract]) => [signature, category, extract]) }),
+  unflagged: (block) => ({ ...block, signatures: block.signatures.map(([category, extract]) => [category, extract]) }),
 };
 
 describe('history on the Overview and in the filters (file://)', { timeout: 60_000 }, () => {

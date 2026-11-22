@@ -93,7 +93,10 @@ export function deriveEmbedded(report: LoupeReport, read: Pick<HistoryRead, 'run
   const rows = window.map(byTest);
   const sameSignatures = window.map((file) => file.signatureVersion === SIGNATURE_VERSION);
 
-  // The dictionary, most recently seen first: the extract cap keeps the newest ones.
+  // The dictionary, most recently seen first: the extract cap keeps the newest ones. One entry per distinct
+  // signature, without the signature itself: the index tells identical errors apart within the block, and the
+  // renderer never reads the hash (about half the block at 5,000 tests, brief 26). A feature that needs "same
+  // error as this run" gets an index or a flag computed here, not the hash.
   const signatures: EmbeddedHistory['signatures'] = [];
   const index = new Map<string, number>();
   for (let run = window.length - 1; run >= 0; run--) {
@@ -106,7 +109,7 @@ export function deriveEmbedded(report: LoupeReport, read: Pick<HistoryRead, 'run
       index.set(failure.sig, signatures.length);
       const extract = signatures.length < EMBEDDED_EXTRACTS ? failure.x : null;
       // A cut extract says so, for the report to mark its end; only with its text.
-      signatures.push(extract !== null && failure.xc ? [failure.sig, failure.cat, extract, true] : [failure.sig, failure.cat, extract]);
+      signatures.push(extract !== null && failure.xc ? [failure.cat, extract, true] : [failure.cat, extract]);
     }
   }
 

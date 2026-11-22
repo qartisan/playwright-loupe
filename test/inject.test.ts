@@ -102,7 +102,7 @@ describe('injectHistory', () => {
   const template = `<html><body>${SETTINGS_PLACEHOLDER}${DATA_PLACEHOLDER}${HISTORY_PLACEHOLDER}</body></html>`;
 
   it('injects the history, escaped like the data', () => {
-    const history = { v: 1, signatures: [['s', null, 'Expected </script> & <b>']] };
+    const history = { v: 1, signatures: [[null, 'Expected </script> & <b>']] };
     const html = injectHistory(template, history);
     expect(html).not.toContain('__LOUPE_HISTORY__');
     expect(extractScriptText(html, 'loupe-history')).not.toContain('<');

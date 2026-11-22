@@ -103,13 +103,32 @@ describe('deriveEmbedded', () => {
     const value = deriveEmbedded(report(['a'], ['b']), { runs, others: [], skipped: 0 }, OPTIONS);
     // Most recently seen first: s2 then s1.
     expect(value?.signatures).toEqual([
-      ['s2', 'Assertion', 'extract of s2'],
-      ['s1', 'Assertion', 'extract of s1'],
+      ['Assertion', 'extract of s2'],
+      ['Assertion', 'extract of s1'],
     ]);
     expect(value?.failures).toEqual([[0, 1, 0]]);
     expect(value?.failureAttempts).toBe('FP TF');
     // b passed as expected after an expected failure (test.fail()): its attempts are not implied.
     expect(value?.attempts).toEqual([[1, 1, 'F']]);
+  });
+
+  it('embeds no signature: one [category, extract, cut?] entry per distinct signature, told apart by its index', () => {
+    const hashes = ['3f9a0c1e7b24', 'd85e6a0b91c3'];
+    const withHash = (id: string, sig: string, o: HistoryTest['o'] = 'F') => row(id, o, { a: 'FF', f: [{ i: 0, sig: [sig], cat: 'Timeout', x: 'Timed out', at: null }] });
+    // Two tests, the same text under two signatures; a third test repeats the first signature.
+    const runs = [run('r1', 1, [withHash('a', hashes[0] as string), withHash('b', hashes[1] as string), withHash('c', hashes[0] as string)])];
+    const value = deriveEmbedded(report(['a'], ['b'], ['c']), { runs, others: [], skipped: 0 }, OPTIONS);
+    expect(value?.signatures).toEqual([
+      ['Timeout', 'Timed out'],
+      ['Timeout', 'Timed out'],
+    ]);
+    expect(value?.failures).toEqual([
+      [0, 0],
+      [1, 1],
+      [2, 0],
+    ]);
+    const text = JSON.stringify(value);
+    for (const hash of hashes) expect(text).not.toContain(hash);
   });
 
   it('a failing cell without an error gets -1', () => {
@@ -124,26 +143,26 @@ describe('deriveEmbedded', () => {
     const runs = tests.map((id, index) => run(`r${index}`, 1, [failed(id, `sig${index}`)], { run: { ...makeRunFile().run, id: `r${index}`, startedAt: new Date(Date.UTC(2026, 9, 30) - index * 1000).toISOString(), stream: STREAM } }));
     const value = deriveEmbedded(report(...tests.map((id) => [id] as [string])), { runs, others: [], skipped: 0 }, OPTIONS);
     expect(value?.signatures).toHaveLength(count);
-    expect(value?.signatures.filter(([, , extract]) => extract !== null)).toHaveLength(EMBEDDED_EXTRACTS);
-    expect(value?.signatures[0]).toEqual(['sig0', 'Assertion', 'extract of sig0']);
-    expect(value?.signatures[count - 1]).toEqual([`sig${count - 1}`, 'Assertion', null]);
+    expect(value?.signatures.filter(([, extract]) => extract !== null)).toHaveLength(EMBEDDED_EXTRACTS);
+    expect(value?.signatures[0]).toEqual(['Assertion', 'extract of sig0']);
+    expect(value?.signatures[count - 1]).toEqual(['Assertion', null]);
   });
 
-  describe('a cut extract says so: the fourth element, only from xc and only with its text', () => {
+  describe('a cut extract says so: the third element, only from xc and only with its text', () => {
     const LONG = 'x'.repeat(300);
     const cutFailure = (id: string, sig: string, xc: boolean): HistoryTest => row(id, 'F', { a: 'FF', f: [{ i: 0, sig: [sig], cat: 'Assertion', x: LONG, ...(xc ? { xc: true as const } : {}), at: null }] });
 
-    it('flagged xc: [signature, category, extract, true]; an uncut extract: three elements', () => {
+    it('flagged xc: [category, extract, true]; an uncut extract: two elements', () => {
       const value = deriveEmbedded(report(['a'], ['b']), { runs: [run('r1', 1, [cutFailure('a', 'cut', true), failed('b', 'whole')])], others: [], skipped: 0 }, OPTIONS);
       expect(value?.signatures).toEqual([
-        ['cut', 'Assertion', LONG, true],
-        ['whole', 'Assertion', 'extract of whole'],
+        ['Assertion', LONG, true],
+        ['Assertion', 'extract of whole'],
       ]);
     });
 
     it('a run file without xc (written before the flag): no flag, even for an extract of 300 characters', () => {
       const value = deriveEmbedded(report(['a']), { runs: [run('r1', 1, [cutFailure('a', 'old', false)])], others: [], skipped: 0 }, OPTIONS);
-      expect(value?.signatures).toEqual([['old', 'Assertion', LONG]]);
+      expect(value?.signatures).toEqual([['Assertion', LONG]]);
     });
 
     it(`beyond the ${EMBEDDED_EXTRACTS} extracts kept: no text, so no flag`, () => {
@@ -151,14 +170,14 @@ describe('deriveEmbedded', () => {
       const tests = Array.from({ length: count }, (_, index) => `t${index}`);
       const runs = tests.map((id, index) => run(`r${index}`, 1, [cutFailure(id, `sig${index}`, true)], { run: { ...makeRunFile().run, id: `r${index}`, startedAt: new Date(Date.UTC(2026, 9, 30) - index * 1000).toISOString(), stream: STREAM } }));
       const value = deriveEmbedded(report(...tests.map((id) => [id] as [string])), { runs, others: [], skipped: 0 }, OPTIONS);
-      expect(value?.signatures[0]).toEqual(['sig0', 'Assertion', LONG, true]);
-      expect(value?.signatures[count - 1]).toEqual([`sig${count - 1}`, 'Assertion', null]);
+      expect(value?.signatures[0]).toEqual(['Assertion', LONG, true]);
+      expect(value?.signatures[count - 1]).toEqual(['Assertion', null]);
     });
 
     it('the newest failure of a signature gives its extract and its flag', () => {
       const runs = [run('new', 2, [failed('a', 'same')]), run('old', 1, [cutFailure('a', 'same', true)])];
       const value = deriveEmbedded(report(['a']), { runs, others: [], skipped: 0 }, OPTIONS);
-      expect(value?.signatures).toEqual([['same', 'Assertion', 'extract of same']]);
+      expect(value?.signatures).toEqual([['Assertion', 'extract of same']]);
     });
   });
 
@@ -167,7 +186,7 @@ describe('deriveEmbedded', () => {
     const value = deriveEmbedded(report(['a']), { runs, others: [], skipped: 0 }, OPTIONS);
     expect(value?.runs.map((entry) => entry.sameSignatures)).toEqual([false, true]);
     expect(value?.cells).toBe('FF');
-    expect(value?.signatures.map(([sig]) => sig)).toEqual(['same']);
+    expect(value?.signatures).toEqual([['Assertion', 'extract of same']]);
     expect(value?.failures).toEqual([[0, -1, 0]]);
   });
 

@@ -92,7 +92,7 @@ describe('size of the embedded history at 5,000 tests (N = 20)', () => {
     expect(new Set(value.runs.map((run) => run.note)).size).toBe(20);
     const size = measure(template, report, value);
     if (process.env['LOUPE_MEASURE']) {
-      console.log('perf:sample', size, 'without notes', measure(template, report, embedded(report, 2, 'none')), { signatures: value.signatures.length, withExtract: value.signatures.filter(([, , x]) => x !== null).length });
+      console.log('perf:sample', size, 'without notes', measure(template, report, embedded(report, 2, 'none')), { signatures: value.signatures.length, withExtract: value.signatures.filter(([, x]) => x !== null).length });
     }
     expect(size.alone).toBeLessThan(PERF_SAMPLE_LIMIT);
   });

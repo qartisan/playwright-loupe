@@ -357,17 +357,17 @@ describe('decodeHistory', () => {
 });
 
 describe('the strip of a test', () => {
-  it("a cut extract: the dictionary's fourth element; none, or no text, is not cut", () => {
+  it("a cut extract: the dictionary's third element; none, or no text, is not cut", () => {
     const { block } = history({ outcomes: ['failed', 'failed'], past: [{ codes: 'FF' }] });
     const [first, second] = block.signatures;
     if (!first || !second) throw new Error('two signatures expected');
-    const flagged = { ...block, signatures: [[first[0], first[1], first[2], true], [second[0], second[1], second[2]]] as typeof block.signatures };
+    const flagged = { ...block, signatures: [[first[0], first[1], true], [second[0], second[1]]] as typeof block.signatures };
     const index = indexHistory(flagged);
     const cut = (test: number) => testCells(flagged, index, test)[0]?.failure?.cut;
-    const firstTest = testCells(flagged, index, 0)[0]?.failure?.extract === first[2] ? 0 : 1;
+    const firstTest = testCells(flagged, index, 0)[0]?.failure?.extract === first[1] ? 0 : 1;
     expect([cut(firstTest), cut(1 - firstTest)]).toEqual([true, false]);
     // The flag without the text (beyond the extracts kept): nothing to mark.
-    const textless = { ...block, signatures: [[first[0], first[1], null, true], [second[0], second[1], second[2]]] as typeof block.signatures };
+    const textless = { ...block, signatures: [[first[0], null, true], [second[0], second[1]]] as typeof block.signatures };
     const textlessIndex = indexHistory(textless);
     expect([0, 1].map((test) => testCells(textless, textlessIndex, test)[0]?.failure?.cut)).toEqual([false, false]);
   });
